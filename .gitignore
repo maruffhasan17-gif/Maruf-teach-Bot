@@ -1,0 +1,1 @@
+node_modules/\n.env\n*.json\n!package.json\n!tonconnect-manifest.json\n!config.json\n!package-lock.json

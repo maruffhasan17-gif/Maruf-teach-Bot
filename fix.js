@@ -1,0 +1,1 @@
+const fs = require('fs'); let code = fs.readFileSync('admin/src/App.jsx', 'utf8'); code = code.split('$'+'{import.meta.env.VITE_API_URL || \\'http://localhost:3000\\'}').join(''); fs.writeFileSync('admin/src/App.jsx', code);
