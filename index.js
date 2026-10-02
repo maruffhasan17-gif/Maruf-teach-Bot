@@ -431,7 +431,13 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
                 ]
             });
 
-            const boc = transfer.toBoc().toString('base64');
+            const { external, storeMessage, beginCell } = require('@ton/ton');
+            const extMessage = external({
+                to: wallet.address,
+                init: seqno === 0 ? wallet.init : null,
+                body: transfer
+            });
+            const boc = beginCell().store(storeMessage(extMessage)).endCell().toBoc().toString('base64');
             await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
 
             await db.collection('free_claims').doc(chatId.toString()).set({
