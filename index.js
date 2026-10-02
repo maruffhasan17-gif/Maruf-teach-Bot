@@ -628,6 +628,23 @@ app.use('/tonconnect-manifest.json', express.static('tonconnect-manifest.json'))
 const { mnemonicToPrivateKey } = require('@ton/crypto');
 const { WalletContractV4, internal, TonClient } = require('@ton/ton');
 
+
+app.get('/api/transactions', async (req, res) => {
+    try {
+        const snapshot = await db.collection('free_claims').orderBy('timestamp', 'desc').limit(50).get();
+        const txs = [];
+        snapshot.forEach(doc => {
+            txs.push({
+                userId: doc.id,
+                ...doc.data()
+            });
+        });
+        res.json(txs);
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/withdraw', async (req, res) => {
     try {
         const { amount, destination, network } = req.body;
