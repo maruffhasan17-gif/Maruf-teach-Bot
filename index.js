@@ -17,6 +17,25 @@ const serviceAccount = require('./maruf-teach-firebase-adminsdk-fbsvc-e0269310ba
 initializeApp({ credential: cert(serviceAccount) });
 const db = getFirestore();
 
+let botConfig = {
+    gramAmount: '0.07',
+    usdtAmount: '0.05',
+    freeLink: 'https://t.me/ShardsEarnBot/app?startapp=8799135330',
+    adminGroupId: ''
+};
+async function loadConfig() {
+    try {
+        const doc = await db.collection('settings').doc('config').get();
+        if (doc.exists) botConfig = { ...botConfig, ...doc.data() };
+    } catch(e) { console.error("Config load error:", e); }
+}
+loadConfig();
+async function saveConfig(newConf) {
+    botConfig = { ...botConfig, ...newConf };
+    try { await db.collection('settings').doc('config').set(botConfig, { merge: true }); } catch(e) {}
+}
+
+
 const token = process.env.BOT_TOKEN;
 const channelUsername = process.env.CHANNEL_USERNAME;
 const bkashNumber = process.env.BKASH_NUMBER;
@@ -719,7 +738,9 @@ app.post('/api/settings', async (req, res) => {
 // Serve Admin Frontend
 app.use(express.static(path.join(__dirname, 'admin/dist')));
 app.use((req, res) => {
-    res.sendFile(path.join(__dirname, 'admin/dist/index.html'));
+    const p = path.join(__dirname, 'admin/dist/index.html');
+    if (require('fs').existsSync(p)) res.sendFile(p);
+    else res.send("Backend is running!");
 });
 
 
