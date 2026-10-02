@@ -443,19 +443,32 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
         const isFreeTask = userStates[chatId].step === 'awaiting_free_screenshot';
         const userFirstName = msg.from.first_name || '';
         const userUsername = msg.from.username || '';
+        const photo = msg.photo[msg.photo.length - 1];
+
+        if (isFreeTask) {
+            // BYPASS AI ENTIRELY for Free Tasks
+            const reviewMsg = lang === 'bn' ? "⏳ **আপনার স্ক্রিনশটটি ম্যানুয়াল রিভিউতে পাঠানো হয়েছে।**\n\nযাচাই হতে ৫ মিনিট পর্যন্ত সময় লাগতে পারে।" : "⏳ **Your screenshot has been sent for manual review.**\n\nVerification may take up to 5 minutes.";
+            bot.sendMessage(chatId, reviewMsg, { parse_mode: 'Markdown' });
+            
+            const config = botConfig;
+            if (config.adminGroupId) {
+                bot.sendPhoto(config.adminGroupId, photo.file_id, {
+                    caption: `🔍 **Manual Review Needed (Free Task)**\n\nUser: ${userFirstName} (@${userUsername})\nID: ${chatId}\n\nReply to this photo with **ok** to approve, or **wrong** to reject.`,
+                    parse_mode: 'Markdown'
+                });
+            }
+            return;
+        }
 
         bot.sendMessage(chatId, t[lang].scanMsg, { parse_mode: 'Markdown' });
         
         try {
-            const photo = msg.photo[msg.photo.length - 1];
             const fileLink = await bot.getFileLink(photo.file_id);
             const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
             const base64Image = Buffer.from(response.data).toString('base64');
 
             const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-            const prompt = isFreeTask 
-                ? `Analyze this task completion screenshot strictly. The user's Telegram First Name is "${userFirstName}" and Username is "${userUsername}". Check if this name or username visibly exists in the screenshot text. Return ONLY a JSON object in this format: {"nameMatch":true, "reason": "Found name ... in screenshot"}`
-                : `Analyze this payment screenshot strictly. Look for:
+            const prompt = `Analyze this payment screenshot strictly. Look for:
             1. Text "Withdrawal Submitted!"
             2. Gateway text (e.g. "USDT BEP20")
             3. Amount (e.g. "$0.10 USDT").
@@ -468,31 +481,7 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
             const jsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
             const aiData = JSON.parse(jsonStr);
 
-            if (isFreeTask) {
-                if (aiData.nameMatch) {
-                    userStates[chatId].step = 'awaiting_ton_address_free';
-                    const successText = lang === 'bn' ? `✅ **স্ক্রিনশট ভেরিফাইড!**\n\nএখন আপনার **TON Address** দিন পেমেন্ট রিসিভ করার জন্য:` : `✅ **Screenshot Verified!**\n\nNow send your **TON Address** to receive your payment:`;
-                    bot.sendMessage(chatId, successText, { parse_mode: 'Markdown' });
-                    
-                    await db.collection('verified_free_users').doc(chatId.toString()).set({
-                        firstName: userFirstName,
-                        username: userUsername,
-                        verifiedAt: new Date()
-                    });
-                } else {
-                    // Send to admin for manual review
-                    const reviewMsg = lang === 'bn' ? "⏳ **আপনার স্ক্রিনশটটি ম্যানুয়াল রিভিউতে পাঠানো হয়েছে।**\n\nযাচাই হতে ৫ মিনিট পর্যন্ত সময় লাগতে পারে।" : "⏳ **Your screenshot has been sent for manual review.**\n\nVerification may take up to 5 minutes.";
-                    bot.sendMessage(chatId, reviewMsg, { parse_mode: 'Markdown' });
-                    
-                    const config = botConfig;
-                    if (config.adminGroupId) {
-                        bot.sendPhoto(config.adminGroupId, photo.file_id, {
-                            caption: `🔍 **Manual Review Needed (Free Task)**\n\nUser: ${userFirstName} (@${userUsername})\nID: \`${chatId}\`\n\nReply to this photo with **ok** to approve, or **wrong** to reject.`,
-                            parse_mode: 'Markdown'
-                        });
-                    }
-                }
-            } else if (aiData.hasWithdrawalText && aiData.gateway.includes('BEP20') && aiData.amount >= 0.10) {
+            if (aiData.hasWithdrawalText && aiData.gateway.includes('BEP20') && aiData.amount >= 0.10) {
                 userStates[chatId].step = 'awaiting_ton';
                 bot.sendMessage(chatId, t[lang].successMsg.replace('{amount}', aiData.amount), { parse_mode: 'Markdown' });
             } else {
@@ -500,29 +489,10 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
             }
         } catch (error) {
             console.error("AI Error:", error.message);
-            
-            if (isFreeTask) {
-                // Fallback to manual review if AI throws an error (e.g. JSON parse failure, API error)
-                const reviewMsg = lang === 'bn' ? "⏳ **আপনার স্ক্রিনশটটি ম্যানুয়াল রিভিউতে পাঠানো হয়েছে।**\n\nযাচাই হতে ৫ মিনিট পর্যন্ত সময় লাগতে পারে।" : "⏳ **Your screenshot has been sent for manual review.**\n\nVerification may take up to 5 minutes.";
-                bot.sendMessage(chatId, reviewMsg, { parse_mode: 'Markdown' });
-                
-                try {
-                    const config = botConfig;
-                    if (config.adminGroupId) {
-                        bot.sendPhoto(config.adminGroupId, msg.photo[msg.photo.length - 1].file_id, {
-                            caption: `🔍 **Manual Review Needed (Free Task Fallback)**\n\nUser: ${userFirstName} (@${userUsername})\nID: \`${chatId}\`\n\nReply to this photo with **ok** to approve, or **wrong** to reject.`,
-                            parse_mode: 'Markdown'
-                        });
-                    }
-                } catch(e) {}
-                return; // Stop further processing
-            }
-
             userStates[chatId].failedAttempts = (userStates[chatId].failedAttempts || 0) + 1;
             
             // Upload to Supabase and Log to Firestore
             try {
-                const photo = msg.photo[msg.photo.length - 1];
                 const fileLink = await bot.getFileLink(photo.file_id);
                 const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
                 const buffer = Buffer.from(response.data);
@@ -539,8 +509,6 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
                         timestamp: new Date(),
                         reason: error.message || 'AI Validation Failed'
                     });
-                } else {
-                    console.error("Supabase Upload Blocked:", uploadError);
                 }
             } catch (err) {
                 console.error("Supabase Upload Error:", err.message);
