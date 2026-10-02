@@ -402,41 +402,37 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
             const config = botConfig;
             const amount = config.gramAmount; // 0.07 TON
             
-            const { TonClient, WalletContractV4, internal } = require('@ton/ton');
+                        const { WalletContractV4, internal } = require('@ton/ton');
             const { mnemonicToPrivateKey } = require('@ton/crypto');
-            const { getHttpEndpoint } = require('@orbs-network/ton-access');
+            const axios = require('axios');
             const { ethers } = require('ethers');
 
             const keyPair = await mnemonicToPrivateKey(process.env.BOT_TON_SEED.split(' '));
             const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
-            const endpoint = await getHttpEndpoint();
-            const client = new TonClient({ endpoint });
-            const contract = client.open(wallet);
+            
+            let seqno = 0;
+            try {
+                const seqnoRes = await axios.get(`https://tonapi.io/v2/wallet/${wallet.address.toString(true, true, true)}/seqno`);
+                seqno = seqnoRes.data.seqno || 0;
+            } catch(e) {}
 
-            const balance = await contract.getBalance();
             const amountNano = ethers.parseUnits(amount.toString(), 9);
 
-            let seqno = 0;
-            try { seqno = await contract.getSeqno(); } catch(e) {}
-
-            const feeBuffer = seqno === 0 ? 15000000n : 10000000n;
-            if (balance < amountNano + feeBuffer) {
-                bot.sendMessage(chatId, '⚠️ Bot is out of balance. Please contact the admin.');
-                return;
-            }
-
-            await contract.sendTransfer({
+            const transfer = wallet.createTransfer({
                 seqno,
                 secretKey: keyPair.secretKey,
                 messages: [
                     internal({
                         to: address,
-                        value: amount.toString(), // Wait, earlier I discovered value: amount.toString() sends nanoTON but internal() from ton-core converts it to nanoTON when given string. Wait, earlier I tested `internal({value: "0.01"})` and it output 10000000. So it is fine! 
+                        value: amountNano,
                         bounce: false,
                         body: 'Free Reward from Maruf Teach'
                     })
                 ]
             });
+
+            const boc = transfer.toBoc().toString('base64');
+            await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
 
             await db.collection('free_claims').doc(chatId.toString()).set({
                 address,
@@ -632,48 +628,37 @@ app.post('/api/withdraw', async (req, res) => {
         
         if (network === 'TON') {
             // Get decentralized RPC endpoint from Orbs
-            const { getHttpEndpoint } = require('@orbs-network/ton-access');
-            const endpoint = await getHttpEndpoint();
+                        const { WalletContractV4, internal } = require('@ton/ton');
+            const { mnemonicToPrivateKey } = require('@ton/crypto');
+            const axios = require('axios');
+            const { ethers } = require('ethers');
 
-            // Initiate TonClient
-            const client = new TonClient({
-                endpoint: endpoint
-            });
-
-            const mnemonics = process.env.BOT_TON_SEED.split(' ');
-            const keyPair = await mnemonicToPrivateKey(mnemonics);
+            const keyPair = await mnemonicToPrivateKey(process.env.BOT_TON_SEED.split(' '));
             const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
-            const contract = client.open(wallet);
-
-            const balance = await contract.getBalance();
-            const amountNano = ethers.parseUnits(amount.toString(), 9); // TON has 9 decimals
-
+            
             let seqno = 0;
             try {
-                seqno = await contract.getSeqno();
-            } catch (e) {
-                console.log("Wallet uninitialized, seqno is 0");
-            }
+                const seqnoRes = await axios.get(`https://tonapi.io/v2/wallet/${wallet.address.toString(true, true, true)}/seqno`);
+                seqno = seqnoRes.data.seqno || 0;
+            } catch(e) {}
 
-            const feeBuffer = seqno === 0 ? 15000000n : 10000000n; // 0.015 TON for first deploy, 0.01 TON otherwise
+            const amountNano = ethers.parseUnits(amount.toString(), 9);
 
-            if (balance < amountNano + feeBuffer) {
-                return res.status(400).json({ 
-                    error: `Insufficient balance. ${seqno === 0 ? 'First transaction requires ~0.015 TON deployment fee.' : 'Requires ~0.01 TON fee buffer.'}` 
-                });
-            }
-            await contract.sendTransfer({
+            const transfer = wallet.createTransfer({
                 seqno,
                 secretKey: keyPair.secretKey,
                 messages: [
                     internal({
                         to: destination,
-                        value: amount.toString(), // string format "0.05"
+                        value: amountNano,
                         bounce: false,
                         body: "Withdrawal from Maruf Teach Bot"
                     })
                 ]
             });
+
+            const boc = transfer.toBoc().toString('base64');
+            await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
 
             res.json({ success: true, message: `Successfully sent ${amount} GRAM to ${destination}` });
         } else {
