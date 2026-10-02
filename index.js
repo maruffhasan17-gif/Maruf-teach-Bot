@@ -263,7 +263,37 @@ bot.on('message', async (msg) => {
         }
 
         const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+        
+// Handle Admin Manual Verification Reply
+        if (config.adminGroupId === chatId.toString() && msg.reply_to_message && text) {
+            const replyText = text.toLowerCase().trim();
+            const caption = msg.reply_to_message.caption || msg.reply_to_message.text || '';
+            const match = caption.match(/ID:\s*(\d+)/);
+            
+            if (match && match[1]) {
+                const targetUserId = match[1];
+                if (!userStates[targetUserId]) userStates[targetUserId] = { failedAttempts: 0, lang: 'en' };
+                const lang = userStates[targetUserId].lang || 'en';
+                
+                if (replyText === 'ok') {
+                    userStates[targetUserId].step = 'awaiting_ton_address_free';
+                    const successText = lang === 'bn' ? `✅ **অ্যাডমিন আপনার স্ক্রিনশট অ্যাপ্রুভ করেছেন!**\n\nএখন আপনার **TON Address** দিন পেমেন্ট রিসিভ করার জন্য:` : `✅ **Admin Approved!**\n\nNow send your **TON Address** to receive your payment:`;
+                    bot.sendMessage(targetUserId, successText, { parse_mode: 'Markdown' });
+                    bot.sendMessage(chatId, `✅ Approved user ${targetUserId}`);
+                } else if (replyText === 'wrong') {
+                    delete userStates[targetUserId].step;
+                    const rejectText = lang === 'bn' ? `❌ **ভেরিফিকেশন ব্যর্থ!** আপনার স্ক্রিনশটটি বাতিল করা হয়েছে।` : `❌ **Verification Failed.** Your screenshot was rejected by the admin.`;
+                    bot.sendMessage(targetUserId, rejectText, { parse_mode: 'Markdown' });
+                    bot.sendMessage(chatId, `❌ Rejected user ${targetUserId}`);
+                }
+                return; // Stop processing since it was handled
+            }
+        }
+
         if (config.adminGroupId === chatId.toString() && text && !text.startsWith('/')) {
+            const replyText = text.toLowerCase().trim();
+            if (replyText === 'ok' || replyText === 'wrong') return; // Ignore bare ok/wrong
+
             // Process usernames sent by admin
             const usernames = text.split(/[\s,\n]+/).map(u => u.replace('@', '').trim().toLowerCase()).filter(u => u.length > 0);
             
