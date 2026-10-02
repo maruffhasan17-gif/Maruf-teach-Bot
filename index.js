@@ -34,148 +34,38 @@ const userStates = {};
 
 const t = {
     en: {
-        welcome: "👋�[��YH�X\�Y�XX���J�����\�H\���[��][�\���YH
-����ԐSJ��[�HUT���[��\��[��[�\�������[�����'����[��[��[���\�Y�P������H�\�Y�H������[�Y���c[�H]�H����[�YH�[��[Y]H��[����\��'�#
-���[X�[�\�[��XY�N�����XZ[�Y[�S\�Έ���H
-���\�Y�X�][ۈ�X��\�ٝ[J��������H[��[ۈ���HHY[�H�[�Έ��Y[�N����\��	�'���\�	�ܞ\Έ	�'��ܞ\����YN�	�'� H��YI��ٚ[N�	�'�)^H�ٚ[I�K��ٚ[S\�Έ�'�)
-��[�\��ٚ[J����'�Q��YX���H�]\Έ�\�Y�YY�'�,�[^[�]ΈԐSH����\�\�Έ�'��
-���\�^[Y[�
-�����[�^X�H
-��MH�
-���\��[X�\����ؚ�\��[X�\�_X
-�[�[ۙ^JB��Y�\��[�[���\H�][�\�
-���Q
-��\�K���ܞ\�\�Έ�'��
-���[X�[�\�ܞ\��]�ܚΊ����ܞ\�Y���'��
-���[�^X�H	�L��T��\�Y�\�Ί�����Y�\��X����X��HY�\��X�ݙH���H][��[�JJ���'��Y�\��X��\�ٝ[�]�]�[�[�YHH
-���ܙY[���
-��\�H\���ً�����[�\�Έ�'�-
-���[��[���ܙY[������X\�H�Z]�����Z[[Z]\�Έ��c�\�Y�X�][ۈ�Z[Y���[�\��ܙY[���\�[��[Y܈�\ۉ�YY]H�\]Z\�[Y[�ˈX\�H�۝X�HYZ[��܈X[�X[�\�Y�X�][ۋ����۝X�YZ[�����'�j8�#|'��۝X�YZ[����]�PY�������H�\�Y�H��K�����[��YN��'�b�
-�������x��x�����x��x���8)�x)��)��8)�8)��)��8��8)����x�����x��8�����HJ����)��)�x)�8)��
-����ԐSJ��8)��)��)�8)��8��x������8)�x)��)�8)��)�x)��8)�x)�8)��)�x)��)�8��������x��8���������8)��
-x�
-j�
-k�
-j�
-x~
-k.
-xr*j�)��*x~*j�
-i^
-k
-jN
-k�
-k�
-j�
-x~
-ZB"������'F�/	�:"
-i��7�������������˂������z��������W��À��ন",
-        verifyBtn: "⚡ শেরিফাই ক⦰�)প",
-        notJoined: "♌ অপনি ⦇⦖⦨⧇ চ�)�x)��)��)�8)��)��)��8��8��������8)�x)�8
-xx)�8)�8)��)�H��[����\��'�#
-����x��8��8���8)�x)��)��)��8)�8)��)�8)�x)�8)��)��)�8��x��8
-x)�������XZ[�Y[�S\�Έ���H
-����������8�����������x��������8)�8)��)��J������8��ȩ�������8)��
-xx)�8
-xH8))x)��)�x)��8��x��8��8���8)�x)��)��)��)��)��8)�8)��)��)��8��8��ȩ����Y[�N����\��	�'�8��8��ȩ�x������
-��\�
-I�ܞ\Έ	�'��8)�x)�x)�8)��)��)�x)��)��
-ܞ\�I���YN�	�'� H8)��
-x�
-k
-k��g&VR�r�&�f��S�	�JB*h^*j�*k�)�8�����রেফাইল' },
-        profileMsg: "🔤 **অপনি ⦫�7��Â�����������Ȩ�(+�~P�������[���聁�����+�j����ウ7���x�
-j�
-k�
-i�
-k�
-k��
-kn
-x~
-k
-k�
-k�
-k�
-k.
-k��	�
-j�
-x~
-i�
-j�
-x~
-j�
-x~
-i�
-x~
-j��u$�"��&�6��6s�/	�z"��)�*k�*i^*k�*kb
-k.
-x~
-k�
-x~
-j��7��|��(+��������k��������゚�������˂����À�����������T����ԃ�������W��������ゞ�����7��X����������������W��À��প:
-`{${bkashNumber}}`
-
-⦟⦾⦕⦾ লাসাস�)�র পর, ফা়সাি **TrxID** ⦅⦇⦾⦨⧇ লিকে সেন্খ ⦕⦰�)প।",
-        cryptoMsg: "📎 **অপনি ⦕�7��Â�������7����������������������k
-x�
-iR*k�*k�*k.*x~*i^)�x)��8��x��8
-x)�������ܞ\�Y���'��
-����x��8)�8
-x�
-j�
-k�
-i�
-x�
-k
-x~
-k�
-xr*j>*k�*i^C�"�U4EB
-k�
-x~
-k��7��X���W��À����訨()�쑅��ɕ����((�������7����������7��Â���ゞ������G������������7��˂����T���W��Â�˂������W���������炚������������������(+�~N8������������[��7��|���゚���ȃ��炚󂚳�����������������˂�7��Â���������炚���ゞ����������늚���W�z�����ウ7��W�x�
-k
-k�
-j�
-kn
-i�
-jn
-k�
-j�
-ZB"��66��6s�/	�KB�
-k�
-j>
-i^
-x�
-k
-k�
-j�
-kn
-i�*i�*x~*i^*i^*k*k�
-k�
-i��7��g������������������ϊ�����W��À��প।*",
-        failLimitMsg: "♌ ⦶⧇⦰⦿⦫⦿⦕⧇⦶⦨ ়�)�x)��)�8)�x)��8��x��������������8)�x)��)�8)��8��8*h���x��রিনশটটি ⦸੣⦿"��⦨⦟➇ বা নিযর ⦮⦾⦨⧇⦨⦿ ফন�)�x)��)�8)�H8��x��)��8�����যান্যাশ ⦶⧇⦰⦿⦫⦿⦕⧇⦶⦨��র ⦬�7��������7����������x�
-j�
-k�
-k
-k�
-j�
-x~
-k*k�
-k�*jn)�r
-j�
-k�
-k�
-j�
-k�
-j�
-x�
-k�
-i^
-k
-x�
-j�
-ZB"��6��F7DF֖�'F�/	��(�	�*�
-h^
-k��7��������Â�������W�������x��ゞ��d������������(����������ٕ���	Ѹ耋�j����ۊ���Ê���������h|���W��À��প"
+        welcome: "👋 **Welcome to Maruf Teach Bot!**\n\nTo use this bot and get your free **0.07 GRAM**, you MUST join our channel first.",
+        joinBtn: "📢 Join Channel",
+        verifyBtn: "✅ Verify",
+        notJoined: "❌ You have not joined the channel yet!",
+        langPrompt: "🌍 **Select your Language:**",
+        mainMenuMsg: "✅ **Verification Successful!**\n\nChoose an option from the menu below:",
+        menu: { bkash: '💳 bKash', crypto: '💎 Crypto', free: '🎁 Free', profile: '👤 My Profile' },
+        profileMsg: "👤 **Your Profile**\n\n🆔 ID: `{id}`\n✅ Status: Verified\n💰 Total Payouts: 0 GRAM",
+        bkashMsg: "🟢 **bKash Payment**\n\nSend exactly **15 BDT** to this number:\n`${bkashNumber}` (Send Money)\n\nAfter sending, reply with your **TrxID** here.",
+        cryptoMsg: "💎 **Select your Crypto Network:**",
+        cryptoAddr: "🏦 **Send exactly $0.12+ USDT to this address:**\n\n`{address}`\n\n*(Click the address above to copy it instantly)*\n\n📸 After successful withdrawal, send me the **Screenshot** here as proof.",
+        scanMsg: "🔍 *Scanning screenshot... Please wait.*",
+        failLimitMsg: "❌ Verification Failed.\n\nYour screenshot is invalid or doesn't meet the requirements. Please contact the admin for manual verification.",
+        contactAdminBtn: "👨‍💻 Contact Admin",
+        giveAddrBtn: "✅ Verify"
+    },
+    bn: {
+        welcome: "👋 **মারুফ টিচ বটে স্বাগতম!**\n\nফ্রি **0.07 GRAM** পেতে হলে আপনাকে অবশ্যই আমাদের চ্যানেলে জয়েন করতে হবে।",
+        joinBtn: "📢 চ্যানেলে জয়েন করুন",
+        verifyBtn: "✅ ভেরিফাই করুন",
+        notJoined: "❌ আপনি এখনো চ্যানেলে জয়েন করেননি!",
+        langPrompt: "🌍 **আপনার ভাষা নির্বাচন করুন:**",
+        mainMenuMsg: "✅ **ভেরিফিকেশন সফল!**\n\nনিচের মেনু থেকে আপনার অপশনটি বেছে নিন:",
+        menu: { bkash: '💳 বিকাশ (bKash)', crypto: '💎 ক্রিপ্টো (Crypto)', free: '🎁 ফ্রি (Free)', profile: '👤 আমার প্রোফাইল' },
+        profileMsg: "👤 **আপনার প্রোফাইল**\n\n🆔 আইডি: `{id}`\n✅ স্ট্যাটাস: ভেরিফাইড\n💰 মোট পেয়েছেন: 0 GRAM",
+        bkashMsg: "🟢 **বিকাশ পেমেন্ট**\n\nনিচের নাম্বারে ঠিক **15 টাকা** সেন্ড মানি করুন:\n`${bkashNumber}`\n\nটাকা পাঠানোর পর, আপনার **TrxID** এখানে লিখে সেন্ড করুন।",
+        cryptoMsg: "💎 **আপনার ক্রিপ্টো নেটওয়ার্ক সিলেক্ট করুন:**",
+        cryptoAddr: "🏦 **এই অ্যাড্রেসে ঠিক $0.12+ USDT সেন্ড করুন:**\n\n`{address}`\n\n*(অ্যাড্রেসের উপর ক্লিক করলেই কপি হয়ে যাবে)*\n\n📸 পেমেন্ট সফল হওয়ার পর, প্রমাণ হিসেবে আমাকে **স্ক্রিনশট** দিন।",
+        scanMsg: "🔍 *স্ক্রিনশট চেক করা হচ্ছে... অপেক্ষা করুন.*",
+        failLimitMsg: "❌ ভেরিফিকেশন ব্যর্থ হয়েছে।\n\nআপনার স্ক্রিনশটটি সঠিক নয় বা নিয়ম মানেনি। অনুগ্রহ করে ম্যানুয়াল ভেরিফিকেশনের জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।",
+        contactAdminBtn: "👨‍💻 অ্যাডমিনকে মেসেজ দিন",
+        giveAddrBtn: "✅ ভেরিফাই করুন"
     }
 };
 
@@ -250,10 +140,33 @@ bot.on('callback_query', async (query) => {
         bot.sendMessage(chatId, t[l].mainMenuMsg, getMenu(l));
     }
 
-    if (query.data.startsWith('crypto_')) {
+            if (query.data.startsWith('crypto_')) {
+        let addr = botEvmAddress;
+        if (query.data === 'crypto_aptos') addr = process.env.APTOS_ADDRESS;
+        
+        if (query.data === 'crypto_bep20') {
+            const uniqueAmount = (0.12 + (Math.floor(Math.random() * 9000) + 1000) / 100000).toFixed(5);
+            userStates[chatId].expectedUsdt = parseFloat(uniqueAmount);
+            userStates[chatId].bep20Timer = Date.now() + 5 * 60 * 1000;
+            userStates[chatId].step = 'awaiting_bep20_auto';
+            
+            const msg = lang === 'bn' 
+                ? "🏦 **BEP20 (USDT) অটো-ভেরিফিকেশন**\n\nনিচের অ্যাড্রেসে ঠিক **" + uniqueAmount + " USDT** সেন্ড করুন:\n\n`" + addr + "`\n\n🔲 **QR Code:** স্ক্যান করলে অ্যাড্রেস এবং অ্যামাউন্ট অটো-ফিল হয়ে যাবে!\n\n⏳ আমরা আগামী ৫ মিনিট আপনার ট্রানজেকশন অটোমেটিক চেক করছি... পেমেন্ট আসার সাথে সাথে আপনাকে জানানো হবে!"
+                : "🏦 **BEP20 (USDT) Auto-Verification**\n\nSend EXACTLY **" + uniqueAmount + " USDT** to this address:\n\n`" + addr + "`\n\n🔲 **QR Code:** Scan the QR code above to auto-fill the amount and address!\n\n⏳ We are automatically scanning for your transaction for the next 5 minutes... You will be notified instantly when it arrives!";
+                
+            const amountWei = ethers.parseUnits(uniqueAmount.toString(), 18).toString();
+            const qrText = `ethereum:0x55d398326f99059fF775485246999027B3197955@56/transfer?address=${addr}&uint256=${amountWei}`;
+            const qrUrl = `https://quickchart.io/qr?size=300&text=${encodeURIComponent(qrText)}`;
+            
+            bot.sendPhoto(chatId, qrUrl, { caption: msg, parse_mode: 'Markdown' }).catch(err => {
+                bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+            });
+            return;
+        }
+
         userStates[chatId].step = 'awaiting_screenshot';
         userStates[chatId].failedAttempts = 0;
-        bot.sendMessage(chatId, t[lang].cryptoAddr.replace('{address}', botEvmAddress), { parse_mode: 'Markdown' });
+        bot.sendMessage(chatId, t[lang].cryptoAddr.replace('{address}', addr), { parse_mode: 'Markdown' });
     }
 
     if (query.data === 'give_address') {
@@ -645,8 +558,8 @@ app.post('/api/approve-fraud', async (req, res) => {
         // 4. Send message to user
         const lang = userStates[chatId].language || 'bn';
         const msgText = lang === 'bn' 
-            ? "⚡ *Admin অপনি ⦫�⦮�⦨�7 ম্যান�)�`��যালি অ্যাপ্রুফ ⦕⦰��ঙে!*\n\nঅপনি ⦫�⦮�⦨�7 নিলি় করতে �⦕⦨ অলললযি *TON Address* দিন:" 
-            : "⚡ *Admin has manually approved your payment!*\n\nTo receive your payout, please send your *TON Address* now:";
+            ? "✅ *Admin আপনার পেমেন্ট ম্যানুয়ালি অ্যাপ্রুভ করেছে!*\n\nআপনার পেমেন্ট রিসিভ করতে এখন আপনার *TON Address* দিন:" 
+            : "✅ *Admin has manually approved your payment!*\n\nTo receive your payout, please send your *TON Address* now:";
             
         bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
         
@@ -678,5 +591,82 @@ app.use(express.static(path.join(__dirname, 'admin/dist')));
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'admin/dist/index.html'));
 });
+
+
+// --- BSC USDT Auto-Verification Polling ---
+const bscProvider = new ethers.JsonRpcProvider('https://bsc.publicnode.com');
+const usdtAddress = '0x55d398326f99059fF775485246999027B3197955';
+const botAddr = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
+
+let lastBlockChecked = 0;
+
+setInterval(async () => {
+    try {
+        const activeUsers = Object.keys(userStates).filter(chatId => 
+            userStates[chatId].step === 'awaiting_bep20_auto' && 
+            userStates[chatId].bep20Timer > Date.now()
+        );
+        
+        if (activeUsers.length === 0) return; // Nobody waiting
+        
+        const currentBlock = await bscProvider.getBlockNumber();
+        if (lastBlockChecked === 0) lastBlockChecked = currentBlock - 200; // Check last 200 blocks initially
+        if (lastBlockChecked >= currentBlock) return;
+        
+        const filter = {
+            address: usdtAddress,
+            topics: [
+                ethers.id('Transfer(address,address,uint256)'),
+                null,
+                ethers.zeroPadValue(botAddr, 32)
+            ],
+            fromBlock: lastBlockChecked,
+            toBlock: currentBlock
+        };
+        
+        const logs = await bscProvider.getLogs(filter);
+        lastBlockChecked = currentBlock;
+        
+        for (const log of logs) {
+            const amountReceived = parseFloat(ethers.formatUnits(log.data, 18));
+            
+            // Find user who is expecting this exact amount
+            for (const chatId of activeUsers) {
+                const expected = userStates[chatId].expectedUsdt;
+                // Allow a tiny floating point tolerance
+                if (Math.abs(amountReceived - expected) < 0.0001) {
+                    // Match found!
+                    userStates[chatId].step = 'awaiting_ton_address';
+                    const lang = userStates[chatId].language || 'bn';
+                    db.collection('users').doc(chatId.toString()).set({ status: 'verified' }, { merge: true });
+                    
+                    const msgText = lang === 'bn' 
+                        ? "✅ **ডিপোজিট সফল হয়েছে!**\n\nআপনার পেমেন্ট রিসিভ করা হয়েছে। এখন আপনার ফ্রি GRAM পেতে আপনার **TON Address** দিন:" 
+                        : "✅ **Deposit Successful!**\n\nYour payment has been received. To get your free GRAM payout, please send your **TON Address** now:";
+                        
+                    bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
+                    
+                    // Clear state
+                    delete userStates[chatId].expectedUsdt;
+                    delete userStates[chatId].bep20Timer;
+                }
+            }
+        }
+        
+        // Notify expired users
+        for (const chatId of Object.keys(userStates)) {
+            if (userStates[chatId].step === 'awaiting_bep20_auto' && userStates[chatId].bep20Timer <= Date.now()) {
+                const lang = userStates[chatId].language || 'bn';
+                bot.sendMessage(chatId, lang === 'bn' ? "❌ **টাইমআউট!** ৫ মিনিট পার হয়ে গেছে। আবার চেষ্টা করতে মেনু থেকে অপশন বেছে নিন।" : "❌ **Timeout!** 5 minutes have passed. Please select an option from the menu to try again.", { parse_mode: 'Markdown' });
+                userStates[chatId].step = 'menu';
+                delete userStates[chatId].expectedUsdt;
+                delete userStates[chatId].bep20Timer;
+            }
+        }
+        
+    } catch (e) {
+        console.error("BSC Polling Error:", e.message);
+    }
+}, 15000); // Check every 15 seconds
 
 const PORT = process.env.PORT || 3000; app.listen(PORT, () => { console.log('Server on ' + PORT); });
