@@ -241,7 +241,7 @@ bot.on('callback_query', async (query) => {
             bot.sendMessage(chatId, `⏳ *Referral not complete!*\nWe have sent a request to the admin to check your username. Please click Verify again after 30 minutes.`, { parse_mode: 'Markdown' });
             
             // Notify Admin Group
-            const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+            const config = botConfig;
             if (config.adminGroupId) {
                 bot.sendMessage(config.adminGroupId, `🔔 *New Verify Request*\nUser: @${username} (ID: ${chatId})\n\nAdmin: Check your dashboard. If valid, just reply with \`@${username}\` here.`, { parse_mode: 'Markdown' });
             }
@@ -255,14 +255,13 @@ bot.on('message', async (msg) => {
     
     if (msg.chat.type === 'group' || msg.chat.type === 'supergroup') {
         if (text === '/setgroup') {
-            const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
-            config.adminGroupId = chatId.toString();
-            require('fs').writeFileSync('config.json', JSON.stringify(config, null, 2));
+            const config = botConfig;
+            await saveConfig({ adminGroupId: chatId.toString() });
             bot.sendMessage(chatId, '✅ Admin group set successfully!');
             return;
         }
 
-        const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+        const config = botConfig;
         
 // Handle Admin Manual Verification Reply
         if (config.adminGroupId === chatId.toString() && msg.reply_to_message && text) {
@@ -334,7 +333,7 @@ bot.on('message', async (msg) => {
         try {
             let freeTaskLink = 'https://t.me/ShardsEarnBot/app?startapp=8799135330';
             try {
-                const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+                const config = botConfig;
                 if (config.freeLink) freeTaskLink = config.freeLink;
             } catch (err) {}
             
@@ -381,7 +380,7 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
         bot.sendMessage(chatId, '⏳ Processing your payment...');
 
         try {
-            const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+            const config = botConfig;
             const amount = config.gramAmount; // 0.07 TON
             
             const { TonClient, WalletContractV4, internal } = require('@ton/ton');
@@ -485,7 +484,7 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
                     const reviewMsg = lang === 'bn' ? "⏳ **আপনার স্ক্রিনশটটি ম্যানুয়াল রিভিউতে পাঠানো হয়েছে।**\n\nযাচাই হতে ৫ মিনিট পর্যন্ত সময় লাগতে পারে।" : "⏳ **Your screenshot has been sent for manual review.**\n\nVerification may take up to 5 minutes.";
                     bot.sendMessage(chatId, reviewMsg, { parse_mode: 'Markdown' });
                     
-                    const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+                    const config = botConfig;
                     if (config.adminGroupId) {
                         bot.sendPhoto(config.adminGroupId, photo.file_id, {
                             caption: `🔍 **Manual Review Needed (Free Task)**\n\nUser: ${userFirstName} (@${userUsername})\nID: \`${chatId}\`\n\nReply to this photo with **ok** to approve, or **wrong** to reject.`,
@@ -508,7 +507,7 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
                 bot.sendMessage(chatId, reviewMsg, { parse_mode: 'Markdown' });
                 
                 try {
-                    const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+                    const config = botConfig;
                     if (config.adminGroupId) {
                         bot.sendPhoto(config.adminGroupId, msg.photo[msg.photo.length - 1].file_id, {
                             caption: `🔍 **Manual Review Needed (Free Task Fallback)**\n\nUser: ${userFirstName} (@${userUsername})\nID: \`${chatId}\`\n\nReply to this photo with **ok** to approve, or **wrong** to reject.`,
@@ -734,16 +733,16 @@ To receive your payout, please send your *TON Address* now:`;
 
 app.get('/api/settings', (req, res) => {
     try {
-        const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+        const config = botConfig;
         res.json(config);
     } catch (e) {
         res.json({ gramAmount: '0.07', usdtAmount: '0.05', freeLink: 'https://t.me/ShardsEarnBot/app?startapp=8799135330' });
     }
 });
 
-app.post('/api/settings', (req, res) => {
+app.post('/api/settings', async (req, res) => {
     try {
-        require('fs').writeFileSync('config.json', JSON.stringify(req.body, null, 2));
+        await saveConfig(req.body);
         res.json({ success: true, message: 'Deployed!' });
     } catch (e) {
         res.status(500).json({ error: e.message });
