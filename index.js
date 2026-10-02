@@ -178,6 +178,12 @@ bot.on('callback_query', async (query) => {
     if (!userStates[chatId]) userStates[chatId] = { step: 'menu', failedAttempts: 0, lang: 'en' };
     const lang = userStates[chatId].lang;
 
+    if (query.data === 'retry_free_payout') {
+        userStates[chatId] = { step: 'awaiting_ton_address_free' };
+        bot.sendMessage(chatId, '✅ Please send your TON address again:');
+        return;
+    }
+
     if (query.data === 'verify_join') {
         try {
             const chatMember = await bot.getChatMember(channelUsername, userId);
@@ -396,6 +402,14 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
             return;
         }
 
+        // Check if address is already used by someone else
+        const addressCheck = await db.collection('free_claims').where('address', '==', address).get();
+        if (!addressCheck.empty) {
+            bot.sendMessage(chatId, '🚫 Fraud Detected! This TON address has already been used to claim a reward.');
+            userStates[chatId].step = 'menu';
+            return;
+        }
+
         bot.sendMessage(chatId, '⏳ Processing your payment...');
 
         try {
@@ -450,8 +464,13 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
             bot.sendMessage(chatId, '✅ *Success!* ' + amount + ' TON has been sent to your wallet.', { parse_mode: 'Markdown' });
 
         } catch (e) {
-            console.error('Free payout error:', e);
-            bot.sendMessage(chatId, '❌ Failed to send payment. Error: ' + e.message);
+            console.error('Free payout error:', e.response ? e.response.data : e.message);
+            bot.sendMessage(chatId, '❌ Failed to send payment. Error: ' + (e.response && e.response.data && e.response.data.error ? JSON.stringify(e.response.data.error) : e.message) + '\n\nThe network might be busy (Seqno conflict). Please click Try Again.', {
+                reply_markup: {
+                    inline_keyboard: [[{ text: '🔄 Try Again', callback_data: 'retry_free_payout' }]]
+                }
+            });
+            userStates[chatId].step = 'menu';
         }
         return;
     }
