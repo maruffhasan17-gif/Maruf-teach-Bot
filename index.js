@@ -20,7 +20,7 @@ const db = getFirestore();
 let botConfig = {
     gramAmount: '0.07',
     usdtAmount: '0.05',
-    freeLink: 'https://t.me/ShardsEarnBot/app?startapp=8799135330',
+    freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328',
     adminGroupId: ''
 };
 async function loadConfig() {
@@ -350,10 +350,10 @@ bot.on('message', async (msg) => {
     }
     else if (text === m.free) {
         try {
-            let freeTaskLink = 'https://t.me/ShardsEarnBot/app?startapp=8799135330';
+            const freeTaskLink = 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328';
             try {
                 const config = botConfig;
-                if (config.freeLink) freeTaskLink = config.freeLink;
+                // Hardcoded permanently
             } catch (err) {}
             
             const freeMsgText = lang === 'bn' 
@@ -708,7 +708,7 @@ app.get('/api/settings', (req, res) => {
         const config = botConfig;
         res.json(config);
     } catch (e) {
-        res.json({ gramAmount: '0.07', usdtAmount: '0.05', freeLink: 'https://t.me/ShardsEarnBot/app?startapp=8799135330' });
+        res.json({ gramAmount: '0.07', usdtAmount: '0.05', freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328' });
     }
 });
 
