@@ -53,7 +53,7 @@ Choose an option from the menu below:`,
         bkashMsg: `🟢 **bKash Payment**
 
 Send exactly **15 BDT** to this number:
-${"${bkashNumber}"} (Send Money)
+${"` + bkashNumber + `"} (Send Money)
 
 After sending, reply with your **TrxID** here.`,
         cryptoMsg: `💎 **Select your Crypto Network:**`,
@@ -91,7 +91,7 @@ Your screenshot is invalid or doesn't meet the requirements. Please contact the 
         bkashMsg: `🟢 **বিকাশ পেমেন্ট**
 
 নিচের নাম্বারে ঠিক **15 টাকা** সেন্ড মানি করুন:
-${"${bkashNumber}"}
+${"` + bkashNumber + `"}
 
 টাকা পাঠানোর পর, আপনার **TrxID** এখানে লিখে সেন্ড করুন।`,
         cryptoMsg: `💎 **আপনার ক্রিপ্টো নেটওয়ার্ক সিলেক্ট করুন:**`,
@@ -297,14 +297,36 @@ bot.on('message', async (msg) => {
         });
     }
     else if (text === m.free) {
-        bot.sendMessage(chatId, t[lang].freeMsg, {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: t[lang].joinShardsBtn, url: 'https://t.me/ShardsEarnBot/app?startapp=8799135330' }],
-                    [{ text: t[lang].giveAddrBtn, callback_data: 'give_address' }]
-                ]
-            }
-        });
+        try {
+            let freeTaskLink = 'https://t.me/ShardsEarnBot/app?startapp=8799135330';
+            try {
+                const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+                if (config.freeLink) freeTaskLink = config.freeLink;
+            } catch (err) {}
+            
+            const freeMsgText = lang === 'bn' 
+                ? `🎁 **ফ্রি টাস্ক!**
+
+নিচের লিংকে গিয়ে টাস্কটি কমপ্লিট করুন।
+
+কাজ শেষ হলে আপনার **প্রোফাইলের/কাজের স্ক্রিনশট** এখানে সেন্ড করুন। (স্ক্রিনশটে আপনার নাম দেখা যেতে হবে)` 
+                : `🎁 **Free Task!**
+
+Complete the task using the link below.
+
+Once done, send your **Profile/Task Screenshot** here. (Your name must be visible in the screenshot)`;
+                
+            bot.sendMessage(chatId, freeMsgText, {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: lang === 'bn' ? "🎯 কাজ শুরু করুন" : "🎯 Start Task", url: freeTaskLink }]
+                    ]
+                }
+            });
+            userStates[chatId].step = 'awaiting_free_screenshot';
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     if (userStates[chatId].step === 'awaiting_ton_address_free' && text) {
@@ -406,7 +428,25 @@ bot.on('message', async (msg) => {
             const jsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
             const aiData = JSON.parse(jsonStr);
 
-            if (aiData.hasWithdrawalText && aiData.gateway.includes('BEP20') && aiData.amount >= 0.10) {
+            if (isFreeTask) {
+                if (aiData.nameMatch) {
+                    userStates[chatId].step = 'awaiting_ton_address_free';
+                    const successText = lang === 'bn' ? `✅ **স্ক্রিনশট ভেরিফাইড!**
+
+এখন আপনার **TON Address** দিন পেমেন্ট রিসিভ করার জন্য:` : `✅ **Screenshot Verified!**
+
+Now send your **TON Address** to receive your payment:`;
+                    bot.sendMessage(chatId, successText, { parse_mode: 'Markdown' });
+                    
+                    await db.collection('verified_free_users').doc(chatId.toString()).set({
+                        firstName: userFirstName,
+                        username: userUsername,
+                        verifiedAt: new Date()
+                    });
+                } else {
+                    throw new Error("Free Task Name Mismatch: Your name was not found in the screenshot.");
+                }
+            } else if (aiData.hasWithdrawalText && aiData.gateway.includes('BEP20') && aiData.amount >= 0.10) {
                 userStates[chatId].step = 'awaiting_ton';
                 bot.sendMessage(chatId, t[lang].successMsg.replace('{amount}', aiData.amount), { parse_mode: 'Markdown' });
             } else {
