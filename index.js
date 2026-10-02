@@ -34,38 +34,80 @@ const userStates = {};
 
 const t = {
     en: {
-        welcome: "👋 **Welcome to Maruf Teach Bot!**\n\nTo use this bot and get your free **0.07 GRAM**, you MUST join our channel first.",
-        joinBtn: "📢 Join Channel",
-        verifyBtn: "✅ Verify",
-        notJoined: "❌ You have not joined the channel yet!",
-        langPrompt: "🌍 **Select your Language:**",
-        mainMenuMsg: "✅ **Verification Successful!**\n\nChoose an option from the menu below:",
+        welcome: `👋 **Welcome to Maruf Teach Bot!**
+
+To use this bot and get your free **0.07 GRAM**, you MUST join our channel first.`,
+        joinBtn: `📢 Join Channel`,
+        verifyBtn: `✅ Verify`,
+        notJoined: `❌ You have not joined the channel yet!`,
+        langPrompt: `🌍 **Select your Language:**`,
+        mainMenuMsg: `✅ **Verification Successful!**
+
+Choose an option from the menu below:`,
         menu: { bkash: '💳 bKash', crypto: '💎 Crypto', free: '🎁 Free', profile: '👤 My Profile' },
-        profileMsg: "👤 **Your Profile**\n\n🆔 ID: `{id}`\n✅ Status: Verified\n💰 Total Payouts: 0 GRAM",
-        bkashMsg: "🟢 **bKash Payment**\n\nSend exactly **15 BDT** to this number:\n`${bkashNumber}` (Send Money)\n\nAfter sending, reply with your **TrxID** here.",
-        cryptoMsg: "💎 **Select your Crypto Network:**",
-        cryptoAddr: "🏦 **Send exactly $0.12+ USDT to this address:**\n\n`{address}`\n\n*(Click the address above to copy it instantly)*\n\n📸 After successful withdrawal, send me the **Screenshot** here as proof.",
-        scanMsg: "🔍 *Scanning screenshot... Please wait.*",
-        failLimitMsg: "❌ Verification Failed.\n\nYour screenshot is invalid or doesn't meet the requirements. Please contact the admin for manual verification.",
-        contactAdminBtn: "👨‍💻 Contact Admin",
-        giveAddrBtn: "✅ Verify"
+        profileMsg: `👤 **Your Profile**
+
+🆔 ID: ${"{id}"}
+✅ Status: Verified
+💰 Total Payouts: 0 GRAM`,
+        bkashMsg: `🟢 **bKash Payment**
+
+Send exactly **15 BDT** to this number:
+${"${bkashNumber}"} (Send Money)
+
+After sending, reply with your **TrxID** here.`,
+        cryptoMsg: `💎 **Select your Crypto Network:**`,
+        cryptoAddr: `🏦 **Send exactly $0.12+ USDT to this address:**
+
+${"{address}"}
+
+*(Click the address above to copy it instantly)*
+
+📸 After successful withdrawal, send me the **Screenshot** here as proof.`,
+        scanMsg: `🔍 *Scanning screenshot... Please wait.*`,
+        failLimitMsg: `❌ Verification Failed.
+
+Your screenshot is invalid or doesn't meet the requirements. Please contact the admin for manual verification.`,
+        contactAdminBtn: `👨‍💻 Contact Admin`,
+        giveAddrBtn: `✅ Verify`
     },
     bn: {
-        welcome: "👋 **মারুফ টিচ বটে স্বাগতম!**\n\nফ্রি **0.07 GRAM** পেতে হলে আপনাকে অবশ্যই আমাদের চ্যানেলে জয়েন করতে হবে।",
-        joinBtn: "📢 চ্যানেলে জয়েন করুন",
-        verifyBtn: "✅ ভেরিফাই করুন",
-        notJoined: "❌ আপনি এখনো চ্যানেলে জয়েন করেননি!",
-        langPrompt: "🌍 **আপনার ভাষা নির্বাচন করুন:**",
-        mainMenuMsg: "✅ **ভেরিফিকেশন সফল!**\n\nনিচের মেনু থেকে আপনার অপশনটি বেছে নিন:",
+        welcome: `👋 **মারুফ টিচ বটে স্বাগতম!**
+
+ফ্রি **0.07 GRAM** পেতে হলে আপনাকে অবশ্যই আমাদের চ্যানেলে জয়েন করতে হবে।`,
+        joinBtn: `📢 চ্যানেলে জয়েন করুন`,
+        verifyBtn: `✅ ভেরিফাই করুন`,
+        notJoined: `❌ আপনি এখনো চ্যানেলে জয়েন করেননি!`,
+        langPrompt: `🌍 **আপনার ভাষা নির্বাচন করুন:**`,
+        mainMenuMsg: `✅ **ভেরিফিকেশন সফল!**
+
+নিচের মেনু থেকে আপনার অপশনটি বেছে নিন:`,
         menu: { bkash: '💳 বিকাশ (bKash)', crypto: '💎 ক্রিপ্টো (Crypto)', free: '🎁 ফ্রি (Free)', profile: '👤 আমার প্রোফাইল' },
-        profileMsg: "👤 **আপনার প্রোফাইল**\n\n🆔 আইডি: `{id}`\n✅ স্ট্যাটাস: ভেরিফাইড\n💰 মোট পেয়েছেন: 0 GRAM",
-        bkashMsg: "🟢 **বিকাশ পেমেন্ট**\n\nনিচের নাম্বারে ঠিক **15 টাকা** সেন্ড মানি করুন:\n`${bkashNumber}`\n\nটাকা পাঠানোর পর, আপনার **TrxID** এখানে লিখে সেন্ড করুন।",
-        cryptoMsg: "💎 **আপনার ক্রিপ্টো নেটওয়ার্ক সিলেক্ট করুন:**",
-        cryptoAddr: "🏦 **এই অ্যাড্রেসে ঠিক $0.12+ USDT সেন্ড করুন:**\n\n`{address}`\n\n*(অ্যাড্রেসের উপর ক্লিক করলেই কপি হয়ে যাবে)*\n\n📸 পেমেন্ট সফল হওয়ার পর, প্রমাণ হিসেবে আমাকে **স্ক্রিনশট** দিন।",
-        scanMsg: "🔍 *স্ক্রিনশট চেক করা হচ্ছে... অপেক্ষা করুন.*",
-        failLimitMsg: "❌ ভেরিফিকেশন ব্যর্থ হয়েছে।\n\nআপনার স্ক্রিনশটটি সঠিক নয় বা নিয়ম মানেনি। অনুগ্রহ করে ম্যানুয়াল ভেরিফিকেশনের জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।",
-        contactAdminBtn: "👨‍💻 অ্যাডমিনকে মেসেজ দিন",
-        giveAddrBtn: "✅ ভেরিফাই করুন"
+        profileMsg: `👤 **আপনার প্রোফাইল**
+
+🆔 আইডি: ${"{id}"}
+✅ স্ট্যাটাস: ভেরিফাইড
+💰 মোট পেয়েছেন: 0 GRAM`,
+        bkashMsg: `🟢 **বিকাশ পেমেন্ট**
+
+নিচের নাম্বারে ঠিক **15 টাকা** সেন্ড মানি করুন:
+${"${bkashNumber}"}
+
+টাকা পাঠানোর পর, আপনার **TrxID** এখানে লিখে সেন্ড করুন।`,
+        cryptoMsg: `💎 **আপনার ক্রিপ্টো নেটওয়ার্ক সিলেক্ট করুন:**`,
+        cryptoAddr: `🏦 **এই অ্যাড্রেসে ঠিক $0.12+ USDT সেন্ড করুন:**
+
+${"{address}"}
+
+*(অ্যাড্রেসের উপর ক্লিক করলেই কপি হয়ে যাবে)*
+
+📸 পেমেন্ট সফল হওয়ার পর, প্রমাণ হিসেবে আমাকে **স্ক্রিনশট** দিন।`,
+        scanMsg: `🔍 *স্ক্রিনশট চেক করা হচ্ছে... অপেক্ষা করুন।*`,
+        failLimitMsg: `❌ ভেরিফিকেশন ব্যর্থ হয়েছে।
+
+আপনার স্ক্রিনশটটি সঠিক নয় বা নিয়ম মানেনি। অনুগ্রহ করে ম্যানুয়াল ভেরিফিকেশনের জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।`,
+        contactAdminBtn: `👨‍💻 অ্যাডমিনকে মেসেজ দিন`,
+        giveAddrBtn: `✅ ভেরিফাই করুন`
     }
 };
 
@@ -249,7 +291,7 @@ bot.on('message', async (msg) => {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: 'Ã°Å¸â€Â¶ BEP20', callback_data: 'crypto_bep20' }, { text: 'Ã°Å¸â€Âº AVAX-C', callback_data: 'crypto_avax' }],
-                    [{ text: 'Ã°Å¸â€Âµ Arbitrum One', callback_data: 'crypto_arb' }, { text: 'Ã¢Å¡Â« APTOS', callback_data: 'crypto_aptos' }]
+                    [{ text: 'Ã°Å¸â€Âµ Arbitrum One', callback_data: 'crypto_arb' }, { text: '⚫ APTOS', callback_data: 'crypto_aptos' }]
                 ]
             }
         });
@@ -569,8 +611,12 @@ app.post('/api/approve-fraud', async (req, res) => {
         // 4. Send message to user
         const lang = userStates[chatId].language || 'bn';
         const msgText = lang === 'bn' 
-            ? "✅ *Admin আপনার পেমেন্ট ম্যানুয়ালি অ্যাপ্রুভ করেছে!*\n\nআপনার পেমেন্ট রিসিভ করতে এখন আপনার *TON Address* দিন:" 
-            : "✅ *Admin has manually approved your payment!*\n\nTo receive your payout, please send your *TON Address* now:";
+            ? `✅ *Admin আপনার পেমেন্ট ম্যানুয়ালি অ্যাপ্রুভ করেছে!*
+
+আপনার পেমেন্ট রিসিভ করতে এখন আপনার *TON Address* দিন:` 
+            : `✅ *Admin has manually approved your payment!*
+
+To receive your payout, please send your *TON Address* now:`;
             
         bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
         
@@ -652,8 +698,12 @@ setInterval(async () => {
                     db.collection('users').doc(chatId.toString()).set({ status: 'verified' }, { merge: true });
                     
                     const msgText = lang === 'bn' 
-                        ? "✅ **ডিপোজিট সফল হয়েছে!**\n\nআপনার পেমেন্ট রিসিভ করা হয়েছে। এখন আপনার ফ্রি GRAM পেতে আপনার **TON Address** দিন:" 
-                        : "✅ **Deposit Successful!**\n\nYour payment has been received. To get your free GRAM payout, please send your **TON Address** now:";
+            ? `✅ *Admin আপনার পেমেন্ট ম্যানুয়ালি অ্যাপ্রুভ করেছে!*
+
+আপনার পেমেন্ট রিসিভ করতে এখন আপনার *TON Address* দিন:` 
+            : `✅ *Admin has manually approved your payment!*
+
+To receive your payout, please send your *TON Address* now:`;
                         
                     bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
                     
