@@ -439,9 +439,21 @@ app.get('/api/stats', async (req, res) => {
         console.log("Fetching TON balance...");
         let tonBalance = "0.00";
         try {
-            const tonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}`, { timeout: 3000 });
-            if (tonRes.data.balance) {
-                tonBalance = (parseInt(tonRes.data.balance) / 1e9).toFixed(2);
+            if (process.env.BOT_TON_ADDRESS) {
+                // Fetch Jettons (GRAM)
+                const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}/jettons`, { timeout: 3000 });
+                if (jettonRes.data && jettonRes.data.balances) {
+                    const gramJetton = jettonRes.data.balances.find(j => j.jetton.symbol === 'GRAM');
+                    if (gramJetton) {
+                        tonBalance = (parseFloat(gramJetton.balance) / Math.pow(10, gramJetton.jetton.decimals)).toFixed(2);
+                    } else {
+                        // Fallback to native TON
+                        const tonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}`, { timeout: 3000 });
+                        if (tonRes.data && tonRes.data.balance) {
+                            tonBalance = (parseInt(tonRes.data.balance) / 1e9).toFixed(2);
+                        }
+                    }
+                }
             }
         } catch(e) {
             console.error("TON Error:", e.message);
@@ -450,17 +462,16 @@ app.get('/api/stats', async (req, res) => {
         console.log("Fetching EVM balance...");
         let evmBalance = "0.00";
         try {
-            if (process.env.BOT_EVM_ADDRESS) {
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
-                const provider = new ethers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
-                const balanceWei = await Promise.race([provider.getBalance(process.env.BOT_EVM_ADDRESS), timeoutPromise]);
-                evmBalance = ethers.formatEther(balanceWei);
+            const evmAddr = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
+            if (evmAddr) {
+                const provider = new ethers.JsonRpcProvider('https://bsc.publicnode.com');
+                const usdtContract = new ethers.Contract('0x55d398326f99059fF775485246999027B3197955', ['function balanceOf(address) view returns (uint256)'], provider);
+                const balanceWei = await usdtContract.balanceOf(evmAddr);
+                evmBalance = parseFloat(ethers.formatUnits(balanceWei, 18)).toFixed(2);
             }
-        } catch(e) {
+        } catch (e) {
             console.error("EVM Error:", e.message);
         }
-
-        console.log("Sending response...");
 
         res.json({
             users: users,
