@@ -69,7 +69,9 @@ ${"{address}"}
 
 Your screenshot is invalid or doesn't meet the requirements. Please contact the admin for manual verification.`,
         contactAdminBtn: `👨‍💻 Contact Admin`,
-        giveAddrBtn: `✅ Verify`
+        giveAddrBtn: `✅ Verify`,
+        joinShardsBtn: `🎯 Start Task`,
+        successMsg: `✅ **Screenshot Verified!**\n\nAmount: **{amount} USDT**\nNow send your **TON Address** to receive your payment:`
     },
     bn: {
         welcome: `👋 **মারুফ টিচ বটে স্বাগতম!**
@@ -107,7 +109,9 @@ ${"{address}"}
 
 আপনার স্ক্রিনশটটি সঠিক নয় বা নিয়ম মানেনি। অনুগ্রহ করে ম্যানুয়াল ভেরিফিকেশনের জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।`,
         contactAdminBtn: `👨‍💻 অ্যাডমিনকে মেসেজ দিন`,
-        giveAddrBtn: `✅ ভেরিফাই করুন`
+        giveAddrBtn: `✅ ভেরিফাই করুন`,
+        joinShardsBtn: `🎯 কাজ শুরু করুন`,
+        successMsg: `✅ **স্ক্রিনশট ভেরিফাইড!**\n\nঅ্যামাউন্ট: **{amount} USDT**\nএখন আপনার **TON Address** দিন পেমেন্ট রিসিভ করার জন্য:`
     }
 };
 
@@ -164,7 +168,7 @@ bot.on('callback_query', async (query) => {
 
                 bot.sendMessage(chatId, t.en.langPrompt, {
                     reply_markup: {
-                        inline_keyboard: [[ { text: 'Ã°Å¸â€¡Â¬Ã°Å¸â€¡Â§ English', callback_data: 'lang_en' }, { text: 'Ã°Å¸â€¡Â§Ã°Å¸â€¡Â© Ã Â¦Â¬Ã Â¦Â¾Ã Â¦â€šÃ Â¦Â²Ã Â¦Â¾', callback_data: 'lang_bn' } ]]
+                        inline_keyboard: [[ { text: '🇬🇧 English', callback_data: 'lang_en' }, { text: '🇧🇩 বাংলা', callback_data: 'lang_bn' } ]]
                     }
                 });
             } else {
@@ -290,8 +294,8 @@ bot.on('message', async (msg) => {
         bot.sendMessage(chatId, t[lang].cryptoMsg, {
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: 'Ã°Å¸â€Â¶ BEP20', callback_data: 'crypto_bep20' }, { text: 'Ã°Å¸â€Âº AVAX-C', callback_data: 'crypto_avax' }],
-                    [{ text: 'Ã°Å¸â€Âµ Arbitrum One', callback_data: 'crypto_arb' }, { text: '⚫ APTOS', callback_data: 'crypto_aptos' }]
+                    [{ text: '🔺 AVAX-C', callback_data: 'crypto_avax' }],
+                    [{ text: '⚫ APTOS', callback_data: 'crypto_aptos' }]
                 ]
             }
         });
