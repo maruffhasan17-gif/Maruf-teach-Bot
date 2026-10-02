@@ -72,7 +72,7 @@ function useBotData() {
 
     useEffect(() => {
         const fetchData = () => {
-            fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/stats`)
+            fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/stats?_t=${Date.now()}`)
                 .then(res => res.json())
                 .then(json => {
                     setData(json);

@@ -596,14 +596,14 @@ app.get('/api/stats', async (req, res) => {
         try {
             if (process.env.BOT_TON_ADDRESS) {
                 // Fetch Jettons (GRAM)
-                const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}/jettons`, { timeout: 3000 });
+                const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}/jettons?_t=${Date.now()}`, { timeout: 3000 });
                 if (jettonRes.data && jettonRes.data.balances) {
                     const gramJetton = jettonRes.data.balances.find(j => j.jetton.symbol === 'GRAM');
                     if (gramJetton) {
                         tonBalance = (parseFloat(gramJetton.balance) / Math.pow(10, gramJetton.jetton.decimals)).toFixed(2);
                     } else {
                         // Fallback to native TON
-                        const tonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}`, { timeout: 3000 });
+                        const tonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}?_t=${Date.now()}`, { timeout: 3000 });
                         if (tonRes.data && tonRes.data.balance) {
                             tonBalance = (parseInt(tonRes.data.balance) / 1e9).toFixed(2);
                         }
