@@ -791,7 +791,7 @@ app.post('/api/withdraw', async (req, res) => {
         const { amount, destination, network } = req.body;
         
         if (network === 'TON') {
-            const { WalletContractV4, internal } = require('@ton/ton');
+            const { WalletContractV4, internal, beginCell, external, storeMessage } = require('@ton/ton');
             const { mnemonicToPrivateKey } = require('@ton/crypto');
             const { ethers } = require('ethers');
             const axios = require('axios');
@@ -805,7 +805,6 @@ app.post('/api/withdraw', async (req, res) => {
                 const seqnoRes = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${wallet.address.toString(true, true, true)}`);
                 seqno = seqnoRes.data?.result?.seqno || 0;
             } catch(e) {
-                // If wallet not initialized or api fails, fallback to 0
                 seqno = 0;
             }
 
@@ -823,8 +822,14 @@ app.post('/api/withdraw', async (req, res) => {
                     })
                 ]
             });
+            
+            // Wrap in External Message for Toncenter
+            const extMsg = beginCell().store(storeMessage(external({
+                to: wallet.address,
+                body: transfer
+            }))).endCell();
 
-            const boc = transfer.toBoc().toString('base64');
+            const boc = extMsg.toBoc().toString('base64');
             
             try {
                 await axios.post('https://toncenter.com/api/v2/sendBoc', { boc });
