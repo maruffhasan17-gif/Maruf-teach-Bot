@@ -292,7 +292,59 @@ bot.on('message', async (msg) => {
         if (config.adminGroupId === chatId.toString() && msg.reply_to_message && text) {
             const replyText = text.toLowerCase().trim();
             const caption = msg.reply_to_message.caption || msg.reply_to_message.text || '';
-            const match = caption.match(/ID:\s*(\d+)/);
+            
+                // --- MINI APP TASK REPLY LOGIC ---
+                if (caption.includes("New MiniApp Task Submission")) {
+                    const addrMatch = caption.match(/Address: `([a-zA-Z0-9_-]+)`/);
+                    if (addrMatch && addrMatch[1]) {
+                        const targetAddress = addrMatch[1];
+                        if (replyText === 'ok') {
+                            bot.sendMessage(chatId, `⏳ Paying ${targetAddress} via TonAPI...`);
+                            // Send payment directly
+                            try {
+                                const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
+                                const seqno = await wallet.getSeqno(tonapiClient);
+                                const transfer = wallet.createTransfer({
+                                    seqno,
+                                    secretKey: keyPair.secretKey,
+                                    messages: [internal({
+                                        to: targetAddress,
+                                        value: '0.05',
+                                        body: 'Gift from VIC Mining Event'
+                                    })]
+                                });
+                                
+                                const extMsg = external({ to: wallet.address, init: seqno === 0 ? wallet.init : null, body: transfer });
+                                const extCell = beginCell().store(storeMessage(extMsg)).endCell();
+                                const boc = extCell.toBoc().toString('base64');
+
+                                await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
+                                bot.sendMessage(targetUserId, `✅ **Payment Sent!**
+
+0.05 TON has been sent to your wallet for completing the Free TON event!`);
+                                bot.sendMessage(chatId, `✅ Successfully paid ${targetUserId} for MiniApp event.`);
+                                
+                                // Clean up DB
+                                const tasks = await db.collection('miniapp_tasks').where('userId', '==', targetUserId).get();
+                                tasks.forEach(t => t.ref.update({ status: 'approved' }));
+                                
+                            } catch (e) {
+                                bot.sendMessage(chatId, `❌ Payment failed: ${e.message}`);
+                            }
+                        } else if (replyText === 'wrong') {
+                            const rejectText = `❌ **Verification Failed.** You are ineligible for the Free TON event.`;
+                            bot.sendMessage(targetUserId, rejectText, { parse_mode: 'Markdown' });
+                            bot.sendMessage(chatId, `❌ Rejected user ${targetUserId} for MiniApp event.`);
+                            
+                            const tasks = await db.collection('miniapp_tasks').where('userId', '==', targetUserId).get();
+                            tasks.forEach(t => t.ref.update({ status: 'rejected' }));
+                        }
+                        return; // Stop processing
+                    }
+                }
+                // ---------------------------------
+
+                const match = caption.match(/ID:\s*(\d+)/);
             
             if (match && match[1]) {
                 const targetUserId = match[1];
@@ -573,6 +625,76 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
 // Add this before app.listen
 const { ethers } = require('ethers');
 
+
+// ==================== MINI APP APIs ====================
+app.get('/api/miniapp/user/:id', async (req, res) => {
+    try {
+        const userId = parseInt(req.params.id);
+        const userDoc = await db.collection('users').doc(userId.toString()).get();
+        if (!userDoc.exists) {
+            return res.json({ balance: 0 });
+        }
+        res.json({ balance: userDoc.data().balance || 0 });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/miniapp/task', async (req, res) => {
+    try {
+        const { userId, name, username, address } = req.body;
+        
+        const docRef = await db.collection('miniapp_tasks').add({
+            userId,
+            name,
+            username,
+            address,
+            status: 'pending',
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Send to Admin Group
+        const msg = `🎁 <b>New MiniApp Task Submission</b>\n\n👤 User: <a href="tg://user?id=${userId}">${name}</a>\n🆔 ID: ${userId}\n💰 Type: Free TON (VIC)\n📍 Address: \`${address}\`\n\nReply with 'Ok' to approve or 'Wrong' to reject.`;
+        
+        const sentMsg = await bot.sendMessage(adminGroupId, msg, { parse_mode: 'HTML' });
+        
+        // Save msgId for reply tracking
+        await db.collection('miniapp_tasks').doc(docRef.id).update({
+            messageId: sentMsg.message_id
+        });
+
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/miniapp/sell', async (req, res) => {
+    try {
+        const { userId, asset, amount, estimatedTk, wallet } = req.body;
+        
+        // Save to DB
+        await db.collection('miniapp_sells').add({
+            userId, asset, amount, estimatedTk, wallet,
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Increment user balance
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        if (userDoc.exists) {
+            await userRef.update({ balance: admin.firestore.FieldValue.increment(estimatedTk) });
+        } else {
+            await userRef.set({ balance: estimatedTk, joinedAt: admin.firestore.FieldValue.serverTimestamp() });
+        }
+
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// =======================================================
+
 app.get('/api/stats', async (req, res) => {
     try {
         console.log("/api/stats called");
@@ -669,20 +791,23 @@ app.post('/api/withdraw', async (req, res) => {
         const { amount, destination, network } = req.body;
         
         if (network === 'TON') {
-            // Get decentralized RPC endpoint from Orbs
-                        const { WalletContractV4, internal } = require('@ton/ton');
+            const { WalletContractV4, internal } = require('@ton/ton');
             const { mnemonicToPrivateKey } = require('@ton/crypto');
-            const axios = require('axios');
             const { ethers } = require('ethers');
+            const axios = require('axios');
 
             const keyPair = await mnemonicToPrivateKey(process.env.BOT_TON_SEED.split(' '));
             const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
             
             let seqno = 0;
             try {
-                const seqnoRes = await axios.get(`https://tonapi.io/v2/wallet/${wallet.address.toString(true, true, true)}/seqno`);
-                seqno = seqnoRes.data.seqno || 0;
-            } catch(e) {}
+                // Fetch seqno from Toncenter
+                const seqnoRes = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${wallet.address.toString(true, true, true)}`);
+                seqno = seqnoRes.data?.result?.seqno || 0;
+            } catch(e) {
+                // If wallet not initialized or api fails, fallback to 0
+                seqno = 0;
+            }
 
             const amountNano = ethers.parseUnits(amount.toString(), 9);
 
@@ -700,9 +825,15 @@ app.post('/api/withdraw', async (req, res) => {
             });
 
             const boc = transfer.toBoc().toString('base64');
-            await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
-
-            res.json({ success: true, message: `Successfully sent ${amount} GRAM to ${destination}` });
+            
+            try {
+                await axios.post('https://toncenter.com/api/v2/sendBoc', { boc });
+                res.json({ success: true, message: `Successfully sent ${amount} TON/GRAM to ${destination}` });
+            } catch (err) {
+                console.error(err.response?.data || err.message);
+                const apiErr = err.response?.data?.error || err.message;
+                res.status(500).json({ error: "Blockchain rejected transfer: " + apiErr });
+            }
         } else {
             res.status(400).json({ error: "EVM Withdrawal not fully implemented yet." });
         }

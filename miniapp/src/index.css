@@ -1,0 +1,105 @@
+﻿@import "tailwindcss";
+
+@theme {
+  --color-theme-bg: #F4F7F5;
+  --color-theme-card: #FFFFFF;
+  --color-theme-primary: #10B981;
+  --color-theme-secondary: #34D399;
+  --color-theme-accent: #D1FAE5;
+  --color-theme-border: #E5E7EB;
+  --color-theme-text: #1F2937;
+  --color-theme-text-muted: #6B7280;
+}
+
+body { 
+  background-color: var(--color-theme-bg); 
+  color: var(--color-theme-text); 
+  -webkit-tap-highlight-color: transparent; 
+}
+
+.clip-card { 
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08);
+}
+
+.clip-btn { 
+  border-radius: 16px;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.glass-nav {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(16, 185, 129, 0.1);
+}
+
+/* Premium Animations */
+@keyframes gradient-xy {
+  0%, 100% { background-size: 400% 400%; background-position: 0% 0%; }
+  25% { background-size: 400% 400%; background-position: 100% 0%; }
+  50% { background-size: 400% 400%; background-position: 100% 100%; }
+  75% { background-size: 400% 400%; background-position: 0% 100%; }
+}
+
+.animate-gradient-xy { animation: gradient-xy 6s ease infinite; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float { animation: float 3s ease-in-out infinite; }
+
+@keyframes shake-gift {
+  0%, 50%, 100% { transform: rotate(0deg) scale(1); }
+  10%, 30% { transform: rotate(-10deg) scale(1.1); }
+  20%, 40% { transform: rotate(10deg) scale(1.1); }
+}
+
+.animate-shake-gift { animation: shake-gift 2.5s ease-in-out infinite; }
+
+.premium-card-bg {
+  background: linear-gradient(120deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(255, 154, 158, 0.3);
+}
+
+.premium-card-bg::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 60%);
+  animation: rotate 10s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes rotate { 100% { transform: rotate(360deg); } }
+
+/* Fountain Animation for TON coins erupting */
+@keyframes fountain {
+  0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  10% { opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(1.2); opacity: 0; }
+}
+
+.coin-erupt {
+  position: absolute;
+  top: 50%; left: 50%;
+  margin-top: -15px; margin-left: -15px;
+  animation: fountain 1.5s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+}
+
+.box-lid {
+  animation: lid-jump 1.5s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes lid-jump {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  10% { transform: translateY(-30px) rotate(-15deg); }
+  80% { transform: translateY(-30px) rotate(-15deg); }
+  90% { transform: translateY(0) rotate(0deg); }
+}
