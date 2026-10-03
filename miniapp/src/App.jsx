@@ -1,11 +1,10 @@
-﻿import React, { useState, useEffect } from 'react';
-import { Home, User, ChevronRight, Zap, Share2, Copy, X, TrendingUp, DollarSign, Wallet } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Home, User, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchUserData, submitFreeTonTask, submitSellOrder } from './api';
 
-// Live dummy data for the graph
 const initialGraphData = [
   { time: '10:00', price: 118.5 },
   { time: '10:05', price: 119.2 },
@@ -15,6 +14,57 @@ const initialGraphData = [
   { time: '10:25', price: 119.9 },
   { time: 'Now', price: 120.0 },
 ];
+
+const PremiumGiftBox = () => (
+  <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-xl chest-float">
+     <defs>
+        <linearGradient id="box-top" x1="0" y1="0" x2="1" y2="1">
+           <stop offset="0%" stopColor="#ffffff" />
+           <stop offset="100%" stopColor="#f0fdf4" />
+        </linearGradient>
+        <linearGradient id="box-left" x1="0" y1="0" x2="1" y2="1">
+           <stop offset="0%" stopColor="#e2e8f0" />
+           <stop offset="100%" stopColor="#cbd5e1" />
+        </linearGradient>
+        <linearGradient id="box-right" x1="0" y1="0" x2="1" y2="1">
+           <stop offset="0%" stopColor="#f8fafc" />
+           <stop offset="100%" stopColor="#f1f5f9" />
+        </linearGradient>
+        <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="1">
+           <stop offset="0%" stopColor="#10b981" />
+           <stop offset="100%" stopColor="#059669" />
+        </linearGradient>
+        <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+           <stop offset="0%" stopColor="#fbbf24" />
+           <stop offset="100%" stopColor="#d97706" />
+        </linearGradient>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+           <feGaussianBlur stdDeviation="6" result="blur" />
+           <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+     </defs>
+     <circle cx="50" cy="50" r="35" fill="#10b981" opacity="0.15" filter="url(#glow)" className="pulse-glow" />
+     <path d="M50 75 L20 60 L20 35 L50 50 Z" fill="url(#box-left)" />
+     <path d="M50 75 L80 60 L80 35 L50 50 Z" fill="url(#box-right)" />
+     <path d="M50 20 L20 35 L50 50 L80 35 Z" fill="url(#box-top)" />
+     <path d="M40 70 L30 65 L30 40 L40 45 Z" fill="url(#ribbon)" />
+     <path d="M60 70 L70 65 L70 40 L60 45 Z" fill="url(#ribbon)" />
+     <path d="M35 27.5 L65 42.5 L75 37.5 L45 22.5 Z" fill="url(#ribbon)" />
+     <path d="M65 27.5 L35 42.5 L25 37.5 L55 22.5 Z" fill="url(#ribbon)" opacity="0.8" />
+     <circle cx="50" cy="35" r="7" fill="url(#gold)" filter="url(#glow)" />
+     <path d="M50 35 L40 25 L45 20 Z" fill="url(#gold)" />
+     <path d="M50 35 L60 25 L55 20 Z" fill="url(#gold)" />
+  </svg>
+);
+
+const AbstractWalletIcon = () => (
+    <svg viewBox="0 0 64 64" className="w-16 h-16 opacity-10">
+      <rect x="8" y="16" width="48" height="32" rx="6" fill="#10B981" />
+      <path d="M8 28h48v20a6 6 0 01-6 6H14a6 6 0 01-6-6V28z" fill="#047857" />
+      <circle cx="44" cy="32" r="4" fill="#fbbf24" />
+      <rect x="8" y="24" width="48" height="4" fill="#064e3b" opacity="0.5" />
+    </svg>
+);
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -27,34 +77,38 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (WebApp.initDataUnsafe?.user) {
-      setUser(WebApp.initDataUnsafe.user);
-      loadData(WebApp.initDataUnsafe.user.id);
-    } else {
-      loadData(8799135330);
+    try {
+        if (WebApp.initDataUnsafe?.user) {
+          setUser(WebApp.initDataUnsafe.user);
+          loadData(WebApp.initDataUnsafe.user.id);
+        } else {
+          loadData(8799135330);
+        }
+    } catch(e) {
+        loadData(8799135330);
     }
   }, []);
 
   return (
     <TonConnectUIProvider manifestUrl="https://maruf-teach-bot.onrender.com/tonconnect-manifest.json">
-      <div className="min-h-screen bg-theme-bg text-theme-text pb-24 relative overflow-x-hidden font-sans selection:bg-theme-primary/20">
+      <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] pb-28 relative overflow-x-hidden font-sans selection:bg-[var(--color-brand)]/20">
         
-        {/* Header Background Accent */}
-        <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-b from-theme-primary/10 to-transparent rounded-b-[40px] pointer-events-none" />
-        
-        <div className="relative z-10 p-4">
+        <div className="relative z-10 p-4 max-w-md mx-auto">
           {/* Header */}
           <div className="flex justify-between items-center mb-6 pt-2">
              <div className="flex items-center gap-3">
-                 <div className="w-11 h-11 bg-white rounded-full flex items-center justify-center font-extrabold text-theme-primary shadow-sm border border-theme-border">
+                 <div className="w-[42px] h-[42px] bg-white rounded-full flex items-center justify-center font-bold text-[var(--color-text-primary)] premium-shadow border border-[var(--color-border)]">
                     {user.first_name.charAt(0).toUpperCase()}
                  </div>
                  <div>
-                    <h1 className="text-lg font-black text-gray-900 leading-tight tracking-tight">Maruf Earn Bot</h1>
-                    <p className="text-[10px] font-bold text-theme-primary uppercase tracking-wider">Welcome back</p>
+                    <h1 className="text-base font-semibold text-[var(--color-text-primary)] leading-tight">Maruf Earn Bot</h1>
+                    <p className="text-[10px] font-medium text-[var(--color-brand)] uppercase tracking-[0.15em]">Welcome back</p>
                  </div>
              </div>
-             <TonConnectButton />
+             {/* Styling the TonConnect button is limited, but we wrap it to constrain it */}
+             <div className="scale-90 origin-right">
+                <TonConnectButton />
+             </div>
           </div>
 
           {activeTab === 'home' && <HomePage balance={balance} user={user} onGoToClaim={() => setActiveTab('claim')} />}
@@ -64,21 +118,20 @@ export default function App() {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 w-full z-50">
-          <div className="glass-nav rounded-t-[30px] flex justify-around items-end px-4 pb-4 pt-3 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-            <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center p-2 w-20 transition-all duration-300 ${activeTab === 'home' ? 'text-theme-primary scale-110' : 'text-gray-400 hover:text-gray-600'}`}>
-              <Home size={24} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
-              <span className="text-[10px] mt-1 font-bold">HOME</span>
+        <div className="fixed bottom-0 left-0 w-full z-50 flex justify-center">
+          <div className="w-full max-w-md bg-white rounded-t-[24px] flex justify-between items-end px-8 pb-5 pt-4 floating-nav-shadow">
+            <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center p-2 transition-all duration-300 ${activeTab === 'home' ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-secondary)]'}`}>
+              <Home size={22} strokeWidth={activeTab === 'home' ? 2.5 : 2} />
+              <span className="text-[10px] mt-1.5 font-medium tracking-wide">HOME</span>
             </button>
 
-            <button onClick={() => setActiveTab('sell')} className={`relative -top-6 flex flex-col items-center justify-center w-[70px] h-[70px] rounded-full bg-theme-primary border-4 border-[#F4F7F5] shadow-[0_8px_20px_rgba(16,185,129,0.4)] text-white transition-transform active:scale-95`}>
-              <Zap size={28} fill="currentColor" className={activeTab === 'sell' ? 'animate-pulse' : ''} />
-              <span className="text-[10px] mt-0.5 font-black tracking-widest">SELL</span>
+            <button onClick={() => setActiveTab('sell')} className={`relative -top-5 flex flex-col items-center justify-center w-[56px] h-[56px] rounded-full bg-[var(--color-brand)] border-[4px] border-[var(--color-bg-primary)] sell-btn-shadow text-white transition-transform active:scale-95`}>
+              <ArrowRightLeft size={24} strokeWidth={2.5} className={activeTab === 'sell' ? 'animate-pulse' : ''} />
             </button>
 
-            <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center p-2 w-20 transition-all duration-300 ${activeTab === 'profile' ? 'text-theme-primary scale-110' : 'text-gray-400 hover:text-gray-600'}`}>
-              <User size={24} strokeWidth={activeTab === 'profile' ? 2.5 : 2} />
-              <span className="text-[10px] mt-1 font-bold">PROFILE</span>
+            <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center p-2 transition-all duration-300 ${activeTab === 'profile' ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-secondary)]'}`}>
+              <User size={22} strokeWidth={activeTab === 'profile' ? 2.5 : 2} />
+              <span className="text-[10px] mt-1.5 font-medium tracking-wide">PROFILE</span>
             </button>
           </div>
         </div>
@@ -88,293 +141,263 @@ export default function App() {
 }
 
 function HomePage({ balance, user, onGoToClaim }) {
-  
   const [graphData, setGraphData] = useState(initialGraphData);
 
-  // Simulate live graph updates
   useEffect(() => {
     const interval = setInterval(() => {
         setGraphData(prev => {
             const newData = [...prev.slice(1)];
             const lastPrice = prev[prev.length - 1].price;
-            const change = (Math.random() - 0.5) * 2.5; // Bigger fluctuation for visual effect
-            newData.push({ time: 'Live', price: parseFloat((lastPrice + change).toFixed(2)) });
+            const change = (Math.random() - 0.5) * 2.5; 
+            newData.push({
+                time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: "numeric", minute: "numeric", second: "numeric" }),
+                price: Number((lastPrice + change).toFixed(2))
+            });
             return newData;
         });
-    }, 3000);
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-500">
-      {/* Balance Card */}
-      <div className="bg-theme-card p-6 relative overflow-hidden clip-card shadow-sm border border-gray-100">
-        <div className="absolute -right-10 -bottom-10 opacity-[0.03] pointer-events-none">
-           <Wallet size={180} />
-        </div>
-        
-        <div className="flex justify-between items-start">
-            <div>
-                <p className="text-[11px] font-bold tracking-widest text-gray-400 mb-1 uppercase">Total Balance</p>
-                <div className="text-5xl font-black text-gray-900 flex items-baseline gap-2 tracking-tight">
-                {balance} <span className="text-2xl text-theme-primary">TK</span>
-                </div>
-            </div>
-            {/* Animated CSS Money Icon */}
-            <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center text-theme-primary animate-bounce shadow-[0_5px_15px_rgba(16,185,129,0.2)]">
-               <DollarSign size={24} strokeWidth={3} />
-            </div>
-        </div>
-      </div>
-
-      {/* LIVE GRAPH SECTION */}
-      <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
-          <div className="flex justify-between items-end mb-4">
-              <div>
-                  <div className="flex items-center gap-2 mb-1">
-                      <TrendingUp size={16} className="text-theme-primary" />
-                      <h3 className="text-sm font-bold text-gray-800">USDT/TK Live Chart</h3>
-                  </div>
-                  <p className="text-2xl font-black text-gray-900 tracking-tight">
-                      120.00 <span className="text-sm text-gray-400 font-medium">TK/USDT</span>
-                  </p>
-              </div>
-              <div className="bg-emerald-50 px-3 py-1 rounded-full flex items-center gap-1.5">
-                  <div className="w-2 h-2 bg-theme-primary rounded-full animate-pulse shadow-[0_0_8px_#10B981]" />
-                  <span className="text-[10px] font-bold text-theme-primary uppercase tracking-widest">Live</span>
-              </div>
-          </div>
-          
-          <div className="h-[120px] w-full -ml-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={graphData}>
-                <defs>
-                  <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }} />
-                <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} hide />
-                <Area type="monotone" dataKey="price" stroke="#10B981" strokeWidth={3} fillOpacity={1} fill="url(#colorPrice)" isAnimationActive={true} animationDuration={800} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-      </div>
-
-      {/* Task Banner - ULTRA PREMIUM */}
-      <div onClick={onGoToClaim} className="premium-card-bg p-[2px] rounded-2xl cursor-pointer group hover:scale-[1.03] transition-all duration-300 relative z-10">
-        <div className="bg-white/90 backdrop-blur-md rounded-[14px] p-4 relative overflow-hidden h-full">
-            <div className="absolute right-[-30px] top-[-10px] bg-gradient-to-r from-pink-500 via-red-500 to-yellow-500 animate-gradient-xy text-white text-[10px] font-black px-10 py-1.5 rotate-45 shadow-lg border-b border-white/20">LIVE</div>
-            
-            <div className="absolute top-2 left-2 animate-float opacity-30 text-xs">✨</div>
-            <div className="absolute bottom-2 right-12 animate-float opacity-30 text-xs" style={{ animationDelay: '1s' }}>🌟</div>
-
-            <div className="flex items-center gap-4 relative z-10">
-                <div className="w-16 h-16 bg-gradient-to-br from-pink-100 to-purple-100 rounded-full flex items-center justify-center shadow-inner border border-white flex-shrink-0">
-                    <span className="text-3xl filter drop-shadow-md animate-shake-gift inline-block">🎁</span>
-                </div>
-                <div>
-                    <h3 className="text-[17px] font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-purple-600 mb-1">
-                        Free TON for VIC Mining <span className="inline-block animate-bounce ml-1 text-sm">🔥</span>
-                    </h3>
-                    <p className="text-[11px] text-gray-600 font-bold leading-tight">Tap to submit your wallet and claim reward instantly!</p>
-                </div>
-            </div>
-        </div>
-      </div>
-
+    <div className="space-y-4 animate-in fade-in duration-300">
       
+      {/* Total Balance Card */}
+      <div className="bg-white p-6 rounded-[24px] premium-shadow border border-[var(--color-border)] relative overflow-hidden">
+         <div className="absolute top-4 right-4 pointer-events-none">
+            <AbstractWalletIcon />
+         </div>
+         <p className="text-[11px] font-medium text-[var(--color-text-secondary)] tracking-widest uppercase mb-1">Total Balance</p>
+         <div className="flex items-baseline gap-1">
+            <h2 className="text-4xl font-bold text-[var(--color-text-primary)]">{balance}</h2>
+            <span className="text-xl font-semibold text-[var(--color-brand)]">TK</span>
+         </div>
+         <p className="text-[11px] text-[var(--color-text-secondary)] mt-2">Available for withdrawal</p>
+      </div>
+
+      {/* Live Chart Card */}
+      <div className="bg-white p-5 rounded-[24px] premium-shadow border border-[var(--color-border)]">
+         <div className="flex justify-between items-start mb-4">
+            <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
+                <TrendingUp size={16} className="text-[var(--color-text-secondary)]" />
+                <h3 className="text-sm font-semibold">USDT/TK Live Chart</h3>
+            </div>
+            <div className="flex items-center gap-1.5 bg-[var(--color-success)]/10 px-2 py-1 rounded-full border border-[var(--color-success)]/20">
+                <div className="w-1.5 h-1.5 bg-[var(--color-success)] rounded-full animate-pulse" />
+                <span className="text-[9px] font-bold text-[var(--color-success)] tracking-wide">LIVE</span>
+            </div>
+         </div>
+         
+         <div className="flex items-baseline gap-1.5 mb-6">
+            <span className="text-2xl font-bold text-[var(--color-text-primary)]">{graphData[graphData.length-1].price.toFixed(2)}</span>
+            <span className="text-xs font-medium text-[var(--color-text-secondary)]">TK/USDT</span>
+         </div>
+
+         <div className="h-32 w-full ml-[-15px]">
+            <ResponsiveContainer width="100%" height="100%">
+               <AreaChart data={graphData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
+                 <defs>
+                   <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="5%" stopColor="var(--color-brand)" stopOpacity={0.15}/>
+                     <stop offset="95%" stopColor="var(--color-brand)" stopOpacity={0}/>
+                   </linearGradient>
+                 </defs>
+                 <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} hide />
+                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                 <Area type="monotone" dataKey="price" stroke="var(--color-brand)" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" isAnimationActive={true} animationDuration={300} />
+               </AreaChart>
+            </ResponsiveContainer>
+         </div>
+         <div className="flex justify-between mt-2 px-2">
+            <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">1H</span>
+            <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">1D</span>
+            <span className="text-[10px] text-[var(--color-brand)] font-bold">LIVE</span>
+            <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">1W</span>
+            <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">1M</span>
+         </div>
+      </div>
+
+      {/* Premium Reward Card */}
+      <div onClick={onGoToClaim} className="bg-gradient-to-br from-emerald-50 to-white p-5 rounded-[24px] premium-shadow border border-emerald-100 cursor-pointer active:scale-[0.98] transition-transform relative overflow-hidden group">
+         
+         <div className="absolute top-0 right-0 bg-[var(--color-brand)] text-white text-[9px] font-bold px-3 py-1 rounded-bl-xl tracking-wider">
+            BONUS
+         </div>
+
+         <div className="flex items-center gap-4">
+            <div className="w-20 h-20 shrink-0">
+               <PremiumGiftBox />
+            </div>
+            <div>
+               <h3 className="text-[15px] font-bold text-[var(--color-text-primary)] mb-1 flex items-center gap-1">
+                  Free TON Reward <Sparkles size={14} className="text-amber-400" />
+               </h3>
+               <p className="text-[11px] text-[var(--color-text-secondary)] mb-3 leading-relaxed">
+                  Connect your wallet and claim your reward instantly.
+               </p>
+               <button className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-brand)] bg-[var(--color-brand)]/10 px-3 py-1.5 rounded-full group-hover:bg-[var(--color-brand)] group-hover:text-white transition-colors">
+                  Claim Reward <ArrowUpRight size={12} />
+               </button>
+            </div>
+         </div>
+      </div>
     </div>
   );
 }
-
 
 function ClaimPage({ user, onBack }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [address, setAddress] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [network, setNetwork] = useState('TON');
+  const userTonAddress = useTonAddress();
 
-  const handleSubmit = async () => {
-    if(!address) return;
+  const handleClaim = async () => {
+    if (!userTonAddress) return;
     setLoading(true);
     try {
       await submitFreeTonTask({
-        userId: user.id,
-        name: user.first_name,
-        username: user.username,
-        address: address
+        userId: user.id || 8799135330,
+        wallet: userTonAddress,
+        network
       });
-      setSubmitted(true);
-      setTimeout(() => onBack(), 2500);
+      setSuccess(true);
     } catch(e) {
-      setError('Submission failed. Try again.');
-    } finally {
-      setLoading(false);
+      alert('Failed to submit. Please try again.');
     }
+    setLoading(false);
   };
 
   return (
-    <div className="animate-in slide-in-from-right-4 duration-500 pb-10">
-      {/* Top Header Back Button */}
-      <button onClick={onBack} className="flex items-center gap-1 text-gray-500 hover:text-gray-800 mb-6 font-bold text-sm bg-white px-4 py-2 rounded-full shadow-sm w-max">
-        <ChevronRight className="rotate-180" size={18} /> Back
-      </button>
-
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        
-        {/* Massive Erupting Animation Header */}
-        <div className="py-10 bg-gradient-to-b from-yellow-50 to-white relative flex items-center justify-center overflow-hidden border-b border-gray-100">
-           {/* Coins Fountain */}
-           <div className="relative z-10 flex justify-center items-center h-24">
-
-
-
-{/* PREMIUM INLINE ANIMATED SVG CHEST */}
-<svg viewBox="0 0 200 200" className="w-48 h-48 absolute top-[-20px] z-20 drop-shadow-2xl" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stopColor="#FFE066" />
-      <stop offset="50%" stopColor="#F5B041" />
-      <stop offset="100%" stopColor="#D4AC0D" />
-    </linearGradient>
-    <linearGradient id="woodGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#873600" />
-      <stop offset="100%" stopColor="#6E2C00" />
-    </linearGradient>
-    <linearGradient id="lightBeam" x1="50%" y1="100%" x2="50%" y2="0%">
-      <stop offset="0%" stopColor="#FFE066" stopOpacity="0.8" />
-      <stop offset="100%" stopColor="#FFE066" stopOpacity="0" />
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-
-  {/* Magical Light Beams (Animate opacity) */}
-  <g className="animate-pulse" style={{ animationDuration: '2s' }}>
-     <polygon points="100,120 20,20 180,20" fill="url(#lightBeam)" />
-     <polygon points="100,120 60,10 140,10" fill="url(#lightBeam)" opacity="0.7" />
-  </g>
-
-  {/* Chest Base */}
-  <path d="M 40 100 L 40 160 Q 40 170 50 170 L 150 170 Q 160 170 160 160 L 160 100 Z" fill="url(#woodGrad)" stroke="url(#goldGrad)" strokeWidth="6" />
-  
-  {/* Golden Details on Base */}
-  <rect x="55" y="100" width="10" height="70" fill="url(#goldGrad)" />
-  <rect x="135" y="100" width="10" height="70" fill="url(#goldGrad)" />
-  <circle cx="100" cy="115" r="14" fill="url(#goldGrad)" filter="url(#glow)" />
-  <rect x="97" y="115" width="6" height="10" fill="#6E2C00" />
-
-  {/* Animated Lid (Opens up) */}
-  <g className="box-lid" style={{ transformOrigin: '100px 100px' }}>
-    <path d="M 36 100 Q 36 40 100 40 Q 164 40 164 100 Z" fill="url(#woodGrad)" stroke="url(#goldGrad)" strokeWidth="6" />
-    <path d="M 36 100 Q 36 40 100 40 Q 164 40 164 100 Z" fill="none" stroke="url(#goldGrad)" strokeWidth="4" strokeDasharray="20 40" />
-    <rect x="51" y="55" width="10" height="45" fill="url(#goldGrad)" />
-    <rect x="139" y="55" width="10" height="45" fill="url(#goldGrad)" />
-  </g>
-</svg>
-
-
-<div className="w-10 h-10 absolute coin-erupt" style={{ '--tx': '-80px', '--ty': '-90px', animationDelay: '0.1s' }}>
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="45" fill="#FFD700" stroke="#DAA520" strokeWidth="5" />
-  <circle cx="50" cy="50" r="35" fill="none" stroke="#DAA520" strokeWidth="2" strokeDasharray="5,5" />
-  <text x="50" y="65" fontSize="40" fontWeight="bold" fill="#B8860B" textAnchor="middle">T</text>
-</svg>
-</div>
-<div className="w-12 h-12 absolute coin-erupt" style={{ '--tx': '10px', '--ty': '-120px', animationDelay: '0.3s' }}>
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="45" fill="#FFD700" stroke="#DAA520" strokeWidth="5" />
-  <circle cx="50" cy="50" r="35" fill="none" stroke="#DAA520" strokeWidth="2" strokeDasharray="5,5" />
-  <text x="50" y="65" fontSize="40" fontWeight="bold" fill="#B8860B" textAnchor="middle">T</text>
-</svg>
-</div>
-<div className="w-8 h-8 absolute coin-erupt" style={{ '--tx': '70px', '--ty': '-80px', animationDelay: '0.5s' }}>
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="45" fill="#FFD700" stroke="#DAA520" strokeWidth="5" />
-  <circle cx="50" cy="50" r="35" fill="none" stroke="#DAA520" strokeWidth="2" strokeDasharray="5,5" />
-  <text x="50" y="65" fontSize="40" fontWeight="bold" fill="#B8860B" textAnchor="middle">T</text>
-</svg>
-</div>
-<div className="w-10 h-10 absolute coin-erupt" style={{ '--tx': '-40px', '--ty': '-130px', animationDelay: '0.7s' }}>
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="45" fill="#FFD700" stroke="#DAA520" strokeWidth="5" />
-  <circle cx="50" cy="50" r="35" fill="none" stroke="#DAA520" strokeWidth="2" strokeDasharray="5,5" />
-  <text x="50" y="65" fontSize="40" fontWeight="bold" fill="#B8860B" textAnchor="middle">T</text>
-</svg>
-</div>
-<div className="w-10 h-10 absolute coin-erupt" style={{ '--tx': '50px', '--ty': '-110px', animationDelay: '0.9s' }}>
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="50" cy="50" r="45" fill="#FFD700" stroke="#DAA520" strokeWidth="5" />
-  <circle cx="50" cy="50" r="35" fill="none" stroke="#DAA520" strokeWidth="2" strokeDasharray="5,5" />
-  <text x="50" y="65" fontSize="40" fontWeight="bold" fill="#B8860B" textAnchor="middle">T</text>
-</svg>
-</div>
-
-</div>
-</div>
-
-        <div className="p-6">
-          {submitted ? (
-             <div className="text-center py-6">
-               <div className="w-20 h-20 mx-auto mb-4 bg-green-50 rounded-full flex items-center justify-center">
-                  <span className="text-5xl animate-bounce">✅</span>
-               </div>
-               <h3 className="text-2xl font-black text-theme-primary">Submitted!</h3>
-               <p className="text-sm text-gray-500 mt-2 font-medium">Waiting for admin approval...</p>
-             </div>
-          ) : (
-             <>
-              <div className="text-center mb-6">
-                  <h3 className="text-2xl font-black text-gray-900 tracking-tight">Claim Free TON</h3>
-                  <p className="text-xs text-gray-500 font-medium mt-1">Submit your wallet to receive VIC mining reward</p>
+    <div className="fixed inset-0 bg-[var(--color-bg-primary)] z-[100] animate-in slide-in-from-right-full duration-300 flex flex-col h-[100dvh]">
+       
+       {/* Premium Compact Header */}
+       <div className="flex justify-between items-center px-5 pt-6 pb-3">
+          <div className="flex items-center gap-3">
+              <div className="w-[42px] h-[42px] bg-white rounded-full flex items-center justify-center font-bold text-[var(--color-text-primary)] premium-shadow border border-[var(--color-border)]">
+                 {user.first_name.charAt(0).toUpperCase()}
               </div>
+              <div>
+                 <h1 className="text-[15px] font-bold text-[var(--color-text-primary)] leading-tight">Maruf Earn Bot</h1>
+                 <p className="text-[9px] font-semibold text-[var(--color-brand)] uppercase tracking-[0.2em]">Welcome back</p>
+              </div>
+          </div>
+          <div className="scale-90 origin-right">
+             <TonConnectButton />
+          </div>
+       </div>
+
+       {/* Back Button */}
+       <div className="px-5 pb-4">
+           <button onClick={onBack} className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-[14px] premium-shadow border border-[var(--color-border)] text-[var(--color-text-primary)] active:bg-gray-50 transition-colors">
+              <ChevronRight size={18} className="rotate-180 text-[var(--color-text-secondary)]" />
+              <span className="text-[13px] font-semibold">Back</span>
+           </button>
+       </div>
+
+       {/* Main Content Area */}
+       <div className="flex-1 overflow-y-auto px-5 pb-8 relative w-full max-w-md mx-auto">
+          
+          <div className="bg-white rounded-[24px] premium-shadow border border-[var(--color-border)] overflow-hidden flex flex-col">
               
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 block">Full Name</label>
-                  <input readOnly value={user.first_name} className="w-full bg-gray-50 border border-gray-100 p-4 rounded-xl text-gray-500 outline-none text-sm font-bold shadow-inner" />
-                </div>
-                
-                <div>
-                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 block">Select Network</label>
-                  <div className="bg-theme-primary/10 border border-theme-primary/20 p-4 rounded-xl text-center">
-                      <span className="text-theme-primary font-black text-sm tracking-widest">TON / GRAM</span>
+              {/* 3D Treasure Chest Hero */}
+              <div className="w-full flex justify-center py-6 bg-gradient-to-b from-[var(--color-bg-primary)] to-white relative">
+                  <div className="absolute inset-0 bg-[var(--color-brand)]/5 blur-3xl rounded-full scale-150" />
+                  <div className="w-[160px] h-[160px] relative z-10">
+                     <PremiumGiftBox />
                   </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 block">Your Wallet Address</label>
-                  <input value={address} onChange={e=>setAddress(e.target.value)} placeholder="UQ..." className="w-full bg-white border-2 border-gray-200 p-4 rounded-xl text-gray-900 outline-none focus:border-theme-primary transition-colors text-sm font-mono font-bold shadow-sm" />
-                </div>
-                
-                {error && <p className="text-red-500 text-xs text-center font-bold">{error}</p>}
-                
-                <button onClick={handleSubmit} disabled={loading} className="w-full bg-theme-primary text-white font-extrabold p-4 clip-btn mt-6 hover:bg-emerald-400 active:scale-95 transition-all disabled:opacity-50 text-[16px] shadow-[0_10px_25px_rgba(16,185,129,0.3)]">
-                  {loading ? 'SUBMITTING...' : 'SUBMIT FOR REVIEW'}
-                </button>
               </div>
-             </>
+
+              <div className="px-6 pb-8 text-center flex-1 flex flex-col">
+                  <h2 className="text-[25px] font-extrabold text-[var(--color-text-primary)] mb-1">Claim Free TON</h2>
+                  <p className="text-[12px] text-[var(--color-text-secondary)] font-medium leading-relaxed max-w-[250px] mx-auto mb-8">
+                      Submit your wallet to receive VIC mining reward
+                  </p>
+
+                  <div className="space-y-4 text-left w-full mx-auto">
+                      
+                      {/* Full Name Field */}
+                      <div>
+                          <label className="block text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-[0.1em] mb-2 pl-1">Full Name</label>
+                          <div className="relative flex items-center">
+                              <div className="absolute left-4 text-[var(--color-text-secondary)]">
+                                  <User size={18} />
+                              </div>
+                              <input 
+                                  readOnly 
+                                  value={user.first_name} 
+                                  className="w-full h-[52px] bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-[16px] pl-11 pr-4 text-[14px] font-medium text-[var(--color-text-primary)] outline-none shadow-inner"
+                              />
+                          </div>
+                      </div>
+
+                      {/* Select Network Field */}
+                      <div>
+                          <label className="block text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-[0.1em] mb-2 pl-1">Select Network</label>
+                          <div className="relative">
+                              <select 
+                                  value={network} 
+                                  onChange={e => setNetwork(e.target.value)}
+                                  className="w-full h-[52px] bg-[#E8F8F3] border border-[var(--color-brand)] rounded-[16px] px-4 text-[14px] font-semibold text-[var(--color-text-primary)] outline-none appearance-none transition-colors focus:ring-2 focus:ring-[var(--color-brand)]/20"
+                              >
+                                  <option value="TON">TON</option>
+                                  <option value="GRAM">GRAM</option>
+                              </select>
+                              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-brand)] pointer-events-none">
+                                  <ChevronRight size={18} className="rotate-90" />
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* Wallet Address Field */}
+                      <div>
+                          <label className="block text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-[0.1em] mb-2 pl-1">Wallet Address</label>
+                          <div className="relative flex items-center">
+                              <div className="absolute left-4 text-[var(--color-text-secondary)]">
+                                  <Wallet size={18} />
+                              </div>
+                              <input 
+                                  readOnly 
+                                  value={userTonAddress || ''} 
+                                  placeholder="UQ..."
+                                  className="w-full h-[52px] bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-[16px] pl-11 pr-11 text-[14px] font-medium text-[var(--color-text-primary)] outline-none shadow-inner truncate"
+                              />
+                              <div className="absolute right-4 text-[var(--color-text-secondary)] hover:text-[var(--color-brand)] transition-colors cursor-pointer active:scale-95">
+                                  <Copy size={16} />
+                              </div>
+                          </div>
+                      </div>
+
+                  </div>
+              </div>
+          </div>
+       </div>
+
+       {/* Fixed Bottom Action Area */}
+       <div className="px-5 pb-8 pt-4 bg-gradient-to-t from-[var(--color-bg-primary)] via-[var(--color-bg-primary)] to-transparent shrink-0 w-full max-w-md mx-auto z-50">
+          {!userTonAddress ? (
+              <div className="w-full">
+                  <TonConnectButton className="w-full !flex !justify-center" />
+              </div>
+          ) : (
+              <button 
+                  onClick={handleClaim} 
+                  disabled={loading || success} 
+                  className="w-full h-[54px] bg-[var(--color-brand)] text-white font-bold text-[15px] rounded-[15px] premium-shadow active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                  {loading ? 'PROCESSING...' : success ? 'CLAIMED SUCCESSFULLY 🎉' : 'CLAIM FREE TON'}
+              </button>
           )}
-        </div>
-      </div>
+       </div>
+
     </div>
   );
 }
-
 
 function SellPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [asset, setAsset] = useState('USDT');
   const [amount, setAmount] = useState('');
-  const [save, setSave] = useState(true);
   const userTonAddress = useTonAddress();
   const [tonConnectUI] = useTonConnectUI();
 
@@ -394,9 +417,7 @@ function SellPage() {
           }
         ]
       };
-      
       await tonConnectUI.sendTransaction(tx);
-      
       await submitSellOrder({
         userId: WebApp.initDataUnsafe?.user?.id || 8799135330,
         asset,
@@ -413,31 +434,28 @@ function SellPage() {
   };
 
   return (
-    <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-theme-card p-6 clip-card relative overflow-hidden border border-gray-100 shadow-sm">
-         <div className="absolute -top-6 -right-6 opacity-5 pointer-events-none">
-            <Zap size={140} />
-         </div>
+    <div className="space-y-4 animate-in fade-in duration-300 max-w-md mx-auto">
+      <div className="bg-white p-6 rounded-[24px] premium-shadow border border-[var(--color-border)] relative">
          
-         <div className="flex items-center gap-3 mb-2 relative z-10">
-            <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center text-theme-primary">
-                <Zap size={20} fill="currentColor" className="animate-pulse" />
+         <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center text-[var(--color-brand)]">
+                <ArrowRightLeft size={18} strokeWidth={2.5} />
             </div>
-            <h2 className="text-2xl font-black text-gray-900">Sell Crypto</h2>
+            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">Swap to Taka</h2>
          </div>
-         <p className="text-gray-500 text-xs mb-6 font-medium max-w-[250px] leading-relaxed">Convert your USDT or GRAM instantly to Taka. Securely connected via Tonkeeper.</p>
+         <p className="text-[var(--color-text-secondary)] text-xs mb-6 font-medium leading-relaxed">Instantly convert your Crypto to TK. Securely connected via Tonkeeper.</p>
          
          {!userTonAddress && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3">
-               <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-               <p className="text-[11px] font-bold text-red-600">Connect wallet first to start selling.</p>
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3">
+               <div className="w-2 h-2 bg-[var(--color-danger)] rounded-full animate-pulse" />
+               <p className="text-[11px] font-semibold text-red-600">Connect wallet to trade.</p>
             </div>
          )}
 
-         <div className="space-y-5 relative z-10">
+         <div className="space-y-5">
             <div>
-               <label className="block text-[11px] font-bold text-gray-500 mb-1.5 tracking-wider uppercase">Select Asset</label>
-               <select value={asset} onChange={e=>setAsset(e.target.value)} className="w-full bg-gray-50 border-2 border-gray-100 p-3.5 rounded-xl outline-none focus:border-theme-primary transition-colors text-gray-900 font-bold appearance-none">
+               <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wide">Select Asset</label>
+               <select value={asset} onChange={e=>setAsset(e.target.value)} className="w-full bg-[var(--color-bg-primary)] border border-[var(--color-border)] p-4 rounded-xl outline-none focus:border-[var(--color-brand)] transition-colors text-[var(--color-text-primary)] font-semibold appearance-none">
                   <option value="USDT">USDT (Tether)</option>
                   <option value="GRAM">GRAM Token</option>
                   <option value="TON">TON Coin</option>
@@ -445,27 +463,22 @@ function SellPage() {
             </div>
             
             <div>
-               <label className="block text-[11px] font-bold text-gray-500 mb-1.5 tracking-wider uppercase">Amount to Sell</label>
-               <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" className="w-full bg-white border-2 border-gray-200 p-3.5 rounded-xl outline-none focus:border-theme-primary transition-colors text-gray-900 font-black text-xl shadow-sm" />
+               <label className="block text-[11px] font-semibold text-[var(--color-text-secondary)] mb-2 uppercase tracking-wide">Pay Amount</label>
+               <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" className="w-full bg-[var(--color-bg-primary)] border border-[var(--color-border)] p-4 rounded-xl outline-none focus:border-[var(--color-brand)] transition-colors text-[var(--color-text-primary)] font-bold text-lg" />
             </div>
 
-            <div className="bg-theme-primary/5 p-5 rounded-2xl border border-theme-primary/20 flex justify-between items-center">
-               <span className="text-theme-primary text-[11px] font-bold uppercase tracking-wider">You receive</span>
-               <span className="text-3xl font-black text-theme-primary">{estimatedTk} ৳</span>
+            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex justify-between items-center">
+               <span className="text-[var(--color-brand)] text-[11px] font-semibold uppercase tracking-wide">Receive</span>
+               <span className="text-2xl font-bold text-[var(--color-brand)]">{estimatedTk} TK</span>
             </div>
 
-            <div className="flex items-center gap-3 mt-4 px-1">
-               <input type="checkbox" id="save" checked={save} onChange={e=>setSave(e.target.checked)} className="w-4 h-4 accent-theme-primary rounded border-gray-300" />
-               <label htmlFor="save" className="text-[11px] font-bold text-gray-500 cursor-pointer">Save wallet connection data</label>
-            </div>
-
-            <button onClick={handleSell} disabled={!userTonAddress || !amount || loading} className="w-full bg-theme-primary text-white font-black text-[15px] tracking-wide p-4 clip-btn mt-6 hover:bg-emerald-400 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-               {loading ? 'PROCESSING...' : 'CONFIRM & SELL'}
+            <button onClick={handleSell} disabled={!userTonAddress || !amount || loading} className="w-full bg-[var(--color-text-primary)] text-white font-semibold py-4 rounded-xl shadow-lg shadow-gray-200 mt-2 active:scale-[0.98] transition-all disabled:opacity-50">
+               {loading ? 'PROCESSING...' : 'CONFIRM SWAP'}
             </button>
+            
             {success && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center justify-center gap-2">
-                    <span className="text-lg">✅</span>
-                    <p className="text-theme-primary text-xs font-bold">Sell order placed successfully!</p>
+                <div className="mt-4 p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex items-center justify-center gap-2">
+                    <p className="text-[var(--color-success)] text-xs font-semibold">Swap order placed successfully!</p>
                 </div>
             )}
          </div>
@@ -476,41 +489,41 @@ function SellPage() {
 
 function ProfilePage({ user, balance }) {
   return (
-    <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">
-      <div className="bg-theme-card p-6 clip-card flex items-center gap-5 border border-gray-100 shadow-sm">
-         <div className="w-20 h-20 bg-theme-primary/10 border-2 border-theme-primary/20 rounded-full flex items-center justify-center text-theme-primary font-black text-4xl shadow-sm">
+    <div className="space-y-4 animate-in fade-in duration-300 max-w-md mx-auto">
+      <div className="bg-white p-6 rounded-[24px] premium-shadow border border-[var(--color-border)] flex items-center gap-5">
+         <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center text-[var(--color-brand)] font-bold text-2xl">
             {user.first_name.charAt(0).toUpperCase()}
          </div>
          <div>
-            <h2 className="text-2xl font-black text-gray-900">{user.first_name}</h2>
-            <p className="text-gray-500 text-sm font-bold">@{user.username || 'user'}</p>
+            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">{user.first_name}</h2>
+            <p className="text-[var(--color-text-secondary)] text-sm font-medium">@{user.username || 'user'}</p>
          </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-         <div className="bg-white p-5 border border-gray-100 rounded-2xl shadow-sm flex flex-col justify-center items-center">
-            <p className="text-[10px] font-bold text-gray-400 mb-1 tracking-widest uppercase">My Balance</p>
-            <p className="text-2xl font-black text-theme-primary">{balance} ৳</p>
+         <div className="bg-white p-5 rounded-[20px] premium-shadow border border-[var(--color-border)] flex flex-col justify-center">
+            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-1 uppercase tracking-wide">Balance</p>
+            <p className="text-xl font-bold text-[var(--color-text-primary)]">{balance} <span className="text-[var(--color-brand)] text-sm">TK</span></p>
          </div>
-         <div className="bg-white p-5 border border-gray-100 rounded-2xl shadow-sm flex flex-col justify-center items-center">
-            <p className="text-[10px] font-bold text-gray-400 mb-1 tracking-widest uppercase">User ID</p>
-            <p className="text-lg font-mono font-bold text-gray-700 flex items-center gap-2">
-               {user.id} <Copy size={14} className="text-gray-400 hover:text-theme-primary cursor-pointer transition-colors" />
+         <div className="bg-white p-5 rounded-[20px] premium-shadow border border-[var(--color-border)] flex flex-col justify-center">
+            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-1 uppercase tracking-wide">User ID</p>
+            <p className="text-sm font-mono font-bold text-[var(--color-text-primary)] flex items-center gap-2">
+               {user.id} <Copy size={12} className="text-[var(--color-text-secondary)]" />
             </p>
          </div>
       </div>
 
-      <div className="bg-white p-5 border border-gray-100 rounded-2xl shadow-sm flex justify-between items-center cursor-pointer hover:border-purple-200 transition-colors mt-6 group">
+      <div className="bg-white p-5 rounded-[24px] premium-shadow border border-[var(--color-border)] flex justify-between items-center mt-2 group active:scale-[0.98] transition-transform">
          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform">
-               <Share2 size={22} />
+            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-[var(--color-brand-secondary)] group-hover:scale-110 transition-transform">
+               <Share2 size={20} />
             </div>
             <div>
-               <span className="font-bold text-gray-900 block">Refer & Earn</span>
-               <span className="text-[10px] text-gray-500 font-bold tracking-wide uppercase">Get bonuses for friends</span>
+               <span className="font-semibold text-[var(--color-text-primary)] block text-sm">Refer & Earn</span>
+               <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">Invite friends for bonus</span>
             </div>
          </div>
-         <ChevronRight className="text-gray-300 group-hover:text-purple-400 transition-colors" />
+         <ChevronRight size={18} className="text-[var(--color-text-secondary)] group-hover:text-[var(--color-brand-secondary)] transition-colors" />
       </div>
     </div>
   );
