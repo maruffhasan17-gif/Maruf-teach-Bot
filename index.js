@@ -375,6 +375,7 @@ bot.on('message', async (msg) => {
             
             for (const uname of usernames) {
                 // Save to valid_referrals in Firestore
+                if (uname.includes('/')) return;
                 await db.collection('valid_referrals').doc(uname).set({
                     addedAt: new Date().toISOString()
                 }, {merge: true});
