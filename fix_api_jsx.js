@@ -1,0 +1,1 @@
+const fs = require('fs'); let c = fs.readFileSync('miniapp/src/api.js', 'utf8'); c = c.replace(/\\$\\{API_URL\\}/g, '\\\$\\{API_URL\\}/api/miniapp/build-tx\').replace(/\/api\/miniapp\/build-tx\/api\/miniapp\/build-tx/g, '/api/miniapp/build-tx'); fs.writeFileSync('miniapp/src/api.js', c);

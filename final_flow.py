@@ -1,0 +1,44 @@
+import io
+import re
+
+with io.open('index.js', 'r', encoding='utf-8') as f:
+    c = f.read()
+
+# Fix the Keyboard Menu
+c = re.sub(
+    r'keyboard:\s*\[\s*\[\s*\{\s*text:\s*m\.bkash\s*\},\s*\{\s*text:\s*m\.crypto\s*\}\s*\],\s*\[\s*\{\s*text:\s*m\.free\s*\},\s*\{\s*text:\s*m\.profile\s*\}\s*\]\s*\]',
+    'keyboard: [ [ { text: m.free }, { text: m.profile } ] ]',
+    c
+)
+
+# Fix the double sending (if any) and inject the loading logic
+# Find: else if (text === m.free) { ... }
+free_logic_regex = r'(else if \(text === m\.free\) \{)(.*?)(bot\.sendMessage\(chatId, freeMsgText)'
+replacement_free = r'''\1
+        try {
+            const loadingMsg = await bot.sendMessage(chatId, lang === 'bn' ? "? *????? ?????????? ????? ??? ?????...*" : "? *Verifying your account...*", { parse_mode: 'Markdown' });
+            
+            // Simulate IP/VPN checking delay
+            await new Promise(r => setTimeout(r, 2000));
+            
+            const bdHour = (new Date().getUTCHours() + 6) % 24;
+            if (bdHour < 12) {
+                bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});
+                bot.sendMessage(chatId, lang === 'bn' ? "?? **??????!** ???? ????????? ????? ???? ???? ??? ???? ??????? ???? ????? ??????? ??? ??? ????? ????? ?? ???? ?????? ?????" : "?? **Sorry!** The bot is only open from 12 PM to 12 AM BD Time. Please try again later.", { parse_mode: 'Markdown' });
+                return;
+            }
+
+            const claimDoc = await db.collection('free_claims').doc(chatId.toString()).get();
+            if (claimDoc.exists) {
+                bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});
+                bot.sendMessage(chatId, lang === 'bn' ? "?? **???? ?????????!** ???? ????????? ????? ???? ???????? ?????? ??????? ???? ????? ????? ?????? ???? ??????!" : "?? **Fraud Detected!** You have already claimed your free reward!", { parse_mode: 'Markdown' });
+                return;
+            }
+
+            bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});\n\2\3'''
+c = re.sub(free_logic_regex, replacement_free, c, flags=re.DOTALL)
+
+
+with io.open('index.js', 'w', encoding='utf-8') as f:
+    f.write(c)
+

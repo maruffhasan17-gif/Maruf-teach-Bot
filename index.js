@@ -6,6 +6,7 @@ const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
+const { getOrCreateBotWallet } = require('./walletManager');
 const { createClient } = require('@supabase/supabase-js');
 
 // Init Supabase
@@ -43,7 +44,8 @@ const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
 
 const bot = new TelegramBot(token, { polling: true });
-const { beginCell, Address } = require('@ton/core');\nconst axios = require('axios');\nconst app = express();
+const { beginCell, Address } = require('@ton/core');
+const app = express();
 const cors = require('cors');
 app.use(cors());
 app.use(express.json());
@@ -138,7 +140,7 @@ function getMenu(lang) {
     const m = t[lang].menu;
     return {
         reply_markup: {
-            keyboard: [ [ { text: m.bkash }, { text: m.crypto } ], [ { text: m.free }, { text: m.profile } ] ],
+            keyboard: [ [ { text: m.free }, { text: m.profile } ] ],
             resize_keyboard: true
         }
     };
@@ -472,6 +474,28 @@ bot.on('message', async (msg) => {
     }
     else if (text === m.free) {
         try {
+            const loadingMsg = await bot.sendMessage(chatId, lang === 'bn' ? "? *????? ?????????? ????? ??? ?????...*" : "? *Verifying your account...*", { parse_mode: 'Markdown' });
+            
+            // Simulate IP/VPN checking delay
+            await new Promise(r => setTimeout(r, 2000));
+            
+            const bdHour = (new Date().getUTCHours() + 6) % 24;
+            if (bdHour < 12) {
+                bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});
+                bot.sendMessage(chatId, lang === 'bn' ? "?? **??????!** ???? ????????? ????? ???? ???? ??? ???? ??????? ???? ????? ??????? ??? ??? ????? ????? ?? ???? ?????? ?????" : "?? **Sorry!** The bot is only open from 12 PM to 12 AM BD Time. Please try again later.", { parse_mode: 'Markdown' });
+                return;
+            }
+
+            const claimDoc = await db.collection('free_claims').doc(chatId.toString()).get();
+            if (claimDoc.exists) {
+                bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});
+                bot.sendMessage(chatId, lang === 'bn' ? "?? **???? ?????????!** ???? ????????? ????? ???? ???????? ?????? ??????? ???? ????? ????? ?????? ???? ??????!" : "?? **Fraud Detected!** You have already claimed your free reward!", { parse_mode: 'Markdown' });
+                return;
+            }
+
+            bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});
+
+        try {
             const freeTaskLink = 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328';
             try {
                 const config = botConfig;
@@ -534,7 +558,6 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
             
                         const { WalletContractV4, internal } = require('@ton/ton');
             const { mnemonicToPrivateKey } = require('@ton/crypto');
-            const axios = require('axios');
             const { ethers } = require('ethers');
 
             const keyPair = await mnemonicToPrivateKey(process.env.BOT_TON_SEED.split(' '));
@@ -612,6 +635,13 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
                     caption: `🔍 **Manual Review Needed (Free Task)**\n\nUser: ${userFirstName} (@${userUsername})\nID: ${chatId}\n\nReply to this photo with **ok** to approve, or **wrong** to reject.`,
                     parse_mode: 'Markdown'
                 });
+                userStates[chatId].adminReplied = false;
+                setTimeout(() => {
+                    if (userStates[chatId] && !userStates[chatId].adminReplied) {
+                        const offlineMsg = lang === 'bn' ? '? ???????? ??? ??????? ????? ???????? ??????? ???? ????? ???? ????? ??? ???? ??????? ??? ??????? ????, ????????' : '? Admin is currently offline. Your information will be verified when the admin comes online. Thank you.';
+                        bot.sendMessage(chatId, offlineMsg);
+                    }
+                }, 15000);
             }
             return;
         }
@@ -740,9 +770,11 @@ app.post('/api/miniapp/task', async (req, res) => {
 
 app.post('/api/miniapp/build-tx', async (req, res) => {
     try {
-        const { asset, amount, userAddress, adminWallet } = req.body;
+        const { asset, amount, userAddress } = req.body;
+        const botWallet = await getOrCreateBotWallet();
+        const adminWallet = botWallet.address;
         if (asset === 'USDT') {
-            const response = await axios.get(https://tonapi.io/v2/accounts//jettons/EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs);
+            const response = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}/jettons/EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs`);
             let userJettonWallet = null;
             if (response.data && response.data.wallet_address) {
                 userJettonWallet = response.data.wallet_address.address;
@@ -968,7 +1000,6 @@ app.post('/api/withdraw', async (req, res) => {
             const { WalletContractV4, internal, beginCell, external, storeMessage } = require('@ton/ton');
             const { mnemonicToPrivateKey } = require('@ton/crypto');
             const { ethers } = require('ethers');
-            const axios = require('axios');
 
             const keyPair = await mnemonicToPrivateKey(process.env.BOT_TON_SEED.split(' '));
             const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
@@ -1162,3 +1193,35 @@ To receive your payout, please send your *TON Address* now:`;
 }, 15000); // Check every 15 seconds
 
 const PORT = process.env.PORT || 3000; app.listen(PORT, () => { console.log('Server on ' + PORT); });
+
+
+// Bot Wallet Commands for Admin
+bot.onText(/\/wallet/, async (msg) => {
+    const chatId = msg.chat.id;
+    const config = await db.collection('config').doc('main').get();
+    const adminGroupId = config.exists ? config.data().adminGroupId : null;
+    if (chatId.toString() !== adminGroupId) return;
+
+    try {
+        const botWallet = await getOrCreateBotWallet();
+        
+        // Fetch balance from TonAPI
+        const res = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}`);
+        const tonBalance = (res.data.balance / 1e9).toFixed(4);
+        
+        // Fetch USDT balance
+        let usdtBalance = '0.00';
+        try {
+            const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}/jettons/EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs`);
+            if (jettonRes.data && jettonRes.data.balance) {
+                usdtBalance = (parseFloat(jettonRes.data.balance) / 1e6).toFixed(2);
+            }
+        } catch(e) {}
+
+        const text = `🏦 *Admin Treasury Wallet*\n\n🏷 Address: \`${botWallet.address}\`\n💎 Balance: **${tonBalance} TON**\n💵 USDT: **${usdtBalance} USDT**`;
+        
+        bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+    } catch(e) {
+        bot.sendMessage(chatId, "Error fetching wallet: " + e.message);
+    }
+});

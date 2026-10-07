@@ -1,0 +1,1 @@
+const fs = require('fs'); let c = fs.readFileSync('miniapp/src/App.jsx', 'utf8'); c = c.replace('<TonConnectUIProvider manifestUrl={manifestUrl}>', '<TonConnectUIProvider manifestUrl={manifestUrl}>\n      <TonConnectStyles />'); fs.writeFileSync('miniapp/src/App.jsx', c);

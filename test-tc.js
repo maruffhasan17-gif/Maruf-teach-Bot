@@ -1,0 +1,1 @@
+const tc = document.querySelector('tc-root'); if (tc && tc.shadowRoot) { const style = document.createElement('style'); style.textContent = '.toast-container { left: 50% !important; transform: translateX(-50%) !important; right: auto !important; top: 80px !important; }'; tc.shadowRoot.appendChild(style); }

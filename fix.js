@@ -1,1 +1,1 @@
-const fs = require('fs'); let code = fs.readFileSync('admin/src/App.jsx', 'utf8'); code = code.split('$'+'{import.meta.env.VITE_API_URL || \\'http://localhost:3000\\'}').join(''); fs.writeFileSync('admin/src/App.jsx', code);
+const fs = require('fs'); let c = fs.readFileSync('index.js', 'utf8'); c = c.split('axios.get(https://tonapi.io/v2/accounts//jettons/EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs);').join('axios.get(\https://tonapi.io/v2/accounts/\/jettons/EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs\);'); fs.writeFileSync('index.js', c);
