@@ -51,3 +51,13 @@ export const withdrawFiat = async (payload) => {
         throw new Error(e.response?.data?.error || 'Failed to request withdrawal');
     }
 };
+
+export const buildTransaction = async (payload) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/build-tx`, payload);
+        return res.data;
+    } catch (e) {
+        console.error(e);
+        throw e.response?.data || e;
+    }
+};

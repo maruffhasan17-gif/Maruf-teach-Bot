@@ -3,7 +3,7 @@ import { Home, User, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet,
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder } from './api';
+import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction } from './api';
 
 const initialGraphData = [
   { time: '10:00', price: 118.5 },
@@ -124,6 +124,7 @@ export default function App() {
   const [user, setUser] = useState({ id: 0, first_name: 'User', username: '' });
   const [balance, setBalance] = useState(0);
 
+  window.reloadGlobalData = () => loadData(user.id || 8799135330);
   const loadData = async (userId) => {
     const data = await fetchUserData(userId);
     setBalance(data.balance);
@@ -594,14 +595,26 @@ function SellPage() {
     if(!userTonAddress || !amount) return;
     setLoading(true);
     try {
-      const tx = {
-        validUntil: Math.floor(Date.now() / 1000) + 600,
-        messages: [{ address: "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb", amount: (parseFloat(amount) * 1e9).toString() }]
-      };
-      await tonConnectUI.sendTransaction(tx);
+      // 1. Get Transaction Payload from Backend
+      const txRes = await buildTransaction({
+          asset,
+          amount: parseFloat(amount),
+          userAddress: userTonAddress,
+          adminWallet: "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb"
+      });
+      if (!txRes.success) throw new Error(txRes.error || "Failed to build transaction");
+
+      // 2. Send via TonConnect
+      await tonConnectUI.sendTransaction(txRes.tx);
+
+      // 3. Save order and credit FIAT balance
       await submitSellOrder({
         userId: WebApp.initDataUnsafe?.user?.id || 8799135330, asset, amount: parseFloat(amount), estimatedTk: parseFloat(estimatedTk), wallet: userTonAddress
       });
+      
+      // 4. Reload global balance in App.jsx
+      if (window.reloadGlobalData) window.reloadGlobalData();
+
       setTxStatus('success');
       setTxMessage('Successfully swapped to TK BDT');
       setAmount('');
