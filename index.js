@@ -495,7 +495,6 @@ bot.on('message', async (msg) => {
 
             bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});
 
-        try {
             const freeTaskLink = 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328';
             try {
                 const config = botConfig;
