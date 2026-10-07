@@ -294,6 +294,69 @@ bot.on('message', async (msg) => {
             const caption = msg.reply_to_message.caption || msg.reply_to_message.text || '';
             
                 // --- MINI APP TASK REPLY LOGIC ---
+                
+                // --- FIAT WITHDRAWAL LOGIC ---
+                if (caption.includes("New Fiat Withdrawal")) {
+                    const idMatch = caption.match(/ID: (\d+)/);
+                    if (idMatch && idMatch[1]) {
+                        const targetUserId = idMatch[1];
+                        
+                        if (['done', 'ok'].includes(replyText)) {
+                            await db.collection('users').doc(targetUserId).update({
+                                fiatWithdrawPending: null
+                            });
+                            bot.sendMessage(chatId, `✅ Marked withdrawal for ${targetUserId} as PAID.`);
+                            bot.sendMessage(targetUserId, `🎉 <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!`, { parse_mode: 'HTML' });
+                        } 
+                        else if (replyText === 'wt' || replyText === 'wait') {
+                            await bot.sendMessage(chatId, `⏱ Reply to THIS message with the time format.\n\nMinutes: <code>10:00</code>\nHours: <code>1:30:50</code>\n\nUser ID: ${targetUserId}`, { parse_mode: 'HTML' });
+                        }
+                        else if (replyText.startsWith('reject')) {
+                            const reason = text.substring(6).trim() || 'No reason provided';
+                            const userRef = db.collection('users').doc(targetUserId);
+                            const userDoc = await userRef.get();
+                            if (userDoc.exists && userDoc.data().fiatWithdrawPending) {
+                                const amountToRefund = userDoc.data().fiatWithdrawPending.amount;
+                                await userRef.update({
+                                    balance: (userDoc.data().balance || 0) + amountToRefund,
+                                    fiatWithdrawPending: null
+                                });
+                                bot.sendMessage(chatId, `❌ Rejected withdrawal for ${targetUserId} and refunded ${amountToRefund} USDT.\nReason: ${reason}`);
+                                bot.sendMessage(targetUserId, `❌ <b>Withdrawal Rejected</b>\nYour ${amountToRefund} USDT has been refunded to your balance.\nReason: ${reason}`, { parse_mode: 'HTML' });
+                            }
+                        }
+                    }
+                    return;
+                }
+                
+                
+                // --- FIAT WAIT TIMER LOGIC ---
+                if (caption.includes("Reply to THIS message with the time format")) {
+                    const idMatch = caption.match(/User ID: (\d+)/);
+                    if (idMatch && idMatch[1]) {
+                        const targetUserId = idMatch[1];
+                        let totalSeconds = 0;
+                        const parts = text.split(':');
+                        if (parts.length === 2) {
+                            totalSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+                        } else if (parts.length === 3) {
+                            totalSeconds = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+                        }
+                        
+                        if (totalSeconds > 0) {
+                            const endTime = Date.now() + (totalSeconds * 1000);
+                            await db.collection('users').doc(targetUserId).update({
+                                'fiatWithdrawPending.status': 'waiting',
+                                'fiatWithdrawPending.endTime': endTime
+                            });
+                            bot.sendMessage(chatId, `⏳ Timer set for ${targetUserId}. They will see the countdown in the app.`);
+                        } else {
+                            bot.sendMessage(chatId, `⚠️ Invalid time format. Please use MM:SS or HH:MM:SS`);
+                        }
+                    }
+                    return;
+                }
+
                 if (caption.includes("New MiniApp Task Submission")) {
                     const addrMatch = caption.match(/Address: `([a-zA-Z0-9_-]+)`/);
                     if (addrMatch && addrMatch[1]) {
@@ -635,7 +698,12 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
         if (!userDoc.exists) {
             return res.json({ balance: 0 });
         }
-        res.json({ balance: userDoc.data().balance || 0 });
+        const data = userDoc.data();
+        res.json({ 
+            balance: data.balance || 0,
+            fiatWallet: data.fiatWallet || null,
+            fiatWithdrawPending: data.fiatWithdrawPending || null
+        });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
@@ -766,6 +834,7 @@ app.get('/api/stats', async (req, res) => {
 
 // Serve static manifest for TON Connect
 app.use('/tonconnect-manifest.json', express.static('tonconnect-manifest.json'));
+app.use('/logo.png', express.static('logo.png'));
 
 const { mnemonicToPrivateKey } = require('@ton/crypto');
 const { WalletContractV4, internal, TonClient } = require('@ton/ton');
@@ -782,6 +851,56 @@ app.get('/api/transactions', async (req, res) => {
             });
         });
         res.json(txs);
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+
+app.post('/api/miniapp/save-wallet', async (req, res) => {
+    try {
+        const { userId, method, number, name } = req.body;
+        await db.collection('users').doc(userId.toString()).update({
+            fiatWallet: { method, number, name }
+        });
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
+    try {
+        const { userId, amount } = req.body;
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        
+        if (!userDoc.exists) throw new Error("User not found");
+        const userData = userDoc.data();
+        if ((userData.balance || 0) < amount) throw new Error("Insufficient balance");
+        if (userData.fiatWithdrawPending) throw new Error("You already have a pending withdrawal");
+        
+        // Deduct balance and set pending
+        await userRef.update({
+            balance: (userData.balance || 0) - amount,
+            fiatWithdrawPending: {
+                amount: amount,
+                status: 'pending',
+                timestamp: Date.now(),
+                method: userData.fiatWallet.method,
+                number: userData.fiatWallet.number,
+                name: userData.fiatWallet.name
+            }
+        });
+        
+        // Notify Admin Group
+        const config = require('./config.json');
+        if (config.adminGroupId) {
+            const msg = `💰 <b>New Fiat Withdrawal</b>\n\n👤 User: <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a>\n🆔 ID: ${userId}\n💲 Amount: <b>${amount} USDT</b>\n🏦 Method: ${userData.fiatWallet.method}\n📱 Number: ${userData.fiatWallet.number}\n📛 Name: ${userData.fiatWallet.name}\n\n⚙️ <b>Actions (Reply to this):</b>\n- <code>Done</code> or <code>Ok</code> to mark paid\n- <code>Wait</code> to set a timer\n- <code>Reject [reason]</code> to refund`;
+            await bot.sendMessage(config.adminGroupId, msg, { parse_mode: 'HTML' });
+        }
+        
+        res.json({ success: true });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }

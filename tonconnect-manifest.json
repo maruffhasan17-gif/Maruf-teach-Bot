@@ -1,5 +1,5 @@
 {
-  "url": "http://localhost:5174",
-  "name": "Maruf Teach Admin",
-  "iconUrl": "https://raw.githubusercontent.com/ton-community/tutorials/main/03-client/test/public/tonconnect-manifest.json"
+  "url": "https://maruf-teach-bot.onrender.com",
+  "name": "Maruf Earn Bot",
+  "iconUrl": "https://maruf-teach-bot.onrender.com/logo.png"
 }
