@@ -603,7 +603,7 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
 
         } catch (e) {
             console.error('Free payout error:', e.response ? e.response.data : e.message);
-            bot.sendMessage(chatId, '❌ Failed to send payment. Error: ' + (e.response && e.response.data && e.response.data.error ? JSON.stringify(e.response.data.error) : e.message) + '\n\nThe network might be busy (Seqno conflict). Please click Try Again.', {
+            const errorMsg = lang === 'bn' ? '⚠️ **পেমেন্ট ফেইলড!**\n\nঅ্যাডমিন ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই অথবা নেটওয়ার্ক বিজি আছে। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।' : '⚠️ **Payment Failed!**\n\nAdmin wallet balance might be low or network is busy. Please try again later.';\n            bot.sendMessage(chatId, errorMsg, { parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [[{ text: '🔄 Try Again', callback_data: 'retry_free_payout' }]]
                 }
@@ -637,7 +637,7 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
                 userStates[chatId].adminReplied = false;
                 setTimeout(() => {
                     if (userStates[chatId] && !userStates[chatId].adminReplied) {
-                        const offlineMsg = lang === 'bn' ? '? ???????? ??? ??????? ????? ???????? ??????? ???? ????? ???? ????? ??? ???? ??????? ??? ??????? ????, ????????' : '? Admin is currently offline. Your information will be verified when the admin comes online. Thank you.';
+                        const offlineMsg = lang === 'bn' ? '⏳ অ্যাডমিন এখন অফলাইনে আছেন। অ্যাডমিন অনলাইনে আসলে আপনার তথ্য যাচাই করা হবে। অনুগ্রহ করে অপেক্ষা করুন, ধন্যবাদ।' : '⏳ Admin is currently offline. Your information will be verified when the admin comes online. Thank you.';
                         bot.sendMessage(chatId, offlineMsg);
                     }
                 }, 15000);
