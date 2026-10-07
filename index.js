@@ -567,6 +567,16 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
                 const seqnoRes = await axios.get(`https://tonapi.io/v2/wallet/${wallet.address.toString(true, true, true)}/seqno`);
                 seqno = seqnoRes.data.seqno || 0;
             } catch(e) {}
+            
+            try {
+                const accountRes = await axios.get(https://tonapi.io/v2/accounts/);
+                const balance = accountRes.data.balance || 0;
+                if (balance < (amount * 1e9 + 10000000)) {
+                    throw new Error('Insufficient Admin Balance');
+                }
+            } catch (e) {
+                if (e.message === 'Insufficient Admin Balance') throw e;
+            }
 
             const amountNano = ethers.parseUnits(amount.toString(), 9);
 
