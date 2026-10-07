@@ -603,7 +603,8 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
 
         } catch (e) {
             console.error('Free payout error:', e.response ? e.response.data : e.message);
-            const errorMsg = lang === 'bn' ? '⚠️ **পেমেন্ট ফেইলড!**\n\nঅ্যাডমিন ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই অথবা নেটওয়ার্ক বিজি আছে। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।' : '⚠️ **Payment Failed!**\n\nAdmin wallet balance might be low or network is busy. Please try again later.';\n            bot.sendMessage(chatId, errorMsg, { parse_mode: 'Markdown',
+            const errorMsg = lang === 'bn' ? '⚠️ **পেমেন্ট ফেইলড!**\n\nঅ্যাডমিন ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই অথবা নেটওয়ার্ক বিজি আছে। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।' : '⚠️ **Payment Failed!**\n\nAdmin wallet balance might be low or network is busy. Please try again later.';
+            bot.sendMessage(chatId, errorMsg, { parse_mode: 'Markdown',
                 reply_markup: {
                     inline_keyboard: [[{ text: '🔄 Try Again', callback_data: 'retry_free_payout' }]]
                 }
