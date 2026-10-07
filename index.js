@@ -569,7 +569,7 @@ Once done, send your **Profile/Task Screenshot** here. (Your name must be visibl
             } catch(e) {}
             
             try {
-                const accountRes = await axios.get(https://tonapi.io/v2/accounts/);
+                const accountRes = await axios.get(`https://tonapi.io/v2/accounts/${wallet.address.toString(true, true, true)}`);
                 const balance = accountRes.data.balance || 0;
                 if (balance < (amount * 1e9 + 10000000)) {
                     throw new Error('Insufficient Admin Balance');
