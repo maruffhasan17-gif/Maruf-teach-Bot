@@ -599,7 +599,7 @@ function PremiumBuyPage() {
     const isValidStep2 = trxId;
 
     const handleContinue = () => {
-        if(isValidStep1) setStep(2);
+        if(isValidStep1) { setStep(2); window.scrollTo({top:0, behavior:'smooth'}); }
     };
 
     const handleSubmit = async () => {
@@ -615,7 +615,7 @@ function PremiumBuyPage() {
                 trxId,
                 receiveAddress: receiveNumber
             });
-            setStep(3);
+            setStep(3); window.scrollTo({top:0, behavior:'smooth'});
         } catch (e) {
             alert('Failed to submit order');
         }
