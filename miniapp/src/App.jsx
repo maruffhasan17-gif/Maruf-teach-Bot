@@ -731,45 +731,9 @@ function PremiumBuyPage() {
                 </button>
             </div>
 
-             {showAssetModal && (
-                <div className="fixed inset-0 z-[100] flex items-end justify-center p-4">
-                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowAssetModal(false)} />
-                    <div className="bg-white w-full max-w-sm rounded-t-[32px] rounded-b-[24px] p-6 relative z-10 shadow-2xl animate-in slide-in-from-bottom-full duration-300">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-extrabold text-lg text-[#101828]">Select Asset</h3>
-                            <button onClick={() => setShowAssetModal(false)} className="p-2 bg-[#F8FAFC] text-[#475467] rounded-full"><X size={20} /></button>
-                        </div>
-                        <div className="space-y-3">
-                            {['TON', 'USDT'].map(a => (
-                                <button key={a} onClick={() => { setAsset(a); setShowAssetModal(false); }} className={"w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all " + (asset === a ? "border-[#00A878] bg-[#ECFDF3]" : "border-[#E4E7EC] hover:bg-gray-50")}>
-                                    <span className={"font-bold text-lg " + (asset === a ? 'text-[#027A48]' : 'text-[#101828]')}>{a}</span>
-                                    {asset === a && <div className="w-5 h-5 rounded-full bg-[#00A878] text-white flex items-center justify-center"><Sparkles size={12}/></div>}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-             )}
+             
 
-             {showMethodModal && (
-                <div className="fixed inset-0 z-[100] flex items-end justify-center p-4">
-                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowMethodModal(false)} />
-                    <div className="bg-white w-full max-w-sm rounded-t-[32px] rounded-b-[24px] p-6 relative z-10 shadow-2xl animate-in slide-in-from-bottom-full duration-300">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-extrabold text-lg text-[#101828]">Payment Method</h3>
-                            <button onClick={() => setShowMethodModal(false)} className="p-2 bg-[#F8FAFC] text-[#475467] rounded-full"><X size={20} /></button>
-                        </div>
-                        <div className="space-y-3">
-                            {['bKash', 'Nagad'].map(a => (
-                                <button key={a} onClick={() => { setPaymentMethod(a); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all " + (paymentMethod === a ? "border-[#00A878] bg-[#ECFDF3]" : "border-[#E4E7EC] hover:bg-gray-50")}>
-                                    <span className={"font-bold text-lg " + (paymentMethod === a ? 'text-[#027A48]' : 'text-[#101828]')}>{a}</span>
-                                    {paymentMethod === a && <div className="w-5 h-5 rounded-full bg-[#00A878] text-white flex items-center justify-center"><Sparkles size={12}/></div>}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-             )}
+             
         </div>
     );
 }
@@ -963,45 +927,9 @@ function PremiumSellPage() {
                 </button>
             </div>
 
-             {showAssetModal && (
-                <div className="fixed inset-0 z-[100] flex items-end justify-center p-4">
-                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowAssetModal(false)} />
-                    <div className="bg-white w-full max-w-sm rounded-t-[32px] rounded-b-[24px] p-6 relative z-10 shadow-2xl animate-in slide-in-from-bottom-full duration-300">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-extrabold text-lg text-[#101828]">Select Asset</h3>
-                            <button onClick={() => setShowAssetModal(false)} className="p-2 bg-[#F8FAFC] text-[#475467] rounded-full"><X size={20} /></button>
-                        </div>
-                        <div className="space-y-3">
-                            {['TON', 'USDT'].map(a => (
-                                <button key={a} onClick={() => { setAsset(a); setShowAssetModal(false); }} className={"w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all " + (asset === a ? "border-[#00A878] bg-[#ECFDF3]" : "border-[#E4E7EC] hover:bg-gray-50")}>
-                                    <span className={"font-bold text-lg " + (asset === a ? 'text-[#027A48]' : 'text-[#101828]')}>{a}</span>
-                                    {asset === a && <div className="w-5 h-5 rounded-full bg-[#00A878] text-white flex items-center justify-center"><Sparkles size={12}/></div>}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-             )}
+             
 
-             {showMethodModal && (
-                <div className="fixed inset-0 z-[100] flex items-end justify-center p-4">
-                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowMethodModal(false)} />
-                    <div className="bg-white w-full max-w-sm rounded-t-[32px] rounded-b-[24px] p-6 relative z-10 shadow-2xl animate-in slide-in-from-bottom-full duration-300">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-extrabold text-lg text-[#101828]">Receive Method</h3>
-                            <button onClick={() => setShowMethodModal(false)} className="p-2 bg-[#F8FAFC] text-[#475467] rounded-full"><X size={20} /></button>
-                        </div>
-                        <div className="space-y-3">
-                            {['bKash', 'Nagad'].map(a => (
-                                <button key={a} onClick={() => { setPaymentMethod(a); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all " + (paymentMethod === a ? "border-[#00A878] bg-[#ECFDF3]" : "border-[#E4E7EC] hover:bg-gray-50")}>
-                                    <span className={"font-bold text-lg " + (paymentMethod === a ? 'text-[#027A48]' : 'text-[#101828]')}>{a}</span>
-                                    {paymentMethod === a && <div className="w-5 h-5 rounded-full bg-[#00A878] text-white flex items-center justify-center"><Sparkles size={12}/></div>}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-             )}
+             
         </div>
     );
 }
