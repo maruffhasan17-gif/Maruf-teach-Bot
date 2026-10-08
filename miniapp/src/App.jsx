@@ -523,6 +523,7 @@ function ClaimPage({ user, onBack }) {
 }
 
 
+
 function PremiumBuyPage() {
     const [step, setStep] = React.useState(1);
     const [asset, setAsset] = React.useState('TON');
@@ -540,13 +541,15 @@ function PremiumBuyPage() {
     
     const totalBdt = amount ? (Number(amount) * (asset === 'USDT' ? liveUsdBdt : liveCryptoRate * liveUsdBdt)).toFixed(2) : '0.00';
 
-    const isValidForm = amount && name && sendingNumber && trxId && receiveAddress;
+    const isValidStep1 = amount && name && receiveAddress;
+    const isValidStep2 = sendingNumber && trxId;
 
     const handleContinue = () => {
-        if(isValidForm) setStep(2);
+        if(isValidStep1) setStep(2);
     };
 
     const handleSubmit = () => {
+        if(!isValidStep2) return;
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
@@ -572,7 +575,7 @@ function PremiumBuyPage() {
                         Verification Pending
                     </div>
                 </div>
-                <button onClick={() => { setStep(1); setAmount(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
+                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setSendingNumber(''); setReceiveAddress(''); setName(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
                     BACK TO HOME
                 </button>
             </div>
@@ -586,7 +589,7 @@ function PremiumBuyPage() {
                     <button onClick={() => setStep(1)} className="p-2 -ml-2 bg-white rounded-full shadow-sm text-[#101828]"><ArrowDown size={20} className="rotate-90" /></button>
                     <div>
                         <h2 className="text-xl font-extrabold text-[#101828] tracking-tight">Payment Verification</h2>
-                        <p className="text-[#475467] text-xs mt-0.5">Review your payment details</p>
+                        <p className="text-[#475467] text-xs mt-0.5">Submit your payment details</p>
                     </div>
                 </div>
 
@@ -606,35 +609,31 @@ function PremiumBuyPage() {
                         </div>
                         <div className="h-px bg-[#E4E7EC] w-full"></div>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#475467]">To bKash / Nagad</span>
+                            <span className="text-xs font-bold text-[#475467]">To bKash/Nagad</span>
                             <span className="text-sm font-bold text-[#101828] bg-white px-2 py-1 rounded-md shadow-sm border border-[#E4E7EC]">{adminBkash}</span>
                         </div>
                     </div>
 
-                    <h3 className="text-sm font-bold text-[#101828] mb-4">Your Details</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">TrxID</span>
-                            <span className="text-sm font-bold text-[#101828]">{trxId}</span>
+                    <h3 className="text-sm font-bold text-[#101828] mb-4 mt-6">Payment Details</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Sending Number (bKash/Nagad)</label>
+                            <input type="tel" value={sendingNumber} onChange={e => setSendingNumber(e.target.value)} placeholder="01XXXXXXXXX" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
                         </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Number</span>
-                            <span className="text-sm font-bold text-[#101828]">{sendingNumber}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Receive</span>
-                            <span className="text-xs font-bold text-[#101828] bg-[#F8FAFC] px-2 py-1 rounded-md border border-[#E4E7EC] truncate max-w-[120px]">{receiveAddress}</span>
+                        <div>
+                            <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Transaction ID</label>
+                            <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="8ABC123XYZ" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-[#ECFDF3] border border-[#00A878]/20 rounded-2xl p-4 flex gap-3 mb-6 shadow-sm">
                     <Info size={20} className="text-[#027A48] shrink-0 mt-0.5" />
-                    <p className="text-[#027A48] text-xs font-medium leading-relaxed">Your payment will be verified before the {asset} is sent to your wallet. Usually takes 2-5 minutes.</p>
+                    <p className="text-[#027A48] text-xs font-medium leading-relaxed">Your payment will be verified before the {asset} is sent to your wallet.</p>
                 </div>
 
                 <div className="mt-auto">
-                    <button onClick={handleSubmit} disabled={loading} className="w-full bg-[#00A878] text-white font-extrabold rounded-2xl p-[18px] shadow-lg shadow-[#00A878]/20 active:scale-95 transition-all flex justify-center items-center gap-2">
+                    <button onClick={handleSubmit} disabled={!isValidStep2 || loading} className="w-full bg-[#00A878] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg shadow-[#00A878]/20 active:scale-95 transition-all flex justify-center items-center gap-2">
                         {loading ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> VERIFYING...</> : 'SUBMIT FOR VERIFICATION'}
                     </button>
                 </div>
@@ -690,14 +689,6 @@ function PremiumBuyPage() {
                         <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
                     </div>
                     <div>
-                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Sending Number (bKash/Nagad)</label>
-                        <input type="tel" value={sendingNumber} onChange={e => setSendingNumber(e.target.value)} placeholder="01XXXXXXXXX" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Transaction ID</label>
-                        <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="8ABC123XYZ" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
-                    </div>
-                    <div>
                         <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Address ({asset})</label>
                         <input type="text" value={receiveAddress} onChange={e => setReceiveAddress(e.target.value)} placeholder={"Paste your " + asset + " address"} className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
                     </div>
@@ -705,7 +696,7 @@ function PremiumBuyPage() {
             </div>
 
             <div className="mt-6">
-                <button onClick={handleContinue} disabled={!isValidForm} className="w-full bg-[#101828] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg active:scale-95 transition-all">
+                <button onClick={handleContinue} disabled={!isValidStep1} className="w-full bg-[#101828] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg active:scale-95 transition-all">
                     CONTINUE TO PAYMENT
                 </button>
             </div>
@@ -749,13 +740,15 @@ function PremiumSellPage() {
     
     const totalBdt = amount ? (Number(amount) * (asset === 'USDT' ? liveUsdBdt : liveCryptoRate * liveUsdBdt)).toFixed(2) : '0.00';
 
-    const isValidForm = amount && name && receiveNumber && trxId;
+    const isValidStep1 = amount && name && receiveNumber;
+    const isValidStep2 = trxId;
 
     const handleContinue = () => {
-        if(isValidForm) setStep(2);
+        if(isValidStep1) setStep(2);
     };
 
     const handleSubmit = () => {
+        if(!isValidStep2) return;
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
@@ -781,7 +774,7 @@ function PremiumSellPage() {
                         Verification Pending
                     </div>
                 </div>
-                <button onClick={() => { setStep(1); setAmount(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
+                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setReceiveNumber(''); setName(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
                     BACK TO HOME
                 </button>
             </div>
@@ -795,7 +788,7 @@ function PremiumSellPage() {
                     <button onClick={() => setStep(1)} className="p-2 -ml-2 bg-white rounded-full shadow-sm text-[#101828]"><ArrowDown size={20} className="rotate-90" /></button>
                     <div>
                         <h2 className="text-xl font-extrabold text-[#101828] tracking-tight">Sell Verification</h2>
-                        <p className="text-[#475467] text-xs mt-0.5">Review your transfer details</p>
+                        <p className="text-[#475467] text-xs mt-0.5">Submit your transfer details</p>
                     </div>
                 </div>
 
@@ -820,26 +813,22 @@ function PremiumSellPage() {
                         </div>
                     </div>
 
-                    <h3 className="text-sm font-bold text-[#101828] mb-4">Your Details</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">TrxID</span>
-                            <span className="text-sm font-bold text-[#101828]">{trxId}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#98A2B3] uppercase tracking-wider">Receive BDT At</span>
-                            <span className="text-sm font-bold text-[#101828]">{receiveNumber}</span>
+                    <h3 className="text-sm font-bold text-[#101828] mb-4 mt-6">Transfer Details</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Crypto Transfer TxID</label>
+                            <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="Tx Hash..." className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-[#ECFDF3] border border-[#00A878]/20 rounded-2xl p-4 flex gap-3 mb-6 shadow-sm">
                     <Info size={20} className="text-[#027A48] shrink-0 mt-0.5" />
-                    <p className="text-[#027A48] text-xs font-medium leading-relaxed">Your transfer will be verified before BDT is sent to your number. Usually takes 2-5 minutes.</p>
+                    <p className="text-[#027A48] text-xs font-medium leading-relaxed">Your transfer will be verified before BDT is sent to your number.</p>
                 </div>
 
                 <div className="mt-auto">
-                    <button onClick={handleSubmit} disabled={loading} className="w-full bg-[#00A878] text-white font-extrabold rounded-2xl p-[18px] shadow-lg shadow-[#00A878]/20 active:scale-95 transition-all flex justify-center items-center gap-2">
+                    <button onClick={handleSubmit} disabled={!isValidStep2 || loading} className="w-full bg-[#00A878] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg shadow-[#00A878]/20 active:scale-95 transition-all flex justify-center items-center gap-2">
                         {loading ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> VERIFYING...</> : 'SUBMIT FOR VERIFICATION'}
                     </button>
                 </div>
@@ -898,16 +887,12 @@ function PremiumSellPage() {
                         <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Number (bKash/Nagad)</label>
                         <input type="tel" value={receiveNumber} onChange={e => setReceiveNumber(e.target.value)} placeholder="01XXXXXXXXX" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
                     </div>
-                    <div>
-                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Crypto Transfer TxID</label>
-                        <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="Tx Hash..." className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
-                    </div>
                 </div>
             </div>
 
             <div className="mt-6">
-                <button onClick={handleContinue} disabled={!isValidForm} className="w-full bg-[#101828] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg active:scale-95 transition-all">
-                    CONTINUE TO VERIFICATION
+                <button onClick={handleContinue} disabled={!isValidStep1} className="w-full bg-[#101828] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg active:scale-95 transition-all">
+                    CONTINUE TO TRANSFER
                 </button>
             </div>
 
