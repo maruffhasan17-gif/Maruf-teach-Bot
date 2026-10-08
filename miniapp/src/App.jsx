@@ -832,7 +832,8 @@ function PremiumBuyPage() {
 }
 
 
-\nfunction PremiumSellPage() {
+
+function PremiumSellPage() {
   const [loading, setLoading] = useState(false);
   const [txStatus, setTxStatus] = useState(null);
   const [txMessage, setTxMessage] = useState('');
@@ -1239,7 +1240,9 @@ transition-all duration-200 flex items-center justify-center shadow-sm"
 
 
 
-\n\nfunction HistoryPage({ user, onBack }) {
+
+
+function HistoryPage({ user, onBack }) {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
 
