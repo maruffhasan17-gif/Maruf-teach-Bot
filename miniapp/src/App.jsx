@@ -736,26 +736,40 @@ function PremiumBuyPage() {
                     <div>
                         <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Payment Method</label>
                         
+    
+    
+    
     <div className="relative z-40">
         <button onClick={() => setShowMethodModal(!showMethodModal)} className="w-full bg-[#F8FAFC] rounded-2xl p-4 flex items-center justify-between border border-[#E4E7EC] active:bg-gray-100 transition-colors">
-            <span className="font-bold text-[#101828] text-sm">{paymentMethod}</span>
+            <div className="flex items-center gap-2.5">
+                {paymentMethod === 'bKash' ? <img src="/bkash.png" className="w-5 h-5 object-contain" alt="bKash" /> : <img src="https://upload.wikimedia.org/wikipedia/commons/7/74/Nagad_Logo.svg" className="w-5 h-5 object-contain" alt="Nagad" />}
+                <span className="font-bold text-[#101828] text-sm">{paymentMethod}</span>
+            </div>
             <ChevronDown size={18} className={"text-[#98A2B3] transition-transform " + (showMethodModal ? "rotate-180" : "")} />
         </button>
         {showMethodModal && (
             
     <div className="absolute top-full left-0 w-full mt-1 bg-white rounded-xl shadow-xl border border-[#E4E7EC] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-40">
-        {['bKash', 'Nagad'].map(a => (
-            <button key={a} onClick={() => { setPaymentMethod(a); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 border-b border-[#E4E7EC] last:border-0 hover:bg-gray-50 transition-colors " + (paymentMethod === a ? "bg-[#ECFDF3]" : "")}>
-                <span className={"font-bold text-sm " + (paymentMethod === a ? 'text-[#027A48]' : 'text-[#101828]')}>{a}</span>
-                {paymentMethod === a && <Sparkles size={14} className="text-[#00A878]"/>}
-            </button>
-        ))}
+        <button onClick={() => { setPaymentMethod('bKash'); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 border-b border-[#E4E7EC] hover:bg-gray-50 transition-colors " + (paymentMethod === 'bKash' ? "bg-[#ECFDF3]" : "")}>
+            <div className="flex items-center gap-2.5">
+                <img src="/bkash.png" className="w-5 h-5 object-contain" alt="bKash" />
+                <span className={"font-bold text-sm " + (paymentMethod === 'bKash' ? 'text-[#027A48]' : 'text-[#101828]')}>bKash</span>
+            </div>
+            {paymentMethod === 'bKash' && <Sparkles size={14} className="text-[#00A878]"/>}
+        </button>
+        <button onClick={() => { setPaymentMethod('Nagad'); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors " + (paymentMethod === 'Nagad' ? "bg-[#ECFDF3]" : "")}>
+            <div className="flex items-center gap-2.5">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/7/74/Nagad_Logo.svg" className="w-5 h-5 object-contain" alt="Nagad" />
+                <span className={"font-bold text-sm " + (paymentMethod === 'Nagad' ? 'text-[#027A48]' : 'text-[#101828]')}>Nagad</span>
+            </div>
+            {paymentMethod === 'Nagad' && <Sparkles size={14} className="text-[#00A878]"/>}
+        </button>
     </div>
 
         )}
     </div>
 
-                    </div>
+    </div>
                     <div>
                         <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Address ({asset})</label>
                         <input type="text" value={receiveAddress} onChange={e => setReceiveAddress(e.target.value)} placeholder={"Paste your " + asset + " address"} className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
@@ -764,9 +778,9 @@ function PremiumBuyPage() {
             </div>
 
             <div className="mt-6">
-                <button onClick={handleContinue} disabled={!isValidStep1} className="w-full bg-[#101828] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg active:scale-95 transition-all">
-                    CONTINUE TO PAYMENT
-                </button>
+                <button onClick={handleContinue} disabled={!isValidStep1} className="w-full bg-[#101828] disabled:bg-[#101828]/50 disabled:cursor-not-allowed text-white font-extrabold rounded-2xl p-4 shadow-lg shadow-black/20 active:scale-95 transition-all text-sm tracking-wide">
+        PAYMENT
+    </button>
             </div>
 
              
@@ -970,26 +984,38 @@ function PremiumSellPage() {
                     <div>
                         <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Method</label>
                         
+    
     <div className="relative z-40">
         <button onClick={() => setShowMethodModal(!showMethodModal)} className="w-full bg-[#F8FAFC] rounded-2xl p-4 flex items-center justify-between border border-[#E4E7EC] active:bg-gray-100 transition-colors">
-            <span className="font-bold text-[#101828] text-sm">{paymentMethod}</span>
+            <div className="flex items-center gap-2.5">
+                {paymentMethod === 'bKash' ? <img src="/bkash.png" className="w-5 h-5 object-contain" alt="bKash" /> : <img src="https://upload.wikimedia.org/wikipedia/commons/7/74/Nagad_Logo.svg" className="w-5 h-5 object-contain" alt="Nagad" />}
+                <span className="font-bold text-[#101828] text-sm">{paymentMethod}</span>
+            </div>
             <ChevronDown size={18} className={"text-[#98A2B3] transition-transform " + (showMethodModal ? "rotate-180" : "")} />
         </button>
         {showMethodModal && (
             
     <div className="absolute top-full left-0 w-full mt-1 bg-white rounded-xl shadow-xl border border-[#E4E7EC] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-40">
-        {['bKash', 'Nagad'].map(a => (
-            <button key={a} onClick={() => { setPaymentMethod(a); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 border-b border-[#E4E7EC] last:border-0 hover:bg-gray-50 transition-colors " + (paymentMethod === a ? "bg-[#ECFDF3]" : "")}>
-                <span className={"font-bold text-sm " + (paymentMethod === a ? 'text-[#027A48]' : 'text-[#101828]')}>{a}</span>
-                {paymentMethod === a && <Sparkles size={14} className="text-[#00A878]"/>}
-            </button>
-        ))}
+        <button onClick={() => { setPaymentMethod('bKash'); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 border-b border-[#E4E7EC] hover:bg-gray-50 transition-colors " + (paymentMethod === 'bKash' ? "bg-[#ECFDF3]" : "")}>
+            <div className="flex items-center gap-2.5">
+                <img src="/bkash.png" className="w-5 h-5 object-contain" alt="bKash" />
+                <span className={"font-bold text-sm " + (paymentMethod === 'bKash' ? 'text-[#027A48]' : 'text-[#101828]')}>bKash</span>
+            </div>
+            {paymentMethod === 'bKash' && <Sparkles size={14} className="text-[#00A878]"/>}
+        </button>
+        <button onClick={() => { setPaymentMethod('Nagad'); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors " + (paymentMethod === 'Nagad' ? "bg-[#ECFDF3]" : "")}>
+            <div className="flex items-center gap-2.5">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/7/74/Nagad_Logo.svg" className="w-5 h-5 object-contain" alt="Nagad" />
+                <span className={"font-bold text-sm " + (paymentMethod === 'Nagad' ? 'text-[#027A48]' : 'text-[#101828]')}>Nagad</span>
+            </div>
+            {paymentMethod === 'Nagad' && <Sparkles size={14} className="text-[#00A878]"/>}
+        </button>
     </div>
 
         )}
     </div>
 
-                    </div>
+    </div>
                     <div>
                         <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Number ({paymentMethod})</label>
                         <input type="tel" value={receiveNumber} onChange={e => setReceiveNumber(e.target.value)} placeholder="01XXXXXXXXX" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
@@ -998,9 +1024,9 @@ function PremiumSellPage() {
             </div>
 
             <div className="mt-6">
-                <button onClick={handleContinue} disabled={!isValidStep1} className="w-full bg-[#101828] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg active:scale-95 transition-all">
-                    CONTINUE TO TRANSFER
-                </button>
+                <button onClick={handleContinue} disabled={!isValidStep1} className="w-full bg-[#101828] disabled:bg-[#101828]/50 disabled:cursor-not-allowed text-white font-extrabold rounded-2xl p-4 shadow-lg shadow-black/20 active:scale-95 transition-all text-sm tracking-wide">
+        PAYMENT
+    </button>
             </div>
 
              
