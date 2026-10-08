@@ -828,6 +828,12 @@ app.post('/api/miniapp/buy', async (req, res) => {
     try {
         const { userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress } = req.body;
         
+        // Prevent duplicate TRX ID submission
+        const existingBuy = await db.collection('miniapp_buys').doc(trxId).get();
+        if (existingBuy.exists) {
+            throw new Error("This Transaction ID has already been used.");
+        }
+
         await db.collection('miniapp_buys').doc(trxId).set({
             userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress,
             status: 'pending',
