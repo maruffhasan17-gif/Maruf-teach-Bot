@@ -1232,12 +1232,23 @@ app.post('/api/settings', async (req, res) => {
     }
 });
 // Serve Admin Frontend
+
+// Serve MiniApp on /app
+app.use('/app', express.static(path.join(__dirname, 'miniapp/dist')));
+app.get('/app/*', (req, res) => {
+    const p = path.join(__dirname, 'miniapp/dist/index.html');
+    if (fs.existsSync(p)) res.sendFile(p);
+    else res.send("MiniApp is not built yet.");
+});
+
+// Serve Admin on /
 app.use(express.static(path.join(__dirname, 'admin/dist')));
 app.use((req, res) => {
     const p = path.join(__dirname, 'admin/dist/index.html');
-    if (require('fs').existsSync(p)) res.sendFile(p);
+    if (fs.existsSync(p)) res.sendFile(p);
     else res.send("Backend is running!");
 });
+
 
 
 // --- BSC USDT Auto-Verification Polling ---
