@@ -971,9 +971,7 @@ app.get('/api/transactions', async (req, res) => {
 app.post('/api/miniapp/save-wallet', async (req, res) => {
     try {
         const { userId, method, number, name } = req.body;
-        await db.collection('users').doc(userId.toString()).update({
-            fiatWallet: { method, number, name }
-        });
+        await db.collection('users').doc(userId.toString()).set({ fiatWallet: { method, number, name } }, { merge: true });
         res.json({ success: true });
     } catch(e) {
         res.status(500).json({ error: e.message });
@@ -1235,7 +1233,7 @@ app.post('/api/settings', async (req, res) => {
 
 // Serve MiniApp on /app
 app.use('/app', express.static(path.join(__dirname, 'miniapp/dist')));
-app.get('/app/*', (req, res) => {
+app.use('/app', (req, res) => {
     const p = path.join(__dirname, 'miniapp/dist/index.html');
     if (fs.existsSync(p)) res.sendFile(p);
     else res.send("MiniApp is not built yet.");
