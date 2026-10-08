@@ -64,7 +64,7 @@ To use this bot and get your free **0.07 GRAM**, you MUST join our channel first
         langPrompt: `🌍 **Select your Language:**`,
         mainMenuMsg: `✅ **Verification Successful!**
 
-Choose an option from the menu below:`,
+Click the button below to open the Web App:`,
         menu: { bkash: '💳 bKash', crypto: '💎 Crypto', free: '🎁 Free', profile: '👤 My Profile' },
         profileMsg: `👤 **Your Profile**
 
