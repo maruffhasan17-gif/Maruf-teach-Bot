@@ -613,7 +613,7 @@ function PremiumBuyPage() {
                 totalBdt,
                 paymentMethod,
                 trxId,
-                receiveAddress: receiveNumber
+                receiveAddress: receiveAddress
             });
             setStep(3); window.scrollTo({top:0, behavior:'smooth'});
         } catch (e) {
