@@ -55,84 +55,28 @@ const userStates = {};
 
 const t = {
     en: {
-        welcome: `👋 **Welcome to Maruf Teach Bot!**
-
-To use this bot and get your free **0.07 GRAM**, you MUST join our channel first.`,
-        joinBtn: `📢 Join Channel`,
-        verifyBtn: `✅ Verify`,
-        notJoined: `❌ You have not joined the channel yet!`,
-        langPrompt: `🌍 **Select your Language:**`,
-        mainMenuMsg: `✅ **Verification Successful!**
-
-Click the button below to open the Web App:`,
-        menu: { bkash: '💳 bKash', crypto: '💎 Crypto', free: '🎁 Free', profile: '👤 My Profile' },
-        profileMsg: `👤 **Your Profile**
-
-🆔 ID: ${"{id}"}
-✅ Status: Verified
-💰 Total Payouts: 0 GRAM`,
-        bkashMsg: `🟢 **bKash Payment**
-
-Send exactly **15 BDT** to this number:
-${"` + bkashNumber + `"} (Send Money)
-
-After sending, reply with your **TrxID** here.`,
-        cryptoMsg: `💎 **Select your Crypto Network:**`,
-        cryptoAddr: `🏦 **Send exactly $0.12+ USDT to this address:**
-
-${"{address}"}
-
-*(Click the address above to copy it instantly)*
-
-📸 After successful withdrawal, send me the **Screenshot** here as proof.`,
-        scanMsg: `🔍 *Scanning screenshot... Please wait.*`,
-        failLimitMsg: `❌ Verification Failed.
-
-Your screenshot is invalid or doesn't meet the requirements. Please contact the admin for manual verification.`,
-        contactAdminBtn: `👨‍💻 Contact Admin`,
-        giveAddrBtn: `✅ Verify`,
-        joinShardsBtn: `🎯 Start Task`,
-        successMsg: `✅ **Screenshot Verified!**\n\nAmount: **{amount} USDT**\nNow send your **TON Address** to receive your payment:`
+        welcome: '🌟 **Welcome to the Official Rewards Platform!**\n\nTo access your wallet, complete tasks, and withdraw funds, please join our official Telegram channel first.\n\n👇 Click below to join and verify your account:',
+        joinBtn: '📢 Join Channel',
+        verifyBtn: '✅ Verify',
+        notJoined: '❌ You have not joined the channel yet!',
+        langPrompt: '✅ **Verification Successful!**\n\nPlease select your language:',
+        profileMsg: '👤 **Your Profile**\n\nID: {id}',
+        bkashMsg: '🚀 **bKash Payment**',
+        cryptoMsg: '💎 **Crypto Payment**',
+        menu: { free: '🎁 Free', profile: '👤 Profile' },
+        mainMenuMsg: "🎉 **Verification Successful!**\n\nWelcome to our platform.\n👇 **Click the button below to open the app:**"
     },
     bn: {
-        welcome: `👋 **মারুফ টিচ বটে স্বাগতম!**
-
-ফ্রি **0.07 GRAM** পেতে হলে আপনাকে অবশ্যই আমাদের চ্যানেলে জয়েন করতে হবে।`,
-        joinBtn: `📢 চ্যানেলে জয়েন করুন`,
-        verifyBtn: `✅ ভেরিফাই করুন`,
-        notJoined: `❌ আপনি এখনো চ্যানেলে জয়েন করেননি!`,
-        langPrompt: `🌍 **আপনার ভাষা নির্বাচন করুন:**`,
-        mainMenuMsg: `✅ **ভেরিফিকেশন সফল!**
-
-নিচের মেনু থেকে আপনার অপশনটি বেছে নিন:`,
-        menu: { bkash: '💳 বিকাশ (bKash)', crypto: '💎 ক্রিপ্টো (Crypto)', free: '🎁 ফ্রি (Free)', profile: '👤 আমার প্রোফাইল' },
-        profileMsg: `👤 **আপনার প্রোফাইল**
-
-🆔 আইডি: ${"{id}"}
-✅ স্ট্যাটাস: ভেরিফাইড
-💰 মোট পেয়েছেন: 0 GRAM`,
-        bkashMsg: `🟢 **বিকাশ পেমেন্ট**
-
-নিচের নাম্বারে ঠিক **15 টাকা** সেন্ড মানি করুন:
-${"` + bkashNumber + `"}
-
-টাকা পাঠানোর পর, আপনার **TrxID** এখানে লিখে সেন্ড করুন।`,
-        cryptoMsg: `💎 **আপনার ক্রিপ্টো নেটওয়ার্ক সিলেক্ট করুন:**`,
-        cryptoAddr: `🏦 **এই অ্যাড্রেসে ঠিক $0.12+ USDT সেন্ড করুন:**
-
-${"{address}"}
-
-*(অ্যাড্রেসের উপর ক্লিক করলেই কপি হয়ে যাবে)*
-
-📸 পেমেন্ট সফল হওয়ার পর, প্রমাণ হিসেবে আমাকে **স্ক্রিনশট** দিন।`,
-        scanMsg: `🔍 *স্ক্রিনশট চেক করা হচ্ছে... অপেক্ষা করুন।*`,
-        failLimitMsg: `❌ ভেরিফিকেশন ব্যর্থ হয়েছে।
-
-আপনার স্ক্রিনশটটি সঠিক নয় বা নিয়ম মানেনি। অনুগ্রহ করে ম্যানুয়াল ভেরিফিকেশনের জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।`,
-        contactAdminBtn: `👨‍💻 অ্যাডমিনকে মেসেজ দিন`,
-        giveAddrBtn: `✅ ভেরিফাই করুন`,
-        joinShardsBtn: `🎯 কাজ শুরু করুন`,
-        successMsg: `✅ **স্ক্রিনশট ভেরিফাইড!**\n\nঅ্যামাউন্ট: **{amount} USDT**\nএখন আপনার **TON Address** দিন পেমেন্ট রিসিভ করার জন্য:`
+        welcome: '🌟 **অফিসিয়াল রিওয়ার্ডস প্ল্যাটফর্মে আপনাকে স্বাগতম!**\n\nআপনার ওয়ালেট অ্যাক্সেস করতে, টাস্ক কমপ্লিট করতে এবং পেমেন্ট তুলতে, অনুগ্রহ করে প্রথমে আমাদের অফিসিয়াল টেলিগ্রাম চ্যানেলে যুক্ত হোন।\n\n👇 জয়েন করে আপনার অ্যাকাউন্ট ভেরিফাই করুন:',
+        joinBtn: '📢 চ্যানেল জয়েন করুন',
+        verifyBtn: '✅ ভেরিফাই করুন',
+        notJoined: '❌ আপনি এখনও চ্যানেলে জয়েন করেননি!',
+        langPrompt: '✅ **ভেরিফিকেশন সফল হয়েছে!**\n\nআপনার ভাষা নির্বাচন করুন:',
+        profileMsg: '👤 **আপনার প্রোফাইল**\n\nআইডি: {id}',
+        bkashMsg: '🚀 **বিকাশ পেমেন্ট**',
+        cryptoMsg: '💎 **ক্রিপ্টো পেমেন্ট**',
+        menu: { free: '🎁 ফ্রি (Free)', profile: '👤 আমার প্রোফাইল' },
+        mainMenuMsg: "🎉 **ভেরিফিকেশন সফল হয়েছে!**\n\nআপনাকে আমাদের প্ল্যাটফর্মে স্বাগতম।\n👇 **নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:**"
     }
 };
 
