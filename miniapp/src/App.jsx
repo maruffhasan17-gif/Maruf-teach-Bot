@@ -598,7 +598,10 @@ function PremiumBuyPage() {
     const isValidStep1 = amount && paymentMethod && receiveAddress;
     const isValidStep2 = trxId;
 
-    const handleContinue = () => {
+    const handleContinue = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (parseFloat(amount) < 20) return window.Telegram?.WebApp?.showAlert("Minimum buy amount is 20 BDT");
+        if (parseFloat(amount) > 30000) return window.Telegram?.WebApp?.showAlert("Maximum buy amount is 30000 BDT");
         if(isValidStep1) { setStep(2); window.scrollTo({top:0, behavior:'smooth'}); }
     };
 
@@ -700,7 +703,7 @@ function PremiumBuyPage() {
                 </div>
 
                 <div className="mt-auto">
-                    <button onClick={handleSubmit} disabled={!isValidStep2 || loading} className="w-full bg-[#00A878] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg shadow-[#00A878]/20 active:scale-95 transition-all flex justify-center items-center gap-2">
+                    <button onPointerDown={(e) => { if (e && e.preventDefault) e.preventDefault(); handleSubmit(); }} disabled={!isValidStep2 || loading} className="w-full bg-[#00A878] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg shadow-[#00A878]/20 active:scale-95 transition-all flex justify-center items-center gap-2">
                         {loading ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> VERIFYING...</> : 'SUBMIT FOR VERIFICATION'}
                     </button>
                 </div>
@@ -819,7 +822,7 @@ function PremiumBuyPage() {
             </div>
 
             <div className="mt-6">
-                <button onClick={handleContinue} disabled={!isValidStep1} className="w-full bg-[#101828] disabled:bg-[#101828]/50 disabled:cursor-not-allowed text-white font-extrabold rounded-2xl p-4 shadow-lg shadow-black/20 active:scale-95 transition-all text-sm tracking-wide">
+                <button onPointerDown={handleContinue} disabled={!isValidStep1} className="w-full bg-[#101828] disabled:bg-[#101828]/50 disabled:cursor-not-allowed text-white font-extrabold rounded-2xl p-4 shadow-lg shadow-black/20 active:scale-95 transition-all text-sm tracking-wide">
         PAYMENT
     </button>
             </div>
@@ -931,6 +934,8 @@ fetch('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT');
 
   const handleSell = async () => {
     if(!userTonAddress || !amount) return;
+        if (parseFloat(amount) < 1) return window.Telegram?.WebApp?.showAlert("Minimum sell amount is 1 BDT");
+        if (parseFloat(amount) > 20000) return window.Telegram?.WebApp?.showAlert("Maximum sell amount is 20000 BDT");
     setLoading(true);
     try {
       // 1. Get Transaction Payload from Backend
@@ -1117,7 +1122,7 @@ py-1 rounded-full text-[9px] font-bold tracking-wider">TK BDT</span>
                  
                  <div key={receiveKey} className="text-[28px] font-semibold 
 text-[var(--color-text-primary)] tracking-tight animate-in fade-in slide-in-from-bottom-1 duration-300">
-                    {amount ? estimatedTk : '0.00'}
+                    {amount ? estimatedCrypto : '0.00'}
                  </div>
                  
                  <div className="mt-3 inline-flex items-center gap-1.5 bg-white/60 px-2 py-1 
