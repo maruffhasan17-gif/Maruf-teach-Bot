@@ -61,3 +61,13 @@ export const buildTransaction = async (payload) => {
         throw e.response?.data || e;
     }
 };
+
+export const submitBuyOrder = async (payload) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/buy`, payload);
+        return res.data;
+    } catch (e) {
+        console.error(e);
+        throw e;
+    }
+};

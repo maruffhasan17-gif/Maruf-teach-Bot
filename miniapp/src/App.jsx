@@ -3,7 +3,7 @@ import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, Arr
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction } from './api';
+import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder } from './api';
 
 const initialGraphData = [
   { time: '10:00', price: 118.5 },
@@ -530,7 +530,6 @@ function PremiumBuyPage() {
     const [asset, setAsset] = React.useState('TON');
     const [amount, setAmount] = React.useState('');
     const [paymentMethod, setPaymentMethod] = React.useState('bKash');
-    const [sendingNumber, setSendingNumber] = React.useState('');
     const [trxId, setTrxId] = React.useState('');
     const [receiveAddress, setReceiveAddress] = React.useState('');
     
@@ -564,19 +563,30 @@ function PremiumBuyPage() {
     const totalBdt = amount ? (Number(amount) * (asset === 'USDT' ? liveUsdBdt : liveCryptoRate * liveUsdBdt)).toFixed(2) : '0.00';
 
     const isValidStep1 = amount && paymentMethod && receiveAddress;
-    const isValidStep2 = sendingNumber && trxId;
+    const isValidStep2 = trxId;
 
     const handleContinue = () => {
         if(isValidStep1) setStep(2);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if(!isValidStep2) return;
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
+        try {
+            await submitBuyOrder({
+                userId: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 8799135330,
+                asset,
+                amount: parseFloat(amount),
+                totalBdt,
+                paymentMethod,
+                trxId,
+                receiveAddress: receiveNumber
+            });
             setStep(3);
-        }, 2000);
+        } catch (e) {
+            alert('Failed to submit order');
+        }
+        setLoading(false);
     };
 
     if (step === 3) {
@@ -597,7 +607,7 @@ function PremiumBuyPage() {
                         Verification Pending
                     </div>
                 </div>
-                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setSendingNumber(''); setReceiveAddress(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
+                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setReceiveAddress(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
                     BACK TO HOME
                 </button>
             </div>
@@ -643,10 +653,7 @@ function PremiumBuyPage() {
 
                     <h3 className="text-sm font-bold text-[#101828] mb-4 mt-6">Payment Details</h3>
                     <div className="space-y-4">
-                        <div>
-                            <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Sending Number ({paymentMethod})</label>
-                            <input type="tel" value={sendingNumber} onChange={e => setSendingNumber(e.target.value)} placeholder="01XXXXXXXXX" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
-                        </div>
+                        
                         <div>
                             <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Transaction ID</label>
                             <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="8ABC123XYZ" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
