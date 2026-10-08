@@ -143,7 +143,7 @@ const [activeTab, setActiveTab] = useState('home');
   const [user, setUser] = useState({ id: 0, first_name: 'User', username: '' });
   const [balance, setBalance] = useState(0);
 
-  window.reloadGlobalData = () => loadData(user.id || 8799135330);
+  window.reloadGlobalData = () => loadData(user.id || 123456789);
   const loadData = async (userId) => {
     const data = await fetchUserData(userId);
     setBalance(data.balance);
@@ -153,14 +153,16 @@ const [activeTab, setActiveTab] = useState('home');
 
   useEffect(() => {
     try {
+const GUEST_ID = 123456789;
         if (WebApp.initDataUnsafe?.user) {
           setUser(WebApp.initDataUnsafe.user);
           loadData(WebApp.initDataUnsafe.user.id);
         } else {
-          loadData(8799135330);
+          setUser({ id: GUEST_ID, first_name: "Guest", last_name: "Account" });
+          loadData(GUEST_ID);
         }
     } catch(e) {
-        loadData(8799135330);
+        loadData(123456789);
     }
   }, []);
 
@@ -192,9 +194,9 @@ const [activeTab, setActiveTab] = useState('home');
           {activeTab === 'home' && <HomePage balance={balance} user={user} onGoToClaim={() => setActiveTab('claim')} />}
           {activeTab === 'buy' && <PremiumBuyPage />}
           {activeTab === 'sell' && <PremiumSellPage />}
-          {activeTab === 'profile' && <ProfilePage user={user} balance={balance} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onGoToWithdraw={() => setActiveTab('withdraw')} setFiatWallet={setFiatWallet} reloadData={() => loadData(user?.id || 8799135330)} />}
+          {activeTab === 'profile' && <ProfilePage user={user} balance={balance} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onGoToWithdraw={() => setActiveTab('withdraw')} setFiatWallet={setFiatWallet} reloadData={() => loadData(user?.id || 123456789)} />}
           {activeTab === 'claim' && <ClaimPage user={user} onBack={() => setActiveTab('home')} />}
-          {activeTab === 'withdraw' && <WithdrawFiatPage user={user} balance={balance} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onBack={() => setActiveTab('profile')} reloadData={() => loadData(user?.id || 8799135330)} />}
+          {activeTab === 'withdraw' && <WithdrawFiatPage user={user} balance={balance} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onBack={() => setActiveTab('profile')} reloadData={() => loadData(user?.id || 123456789)} />}
         </div>
 
         {/* Bottom Navigation */}
@@ -385,7 +387,7 @@ function ClaimPage({ user, onBack }) {
     setLoading(true);
     try {
       await submitFreeTonTask({
-        userId: user.id || 8799135330,
+        userId: user.id || 123456789,
         wallet: userTonAddress,
         network
       });
@@ -574,7 +576,7 @@ function PremiumBuyPage() {
         setLoading(true);
         try {
             await submitBuyOrder({
-                userId: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 8799135330,
+                userId: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 123456789,
                 asset,
                 amount: parseFloat(amount),
                 totalBdt,
@@ -912,7 +914,7 @@ fetch('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT');
 
       // 3. Save order and credit FIAT balance
       await submitSellOrder({
-        userId: WebApp.initDataUnsafe?.user?.id || 8799135330, asset, amount: parseFloat(amount), 
+        userId: WebApp.initDataUnsafe?.user?.id || 123456789, asset, amount: parseFloat(amount), 
 estimatedTk: parseFloat(estimatedTk), wallet: userTonAddress
       });
       
@@ -1230,7 +1232,7 @@ function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWit
       setIsSaving(true);
       try {
           await saveFiatWallet({
-              userId: WebApp.initDataUnsafe?.user?.id || 8799135330,
+              userId: WebApp.initDataUnsafe?.user?.id || 123456789,
               method: walletMethod,
               number: walletNumber,
               name: walletName
@@ -1417,7 +1419,7 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
         setIsSubmitting(true);
         try {
             await withdrawFiat({
-                userId: user?.id || 8799135330,
+                userId: user?.id || 123456789,
                 amount: parseFloat(amount)
             });
             WebApp.showAlert("Withdrawal submitted successfully!");
