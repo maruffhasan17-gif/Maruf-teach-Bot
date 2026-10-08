@@ -443,7 +443,7 @@ function BotWallet() {
 }
 
 function BotSettings() {
-  const [settings, setSettings] = useState({ gramAmount: '', usdtAmount: '', freeLink: '' });
+  const [settings, setSettings] = useState({ gramAmount: '', usdtAmount: '', freeLink: '', adminBkash: '01752561935', adminNagad: '01878580320' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusModal, setStatusModal] = useState({ isOpen: false, type: 'success', title: '', message: '' });
@@ -516,7 +516,19 @@ function BotSettings() {
             <label className="block text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">Free Option Link</label>
             <input type="text" value="https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328" disabled className="w-full bg-gray-800 border border-gray-700 text-gray-500 p-4 rounded-xl outline-none cursor-not-allowed font-bold" />
           </div>
-          <button onClick={handleDeploy} disabled={saving || loading} className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold px-6 py-4 rounded-xl shadow-[0_10px_20px_rgba(37,99,235,0.3)] hover:from-blue-500 hover:to-blue-400 transition-all transform hover:-translate-y-1">
+          
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">Admin bKash</label>
+                <input type="text" value={settings.adminBkash || ''} onChange={e => setSettings({...settings, adminBkash: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white p-4 rounded-xl outline-none focus:border-blue-500 font-bold transition-colors" />
+              </div>
+              <div>
+                <label className="block text-gray-400 font-bold mb-2 uppercase tracking-wider text-xs">Admin Nagad</label>
+                <input type="text" value={settings.adminNagad || ''} onChange={e => setSettings({...settings, adminNagad: e.target.value})} className="w-full bg-gray-800 border border-gray-700 text-white p-4 rounded-xl outline-none focus:border-blue-500 font-bold transition-colors" />
+              </div>
+            </div>
+
+            <button onClick={handleDeploy} disabled={saving || loading} className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold px-6 py-4 rounded-xl shadow-[0_10px_20px_rgba(37,99,235,0.3)] hover:from-blue-500 hover:to-blue-400 transition-all transform hover:-translate-y-1">
             {saving ? 'DEPLOYING...' : <><Send size={20} /> DEPLOY SETTINGS TO BOT</>}
           </button>
         </div>

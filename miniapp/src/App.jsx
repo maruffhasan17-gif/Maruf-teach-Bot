@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -524,24 +524,46 @@ function ClaimPage({ user, onBack }) {
 
 
 
+
 function PremiumBuyPage() {
     const [step, setStep] = React.useState(1);
     const [asset, setAsset] = React.useState('TON');
     const [amount, setAmount] = React.useState('');
-    const [name, setName] = React.useState('');
+    const [paymentMethod, setPaymentMethod] = React.useState('bKash');
     const [sendingNumber, setSendingNumber] = React.useState('');
     const [trxId, setTrxId] = React.useState('');
     const [receiveAddress, setReceiveAddress] = React.useState('');
-    const [showAssetModal, setShowAssetModal] = React.useState(false);
-    const [loading, setLoading] = React.useState(false);
     
-    const adminBkash = "01931368630";
+    const [showAssetModal, setShowAssetModal] = React.useState(false);
+    const [showMethodModal, setShowMethodModal] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+    const [copied, setCopied] = React.useState(false);
+    
+    const [adminBkash, setAdminBkash] = React.useState("01752561935");
+    const [adminNagad, setAdminNagad] = React.useState("01878580320");
+    
+    React.useEffect(() => {
+        fetch((window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://maruf-teach-bot.onrender.com') + '/api/settings')
+            .then(res => res.json())
+            .then(data => {
+                if(data.adminBkash) setAdminBkash(data.adminBkash);
+                if(data.adminNagad) setAdminNagad(data.adminNagad);
+            }).catch(e => console.log(e));
+    }, []);
+
+    const adminNumber = paymentMethod === 'bKash' ? adminBkash : adminNagad;
+    
+    const handleCopy = () => {
+        navigator.clipboard.writeText(adminNumber);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+    
     const liveCryptoRate = 1.9;
     const liveUsdBdt = 120;
-    
     const totalBdt = amount ? (Number(amount) * (asset === 'USDT' ? liveUsdBdt : liveCryptoRate * liveUsdBdt)).toFixed(2) : '0.00';
 
-    const isValidStep1 = amount && name && receiveAddress;
+    const isValidStep1 = amount && paymentMethod && receiveAddress;
     const isValidStep2 = sendingNumber && trxId;
 
     const handleContinue = () => {
@@ -575,7 +597,7 @@ function PremiumBuyPage() {
                         Verification Pending
                     </div>
                 </div>
-                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setSendingNumber(''); setReceiveAddress(''); setName(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
+                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setSendingNumber(''); setReceiveAddress(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
                     BACK TO HOME
                 </button>
             </div>
@@ -609,15 +631,20 @@ function PremiumBuyPage() {
                         </div>
                         <div className="h-px bg-[#E4E7EC] w-full"></div>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#475467]">To bKash/Nagad</span>
-                            <span className="text-sm font-bold text-[#101828] bg-white px-2 py-1 rounded-md shadow-sm border border-[#E4E7EC]">{adminBkash}</span>
+                            <span className="text-xs font-bold text-[#475467]">To {paymentMethod} Number</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-[#101828] bg-white px-2 py-1 rounded-md shadow-sm border border-[#E4E7EC]">{adminNumber}</span>
+                                <button onClick={handleCopy} className={"p-1.5 rounded-md transition-colors shadow-sm " + (copied ? "bg-[#00A878] text-white" : "bg-white text-[#475467] border border-[#E4E7EC] hover:bg-gray-50")}>
+                                    {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <h3 className="text-sm font-bold text-[#101828] mb-4 mt-6">Payment Details</h3>
                     <div className="space-y-4">
                         <div>
-                            <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Sending Number (bKash/Nagad)</label>
+                            <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Sending Number ({paymentMethod})</label>
                             <input type="tel" value={sendingNumber} onChange={e => setSendingNumber(e.target.value)} placeholder="01XXXXXXXXX" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
                         </div>
                         <div>
@@ -685,8 +712,11 @@ function PremiumBuyPage() {
 
                 <div className="bg-white rounded-3xl p-5 border border-[#E4E7EC] shadow-sm space-y-4">
                     <div>
-                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Your Name</label>
-                        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
+                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Payment Method</label>
+                        <button onClick={() => setShowMethodModal(true)} className="w-full bg-[#F8FAFC] rounded-2xl p-4 flex items-center justify-between border border-[#E4E7EC] active:bg-gray-100 transition-colors">
+                            <span className="text-sm font-bold text-[#101828]">{paymentMethod}</span>
+                            <ChevronDown size={18} className="text-[#98A2B3]" />
+                        </button>
                     </div>
                     <div>
                         <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Address ({asset})</label>
@@ -720,6 +750,26 @@ function PremiumBuyPage() {
                     </div>
                 </div>
              )}
+
+             {showMethodModal && (
+                <div className="fixed inset-0 z-[100] flex items-end justify-center p-4">
+                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowMethodModal(false)} />
+                    <div className="bg-white w-full max-w-sm rounded-t-[32px] rounded-b-[24px] p-6 relative z-10 shadow-2xl animate-in slide-in-from-bottom-full duration-300">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="font-extrabold text-lg text-[#101828]">Payment Method</h3>
+                            <button onClick={() => setShowMethodModal(false)} className="p-2 bg-[#F8FAFC] text-[#475467] rounded-full"><X size={20} /></button>
+                        </div>
+                        <div className="space-y-3">
+                            {['bKash', 'Nagad'].map(a => (
+                                <button key={a} onClick={() => { setPaymentMethod(a); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all " + (paymentMethod === a ? "border-[#00A878] bg-[#ECFDF3]" : "border-[#E4E7EC] hover:bg-gray-50")}>
+                                    <span className={"font-bold text-lg " + (paymentMethod === a ? 'text-[#027A48]' : 'text-[#101828]')}>{a}</span>
+                                    {paymentMethod === a && <div className="w-5 h-5 rounded-full bg-[#00A878] text-white flex items-center justify-center"><Sparkles size={12}/></div>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+             )}
         </div>
     );
 }
@@ -728,19 +778,28 @@ function PremiumSellPage() {
     const [step, setStep] = React.useState(1);
     const [asset, setAsset] = React.useState('TON');
     const [amount, setAmount] = React.useState('');
-    const [name, setName] = React.useState('');
+    const [paymentMethod, setPaymentMethod] = React.useState('bKash');
     const [receiveNumber, setReceiveNumber] = React.useState('');
     const [trxId, setTrxId] = React.useState('');
     const [showAssetModal, setShowAssetModal] = React.useState(false);
+    const [showMethodModal, setShowMethodModal] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
+    const [copied, setCopied] = React.useState(false);
     
     const adminWallet = "UQDa...n4Ck"; // Placeholder
+    
+    const handleCopy = () => {
+        navigator.clipboard.writeText(adminWallet);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     const liveCryptoRate = 1.9;
     const liveUsdBdt = 120;
     
     const totalBdt = amount ? (Number(amount) * (asset === 'USDT' ? liveUsdBdt : liveCryptoRate * liveUsdBdt)).toFixed(2) : '0.00';
 
-    const isValidStep1 = amount && name && receiveNumber;
+    const isValidStep1 = amount && receiveNumber && paymentMethod;
     const isValidStep2 = trxId;
 
     const handleContinue = () => {
@@ -774,7 +833,7 @@ function PremiumSellPage() {
                         Verification Pending
                     </div>
                 </div>
-                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setReceiveNumber(''); setName(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
+                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setReceiveNumber(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
                     BACK TO HOME
                 </button>
             </div>
@@ -809,7 +868,12 @@ function PremiumSellPage() {
                         <div className="h-px bg-[#E4E7EC] w-full"></div>
                         <div className="flex justify-between items-center">
                             <span className="text-xs font-bold text-[#475467]">To Address</span>
-                            <span className="text-xs font-bold text-[#101828] bg-white px-2 py-1 rounded-md shadow-sm border border-[#E4E7EC] truncate max-w-[120px]">{adminWallet}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-[#101828] bg-white px-2 py-1 rounded-md shadow-sm border border-[#E4E7EC] truncate max-w-[120px]">{adminWallet}</span>
+                                <button onClick={handleCopy} className={"p-1.5 rounded-md transition-colors shadow-sm " + (copied ? "bg-[#00A878] text-white" : "bg-white text-[#475467] border border-[#E4E7EC] hover:bg-gray-50")}>
+                                    {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -880,11 +944,14 @@ function PremiumSellPage() {
 
                 <div className="bg-white rounded-3xl p-5 border border-[#E4E7EC] shadow-sm space-y-4">
                     <div>
-                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Your Name</label>
-                        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
+                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Method</label>
+                        <button onClick={() => setShowMethodModal(true)} className="w-full bg-[#F8FAFC] rounded-2xl p-4 flex items-center justify-between border border-[#E4E7EC] active:bg-gray-100 transition-colors">
+                            <span className="text-sm font-bold text-[#101828]">{paymentMethod}</span>
+                            <ChevronDown size={18} className="text-[#98A2B3]" />
+                        </button>
                     </div>
                     <div>
-                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Number (bKash/Nagad)</label>
+                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Number ({paymentMethod})</label>
                         <input type="tel" value={receiveNumber} onChange={e => setReceiveNumber(e.target.value)} placeholder="01XXXXXXXXX" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
                     </div>
                 </div>
@@ -909,6 +976,26 @@ function PremiumSellPage() {
                                 <button key={a} onClick={() => { setAsset(a); setShowAssetModal(false); }} className={"w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all " + (asset === a ? "border-[#00A878] bg-[#ECFDF3]" : "border-[#E4E7EC] hover:bg-gray-50")}>
                                     <span className={"font-bold text-lg " + (asset === a ? 'text-[#027A48]' : 'text-[#101828]')}>{a}</span>
                                     {asset === a && <div className="w-5 h-5 rounded-full bg-[#00A878] text-white flex items-center justify-center"><Sparkles size={12}/></div>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+             )}
+
+             {showMethodModal && (
+                <div className="fixed inset-0 z-[100] flex items-end justify-center p-4">
+                    <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowMethodModal(false)} />
+                    <div className="bg-white w-full max-w-sm rounded-t-[32px] rounded-b-[24px] p-6 relative z-10 shadow-2xl animate-in slide-in-from-bottom-full duration-300">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="font-extrabold text-lg text-[#101828]">Receive Method</h3>
+                            <button onClick={() => setShowMethodModal(false)} className="p-2 bg-[#F8FAFC] text-[#475467] rounded-full"><X size={20} /></button>
+                        </div>
+                        <div className="space-y-3">
+                            {['bKash', 'Nagad'].map(a => (
+                                <button key={a} onClick={() => { setPaymentMethod(a); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all " + (paymentMethod === a ? "border-[#00A878] bg-[#ECFDF3]" : "border-[#E4E7EC] hover:bg-gray-50")}>
+                                    <span className={"font-bold text-lg " + (paymentMethod === a ? 'text-[#027A48]' : 'text-[#101828]')}>{a}</span>
+                                    {paymentMethod === a && <div className="w-5 h-5 rounded-full bg-[#00A878] text-white flex items-center justify-center"><Sparkles size={12}/></div>}
                                 </button>
                             ))}
                         </div>
