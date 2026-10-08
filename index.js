@@ -194,15 +194,18 @@ bot.on('callback_query', async (query) => {
                 await db.collection('users').doc(chatId.toString()).update({ status: 'verified', language: 'bn' }); // Default to BN
                 userStates[chatId].lang = 'bn';
                 
-                // Remove old bottom keyboard invisibly by sending and deleting a message
-                const delMsg = await bot.sendMessage(chatId, '...', { reply_markup: { remove_keyboard: true } });
-                bot.deleteMessage(chatId, delMsg.message_id).catch(()=>{});
+                // 1. Remove the old inline keyboard from the /start message
+                bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: query.message.message_id }).catch(()=>{});
 
-                // Send the Open App message
-                bot.sendMessage(chatId, t.bn.mainMenuMsg, getMenu('bn'));
+                // 2. Send a nice welcome message and remove any persistent bottom keyboard
+                await bot.sendMessage(chatId, "🎉 **ভেরিফিকেশন সফল হয়েছে!**\n\nআপনাকে আমাদের প্ল্যাটফর্মে স্বাগতম।", { 
+                    parse_mode: 'Markdown',
+                    reply_markup: { remove_keyboard: true } 
+                });
                 
-                // Optionally delete the Verify message to keep it clean
-                bot.deleteMessage(chatId, query.message.message_id).catch(()=>{});
+                // 3. Send the App Open button
+                bot.sendMessage(chatId, "👇 **নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:**", getMenu('bn'));
+                
             } else {
                 bot.answerCallbackQuery(query.id, { text: t.en.notJoined, show_alert: true });
             }
@@ -458,280 +461,11 @@ bot.on('message', async (msg) => {
         return; // Stop processing further for group messages
     }
 
+    
     if (text.startsWith('/')) return;
     
-    if (!userStates[chatId]) userStates[chatId] = { step: 'menu', failedAttempts: 0, lang: 'en' };
-    const lang = userStates[chatId].lang;
-    const m = t[lang].menu;
-
-    if (text === m.profile) {
-        bot.sendMessage(chatId, t[lang].profileMsg.replace('{id}', chatId), { parse_mode: 'Markdown' });
-    }
-    else if (text === m.bkash) {
-        bot.sendMessage(chatId, t[lang].bkashMsg, { parse_mode: 'Markdown' });
-    }
-    else if (text === m.crypto) {
-        bot.sendMessage(chatId, t[lang].cryptoMsg, {
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: '🔺 AVAX-C', callback_data: 'crypto_avax' }],
-                    [{ text: '⚫ APTOS', callback_data: 'crypto_aptos' }]
-                ]
-            }
-        });
-    }
-    else if (text === m.free) {
-        try {
-            const loadingMsg = await bot.sendMessage(chatId, lang === 'bn' ? '⏳ *আপনার অ্যাকাউন্ট যাচাই করা হচ্ছে...*' : '⏳ *Verifying your account...*', { parse_mode: 'Markdown' });
-            
-            // Simulate IP/VPN checking delay
-            await new Promise(r => setTimeout(r, 2000));
-            
-            const bdHour = (new Date().getUTCHours() + 6) % 24;
-            if (bdHour < 12) {
-                bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});
-                bot.sendMessage(chatId, lang === 'bn' ? '🚫 **দুঃখিত!** বটটি শুধুমাত্র দুপুর ১২টা থেকে রাত ১২টা পর্যন্ত চালু থাকে। অনুগ্রহ করে কাল দুপুর ১২টার পর আবার চেষ্টা করুন।' : '🚫 **Sorry!** The bot is only open from 12 PM to 12 AM BD Time. Please try again later.', { parse_mode: 'Markdown' });
-                return;
-            }
-
-            const claimDoc = await db.collection('free_claims').doc(chatId.toString()).get();
-            if (claimDoc.exists) {
-                bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});
-                bot.sendMessage(chatId, lang === 'bn' ? '⚠️ **ফ্রড ডিটেক্টেড!** আপনি ইতিমধ্যেই আপনার ফ্রি রিওয়ার্ড ক্লেইম করেছেন। একজন ইউজার মাত্র একবারই নিতে পারবেন!' : '⚠️ **Fraud Detected!** You have already claimed your free reward!', { parse_mode: 'Markdown' });
-                return;
-            }
-
-            bot.deleteMessage(chatId, loadingMsg.message_id).catch(()=>{});
-
-            const freeTaskLink = 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328';
-            try {
-                const config = botConfig;
-                // Hardcoded permanently
-            } catch (err) {}
-            
-            const freeMsgText = lang === 'bn' 
-                ? `🎁 **ফ্রি টাস্ক!**
-
-নিচের লিংকে গিয়ে টাস্কটি কমপ্লিট করুন।
-
-কাজ শেষ হলে আপনার **প্রোফাইলের/কাজের স্ক্রিনশট** এখানে সেন্ড করুন। (স্ক্রিনশটে আপনার নাম দেখা যেতে হবে)` 
-                : `🎁 **Free Task!**
-
-Complete the task using the link below.
-
-Once done, send your **Profile/Task Screenshot** here. (Your name must be visible in the screenshot)`;
-                
-            bot.sendMessage(chatId, freeMsgText, {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: lang === 'bn' ? "🎯 কাজ শুরু করুন" : "🎯 Start Task", url: freeTaskLink }]
-                    ]
-                }
-            });
-            userStates[chatId].step = 'awaiting_free_screenshot';
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    if (userStates[chatId].step === 'awaiting_ton_address_free' && text) {
-        const address = text;
-        if (address.length < 48) {
-            bot.sendMessage(chatId, '❌ Invalid TON Address. Please send a valid address.');
-            return;
-        }
-
-        // Check if user already claimed
-        const claimDoc = await db.collection('free_claims').doc(chatId.toString()).get();
-        if (claimDoc.exists) {
-            bot.sendMessage(chatId, '⚠️ You have already claimed your free reward!');
-            userStates[chatId].step = 'menu';
-            return;
-        }
-
-        // Check if address is already used by someone else
-        const addressCheck = await db.collection('free_claims').where('address', '==', address).get();
-        if (!addressCheck.empty) {
-            bot.sendMessage(chatId, '🚫 Fraud Detected! This TON address has already been used to claim a reward.');
-            userStates[chatId].step = 'menu';
-            return;
-        }
-
-        bot.sendMessage(chatId, '⏳ Processing your payment...');
-
-        try {
-            const config = botConfig;
-            const amount = config.gramAmount; // 0.07 TON
-            
-                        const { WalletContractV4, internal } = require('@ton/ton');
-            const { mnemonicToPrivateKey } = require('@ton/crypto');
-            const { ethers } = require('ethers');
-
-            const keyPair = await mnemonicToPrivateKey(process.env.BOT_TON_SEED.split(' '));
-            const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
-            
-            let seqno = 0;
-            try {
-                const seqnoRes = await axios.get(`https://tonapi.io/v2/wallet/${wallet.address.toString(true, true, true)}/seqno`);
-                seqno = seqnoRes.data.seqno || 0;
-            } catch(e) {}
-            
-            try {
-                const accountRes = await axios.get(`https://tonapi.io/v2/accounts/${wallet.address.toString(true, true, true)}`);
-                const balance = accountRes.data.balance || 0;
-                if (balance < (amount * 1e9 + 10000000)) {
-                    throw new Error('Insufficient Admin Balance');
-                }
-            } catch (e) {
-                if (e.message === 'Insufficient Admin Balance') throw e;
-            }
-
-            const amountNano = ethers.parseUnits(amount.toString(), 9);
-
-            const transfer = wallet.createTransfer({
-                seqno,
-                secretKey: keyPair.secretKey,
-                messages: [
-                    internal({
-                        to: address,
-                        value: amountNano,
-                        bounce: false,
-                        body: 'Free Reward from Maruf Teach'
-                    })
-                ]
-            });
-
-            const { external, storeMessage, beginCell } = require('@ton/ton');
-            const extMessage = external({
-                to: wallet.address,
-                init: seqno === 0 ? wallet.init : null,
-                body: transfer
-            });
-            const boc = beginCell().store(storeMessage(extMessage)).endCell().toBoc().toString('base64');
-            await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
-
-            await db.collection('free_claims').doc(chatId.toString()).set({
-                address,
-                amount,
-                timestamp: new Date().toISOString()
-            });
-
-            userStates[chatId].step = 'menu';
-            bot.sendMessage(chatId, '✅ *Success!* ' + amount + ' TON has been sent to your wallet.', { parse_mode: 'Markdown' });
-
-        } catch (e) {
-            console.error('Free payout error:', e.response ? e.response.data : e.message);
-            const errorMsg = lang === 'bn' ? '⚠️ **পেমেন্ট ফেইলড!**\n\nঅ্যাডমিন ওয়ালেটে পর্যাপ্ত ব্যালেন্স নেই অথবা নেটওয়ার্ক বিজি আছে। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।' : '⚠️ **Payment Failed!**\n\nAdmin wallet balance might be low or network is busy. Please try again later.';
-            bot.sendMessage(chatId, errorMsg, { parse_mode: 'Markdown',
-                reply_markup: {
-                    inline_keyboard: [[{ text: '🔄 Try Again', callback_data: 'retry_free_payout' }]]
-                }
-            });
-            userStates[chatId].step = 'menu';
-        }
-        return;
-    }
-
-    // Screenshot AI Logic
-    
-    if (msg.photo) {
-        if (userStates[chatId].step !== 'awaiting_screenshot' && userStates[chatId].step !== 'awaiting_free_screenshot') return;
-
-        const isFreeTask = userStates[chatId].step === 'awaiting_free_screenshot';
-        const userFirstName = msg.from.first_name || '';
-        const userUsername = msg.from.username || '';
-        const photo = msg.photo[msg.photo.length - 1];
-
-        if (isFreeTask) {
-            // BYPASS AI ENTIRELY for Free Tasks
-            const reviewMsg = lang === 'bn' ? "⏳ **আপনার স্ক্রিনশটটি ম্যানুয়াল রিভিউতে পাঠানো হয়েছে।**\n\nযাচাই হতে ৫ মিনিট পর্যন্ত সময় লাগতে পারে।" : "⏳ **Your screenshot has been sent for manual review.**\n\nVerification may take up to 5 minutes.";
-            bot.sendMessage(chatId, reviewMsg, { parse_mode: 'Markdown' });
-            
-            const config = botConfig;
-            if (config.adminGroupId) {
-                bot.sendPhoto(config.adminGroupId, photo.file_id, {
-                    caption: `🔍 **Manual Review Needed (Free Task)**\n\nUser: ${userFirstName} (@${userUsername})\nID: ${chatId}\n\nReply to this photo with **ok** to approve, or **wrong** to reject.`,
-                    parse_mode: 'Markdown'
-                });
-                userStates[chatId].adminReplied = false;
-                setTimeout(() => {
-                    if (userStates[chatId] && !userStates[chatId].adminReplied) {
-                        const offlineMsg = lang === 'bn' ? '⏳ অ্যাডমিন এখন অফলাইনে আছেন। অ্যাডমিন অনলাইনে আসলে আপনার তথ্য যাচাই করা হবে। অনুগ্রহ করে অপেক্ষা করুন, ধন্যবাদ।' : '⏳ Admin is currently offline. Your information will be verified when the admin comes online. Thank you.';
-                        bot.sendMessage(chatId, offlineMsg);
-                    }
-                }, 15000);
-            }
-            return;
-        }
-
-        bot.sendMessage(chatId, t[lang].scanMsg, { parse_mode: 'Markdown' });
-        
-        try {
-            const fileLink = await bot.getFileLink(photo.file_id);
-            const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
-            const base64Image = Buffer.from(response.data).toString('base64');
-
-            const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-            const prompt = `Analyze this payment screenshot strictly. Look for:
-            1. Text "Withdrawal Submitted!"
-            2. Gateway text (e.g. "USDT BEP20")
-            3. Amount (e.g. "$0.10 USDT").
-            Return JSON format ONLY: {"hasWithdrawalText": true/false, "gateway": "extracted text", "amount": extracted_number_as_float}.`;
-
-            const imagePart = { inlineData: { data: base64Image, mimeType: 'image/jpeg' } };
-            const result = await model.generateContent([prompt, imagePart]);
-            const responseText = result.response.text();
-            
-            const jsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const aiData = JSON.parse(jsonStr);
-
-            if (aiData.hasWithdrawalText && aiData.gateway.includes('BEP20') && aiData.amount >= 0.10) {
-                userStates[chatId].step = 'awaiting_ton';
-                bot.sendMessage(chatId, t[lang].successMsg.replace('{amount}', aiData.amount), { parse_mode: 'Markdown' });
-            } else {
-                throw new Error("Validation Failed");
-            }
-        } catch (error) {
-            console.error("AI Error:", error.message);
-            userStates[chatId].failedAttempts = (userStates[chatId].failedAttempts || 0) + 1;
-            
-            // Upload to Supabase and Log to Firestore
-            try {
-                const fileLink = await bot.getFileLink(photo.file_id);
-                const response = await axios.get(fileLink, { responseType: 'arraybuffer' });
-                const buffer = Buffer.from(response.data);
-                
-                const fileName = `fraud_${chatId}_${Date.now()}.jpg`;
-                const { data, error: uploadError } = await supabase.storage.from('image').upload(fileName, buffer, { contentType: 'image/jpeg' });
-                
-                if (!uploadError) {
-                    const { data: publicUrlData } = supabase.storage.from('image').getPublicUrl(fileName);
-                    await db.collection('failed_screenshots').add({
-                        chatId: chatId,
-                        username: msg.from.username || 'Unknown',
-                        imageUrl: publicUrlData.publicUrl,
-                        timestamp: new Date(),
-                        reason: error.message || 'AI Validation Failed'
-                    });
-                }
-            } catch (err) {
-                console.error("Supabase Upload Error:", err.message);
-            }
-
-            if (userStates[chatId].failedAttempts >= 2) {
-                const adminText = encodeURIComponent(`Hello Admin, my payment failed verification in the bot. My ID is ${chatId}.`);
-                bot.sendMessage(chatId, t[lang].failLimitMsg, { 
-                    parse_mode: 'Markdown',
-                    reply_markup: {
-                        inline_keyboard: [[{ text: t[lang].contactAdminBtn, url: `https://t.me/${adminUsername}?text=${adminText}` }]]
-                    }
-                });
-                userStates[chatId].step = 'menu';
-            } else {
-                bot.sendMessage(chatId, t[lang].invalidMsg, { parse_mode: 'Markdown' });
-            }
-        }
-    }
+    // Default reply for any other message: send and remove keyboard
+    bot.sendMessage(chatId, "👇 **নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:**", getMenu('bn'));
 });
 
 // Add this before app.listen
