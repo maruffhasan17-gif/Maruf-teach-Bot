@@ -3,7 +3,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const path = require('path');
 const express = require('express');
 const { initializeApp, cert } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
 const { getOrCreateBotWallet } = require('./walletManager');
@@ -472,7 +472,7 @@ app.post('/api/miniapp/task', async (req, res) => {
             username,
             address,
             status: 'pending',
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
+            timestamp: FieldValue.serverTimestamp()
         });
 
         // Send to Admin Group
@@ -554,16 +554,16 @@ app.post('/api/miniapp/sell', async (req, res) => {
         // Save to DB
         await db.collection('miniapp_sells').add({
             userId, asset, amount, estimatedTk, wallet,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
+            timestamp: FieldValue.serverTimestamp()
         });
 
         // Increment user balance
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
         if (userDoc.exists) {
-            await userRef.update({ balance: admin.firestore.FieldValue.increment(estimatedTk) });
+            await userRef.update({ balance: FieldValue.increment(estimatedTk) });
         } else {
-            await userRef.set({ balance: estimatedTk, joinedAt: admin.firestore.FieldValue.serverTimestamp() });
+            await userRef.set({ balance: estimatedTk, joinedAt: FieldValue.serverTimestamp() });
         }
 
         res.json({ success: true });
@@ -826,7 +826,7 @@ app.post('/api/miniapp/buy', async (req, res) => {
         await db.collection('miniapp_buys').doc(trxId).set({
             userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress,
             status: 'pending',
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
+            timestamp: FieldValue.serverTimestamp()
         });
 
         // Check if Macrodroid already verified this TrxID before the user submitted
@@ -865,7 +865,7 @@ app.post('/api/macrodroid/webhook', async (req, res) => {
             // Save it so when the user submits, it auto-verifies
             await db.collection('verified_trx').doc(trxId).set({
                 message,
-                timestamp: admin.firestore.FieldValue.serverTimestamp()
+                timestamp: FieldValue.serverTimestamp()
             });
             return res.json({ success: true, message: "TrxID cached for future auto-verify" });
         }
