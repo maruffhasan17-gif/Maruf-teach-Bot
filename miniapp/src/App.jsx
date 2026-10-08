@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -692,7 +692,12 @@ function PremiumBuyPage() {
                         
                         <div>
                             <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Transaction ID</label>
-                            <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="8ABC123XYZ" className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
+                            <div className="relative">
+    <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="8ABC123XYZ" className="w-full bg-[#F8FAFC] rounded-2xl p-4 pr-12 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
+    <button onClick={async () => { try { const text = await navigator.clipboard.readText(); setTrxId(text); } catch(e){} }} className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white text-[#98A2B3] hover:text-[#00A878] hover:bg-[#ECFDF3] rounded-lg transition-all shadow-sm border border-[#E4E7EC]">
+        <ClipboardPaste size={16} />
+    </button>
+</div>
                         </div>
                     </div>
                 </div>
@@ -1526,23 +1531,29 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
     const handleMax = () => setAmount(balance.toString());
 
     const handleSubmit = async () => {
-        if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return WebApp.showAlert("Invalid amount");
-        if (parseFloat(amount) > balance) return WebApp.showAlert("Insufficient balance");
-        
-        setIsSubmitting(true);
-        try {
-            await withdrawFiat({
-                userId: user?.id || 123456789,
-                amount: parseFloat(amount)
-            });
-            WebApp.showAlert("Withdrawal submitted successfully!");
-            reloadData();
-        } catch (e) {
-            WebApp.showAlert(e.message || "Withdrawal failed");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+          const amt = parseFloat(amount);
+          if (!amount || isNaN(amt) || amt <= 0) return window.Telegram?.WebApp?.showAlert("Invalid amount") || alert("Invalid amount");
+          if (amt < 20) return window.Telegram?.WebApp?.showAlert("Minimum withdraw amount is 20 BDT") || alert("Minimum withdraw amount is 20 BDT");
+          if (amt > balance) return window.Telegram?.WebApp?.showAlert("Insufficient balance") || alert("Insufficient balance");
+          
+          setIsSubmitting(true);
+          try {
+              await withdrawFiat({
+                  userId: user?.id || 123456789,
+                  amount: amt,
+                  fee: parseFloat((amt * 0.05).toFixed(2)),
+                  receiveAmount: parseFloat((amt * 0.95).toFixed(2))
+              });
+              if(window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert("Withdrawal submitted successfully!");
+              else alert("Withdrawal submitted successfully!");
+              reloadData();
+          } catch (e) {
+              if(window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(e.message || "Withdrawal failed");
+              else alert(e.message || "Withdrawal failed");
+          } finally {
+              setIsSubmitting(false);
+          }
+      };
 
     const getLogo = () => {
         if (fiatWallet?.method === 'bKash') return "https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png";
@@ -1569,7 +1580,7 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
                         <Clock size={32} strokeWidth={2.5} />
                     </div>
                     <h3 className="text-lg font-bold text-[var(--color-text-primary)] mb-1">Withdrawal Pending</h3>
-                    <p className="text-[var(--color-text-secondary)] text-sm font-medium mb-5">Your request for {fiatWithdrawPending.amount} USDT is being processed.</p>
+                    <p className="text-[var(--color-text-secondary)] text-sm font-medium mb-5">Your request for {fiatWithdrawPending.amount} BDT is being processed.</p>
                     
                     {fiatWithdrawPending.status === 'waiting' && timeLeft && (
                         <div className="bg-orange-50 border border-orange-100 rounded-[16px] p-4 inline-block min-w-[200px]">
@@ -1583,11 +1594,11 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
                     {/* Amount Input */}
                     <div className="bg-white p-5 rounded-[24px] premium-shadow border border-[var(--color-border)]">
                         <label className="flex justify-between items-center mb-3">
-                            <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.2em]">Amount (USDT)</span>
+                            <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.2em]">Amount (BDT)</span>
                             <span className="text-[11px] font-bold text-[var(--color-text-primary)]">Bal: {balance.toFixed(2)}</span>
                         </label>
                         <div className="relative flex items-center">
-                            <span className="absolute left-4 text-gray-400 font-medium">$</span>
+                            <span className="absolute left-4 text-gray-400 font-medium">৳</span>
                             <input 
                                 type="number" 
                                 value={amount} 
@@ -1598,6 +1609,23 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
                             <button onClick={handleMax} className="absolute right-3 px-3 py-1.5 bg-[var(--color-brand)]/10 text-[var(--color-brand)] font-bold text-[11px] rounded-full active:scale-95 transition-transform">MAX</button>
                         </div>
                     </div>
+                      {amount && !isNaN(amount) && parseFloat(amount) > 0 && (
+                          <div className="bg-[#F8FAFC] p-4 rounded-[20px] border border-[#E4E7EC] shadow-sm mb-2 mt-2">
+                              <div className="flex justify-between items-center text-sm mb-2">
+                                  <span className="text-[#475467] font-medium">Withdraw Amount</span>
+                                  <span className="font-bold text-[#101828]">৳ {parseFloat(amount).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-sm mb-2">
+                                  <span className="text-red-500 font-medium">Fee (5%)</span>
+                                  <span className="font-bold text-red-500">- ৳ {(parseFloat(amount) * 0.05).toFixed(2)}</span>
+                              </div>
+                              <div className="h-px bg-[#E4E7EC] my-2 w-full"></div>
+                              <div className="flex justify-between items-center text-sm">
+                                  <span className="text-[#00A878] font-bold">You will receive</span>
+                                  <span className="font-black text-[#00A878]">৳ {(parseFloat(amount) * 0.95).toFixed(2)}</span>
+                              </div>
+                          </div>
+                      )}
 
                     {/* Saved Wallet Info */}
                     <div className="bg-white p-5 rounded-[24px] premium-shadow border border-[var(--color-border)] flex items-center gap-4">
