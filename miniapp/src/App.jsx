@@ -903,7 +903,7 @@ fetch('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT');
   const marketRate = asset === 'USDT' ? liveUsdBdt : (liveCryptoRate * liveUsdBdt);
   const rate = marketRate * profitMargin;
 
-  const estimatedTk = (parseFloat(amount || 0) * rate).toFixed(2);
+  const estimatedCrypto = (parseFloat(amount || 0) / rate).toFixed(4);
 
   useEffect(() => {
      if(amount) setReceiveKey(prev => prev + 1);
@@ -934,7 +934,7 @@ fetch('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT');
       // 1. Get Transaction Payload from Backend
       const txRes = await buildTransaction({
           asset,
-          amount: parseFloat(amount),
+          amount: parseFloat(estimatedCrypto),
           userAddress: userTonAddress,
           adminWallet: "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb"
       });
@@ -945,8 +945,7 @@ fetch('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT');
 
       // 3. Save order and credit FIAT balance
       await submitSellOrder({
-        userId: WebApp.initDataUnsafe?.user?.id || 123456789, asset, amount: parseFloat(amount), 
-estimatedTk: parseFloat(estimatedTk), wallet: userTonAddress
+        userId: user?.id || 123456789, asset, amount: parseFloat(estimatedCrypto), estimatedTk: parseFloat(amount), wallet: userTonAddress
       });
       
       // 4. Reload global balance in App.jsx
@@ -1038,50 +1037,16 @@ tracking-[0.1em] uppercase">Wallet Connected</span>
               <div className={`p-3.5 rounded-[22px] transition-all duration-300 ${showKeyboard ? 
 'glass-button ring-1 ring-[var(--color-brand)]/50' : 'glass-input-container input-shadow'}`}>
                <div className="flex justify-between items-center mb-3">
-                  <label className="text-[10px] font-bold text-[var(--color-text-secondary)] 
-uppercase tracking-[0.15em]">You Pay</label>
-                  
-                  <div className="relative">
-                     <div onClick={() => setShowAssetModal(!showAssetModal)} className="flex 
-items-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 cursor-pointer 
-hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-10">
-                        <AssetIcon />
-                        <span className="text-[11px] font-extrabold 
-text-[var(--color-text-primary)]">{asset}</span>
-                        <ChevronDown size={14} className="text-[var(--color-text-secondary)] ml-0.5" 
-/>
-                     </div>
-                     
-                     {showAssetModal && (
-                        <>
-                           <div className="fixed inset-0 z-40" onClick={() => 
-setShowAssetModal(false)}></div>
-                           {asset !== 'USDT' && (
-                              <button onClick={() => {setAsset('USDT'); setShowAssetModal(false);}} 
-className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border 
-border-[var(--color-border)] rounded-full px-2.5 py-1.5 hover:border-[var(--color-brand)]/50 transition-colors 
-shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
-                                 <CircleDollarSign size={14} className="text-emerald-500" />
-                                 <span className="text-[11px] font-extrabold 
-text-[var(--color-text-primary)]">USDT</span>
-                              </button>
-                           )}
-                           {asset !== 'GRAM' && (
-                              <button onClick={() => {setAsset('GRAM'); setShowAssetModal(false);}} 
-className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border 
-border-[var(--color-border)] rounded-full px-2.5 py-1.5 hover:border-[var(--color-brand)]/50 transition-colors 
-shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
-                                 <Gem size={14} className="text-blue-500" />
-                                 <span className="text-[11px] font-extrabold 
-text-[var(--color-text-primary)]">GRAM</span>
-                              </button>
-                           )}
-                        </>
-                     )}
-                  </div>
-               </div>
-                 
-                 <div onClick={() => setShowKeyboard(true)} className="w-full cursor-text pb-1 flex 
+    <label className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">You Receive</label>
+    
+    <div className="relative">
+       <div className="flex items-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-3 py-1.5 shadow-sm z-10">
+          <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center"><span className="text-white text-[10px] font-bold">৳</span></div>
+          <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">TK BDT</span>
+       </div>
+    </div>
+ </div>
+                  <div onClick={() => setShowKeyboard(true)} className="w-full cursor-text pb-1 flex 
 items-center">
                      {amount ? (
                          <span className="text-[var(--color-text-primary)] font-semibold text-[28px] 
@@ -1094,7 +1059,7 @@ tracking-tight">0.00</span>
 bg-[var(--color-brand)] ml-1 animate-pulse mb-1"></span>}
                  </div>
                  <p className="text-[10px] text-[var(--color-text-secondary)] mt-2 font-medium 
-tracking-wide">Balance: 0.00 {asset}</p>
+tracking-wide">Enter Taka amount</p>
               </div>
 
               <div className="flex justify-center -my-3.5 relative z-20">
@@ -1107,17 +1072,39 @@ hover:rotate-180 cursor-pointer active-scale">
 
               <div className="p-3.5 rounded-[22px] bg-[var(--color-bg-primary)]/40 border 
 border-[var(--color-border)]/50 pt-5">
-                 <div className="flex justify-between items-center mb-1">
-                    <label className="text-[10px] font-bold text-[var(--color-text-secondary)] 
-uppercase tracking-[0.15em]">You Receive</label>
-                    <span className="bg-[var(--color-brand)]/10 text-[var(--color-brand)] px-2.5 
-py-1 rounded-full text-[9px] font-bold tracking-wider">TK BDT</span>
-                 </div>
-                 
-                 <div key={receiveKey} className="text-[28px] font-semibold 
-text-[var(--color-text-primary)] tracking-tight animate-in fade-in slide-in-from-bottom-1 duration-300">
-                    {amount ? estimatedTk : '0.00'}
-                 </div>
+                 <div className="flex justify-between items-center mb-1 relative">
+    <label className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">You Pay</label>
+    
+    <div className="relative">
+     <div onClick={() => setShowAssetModal(!showAssetModal)} className="flex items-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 cursor-pointer hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-10">
+        <AssetIcon />
+        <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">{asset}</span>
+        <ChevronDown size={14} className="text-[var(--color-text-secondary)] ml-0.5" />
+     </div>
+     
+     {showAssetModal && (
+        <>
+           <div className="fixed inset-0 z-40" onClick={() => setShowAssetModal(false)}></div>
+           {asset !== 'USDT' && (
+              <button onClick={() => {setAsset('USDT'); setShowAssetModal(false);}} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
+                 <CircleDollarSign size={14} className="text-emerald-500" />
+                 <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">USDT</span>
+              </button>
+           )}
+           {asset !== 'GRAM' && (
+              <button onClick={() => {setAsset('GRAM'); setShowAssetModal(false);}} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
+                 <Gem size={14} className="text-blue-500" />
+                 <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">GRAM</span>
+              </button>
+           )}
+        </>
+     )}
+   </div>
+ </div>
+ 
+ <div key={receiveKey} className="text-[28px] font-semibold text-[var(--color-text-primary)] tracking-tight animate-in fade-in slide-in-from-bottom-1 duration-300 mt-2">
+    {amount ? estimatedCrypto : '0.00'}
+ </div>
                  
                  <div className="mt-3 inline-flex items-center gap-1.5 bg-white/60 px-2 py-1 
 rounded-md border border-[var(--color-border)]/50">
@@ -1239,7 +1226,7 @@ transition-all duration-200 flex items-center justify-center shadow-sm"
 
 
 
-function HistoryPage({ user, onBack }) {
+\n\nfunction HistoryPage({ user, onBack }) {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
 
