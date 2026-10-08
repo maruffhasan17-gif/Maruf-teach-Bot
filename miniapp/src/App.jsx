@@ -156,9 +156,10 @@ const [activeTab, setActiveTab] = useState('home');
   useEffect(() => {
     try {
 const GUEST_ID = 123456789;
-        if (WebApp.initDataUnsafe?.user) {
-          setUser(WebApp.initDataUnsafe.user);
-          loadData(WebApp.initDataUnsafe.user.id);
+        const tgWebApp = window.Telegram?.WebApp;
+        if (tgWebApp?.initDataUnsafe?.user) {
+          setUser(tgWebApp.initDataUnsafe.user);
+          loadData(tgWebApp.initDataUnsafe.user.id);
         } else {
           setUser({ id: GUEST_ID, first_name: "Guest", last_name: "Account" });
           loadData(GUEST_ID);
@@ -650,7 +651,7 @@ function PremiumBuyPage() {
         return (
             <div className="flex flex-col h-full animate-in slide-in-from-right duration-300 pb-24">
                 <div className="flex items-center gap-3 mb-6">
-                    <button onClick={() => setStep(1)} className="p-2 -ml-2 bg-white rounded-full shadow-sm text-[#101828]"><ArrowDown size={20} className="rotate-90" /></button>
+                    <button onClick={() => { setStep(1); window.scrollTo({top:0, behavior:'smooth'}); }} className="p-2 -ml-2 bg-white rounded-full shadow-sm text-[#101828]"><ArrowDown size={20} className="rotate-90" /></button>
                     <div>
                         <h2 className="text-xl font-extrabold text-[#101828] tracking-tight">Payment Verification</h2>
                         <p className="text-[#475467] text-xs mt-0.5">Submit your payment details</p>
