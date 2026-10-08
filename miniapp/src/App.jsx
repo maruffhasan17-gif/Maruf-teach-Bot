@@ -498,337 +498,135 @@ function ClaimPage({ user, onBack }) {
 }
 
 function BuyPage() {
-  const [loading, setLoading] = useState(false);
-  const [txStatus, setTxStatus] = useState(null);
-  const [txMessage, setTxMessage] = useState('');
-  const [asset, setAsset] = useState('USDT');
-  const [amount, setAmount] = useState('');
-  const [showKeyboard, setShowKeyboard] = useState(false);
-  const [showAssetModal, setShowAssetModal] = useState(false);
-  const [receiveKey, setReceiveKey] = useState(0);
-  const [liveCryptoRate, setLiveCryptoRate] = useState(1.9);
-  const [liveUsdBdt, setLiveUsdBdt] = useState(120);
+    const [loading, setLoading] = React.useState(false);
+    const [txStatus, setTxStatus] = React.useState(null);
+    const [txMessage, setTxMessage] = React.useState('');
+    const [asset, setAsset] = React.useState('TON');
+    const [name, setName] = React.useState('');
+    const [sendingNumber, setSendingNumber] = React.useState('');
+    const [trxId, setTrxId] = React.useState('');
+    const [receiveAddress, setReceiveAddress] = React.useState('');
+    const [amount, setAmount] = React.useState('');
+    const [showAssetModal, setShowAssetModal] = React.useState(false);
+    
+    const adminBkash = "01931368630";
+    const liveCryptoRate = 1.9;
+    const liveUsdBdt = 120;
 
-  const userTonAddress = useTonAddress();
-  const [tonConnectUI] = useTonConnectUI();
+    const handleBuy = async () => {
+        if (!name || !sendingNumber || !trxId || !receiveAddress || !amount) {
+            setTxStatus('error');
+            setTxMessage('Please fill all fields');
+            setTimeout(() => setTxStatus(null), 3000);
+            return;
+        }
 
-  useEffect(() => {
-     const fetchPrice = async () => {
-         try {
-             // 1 Hour Caching Logic
-             const cached = localStorage.getItem('maruf_crypto_rates');
-             if (cached) {
-                 const parsed = JSON.parse(cached);
-                 const now = Date.now();
-                 // If less than 1 hour (3600000 ms) old, use cache
-                 if (now - parsed.timestamp < 3600000) {
-                     setLiveCryptoRate(parsed.tonPrice);
-                     setLiveUsdBdt(parsed.usdBdt);
-                     return;
-                 }
-             }
-
-             // Fetch TON price from Binance as GRAM proxy
-             const resTon = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT');
-             const dataTon = await resTon.json();
-             const tonPrice = parseFloat(dataTon.price) || 1.9;
-
-             // Fetch Live USD to BDT rate
-             const resBdt = await fetch('https://open.er-api.com/v6/latest/USD');
-             const dataBdt = await resBdt.json();
-             const usdBdt = dataBdt.rates.BDT || 120;
-
-             // Save to cache
-             localStorage.setItem('maruf_crypto_rates', JSON.stringify({
-                 tonPrice,
-                 usdBdt,
-                 timestamp: Date.now()
-             }));
-
-             setLiveCryptoRate(tonPrice);
-             setLiveUsdBdt(usdBdt);
-         } catch(e) {
-             console.error("Failed to fetch live price", e);
-             // Fallback to cache if offline
-             const cached = localStorage.getItem('maruf_crypto_rates');
-             if (cached) {
-                 const parsed = JSON.parse(cached);
-                 setLiveCryptoRate(parsed.tonPrice);
-                 setLiveUsdBdt(parsed.usdBdt);
-             }
-         }
-     };
-     fetchPrice();
-     // Check every minute if 1 hour has passed
-     const interval = setInterval(fetchPrice, 60000);
-     return () => clearInterval(interval);
-  }, []);
-
-  const profitMargin = 0.90; // We take 10% profit
-  const marketRate = asset === 'USDT' ? liveUsdBdt : (liveCryptoRate * liveUsdBdt);
-  const rate = marketRate * profitMargin;
-
-  const estimatedTk = (parseFloat(amount || 0) * rate).toFixed(2);
-
-  useEffect(() => {
-     if(amount) setReceiveKey(prev => prev + 1);
-  }, [amount, asset]);
-
-  useEffect(() => {
-     if(showKeyboard) {
+        setLoading(true);
         setTimeout(() => {
-           window.scrollTo({ top: 0, behavior: 'smooth' });
-        }, 100);
-     }
-  }, [showKeyboard]);
+            setLoading(false);
+            setTxStatus('success');
+            setTxMessage('Order submitted! Waiting for auto-verification.');
+            setName('');
+            setSendingNumber('');
+            setTrxId('');
+            setReceiveAddress('');
+            setAmount('');
+            setTimeout(() => setTxStatus(null), 4000);
+        }, 1500);
+    };
 
-  const handleKeyPress = (key) => {
-     if (key === 'del') {
-        setAmount(prev => prev.slice(0, -1));
-     } else if (key === '.') {
-        if (!amount.includes('.')) setAmount(prev => prev + (prev === '' ? '0.' : '.'));
-     } else {
-        if (amount.length < 10) setAmount(prev => prev + key);
-     }
-  };
+    return (
+        <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+             <div className="flex items-center gap-3 mb-6 mt-2">
+                <div className="w-9 h-9 bg-[var(--color-brand)]/10 rounded-full flex items-center justify-center text-[var(--color-brand)] shadow-inner">
+                    <ArrowDown size={16} strokeWidth={2.5} />
+                </div>
+                <h2 className="text-lg font-extrabold text-[var(--color-text-primary)] tracking-tight">Buy little amount of Gram and USDT</h2>
+             </div>
 
-  const handleSell = async () => {
-    if(!userTonAddress || !amount) return;
-    setLoading(true);
-    try {
-      // 1. Get Transaction Payload from Backend
-      const txRes = await buildTransaction({
-          asset,
-          amount: parseFloat(amount),
-          userAddress: userTonAddress,
-          adminWallet: "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb"
-      });
-      if (!txRes.success) throw new Error(txRes.error || "Failed to build transaction");
+             <div className="bg-[var(--color-bg-secondary)] rounded-2xl p-5 mb-6 border border-white/40 shadow-sm relative overflow-hidden group">
+                <h3 className="text-sm font-semibold mb-3 text-[var(--color-text-secondary)]">Payment Instructions</h3>
+                <div className="bg-white/60 rounded-xl p-3 mb-4">
+                    <p className="text-sm">1. Send money to our bKash/Nagad Personal number:</p>
+                    <p className="text-lg font-bold text-[var(--color-brand)] mt-1 tracking-wider">{adminBkash}</p>
+                    <p className="text-xs text-[var(--color-text-secondary)] mt-1">2. Copy the Transaction ID (TrxID)</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">3. Fill out the form below</p>
+                </div>
 
-      // 2. Send via TonConnect
-      await tonConnectUI.sendTransaction(txRes.tx);
-
-      // 3. Save order and credit FIAT balance
-      await submitSellOrder({
-        userId: WebApp.initDataUnsafe?.user?.id || 8799135330, asset, amount: parseFloat(amount), estimatedTk: parseFloat(estimatedTk), wallet: userTonAddress
-      });
-      
-      // 4. Reload global balance in App.jsx
-      if (window.reloadGlobalData) window.reloadGlobalData();
-
-      setTxStatus('success');
-      setTxMessage('Successfully bought TON');
-      setAmount('');
-      setShowKeyboard(false);
-      setTimeout(() => setTxStatus(null), 3000);
-    } catch(e) {
-      setTxStatus('error');
-      setTxMessage('There will be no changes to your account.');
-      setTimeout(() => setTxStatus(null), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const AssetIcon = () => {
-      if (asset === 'USDT') return <CircleDollarSign size={14} className="text-emerald-500" />;
-      return <Gem size={14} className="text-blue-500" />;
-  };
-
-  return (
-    <>
-      {showKeyboard && (
-          <style>{`
-              .fixed.bottom-0.z-50.flex.justify-center { display: none !important; }
-              #main-app-header { max-height: 0px !important; opacity: 0 !important; pointer-events: none; margin: 0 !important; padding: 0 !important; overflow: hidden; }
-              body { overflow: hidden !important; }
-          `}</style>
-      )}
-      <div className={`animate-in fade-in max-w-md mx-auto relative h-full transition-all duration-300 ease-out ${showKeyboard ? 'pb-[280px] pt-4' : 'pb-24'}`}>
-        
-        {showKeyboard && (
-           <div className="flex items-center mb-4 animate-in slide-in-from-top-4 duration-300">
-               <button onClick={() => setShowKeyboard(false)} className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-[var(--color-border)] premium-shadow active-scale transition-colors text-[var(--color-text-primary)]">
-                  <ChevronDown size={16} className="rotate-90" />
-                  <span className="text-[11px] font-bold">Back</span>
-               </button>
-           </div>
-        )}
-        <div className="glass-panel p-4 rounded-[28px] relative overflow-visible z-10 transition-all duration-300 hover:premium-shadow">
-           
-           <div className="flex items-center gap-3 mb-1">
-              <div className="w-9 h-9 bg-[var(--color-brand)]/10 rounded-full flex items-center justify-center text-[var(--color-brand)] shadow-inner">
-                  <ArrowRightLeft size={16} strokeWidth={2.5} />
-              </div>
-              <h2 className="text-lg font-extrabold text-[var(--color-text-primary)] tracking-tight">Buy TON</h2>
-           </div>
-           {!showKeyboard && (
-              <>
-                 <p className="text-[var(--color-text-secondary)] text-[11px] mb-5 font-medium tracking-wide">
-                               Instantly convert Crypto to TK. Securely via Tonkeeper.
-                            </p>
-                            
-                            <div className="flex items-center justify-center mb-5">
-                               {!userTonAddress ? (
-                                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50/80 border border-red-100/50 rounded-full">
-                                     <div className="w-1.5 h-1.5 bg-[var(--color-danger)] rounded-full animate-pulse" />
-                                     <span className="text-[9px] font-bold text-[var(--color-danger)] tracking-[0.1em] uppercase">Wallet Disconnected</span>
-                                  </div>
-                               ) : (
-                                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--color-brand)]/5 border border-[var(--color-brand)]/10 rounded-full">
-                                     <div className="w-1.5 h-1.5 bg-[var(--color-brand)] rounded-full" />
-                                     <span className="text-[9px] font-bold text-[var(--color-brand)] tracking-[0.1em] uppercase">Wallet Connected</span>
-                                  </div>
-                               )}
+                <div className="space-y-4 relative z-10">
+                    <div>
+                        <label className="text-[11px] font-bold text-[var(--color-text-secondary)] ml-1 mb-1.5 block tracking-wider uppercase">Select Asset</label>
+                        <button onClick={() => setShowAssetModal(true)} className="w-full bg-white rounded-xl p-3 flex items-center justify-between border border-[var(--color-border)] shadow-sm hover:border-[var(--color-brand)]/30 transition-colors">
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-[var(--color-text-primary)]">{asset}</span>
                             </div>
-              </>
-           )}
+                            <ChevronDown size={16} className="text-[var(--color-text-secondary)]" />
+                        </button>
+                    </div>
 
-           <div className="space-y-1.5 relative z-10">
-              <div className={`p-3.5 rounded-[22px] transition-all duration-300 ${showKeyboard ? 'glass-button ring-1 ring-[var(--color-brand)]/50' : 'glass-input-container input-shadow'}`}>
-               <div className="flex justify-between items-center mb-3">
-                  <label className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">You Pay</label>
-                  
-                  <div className="relative">
-                     <div onClick={() => setShowAssetModal(!showAssetModal)} className="flex items-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 cursor-pointer hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-10">
-                        <AssetIcon />
-                        <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">{asset}</span>
-                        <ChevronDown size={14} className="text-[var(--color-text-secondary)] ml-0.5" />
-                     </div>
-                     
-                     {showAssetModal && (
-                        <>
-                           <div className="fixed inset-0 z-40" onClick={() => setShowAssetModal(false)}></div>
-                           {asset !== 'USDT' && (
-                              <button onClick={() => {setAsset('USDT'); setShowAssetModal(false);}} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
-                                 <CircleDollarSign size={14} className="text-emerald-500" />
-                                 <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">USDT</span>
-                              </button>
-                           )}
-                           {asset !== 'GRAM' && (
-                              <button onClick={() => {setAsset('GRAM'); setShowAssetModal(false);}} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
-                                 <Gem size={14} className="text-blue-500" />
-                                 <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">GRAM</span>
-                              </button>
-                           )}
-                        </>
-                     )}
-                  </div>
-               </div>
-                 
-                 <div onClick={() => setShowKeyboard(true)} className="w-full cursor-text pb-1 flex items-center">
-                     {amount ? (
-                         <span className="text-[var(--color-text-primary)] font-semibold text-[28px] tracking-tight">{amount}</span>
-                     ) : (
-                         <span className="text-gray-300 font-semibold text-[28px] tracking-tight">0.00</span>
-                     )}
-                     {showKeyboard && <span className="inline-block w-[2px] h-7 bg-[var(--color-brand)] ml-1 animate-pulse mb-1"></span>}
-                 </div>
-                 <p className="text-[10px] text-[var(--color-text-secondary)] mt-2 font-medium tracking-wide">Balance: 0.00 {asset}</p>
-              </div>
+                    <div>
+                        <label className="text-[11px] font-bold text-[var(--color-text-secondary)] ml-1 mb-1.5 block tracking-wider uppercase">Amount to Buy ({asset})</label>
+                        <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="w-full bg-white rounded-xl p-3.5 text-lg font-bold border border-[var(--color-border)] shadow-sm focus:border-[var(--color-brand)] focus:ring-2 focus:ring-[var(--color-brand)]/20 transition-all outline-none" />
+                        {amount && (
+                            <p className="text-xs font-semibold text-[var(--color-brand)] mt-1.5 ml-1">You will pay: ৳{(Number(amount) * (asset === 'USDT' ? liveUsdBdt : liveCryptoRate * liveUsdBdt)).toFixed(2)} BDT</p>
+                        )}
+                    </div>
 
-              <div className="flex justify-center -my-3.5 relative z-20">
-                 <div className="w-10 h-10 bg-white border border-[var(--color-border)] rounded-full shadow-sm text-[var(--color-brand)] transition-transform duration-300 flex items-center justify-center hover:rotate-180 cursor-pointer active-scale">
-                    <ArrowRightLeft size={16} strokeWidth={2.5} className="rotate-90" />
-                 </div>
-              </div>
+                    <div>
+                        <label className="text-[11px] font-bold text-[var(--color-text-secondary)] ml-1 mb-1.5 block tracking-wider uppercase">Your Name</label>
+                        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" className="w-full bg-white rounded-xl p-3 text-sm font-medium border border-[var(--color-border)] shadow-sm focus:border-[var(--color-brand)] outline-none" />
+                    </div>
 
-              <div className="p-3.5 rounded-[22px] bg-[var(--color-bg-primary)]/40 border border-[var(--color-border)]/50 pt-5">
-                 <div className="flex justify-between items-center mb-1">
-                    <label className="text-[10px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">You Receive</label>
-                    <span className="bg-[var(--color-brand)]/10 text-[var(--color-brand)] px-2.5 py-1 rounded-full text-[9px] font-bold tracking-wider">TK BDT</span>
-                 </div>
-                 
-                 <div key={receiveKey} className="text-[28px] font-semibold text-[var(--color-text-primary)] tracking-tight animate-in fade-in slide-in-from-bottom-1 duration-300">
-                    {amount ? estimatedTk : '0.00'}
-                 </div>
-                 
-                 <div className="mt-3 inline-flex items-center gap-1.5 bg-white/60 px-2 py-1 rounded-md border border-[var(--color-border)]/50">
-                    <TrendingUp size={10} className="text-[var(--color-brand)]" />
-                    <span className="text-[9px] text-[var(--color-text-secondary)] font-semibold tracking-wide">
-                        {asset === "USDT" ? `1 USDT = ${rate.toFixed(2)} TK` : `1 GRAM = ${rate.toFixed(2)} TK`}
-                    </span>
-                 </div>
-              </div>
+                    <div>
+                        <label className="text-[11px] font-bold text-[var(--color-text-secondary)] ml-1 mb-1.5 block tracking-wider uppercase">Sending Number</label>
+                        <input type="tel" value={sendingNumber} onChange={e => setSendingNumber(e.target.value)} placeholder="01XXXXXXXXX" className="w-full bg-white rounded-xl p-3 text-sm font-medium border border-[var(--color-border)] shadow-sm focus:border-[var(--color-brand)] outline-none" />
+                    </div>
 
-              <button onClick={handleSell} disabled={!userTonAddress || !amount || loading} className="w-full font-bold py-3.5 rounded-[20px] mt-4 transition-all duration-300 active:scale-[0.98] group relative overflow-hidden flex items-center justify-center gap-2 border disabled:opacity-100 disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400 disabled:shadow-none bg-[var(--color-text-primary)] text-white border-transparent premium-shadow hover:shadow-lg">
-                 {!userTonAddress ? (
-                    <span className="text-[13px] tracking-wide">CONNECT WALLET</span>
-                 ) : loading ? (
-                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span className="text-[13px] tracking-wide">BUYING...</span></>
-                 ) : !amount ? (
-                    <span className="text-[13px] tracking-wide">ENTER AMOUNT</span>
-                 ) : (
-                    <span className="text-[13px] tracking-wide">CONFIRM BUY</span>
-                 )}
-                 {!(!userTonAddress || !amount || loading) && <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />}
-              </button>
-              
-              {/* Premium Centered Transaction Modal */}
-              {txStatus && (
-                  <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
-                      <div className="bg-white rounded-[28px] p-8 max-w-[280px] w-full flex flex-col items-center text-center premium-shadow animate-in zoom-in-95 slide-in-from-bottom-4 duration-500 relative overflow-hidden">
-                         {txStatus === 'loading' && (
-                            <>
-                               <div className="relative w-16 h-16 mb-5">
-                                   <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
-                                   <div className="absolute inset-0 border-4 border-[var(--color-brand)] rounded-full border-t-transparent animate-spin"></div>
-                               </div>
-                               <h3 className="text-[17px] font-extrabold text-[var(--color-text-primary)] tracking-tight">Confirming...</h3>
-                               <p className="text-[13px] text-[var(--color-text-secondary)] mt-2 font-medium">Please confirm in your wallet</p>
-                            </>
-                         )}
-                         {txStatus === 'success' && (
-                            <>
-                               <div className="w-16 h-16 bg-[var(--color-brand)]/10 text-[var(--color-brand)] rounded-full flex items-center justify-center mb-5 animate-in zoom-in duration-500">
-                                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" className="animate-[dash_0.5s_ease-out_forwards]" style={{ strokeDasharray: 30, strokeDashoffset: 30 }} />
-                                  </svg>
-                               </div>
-                               <style>{`@keyframes dash { to { stroke-dashoffset: 0; } }`}</style>
-                               <h3 className="text-[17px] font-extrabold text-[var(--color-text-primary)] tracking-tight">Success!</h3>
-                               <p className="text-[13px] text-[var(--color-text-secondary)] mt-2 font-medium">{txMessage}</p>
-                            </>
-                         )}
-                         {txStatus === 'error' && (
-                            <>
-                               <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-5 animate-in zoom-in duration-500">
-                                  <X size={32} strokeWidth={3} />
-                               </div>
-                               <h3 className="text-[17px] font-extrabold text-[var(--color-text-primary)] tracking-tight">Canceled</h3>
-                               <p className="text-[13px] text-[var(--color-text-secondary)] mt-2 font-medium">{txMessage}</p>
-                            </>
-                         )}
-                      </div>
-                  </div>
-              )}
-           </div>
+                    <div>
+                        <label className="text-[11px] font-bold text-[var(--color-text-secondary)] ml-1 mb-1.5 block tracking-wider uppercase">Transaction ID</label>
+                        <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="8ABC123XYZ" className="w-full bg-white rounded-xl p-3 text-sm font-medium border border-[var(--color-border)] shadow-sm focus:border-[var(--color-brand)] outline-none" />
+                    </div>
+
+                    <div>
+                        <label className="text-[11px] font-bold text-[var(--color-text-secondary)] ml-1 mb-1.5 block tracking-wider uppercase">Receive Address ({asset})</label>
+                        <input type="text" value={receiveAddress} onChange={e => setReceiveAddress(e.target.value)} placeholder={"Paste your " + asset + " address"} className="w-full bg-white rounded-xl p-3 text-sm font-medium border border-[var(--color-border)] shadow-sm focus:border-[var(--color-brand)] outline-none" />
+                    </div>
+                </div>
+             </div>
+
+             <div className="mt-auto mb-24">
+                <button onClick={handleBuy} disabled={loading} className="w-full bg-[var(--color-brand)] text-white font-extrabold rounded-2xl p-4 flex items-center justify-center gap-2 buy-btn-shadow active:scale-95 transition-all relative overflow-hidden disabled:opacity-70">
+                   <span className="text-[13px] tracking-wide">{loading ? 'SUBMITTING...' : 'CONFIRM BUY'}</span>
+                </button>
+             </div>
+
+             {showAssetModal && (
+                <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowAssetModal(false)} />
+                    <div className="bg-white w-full max-w-sm rounded-[24px] p-5 relative z-10 shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg">Select Asset</h3>
+                            <button onClick={() => setShowAssetModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20} /></button>
+                        </div>
+                        <div className="space-y-2">
+                            {['TON', 'USDT'].map(a => (
+                                <button key={a} onClick={() => { setAsset(a); setShowAssetModal(false); }} className={"w-full flex items-center gap-3 p-4 rounded-xl border-2 transition-all " + (asset === a ? "border-[var(--color-brand)] bg-[var(--color-brand)]/5" : "border-transparent hover:bg-gray-50")}>
+                                    <span className="font-bold text-lg">{a}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+             )}
+
+             {txStatus && (
+                <div className={"fixed top-4 left-4 right-4 p-4 rounded-2xl shadow-lg flex items-start gap-3 z-50 animate-in slide-in-from-top-4 fade-in duration-300 " + (txStatus === 'success' ? 'bg-[#10B981] text-white' : 'bg-[#EF4444] text-white')}>
+                   <p className="font-medium text-sm leading-snug">{txMessage}</p>
+                </div>
+             )}
         </div>
-
-        {showKeyboard && (
-            <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto w-full glass-nav rounded-t-[28px] premium-shadow z-[100] p-4 pb-5 animate-in slide-in-from-bottom-full duration-300 border-t border-[var(--color-border)]">
-               <div className="flex justify-between items-center mb-3 px-3">
-                   <span className="text-[11px] font-extrabold text-[var(--color-text-primary)] uppercase tracking-[0.2em] opacity-80">Enter Amount</span>
-                   <button onClick={() => setShowKeyboard(false)} className="p-2 bg-gray-100/80 text-[var(--color-text-secondary)] rounded-full hover:bg-gray-200 active-scale transition-colors"><ChevronDown size={16}/></button>
-               </div>
-               <div className="grid grid-cols-3 gap-2">
-                   {[1,2,3,4,5,6,7,8,9, '.', 0, 'del'].map(key => (
-                       <button 
-                          key={key}
-                          onClick={() => handleKeyPress(key)}
-                          className="h-12 text-[22px] font-semibold text-[var(--color-text-primary)] bg-white border border-[var(--color-border)] rounded-[20px] active:bg-[var(--color-text-primary)] active:text-white transition-all duration-200 flex items-center justify-center shadow-sm"
-                       >
-                          {key === 'del' ? <Delete size={20} /> : key}
-                       </button>
-                   ))}
-               </div>
-            </div>
-        )}
-      </div>
-    </>
-  );
+    );
 }
-
 function SellPage() {
   const [loading, setLoading] = useState(false);
   const [txStatus, setTxStatus] = useState(null);
