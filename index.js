@@ -191,13 +191,18 @@ bot.on('callback_query', async (query) => {
             const chatMember = await bot.getChatMember(channelUsername, userId);
             if (chatMember.status === 'member' || chatMember.status === 'administrator' || chatMember.status === 'creator') {
                 
-                await db.collection('users').doc(chatId.toString()).update({ status: 'verified' });
+                await db.collection('users').doc(chatId.toString()).update({ status: 'verified', language: 'bn' }); // Default to BN
+                userStates[chatId].lang = 'bn';
+                
+                // Remove old bottom keyboard invisibly by sending and deleting a message
+                const delMsg = await bot.sendMessage(chatId, '...', { reply_markup: { remove_keyboard: true } });
+                bot.deleteMessage(chatId, delMsg.message_id).catch(()=>{});
 
-                bot.sendMessage(chatId, t.en.langPrompt, {
-                    reply_markup: {
-                        inline_keyboard: [[ { text: '🇬🇧 English', callback_data: 'lang_en' }, { text: '🇧🇩 বাংলা', callback_data: 'lang_bn' } ]]
-                    }
-                });
+                // Send the Open App message
+                bot.sendMessage(chatId, t.bn.mainMenuMsg, getMenu('bn'));
+                
+                // Optionally delete the Verify message to keep it clean
+                bot.deleteMessage(chatId, query.message.message_id).catch(()=>{});
             } else {
                 bot.answerCallbackQuery(query.id, { text: t.en.notJoined, show_alert: true });
             }
