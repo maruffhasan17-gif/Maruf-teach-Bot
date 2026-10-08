@@ -285,8 +285,8 @@ bot.on('message', async (msg) => {
                                     balance: (userDoc.data().balance || 0) + amountToRefund,
                                     fiatWithdrawPending: null
                                 });
-                                bot.sendMessage(chatId, `❌ Rejected withdrawal for ${targetUserId} and refunded ${amountToRefund} USDT.\nReason: ${reason}`);
-                                bot.sendMessage(targetUserId, `❌ <b>Withdrawal Rejected</b>\nYour ${amountToRefund} USDT has been refunded to your balance.\nReason: ${reason}`, { parse_mode: 'HTML' });
+                                bot.sendMessage(chatId, `❌ Rejected withdrawal for ${targetUserId} and refunded ${amountToRefund} BDT.\nReason: ${reason}`);
+                                bot.sendMessage(targetUserId, `❌ <b>Withdrawal Rejected</b>\nYour ${amountToRefund} BDT has been refunded to your balance.\nReason: ${reason}`, { parse_mode: 'HTML' });
                             }
                         }
                     }
@@ -678,7 +678,7 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
 
 app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
     try {
-        const { userId, amount } = req.body;
+        const { userId, amount, fee, receiveAmount } = req.body;
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
         
@@ -687,11 +687,16 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         if ((userData.balance || 0) < amount) throw new Error("Insufficient balance");
         if (userData.fiatWithdrawPending) throw new Error("You already have a pending withdrawal");
         
+        const calcFee = fee || (amount * 0.05);
+        const calcReceive = receiveAmount || (amount - calcFee);
+
         // Deduct balance and set pending
         await userRef.update({
             balance: (userData.balance || 0) - amount,
             fiatWithdrawPending: {
                 amount: amount,
+                fee: calcFee,
+                receiveAmount: calcReceive,
                 status: 'pending',
                 timestamp: Date.now(),
                 method: userData.fiatWallet.method,
@@ -703,7 +708,7 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         // Notify Admin Group
         const config = require('./config.json');
         if (config.adminGroupId) {
-            const msg = `💰 <b>New Fiat Withdrawal</b>\n\n👤 User: <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a>\n🆔 ID: ${userId}\n💲 Amount: <b>${amount} USDT</b>\n🏦 Method: ${userData.fiatWallet.method}\n📱 Number: ${userData.fiatWallet.number}\n📛 Name: ${userData.fiatWallet.name}\n\n⚙️ <b>Actions (Reply to this):</b>\n- <code>Done</code> or <code>Ok</code> to mark paid\n- <code>Wait</code> to set a timer\n- <code>Reject [reason]</code> to refund`;
+            const msg = `💸 <b>New Fiat Withdrawal</b>\n\n👤 User: <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a>\n🆔 ID: ${userId}\n\n💰 Total Amount: <b>৳ ${amount} BDT</b>\n📉 Fee (5%): <b>৳ ${calcFee.toFixed(2)} BDT</b>\n✅ Send Exactly: <b>৳ ${calcReceive.toFixed(2)} BDT</b>\n\n🏦 Method: ${userData.fiatWallet.method}\n📞 Number: ${userData.fiatWallet.number}\n🏷 Name: ${userData.fiatWallet.name}\n\n👇 <b>Actions (Reply to this):</b>\n- <code>Done</code> or <code>Ok</code> to mark paid\n- <code>Wait</code> to set a timer\n- <code>Reject [reason]</code> to refund`;
             await bot.sendMessage(config.adminGroupId, msg, { parse_mode: 'HTML' });
         }
         
