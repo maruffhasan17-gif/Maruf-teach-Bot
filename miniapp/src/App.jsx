@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -140,6 +140,7 @@ export default function App() {
 const [activeTab, setActiveTab] = useState('home');
   const [fiatWallet, setFiatWallet] = useState(null);
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
+  const [mbsId, setMbsId] = useState(null);
   const [user, setUser] = useState({ id: 0, first_name: 'User', username: '' });
   const [balance, setBalance] = useState(0);
 
@@ -149,6 +150,7 @@ const [activeTab, setActiveTab] = useState('home');
     setBalance(data.balance);
     setFiatWallet(data.fiatWallet || null);
     setFiatWithdrawPending(data.fiatWithdrawPending || null);
+      setMbsId(data.mbsId);
   };
 
   useEffect(() => {
@@ -194,7 +196,7 @@ const GUEST_ID = 123456789;
           {activeTab === 'home' && <HomePage balance={balance} user={user} onGoToClaim={() => setActiveTab('claim')} />}
           {activeTab === 'buy' && <PremiumBuyPage />}
           {activeTab === 'sell' && <PremiumSellPage />}
-          {activeTab === 'profile' && <ProfilePage user={user} balance={balance} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onGoToWithdraw={() => setActiveTab('withdraw')} setFiatWallet={setFiatWallet} reloadData={() => loadData(user?.id || 123456789)} />}
+          {activeTab === 'profile' && <ProfilePage user={user} balance={balance} mbsId={mbsId} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onGoToWithdraw={() => setActiveTab('withdraw')} setFiatWallet={setFiatWallet} reloadData={() => loadData(user?.id || 123456789)} />}
           {activeTab === 'claim' && <ClaimPage user={user} onBack={() => setActiveTab('home')} />}
           {activeTab === 'withdraw' && <WithdrawFiatPage user={user} balance={balance} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onBack={() => setActiveTab('profile')} reloadData={() => loadData(user?.id || 123456789)} />}
         </div>

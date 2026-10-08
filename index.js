@@ -749,17 +749,37 @@ const { ethers } = require('ethers');
 app.get('/api/miniapp/user/:id', async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
-        const userDoc = await db.collection('users').doc(userId.toString()).get();
-        if (!userDoc.exists) {
-            return res.json({ balance: 0 });
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        
+        let data = {};
+        if (userDoc.exists) {
+            data = userDoc.data();
         }
-        const data = userDoc.data();
+
+        let mbsId = data.mbsId;
+        if (!mbsId) {
+            let unique = false;
+            while (!unique) {
+                const randomDigits = Math.floor(10000 + Math.random() * 90000);
+                const tempId = 'MBS' + randomDigits;
+                const existing = await db.collection('users').where('mbsId', '==', tempId).get();
+                if (existing.empty) {
+                    mbsId = tempId;
+                    unique = true;
+                }
+            }
+            await userRef.set({ mbsId }, { merge: true });
+        }
+
         res.json({ 
             balance: data.balance || 0,
             fiatWallet: data.fiatWallet || null,
-            fiatWithdrawPending: data.fiatWithdrawPending || null
+            fiatWithdrawPending: data.fiatWithdrawPending || null,
+            mbsId: mbsId
         });
     } catch(e) {
+        console.error(e);
         res.status(500).json({ error: e.message });
     }
 });
