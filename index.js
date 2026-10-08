@@ -1121,8 +1121,6 @@ app.get('/api/settings', (req, res) => {
         res.json({ gramAmount: '0.07', usdtAmount: '0.05', freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328', adminBkash: '01752561935', adminNagad: '01878580320' });
     }
 });
-    }
-});
 
 
 app.post('/api/miniapp/buy', async (req, res) => {
@@ -1139,8 +1137,8 @@ app.post('/api/miniapp/buy', async (req, res) => {
         const verifiedRef = await db.collection('verified_trx').doc(trxId).get();
         if (verifiedRef.exists) {
              await db.collection('miniapp_buys').doc(trxId).update({ status: 'completed' });
-             bot.sendMessage(userId, `🎉 Your payment for ${amount} ${asset} has been automatically verified via early SMS!\n\nThe admin will send the asset to your wallet shortly.`);
-             bot.sendMessage(8799135330, `✅ Auto-Verified Buy Order (Early SMS)!\nUser: ${userId}\nAsset: ${amount} ${asset}\nTrxID: ${trxId}\nWallet: ${receiveAddress}`);
+             bot.sendMessage(userId, '🎉 Your payment for ' + amount + ' ' + asset + ' has been automatically verified via early SMS!\n\nThe admin will send the asset to your wallet shortly.');
+             bot.sendMessage(8799135330, '✅ Auto-Verified Buy Order (Early SMS)!\nUser: ' + userId + '\nAsset: ' + amount + ' ' + asset + '\nTrxID: ' + trxId + '\nWallet: ' + receiveAddress);
              return res.json({ success: true, message: 'Auto-verified instantly' });
         }
 
@@ -1179,8 +1177,8 @@ app.post('/api/macrodroid/webhook', async (req, res) => {
         const order = doc.data();
         if (order.status === 'pending') {
             await buyRef.update({ status: 'completed' });
-            bot.sendMessage(order.userId, `🎉 Your payment for ${order.amount} ${order.asset} has been automatically verified!\n\nThe admin will send the asset to your wallet shortly.`);
-            bot.sendMessage(8799135330, `✅ Auto-Verified Buy Order!\nUser: ${order.userId}\nAsset: ${order.amount} ${order.asset}\nTrxID: ${trxId}\nWallet: ${order.receiveAddress}`);
+            bot.sendMessage(order.userId, '🎉 Your payment for ' + order.amount + ' ' + order.asset + ' has been automatically verified!\n\nThe admin will send the asset to your wallet shortly.');
+            bot.sendMessage(8799135330, '✅ Auto-Verified Buy Order!\nUser: ' + order.userId + '\nAsset: ' + order.amount + ' ' + order.asset + '\nTrxID: ' + trxId + '\nWallet: ' + order.receiveAddress);
         }
         res.json({ success: true });
     } catch(e) {
