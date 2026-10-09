@@ -691,16 +691,38 @@ function OrdersList() {
     fetchOrders();
   }, []);
 
-  const fetchOrders = () => {
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/orders`)
-      .then(r => r.json())
-      .then(d => {
-        setBuys(d.buys || []);
-        setSells(d.sells || []);
-        setLoading(false);
-      })
-      .catch(e => { console.error(e); setLoading(false); });
-  };
+  const [withdraws, setWithdraws] = React.useState([]);
+    const fetchOrders = () => {
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/orders`)
+        .then(r => r.json())
+        .then(d => {
+          setBuys(d.buys || []);
+          setSells(d.sells || []);
+          setWithdraws(d.withdrawals || []);
+          setLoading(false);
+        })
+        .catch(e => { console.error(e); setLoading(false); });
+    };
+    
+    const handleApproveWithdraw = async (userId) => {
+      if(!window.confirm("Approve this Withdrawal and notify user?")) return;
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/approve-withdraw`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const data = await res.json();
+        if(data.success) {
+          alert("Withdrawal Approved & User Notified!");
+          fetchOrders();
+        } else {
+          alert(data.error);
+        }
+      } catch(e) {
+        alert("Error approving withdrawal");
+      }
+    };
 
   const handleApprove = async (id) => {
     if(!window.confirm("Approve this Buy Order manually?")) return;
