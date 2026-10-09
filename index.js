@@ -560,7 +560,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
             const docRef = await db.collection('miniapp_sells').add({
                 userId, asset, amount, estimatedTk, wallet,
                 status: 'pending',
-                timestamp: admin.firestore.FieldValue.serverTimestamp()
+                timestamp: FieldValue.serverTimestamp()
             });
             return res.json({ success: true, orderId: docRef.id });
         }
@@ -571,7 +571,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
         } else {
             await db.collection('miniapp_sells').add({
                 userId, asset, amount, estimatedTk, wallet, status: 'completed',
-                timestamp: admin.firestore.FieldValue.serverTimestamp()
+                timestamp: FieldValue.serverTimestamp()
             });
         }
 
@@ -579,9 +579,9 @@ app.post('/api/miniapp/sell', async (req, res) => {
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
         if (userDoc.exists) {
-            await userRef.update({ balance: admin.firestore.FieldValue.increment(estimatedTk) });
+            await userRef.update({ balance: FieldValue.increment(estimatedTk) });
         } else {
-            await userRef.set({ balance: estimatedTk, joinedAt: admin.firestore.FieldValue.serverTimestamp() });
+            await userRef.set({ balance: estimatedTk, joinedAt: FieldValue.serverTimestamp() });
         }
 
         // Notify Admin Group
@@ -929,7 +929,7 @@ app.post('/api/macrodroid/webhook', async (req, res) => {
         await db.collection('debug_logs').add({
             body: req.body || {},
             query: req.query || {},
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
+            timestamp: FieldValue.serverTimestamp()
         });
         const sender = (req.body.sender || req.query.sender || 'Unknown').trim();
         const message = req.body.message || req.query.message || '';
@@ -956,7 +956,7 @@ app.post('/api/macrodroid/webhook', async (req, res) => {
             await db.collection('verified_trx').doc(trxId).set({
                 message,
                 amount: msgAmount,
-                timestamp: admin.firestore.FieldValue.serverTimestamp()
+                timestamp: FieldValue.serverTimestamp()
             });
             return res.json({ success: true, message: "TrxID cached for future auto-verify" });
         }
