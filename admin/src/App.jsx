@@ -692,6 +692,9 @@ function OrdersList() {
   }, []);
 
   const [withdraws, setWithdraws] = React.useState([]);
+    const [bonusUser, setBonusUser] = React.useState('');
+    const [bonusAmt, setBonusAmt] = React.useState('');
+    const [dailyLimit, setDailyLimit] = React.useState('');
     const fetchOrders = () => {
       fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/orders`)
         .then(r => r.json())
