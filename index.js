@@ -929,6 +929,12 @@ app.post('/api/macrodroid/webhook', async (req, res) => {
         const sender = req.body.sender || req.query.sender || 'Unknown';
         const message = req.body.message || req.query.message || '';
         
+        const validSenders = ['bkash', 'nagad'];
+        if (!validSenders.includes(sender.toLowerCase())) {
+            console.warn('Blocked fake SMS from ' + sender);
+            return res.status(403).json({ error: "Fraud attempt blocked! Sender must be bKash or Nagad" });
+        }
+        
         const match = message.match(/(?:TrxID|TxnId|TxnID|TrxId)[\s:]*([A-Za-z0-9]+)/i);
         if (!match) {
             return res.status(400).json({ error: "No TrxID found" });
