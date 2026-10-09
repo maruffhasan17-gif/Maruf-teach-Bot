@@ -989,6 +989,8 @@ function PremiumSellPage({ user }) {
     if (parseFloat(fiatAmount) > 20000) return window.Telegram?.WebApp?.showAlert("Maximum sell amount is 20000 BDT");
     
     setLoading(true);
+    let pendingOrderId = null;
+    
     try {
       const txRes = await buildTransaction({
           asset,
@@ -998,14 +1000,32 @@ function PremiumSellPage({ user }) {
       });
       if (!txRes.success) throw new Error(txRes.error || "Failed to build transaction");
 
-      await tonConnectUI.sendTransaction(txRes.tx);
-
-      await submitSellOrder({
-        userId: WebApp.initDataUnsafe?.user?.id || 123456789, 
+      // 1. Submit pending order to DB before confirming in wallet (in case app closes)
+      const pendingRes = await submitSellOrder({
+        userId: user?.id || WebApp.initDataUnsafe?.user?.id || 123456789, 
         asset, 
         amount: parseFloat(cryptoAmount), 
         estimatedTk: parseFloat(fiatAmount), 
-        wallet: userTonAddress
+        wallet: userTonAddress,
+        status: 'pending'
+      });
+      
+      if (pendingRes && pendingRes.orderId) {
+          pendingOrderId = pendingRes.orderId;
+      }
+
+      // 2. Open wallet and send
+      await tonConnectUI.sendTransaction(txRes.tx);
+
+      // 3. Mark completed and add TK to user balance
+      await submitSellOrder({
+        userId: user?.id || WebApp.initDataUnsafe?.user?.id || 123456789, 
+        asset, 
+        amount: parseFloat(cryptoAmount), 
+        estimatedTk: parseFloat(fiatAmount), 
+        wallet: userTonAddress,
+        orderId: pendingOrderId,
+        status: 'completed'
       });
       
       if (window.reloadGlobalData) window.reloadGlobalData();
@@ -1309,7 +1329,7 @@ function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWit
       setIsSaving(true);
       try {
           await saveFiatWallet({
-              userId: WebApp.initDataUnsafe?.user?.id || 123456789,
+              userId: user?.id || WebApp.initDataUnsafe?.user?.id,
               method: walletMethod,
               number: walletNumber,
               name: walletName
