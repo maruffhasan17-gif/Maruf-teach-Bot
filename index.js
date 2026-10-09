@@ -926,6 +926,11 @@ app.post('/api/miniapp/buy', async (req, res) => {
 
 app.post('/api/macrodroid/webhook', async (req, res) => {
     try {
+        await db.collection('debug_logs').add({
+            body: req.body || {},
+            query: req.query || {},
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
         const sender = (req.body.sender || req.query.sender || 'Unknown').trim();
         const message = req.body.message || req.query.message || '';
         
