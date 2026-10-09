@@ -555,9 +555,9 @@ function UsersList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800">
-            {data.users.length === 0 ? (
+            {(!data.users || data.users.length === 0) ? (
               <tr><td colSpan="4" className="p-8 text-center text-gray-500 font-bold">NO USERS FOUND. HIT /START IN THE BOT!</td></tr>
-            ) : data.users.map(u => (
+            ) : (data.users || []).map(u => (
               <tr key={u.chatId} className="hover:bg-gray-800/50 transition-colors">
                 <td className="p-6 font-mono text-sm text-gray-300">{u.chatId}</td>
                 <td className="p-6 font-bold text-blue-400">@{u.username}</td>
