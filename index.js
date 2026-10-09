@@ -926,7 +926,7 @@ app.post('/api/miniapp/buy', async (req, res) => {
 
 app.post('/api/macrodroid/webhook', async (req, res) => {
     try {
-        const sender = req.body.sender || req.query.sender || 'Unknown';
+        const sender = (req.body.sender || req.query.sender || 'Unknown').trim();
         const message = req.body.message || req.query.message || '';
         
         const validSenders = ['bkash', 'nagad'];
