@@ -199,8 +199,8 @@ const GUEST_ID = 123456789;
           </div>
 
           {activeTab === 'home' && <HomePage balance={balance} user={user} fiatWithdrawPending={fiatWithdrawPending} onGoToClaim={() => setActiveTab('claim')} />}
-          {activeTab === 'buy' && <PremiumBuyPage />}
-          {activeTab === 'sell' && <PremiumSellPage />}
+          {activeTab === 'buy' && <PremiumBuyPage user={user} />}
+          {activeTab === 'sell' && <PremiumSellPage user={user} />}
           {activeTab === 'history' && <HistoryPage user={user} onBack={() => setActiveTab('profile')} />}
             {activeTab === 'profile' && <ProfilePage user={user} balance={balance} mbsId={mbsId} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onGoToWithdraw={() => setActiveTab('withdraw')} onGoToHistory={() => setActiveTab('history')} setFiatWallet={setFiatWallet} reloadData={() => loadData(user?.id || 123456789)} />}
           {activeTab === 'claim' && <ClaimPage user={user} onBack={() => setActiveTab('home')} />}
@@ -588,7 +588,7 @@ function ClaimPage({ user, onBack }) {
 
 
 
-function PremiumBuyPage() {
+function PremiumBuyPage({ user }) {
     const [step, setStep] = React.useState(1);
     const [asset, setAsset] = React.useState('TON');
     const [amount, setAmount] = React.useState('');
@@ -871,7 +871,7 @@ function PremiumBuyPage() {
 
 
 
-function PremiumSellPage() {
+function PremiumSellPage({ user }) {
   const [loading, setLoading] = useState(false);
   const [txStatus, setTxStatus] = useState(null);
   const [txMessage, setTxMessage] = useState('');
