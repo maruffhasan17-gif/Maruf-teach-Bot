@@ -692,6 +692,9 @@ function OrdersList() {
   }, []);
 
   const [withdraws, setWithdraws] = React.useState([]);
+  const [bonusUser, setBonusUser] = React.useState('');
+  const [bonusAmt, setBonusAmt] = React.useState('');
+  const [dailyLimit, setDailyLimit] = React.useState('');
     const [bonusUser, setBonusUser] = React.useState('');
     const [bonusAmt, setBonusAmt] = React.useState('');
     const [dailyLimit, setDailyLimit] = React.useState('');
