@@ -564,7 +564,7 @@ function UsersList() {
                 <td className="p-6 text-gray-300">{u.language === 'bn' ? 'ðŸ‡§ðŸ‡© Bangla' : 'ðŸ‡¬ðŸ‡§ English'}</td>
                 <td className="p-6">
                   <span className={`px-4 py-2 rounded-full text-xs font-bold ${u.status === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
-                    {u.status.toUpperCase()}
+                    {u.status ? u.status.toUpperCase() : 'UNKNOWN'}
                   </span>
                 </td>
               </tr>
@@ -692,7 +692,7 @@ function OrdersList() {
   }, []);
 
   const fetchOrders = () => {
-    fetch('/api/admin/orders')
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/orders`)
       .then(r => r.json())
       .then(d => {
         setBuys(d.buys || []);
@@ -705,7 +705,7 @@ function OrdersList() {
   const handleApprove = async (id) => {
     if(!window.confirm("Approve this Buy Order manually?")) return;
     try {
-      const res = await fetch('/api/admin/approve-buy', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/approve-buy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
