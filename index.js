@@ -115,7 +115,7 @@ bot.onText(/\/start/, async (msg) => {
             ]
         }
     };
-    bot.sendMessage(chatId, t.en.welcome, opts);
+    bot.sendMessage(chatId, t.en.welcome, opts).catch(e => console.error(e.message));
 });
 
 bot.on('callback_query', async (query) => {
@@ -126,7 +126,7 @@ bot.on('callback_query', async (query) => {
 
     if (query.data === 'retry_free_payout') {
         userStates[chatId] = { step: 'awaiting_ton_address_free' };
-        bot.sendMessage(chatId, '✅ Please send your TON address again:');
+        bot.sendMessage(chatId, '✅ Please send your TON address again:').catch(e => console.error(e.message));
         return;
     }
 
@@ -142,7 +142,7 @@ bot.on('callback_query', async (query) => {
                 bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chatId, message_id: query.message.message_id }).catch(()=>{});
 
                 // 2. Clear old persistent keyboard with a silent fast-deleting message
-                bot.sendMessage(chatId, "...", { reply_markup: { remove_keyboard: true } }).then(delMsg => {
+                bot.sendMessage(chatId, "...", { reply_markup: { remove_keyboard: true } }).catch(e => console.error(e.message)).then(delMsg => {
                     setTimeout(() => bot.deleteMessage(chatId, delMsg.message_id).catch(()=>{}), 100);
                 }).catch(()=>{});
 
@@ -155,7 +155,7 @@ bot.on('callback_query', async (query) => {
                             [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: 'https://maruf-teach-bot.onrender.com/app/' } } ]
                         ]
                     }
-                });
+                }).catch(e => console.error(e.message));
                 
             } else {
                 bot.answerCallbackQuery(query.id, { text: t.en.notJoined, show_alert: true });
@@ -169,7 +169,7 @@ bot.on('callback_query', async (query) => {
         userStates[chatId].lang = query.data === 'lang_en' ? 'en' : 'bn';
         const l = userStates[chatId].lang;
         await db.collection('users').doc(chatId.toString()).update({ language: l });
-        bot.sendMessage(chatId, t[l].mainMenuMsg, getMenu(l));
+        bot.sendMessage(chatId, t[l].mainMenuMsg, getMenu(l)).catch(e => console.error(e.message));
     }
 
             if (query.data.startsWith('crypto_')) {
@@ -191,20 +191,20 @@ bot.on('callback_query', async (query) => {
             const qrUrl = `https://quickchart.io/qr?size=300&text=${encodeURIComponent(qrText)}`;
             
             bot.sendPhoto(chatId, qrUrl, { caption: msg, parse_mode: 'Markdown' }).catch(err => {
-                bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+                bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
             });
             return;
         }
 
         userStates[chatId].step = 'awaiting_screenshot';
         userStates[chatId].failedAttempts = 0;
-        bot.sendMessage(chatId, t[lang].cryptoAddr.replace('{address}', addr), { parse_mode: 'Markdown' });
+        bot.sendMessage(chatId, t[lang].cryptoAddr.replace('{address}', addr), { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
     }
 
     if (query.data === 'give_address') {
         const username = query.from.username ? query.from.username.toLowerCase() : null;
         if (!username) {
-            bot.sendMessage(chatId, "⚠️ You need to set a Telegram Username in your profile to use the Free method!");
+            bot.sendMessage(chatId, "⚠️ You need to set a Telegram Username in your profile to use the Free method!").catch(e => console.error(e.message));
             return;
         }
 
@@ -212,24 +212,24 @@ bot.on('callback_query', async (query) => {
         const doc = await db.collection('valid_referrals').doc(username).get();
         if (doc.exists) {
             userStates[chatId].step = 'awaiting_ton_address_free';
-            bot.sendMessage(chatId, "🎉 *Referral Verified!*\n\nPlease send your *TON Address* to receive your free payment:", { parse_mode: 'Markdown' });
+            bot.sendMessage(chatId, "🎉 *Referral Verified!*\n\nPlease send your *TON Address* to receive your free payment:", { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
         } else {
             // Check cooldown
             const now = Date.now();
             if (userStates[chatId].verifyCooldown && now < userStates[chatId].verifyCooldown) {
                 const mins = Math.ceil((userStates[chatId].verifyCooldown - now) / 60000);
-                bot.sendMessage(chatId, `⏳ *Referral not complete!*\nWe are still checking. Please try again in ${mins} minutes.`, { parse_mode: 'Markdown' });
+                bot.sendMessage(chatId, `⏳ *Referral not complete!*\nWe are still checking. Please try again in ${mins} minutes.`, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
                 return;
             }
 
             // Set 30 mins cooldown
             userStates[chatId].verifyCooldown = now + 30 * 60000;
-            bot.sendMessage(chatId, `⏳ *Referral not complete!*\nWe have sent a request to the admin to check your username. Please click Verify again after 30 minutes.`, { parse_mode: 'Markdown' });
+            bot.sendMessage(chatId, `⏳ *Referral not complete!*\nWe have sent a request to the admin to check your username. Please click Verify again after 30 minutes.`, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
             
             // Notify Admin Group
             const config = botConfig;
             if (config.adminGroupId) {
-                bot.sendMessage(config.adminGroupId, `🔔 *New Verify Request*\nUser: @${username} (ID: ${chatId})\n\nAdmin: Check your dashboard. If valid, just reply with \`@${username}\` here.`, { parse_mode: 'Markdown' });
+                bot.sendMessage(config.adminGroupId, `🔔 *New Verify Request*\nUser: @${username} (ID: ${chatId})\n\nAdmin: Check your dashboard. If valid, just reply with \`@${username}\` here.`, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
             }
         }
     }
@@ -246,7 +246,7 @@ bot.on('message', async (msg) => {
         if (text === '/setgroup') {
             const config = botConfig;
             await saveConfig({ adminGroupId: chatId.toString() });
-            bot.sendMessage(chatId, '✅ Admin group set successfully!');
+            bot.sendMessage(chatId, '✅ Admin group set successfully!').catch(e => console.error(e.message));
             return;
         }
 
@@ -274,11 +274,11 @@ bot.on('message', async (msg) => {
                                     'fiatWithdrawPending.completedAt': Date.now()
                                 });
                             }
-                            bot.sendMessage(chatId, `✅ Marked withdrawal for ${targetUserId} as PAID.`);
-                            bot.sendMessage(targetUserId, `✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!`, { parse_mode: 'HTML' });
+                            bot.sendMessage(chatId, `✅ Marked withdrawal for ${targetUserId} as PAID.`).catch(e => console.error(e.message));
+                            bot.sendMessage(targetUserId, `✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
                         } 
                         else if (replyText === 'wt' || replyText === 'wait') {
-                            await bot.sendMessage(chatId, `⏱ Reply to THIS message with the time format.\n\nMinutes: <code>10:00</code>\nHours: <code>1:30:50</code>\n\nUser ID: ${targetUserId}`, { parse_mode: 'HTML' });
+                            await bot.sendMessage(chatId, `⏱ Reply to THIS message with the time format.\n\nMinutes: <code>10:00</code>\nHours: <code>1:30:50</code>\n\nUser ID: ${targetUserId}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
                         }
                         else if (replyText.startsWith('reject')) {
                             const reason = text.substring(6).trim() || 'No reason provided';
@@ -290,8 +290,8 @@ bot.on('message', async (msg) => {
                                     balance: (userDoc.data().balance || 0) + amountToRefund,
                                     fiatWithdrawPending: null
                                 });
-                                bot.sendMessage(chatId, `❌ Rejected withdrawal for ${targetUserId} and refunded ${amountToRefund} BDT.\nReason: ${reason}`);
-                                bot.sendMessage(targetUserId, `❌ <b>Withdrawal Rejected</b>\nYour ${amountToRefund} BDT has been refunded to your balance.\nReason: ${reason}`, { parse_mode: 'HTML' });
+                                bot.sendMessage(chatId, `❌ Rejected withdrawal for ${targetUserId} and refunded ${amountToRefund} BDT.\nReason: ${reason}`).catch(e => console.error(e.message));
+                                bot.sendMessage(targetUserId, `❌ <b>Withdrawal Rejected</b>\nYour ${amountToRefund} BDT has been refunded to your balance.\nReason: ${reason}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
                             }
                         }
                     }
@@ -318,9 +318,9 @@ bot.on('message', async (msg) => {
                                 'fiatWithdrawPending.status': 'waiting',
                                 'fiatWithdrawPending.endTime': endTime
                             });
-                            bot.sendMessage(chatId, `⏳ Timer set for ${targetUserId}. They will see the countdown in the app.`);
+                            bot.sendMessage(chatId, `⏳ Timer set for ${targetUserId}. They will see the countdown in the app.`).catch(e => console.error(e.message));
                         } else {
-                            bot.sendMessage(chatId, `⚠️ Invalid time format. Please use MM:SS or HH:MM:SS`);
+                            bot.sendMessage(chatId, `⚠️ Invalid time format. Please use MM:SS or HH:MM:SS`).catch(e => console.error(e.message));
                         }
                     }
                     return;
@@ -331,7 +331,7 @@ bot.on('message', async (msg) => {
                     if (addrMatch && addrMatch[1]) {
                         const targetAddress = addrMatch[1];
                         if (replyText === 'ok') {
-                            bot.sendMessage(chatId, `⏳ Paying ${targetAddress} via TonAPI...`);
+                            bot.sendMessage(chatId, `⏳ Paying ${targetAddress} via TonAPI...`).catch(e => console.error(e.message));
                             // Send payment directly
                             try {
                                 const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
@@ -353,20 +353,20 @@ bot.on('message', async (msg) => {
                                 await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
                                 bot.sendMessage(targetUserId, `✅ **Payment Sent!**
 
-0.05 TON has been sent to your wallet for completing the Free TON event!`);
-                                bot.sendMessage(chatId, `✅ Successfully paid ${targetUserId} for MiniApp event.`);
+0.05 TON has been sent to your wallet for completing the Free TON event!`).catch(e => console.error(e.message));
+                                bot.sendMessage(chatId, `✅ Successfully paid ${targetUserId} for MiniApp event.`).catch(e => console.error(e.message));
                                 
                                 // Clean up DB
                                 const tasks = await db.collection('miniapp_tasks').where('userId', '==', targetUserId).get();
                                 tasks.forEach(t => t.ref.update({ status: 'approved' }));
                                 
                             } catch (e) {
-                                bot.sendMessage(chatId, `❌ Payment failed: ${e.message}`);
+                                bot.sendMessage(chatId, `❌ Payment failed: ${e.message}`).catch(e => console.error(e.message));
                             }
                         } else if (replyText === 'wrong') {
                             const rejectText = `❌ **Verification Failed.** You are ineligible for the Free TON event.`;
-                            bot.sendMessage(targetUserId, rejectText, { parse_mode: 'Markdown' });
-                            bot.sendMessage(chatId, `❌ Rejected user ${targetUserId} for MiniApp event.`);
+                            bot.sendMessage(targetUserId, rejectText, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
+                            bot.sendMessage(chatId, `❌ Rejected user ${targetUserId} for MiniApp event.`).catch(e => console.error(e.message));
                             
                             const tasks = await db.collection('miniapp_tasks').where('userId', '==', targetUserId).get();
                             tasks.forEach(t => t.ref.update({ status: 'rejected' }));
@@ -386,13 +386,13 @@ bot.on('message', async (msg) => {
                 if (replyText === 'ok') {
                     userStates[targetUserId].step = 'awaiting_ton_address_free';
                     const successText = lang === 'bn' ? `✅ **অ্যাডমিন আপনার স্ক্রিনশট অ্যাপ্রুভ করেছেন!**\n\nএখন আপনার **TON Address** দিন পেমেন্ট রিসিভ করার জন্য:` : `✅ **Admin Approved!**\n\nNow send your **TON Address** to receive your payment:`;
-                    bot.sendMessage(targetUserId, successText, { parse_mode: 'Markdown' });
-                    bot.sendMessage(chatId, `✅ Approved user ${targetUserId}`);
+                    bot.sendMessage(targetUserId, successText, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
+                    bot.sendMessage(chatId, `✅ Approved user ${targetUserId}`).catch(e => console.error(e.message));
                 } else if (replyText === 'wrong') {
                     delete userStates[targetUserId].step;
                     const rejectText = lang === 'bn' ? `❌ **ভেরিফিকেশন ব্যর্থ!** আপনার স্ক্রিনশটটি বাতিল করা হয়েছে।` : `❌ **Verification Failed.** Your screenshot was rejected by the admin.`;
-                    bot.sendMessage(targetUserId, rejectText, { parse_mode: 'Markdown' });
-                    bot.sendMessage(chatId, `❌ Rejected user ${targetUserId}`);
+                    bot.sendMessage(targetUserId, rejectText, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
+                    bot.sendMessage(chatId, `❌ Rejected user ${targetUserId}`).catch(e => console.error(e.message));
                 }
                 return; // Stop processing since it was handled
             }
@@ -412,7 +412,7 @@ bot.on('message', async (msg) => {
                     addedAt: new Date().toISOString()
                 }, {merge: true});
             }
-            bot.sendMessage(chatId, '✅ Usernames added: ' + usernames.join(', '));
+            bot.sendMessage(chatId, '✅ Usernames added: ' + usernames.join(', ')).catch(e => console.error(e.message));
         }
         return; // Stop processing further for group messages
     }
@@ -421,7 +421,7 @@ bot.on('message', async (msg) => {
     if (text.startsWith('/')) return;
     
     // Default reply for any other message: send and remove keyboard
-    bot.sendMessage(chatId, "👇 **নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:**", getMenu('bn'));
+    bot.sendMessage(chatId, "👇 **নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:**", getMenu('bn')).catch(e => console.error(e.message));
 });
 
 // Add this before app.listen
@@ -483,7 +483,7 @@ app.post('/api/miniapp/task', async (req, res) => {
         // Send to Admin Group
         const msg = `🎁 <b>New MiniApp Task Submission</b>\n\n👤 User: <a href="tg://user?id=${userId}">${name}</a>\n🆔 ID: ${userId}\n💰 Type: Free TON (VIC)\n📍 Address: \`${address}\`\n\nReply with 'Ok' to approve or 'Wrong' to reject.`;
         
-        const sentMsg = await bot.sendMessage(adminGroupId, msg, { parse_mode: 'HTML' });
+        const sentMsg = await bot.sendMessage(adminGroupId, msg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         
         // Save msgId for reply tracking
         await db.collection('miniapp_tasks').doc(docRef.id).update({
@@ -648,7 +648,7 @@ app.get('/api/stats', async (req, res) => {
 
 // Serve static manifest for TON Connect
 app.use('/tonconnect-manifest.json', express.static('tonconnect-manifest.json'));
-app.use('/logo.png', express.static('logo.png'));
+app.use('/log✅png', express.static('log✅png'));
 
 const { mnemonicToPrivateKey } = require('@ton/crypto');
 const { WalletContractV4, internal, TonClient } = require('@ton/ton');
@@ -749,7 +749,7 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         const config = require('./config.json');
         if (config.adminGroupId) {
             const msg = `<blockquote><b>💳 New Fiat Withdrawal</b></blockquote>\n\n👤 User: <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a>\n🆔 ID: ${userId}\n\n#️⃣ <b>Serial No: ${serialNum}</b>\n💰 Total Amount: <b>৳ ${amount} BDT</b>\n📉 Fee (5%): <b>৳ ${calcFee.toFixed(2)} BDT</b>\n✅ Send Exactly: <b>৳ ${calcReceive.toFixed(2)} BDT</b>\n\n🏦 Method: ${userData.fiatWallet.method}\n📞 Number: <code>${userData.fiatWallet.number}</code>\n📛 Name: ${userData.fiatWallet.name}\n\n⚙️ <b>Actions (Reply to this):</b>\n- <code>Ok</code> to mark paid\n- <code>Reject [reason]</code> to refund`;
-            await bot.sendMessage(config.adminGroupId, msg, { parse_mode: 'HTML' });
+            await bot.sendMessage(config.adminGroupId, msg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
         
         res.json({ success: true, serial: serialNum });
@@ -844,7 +844,7 @@ app.post('/api/approve-fraud', async (req, res) => {
 
 To receive your payout, please send your *TON Address* now:`;
             
-        bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
+        bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
         
         res.json({ success: true });
     } catch (error) {
@@ -884,8 +884,8 @@ app.post('/api/miniapp/buy', async (req, res) => {
         const verifiedRef = await db.collection('verified_trx').doc(trxId).get();
         if (verifiedRef.exists) {
              await db.collection('miniapp_buys').doc(trxId).update({ status: 'completed' });
-             bot.sendMessage(userId, '🎉 Your payment for ' + amount + ' ' + asset + ' has been automatically verified via early SMS!\n\nThe admin will send the asset to your wallet shortly.');
-             bot.sendMessage(8799135330, '✅ Auto-Verified Buy Order (Early SMS)!\nUser: ' + userId + '\nAsset: ' + amount + ' ' + asset + '\nTrxID: ' + trxId + '\nWallet: ' + receiveAddress);
+             bot.sendMessage(userId, '🎉 Your payment for ' + amount + ' ' + asset + ' has been automatically verified via early SMS!\n\nThe admin will send the asset to your wallet shortly.').catch(e => console.error(e.message));
+             bot.sendMessage(8799135330, '✅ Auto-Verified Buy Order (Early SMS)!\nUser: ' + userId + '\nAsset: ' + amount + ' ' + asset + '\nTrxID: ' + trxId + '\nWallet: ' + receiveAddress).catch(e => console.error(e.message));
              return res.json({ success: true, message: 'Auto-verified instantly' });
         }
 
@@ -924,8 +924,8 @@ app.post('/api/macrodroid/webhook', async (req, res) => {
         const order = doc.data();
         if (order.status === 'pending') {
             await buyRef.update({ status: 'completed' });
-            bot.sendMessage(order.userId, '🎉 Your payment for ' + order.amount + ' ' + order.asset + ' has been automatically verified!\n\nThe admin will send the asset to your wallet shortly.');
-            bot.sendMessage(8799135330, '✅ Auto-Verified Buy Order!\nUser: ' + order.userId + '\nAsset: ' + order.amount + ' ' + order.asset + '\nTrxID: ' + trxId + '\nWallet: ' + order.receiveAddress);
+            bot.sendMessage(order.userId, '🎉 Your payment for ' + order.amount + ' ' + order.asset + ' has been automatically verified!\n\nThe admin will send the asset to your wallet shortly.').catch(e => console.error(e.message));
+            bot.sendMessage(8799135330, '✅ Auto-Verified Buy Order!\nUser: ' + order.userId + '\nAsset: ' + order.amount + ' ' + order.asset + '\nTrxID: ' + trxId + '\nWallet: ' + order.receiveAddress).catch(e => console.error(e.message));
         }
         res.json({ success: true });
     } catch(e) {
@@ -979,7 +979,7 @@ app.post('/api/admin/approve-buy', async (req, res) => {
         const data = doc.data();
         await buyRef.update({ status: 'completed' });
         
-        bot.sendMessage(data.userId, `🎉 Your payment for ${data.amount} ${data.asset} has been automatically verified via Admin Panel!\n\nThe asset has been sent to your wallet.`);
+        bot.sendMessage(data.userId, `🎉 Your payment for ${data.amount} ${data.asset} has been automatically verified via Admin Panel!\n\nThe asset has been sent to your wallet.`).catch(e => console.error(e.message));
         res.json({ success: true });
     } catch(e) {
         res.status(500).json({ error: e.message });
@@ -1000,7 +1000,7 @@ app.post('/api/admin/bonus', async (req, res) => {
         const newBalance = (doc.data().balance || 0) + parseFloat(amount);
         await doc.ref.update({ balance: newBalance });
         
-        bot.sendMessage(doc.id, `🎉 <b>Bonus Received!</b>\nAdmin has credited your account with ${amount} BDT.`, { parse_mode: 'HTML' });
+        bot.sendMessage(doc.id, `🎉 <b>Bonus Received!</b>\nAdmin has credited your account with ${amount} BDT.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         res.json({ success: true, newBalance });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -1037,7 +1037,7 @@ app.post('/api/admin/approve-withdraw', async (req, res) => {
         if(!data.fiatWithdrawPending) return res.status(400).json({ error: 'No pending withdrawal' });
         
         await userRef.update({ 'fiatWithdrawPending.status': 'completed', 'fiatWithdrawPending.completedAt': Date.now() });
-        bot.sendMessage(userId, '✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!', { parse_mode: 'HTML' });
+        bot.sendMessage(userId, '✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!', { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         res.json({ success: true });
     } catch(e) {
         res.status(500).json({ error: e.message });
@@ -1153,7 +1153,7 @@ setInterval(async () => {
 
 To receive your payout, please send your *TON Address* now:`;
                         
-                    bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
+                    bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
                     
                     // Clear state
                     delete userStates[chatId].expectedUsdt;
@@ -1166,7 +1166,7 @@ To receive your payout, please send your *TON Address* now:`;
         for (const chatId of Object.keys(userStates)) {
             if (userStates[chatId].step === 'awaiting_bep20_auto' && userStates[chatId].bep20Timer <= Date.now()) {
                 const lang = userStates[chatId].language || 'bn';
-                bot.sendMessage(chatId, lang === 'bn' ? "❌ **টাইমআউট!** ৫ মিনিট পার হয়ে গেছে। আবার চেষ্টা করতে মেনু থেকে অপশন বেছে নিন।" : "❌ **Timeout!** 5 minutes have passed. Please select an option from the menu to try again.", { parse_mode: 'Markdown' });
+                bot.sendMessage(chatId, lang === 'bn' ? "❌ **টাইমআউট!** ৫ মিনিট পার হয়ে গেছে। আবার চেষ্টা করতে মেনু থেকে অপশন বেছে নিন।" : "❌ **Timeout!** 5 minutes have passed. Please select an option from the menu to try again.", { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
                 userStates[chatId].step = 'menu';
                 delete userStates[chatId].expectedUsdt;
                 delete userStates[chatId].bep20Timer;
@@ -1191,10 +1191,10 @@ bot.onText(/\/msg (\d+) ([\s\S]+)/, async (msg, match) => {
     const textToSend = match[2];
 
     try {
-        await bot.sendMessage(targetId, "?? **???????? ???? ?????:**\n\n" + textToSend, { parse_mode: 'Markdown' });
-        bot.sendMessage(chatId, "? ??????? ??????? " + targetId + " ?????? ?????? ??????");
+        await bot.sendMessage(targetId, "?? **???????? ???? ?????:**\n\n" + textToSend, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
+        bot.sendMessage(chatId, "? ??????? ??????? " + targetId + " ?????? ?????? ??????").catch(e => console.error(e.message));
     } catch(e) {
-        bot.sendMessage(chatId, "? ????? ?????? ?????! ???? ????? ???? ???? ??? ?????? ???? ???? ????");
+        bot.sendMessage(chatId, "? ????? ?????? ?????! ???? ????? ???? ???? ??? ?????? ???? ???? ????").catch(e => console.error(e.message));
     }
 });
 
@@ -1222,8 +1222,8 @@ bot.onText(/\/wallet/, async (msg) => {
 
         const text = `🏦 *Admin Treasury Wallet*\n\n🏷 Address: \`${botWallet.address}\`\n💎 Balance: **${tonBalance} TON**\n💵 USDT: **${usdtBalance} USDT**`;
         
-        bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+        bot.sendMessage(chatId, text, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
     } catch(e) {
-        bot.sendMessage(chatId, "Error fetching wallet: " + e.message);
+        bot.sendMessage(chatId, "Error fetching wallet: " + e.message).catch(e => console.error(e.message));
     }
 });
