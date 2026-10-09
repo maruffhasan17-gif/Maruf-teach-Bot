@@ -903,7 +903,26 @@ app.get('/api/admin/orders', async (req, res) => {
         const buys = buysSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         const sells = sellsSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        res.json({ buys, sells });
+        // Get all users who have a pending fiat withdrawal
+        const usersSnapshot = await db.collection('users').get();
+        const withdrawals = [];
+        usersSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.fiatWithdrawPending) {
+                withdrawals.push({
+                    id: doc.id,
+                    userId: doc.id,
+                    firstName: data.first_name || 'Unknown',
+                    username: data.username || '',
+                    ...data.fiatWithdrawPending
+                });
+            }
+        });
+
+        // sort withdrawals by timestamp descending
+        withdrawals.sort((a, b) => b.timestamp - a.timestamp);
+
+        res.json({ buys, sells, withdrawals });
     } catch(e) {
         console.error(e);
         res.status(500).json({ error: e.message });
@@ -917,12 +936,28 @@ app.post('/api/admin/approve-buy', async (req, res) => {
         const doc = await buyRef.get();
         if(!doc.exists) return res.status(404).json({ error: 'Not found' });
         
-        const order = doc.data();
-        if (order.status !== 'pending') return res.status(400).json({ error: 'Already processed' });
-
+        const data = doc.data();
         await buyRef.update({ status: 'completed' });
-        bot.sendMessage(order.userId, '🎉 Your payment for ' + order.amount + ' ' + order.asset + ' has been manually verified by Admin!\n\nThe admin will send the asset to your wallet shortly.');
         
+        bot.sendMessage(data.userId, `🎉 Your payment for ${data.amount} ${data.asset} has been automatically verified via Admin Panel!\n\nThe asset has been sent to your wallet.`);
+        res.json({ success: true });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/approve-withdraw', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const userRef = db.collection('users').doc(userId.toString());
+        const doc = await userRef.get();
+        if(!doc.exists) return res.status(404).json({ error: 'Not found' });
+        
+        const data = doc.data();
+        if(!data.fiatWithdrawPending) return res.status(400).json({ error: 'No pending withdrawal' });
+        
+        await userRef.update({ fiatWithdrawPending: null });
+        bot.sendMessage(userId, '✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!', { parse_mode: 'HTML' });
         res.json({ success: true });
     } catch(e) {
         res.status(500).json({ error: e.message });
