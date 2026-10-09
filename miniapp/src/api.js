@@ -67,7 +67,7 @@ export const submitBuyOrder = async (payload) => {
         const res = await axios.post(`${API_URL}/api/miniapp/buy`, payload);
         return res.data;
     } catch (e) {
-        console.error(e);
-        throw e;
+        throw new Error(e.response?.data?.error || e.message || 'Unknown error');
     }
-};
+}
+
