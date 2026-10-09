@@ -867,6 +867,7 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/miniapp/buy', async (req, res) => {
     try {
         const { userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress } = req.body;
+        if(!trxId || trxId.length < 5) return res.status(400).json({ error: 'Please enter a valid Transaction ID (min 5 characters)' });
         
         // Prevent duplicate TRX ID submission
         const existingBuy = await db.collection('miniapp_buys').doc(trxId).get();
