@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowDownUp,  Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -185,7 +185,7 @@ const GUEST_ID = 123456789;
           <div id="main-app-header" className="flex justify-between items-center mb-6 pt-2 transition-all duration-300">
              <div className="flex items-center gap-3">
                  <div className="w-[42px] h-[42px] bg-white rounded-full flex items-center justify-center font-bold text-[var(--color-text-primary)] premium-shadow border border-[var(--color-border)]">
-                    {user.first_name.charAt(0).toUpperCase()}
+                    {(user?.first_name?.charAt(0)?.toUpperCase() || 'U')}
                  </div>
                  <div>
                     <h1 className="text-base font-semibold text-[var(--color-text-primary)] leading-tight">Maruf Earn Bot</h1>
@@ -271,7 +271,7 @@ function AppHeader({ user }) {
       <div className="flex justify-between items-center mb-8 pt-2 animate-in fade-in slide-in-from-top-4 duration-500">
          <div className="flex items-center gap-3">
              <div className="w-10 h-10 glass-panel rounded-full flex items-center justify-center font-bold text-[var(--color-text-primary)] hover:scale-105 transition-transform duration-300 shadow-sm cursor-pointer border border-white">
-                {user.first_name.charAt(0).toUpperCase()}
+                {(user?.first_name?.charAt(0)?.toUpperCase() || 'U')}
              </div>
              <div className="flex flex-col justify-center">
                 <p className="text-[9px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.2em] mb-0.5 opacity-80">Welcome back</p>
@@ -466,7 +466,7 @@ function ClaimPage({ user, onBack }) {
        <div className="flex justify-between items-center px-5 pt-6 pb-3">
           <div className="flex items-center gap-3">
               <div className="w-[42px] h-[42px] bg-white rounded-full flex items-center justify-center font-bold text-[var(--color-text-primary)] premium-shadow border border-[var(--color-border)]">
-                 {user.first_name.charAt(0).toUpperCase()}
+                 {(user?.first_name?.charAt(0)?.toUpperCase() || 'U')}
               </div>
               <div>
                  <h1 className="text-[15px] font-bold text-[var(--color-text-primary)] leading-tight">Maruf Earn Bot</h1>
