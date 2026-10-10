@@ -697,7 +697,7 @@ function OrdersList() {
   }, []);
 
   const fetchOrders = () => {
-      fetch(${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/orders)
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/orders`)
         .then(r => r.json())
         .then(d => {
           setBuys(d.buys || []);
@@ -711,7 +711,7 @@ function OrdersList() {
   const handleApproveWithdraw = async (userId) => {
       if(!window.confirm("Approve this Withdrawal and notify user?")) return;
       try {
-        const res = await fetch(${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/approve-withdraw, {
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/approve-withdraw`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId })
@@ -731,7 +731,7 @@ function OrdersList() {
   const handleApprove = async (id) => {
     if(!window.confirm("Approve this Buy Order manually?")) return;
     try {
-      const res = await fetch(${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/approve-buy, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/approve-buy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
@@ -755,10 +755,10 @@ function OrdersList() {
       <h2 className="text-3xl font-extrabold text-blue-400 mb-6">Orders History</h2>
       
       <div className="flex gap-4 mb-6">
-        <button onClick={() => setTab('buy')} className={px-6 py-2 rounded-xl font-bold transition-all }>Buy Orders</button>
-        <button onClick={() => setTab('sell')} className={px-6 py-2 rounded-xl font-bold transition-all }>Sell Orders</button>
-        <button onClick={() => setTab('withdraw')} className={px-6 py-2 rounded-xl font-bold transition-all }>Fiat Withdrawals</button>
-        <button onClick={() => setTab('bonus')} className={px-6 py-2 rounded-xl font-bold transition-all }>Bonus & Limits</button>
+        <button onClick={() => setTab('buy')} className="px-6 py-2 rounded-xl font-bold transition-all ">Buy Orders</button>
+        <button onClick={() => setTab('sell')} className="px-6 py-2 rounded-xl font-bold transition-all ">Sell Orders</button>
+        <button onClick={() => setTab('withdraw')} className="px-6 py-2 rounded-xl font-bold transition-all ">Fiat Withdrawals</button>
+        <button onClick={() => setTab('bonus')} className="px-6 py-2 rounded-xl font-bold transition-all ">Bonus & Limits</button>
       </div>
 
       <div className="bg-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-800 overflow-x-auto">
@@ -772,7 +772,7 @@ function OrdersList() {
                       <button onClick={async () => {
                           if(!bonusUser || !bonusAmt) return alert("Fill all fields");
                           try {
-                              const r = await fetch(${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/bonus, {
+                              const r = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/bonus`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ username: bonusUser, amount: bonusAmt })
@@ -792,7 +792,7 @@ function OrdersList() {
                       <button onClick={async () => {
                           if(!dailyLimit) return;
                           try {
-                              const r = await fetch(${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/limits, {
+                              const r = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/limits`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ limit: dailyLimit })
@@ -863,7 +863,7 @@ function OrdersList() {
                   <td className="py-4 capitalize">{b.paymentMethod}</td>
                   <td className="py-4 text-xs text-gray-400 break-all max-w-[150px]">{b.receiveAddress}</td>
                   <td className="py-4">
-                    <span className={px-3 py-1 rounded-full text-xs font-bold }>
+                    <span className="px-3 py-1 rounded-full text-xs font-bold ">
                       {b.status ? b.status.toUpperCase() : 'PENDING'}
                     </span>
                   </td>
