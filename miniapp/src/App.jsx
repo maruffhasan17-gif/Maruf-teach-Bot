@@ -1002,7 +1002,7 @@ function PremiumSellPage({ user }) {
 
       // 1. Submit pending order to DB before confirming in wallet (in case app closes)
       const pendingRes = await submitSellOrder({
-        userId: user?.id || WebApp.initDataUnsafe?.user?.id || 123456789, 
+        userId: user?.id || 123456789 || 123456789, 
         asset, 
         amount: parseFloat(cryptoAmount), 
         estimatedTk: parseFloat(fiatAmount), 
@@ -1019,7 +1019,7 @@ function PremiumSellPage({ user }) {
 
       // 3. Mark completed and add TK to user balance
       await submitSellOrder({
-        userId: user?.id || WebApp.initDataUnsafe?.user?.id || 123456789, 
+        userId: user?.id || 123456789 || 123456789, 
         asset, 
         amount: parseFloat(cryptoAmount), 
         estimatedTk: parseFloat(fiatAmount), 
@@ -1148,7 +1148,7 @@ function PremiumSellPage({ user }) {
               {/* Swap Icon */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
                   <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md border border-[var(--color-border)]/50">
-                      <ArrowDownUp size={16} className="text-[var(--color-text-secondary)]" />
+                      <ArrowRightLeft className="rotate-90" size={16} className="text-[var(--color-text-secondary)]" />
                   </div>
               </div>
 
@@ -1329,7 +1329,7 @@ function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWit
       setIsSaving(true);
       try {
           await saveFiatWallet({
-              userId: user?.id || WebApp.initDataUnsafe?.user?.id,
+              userId: user?.id || 123456789,
               method: walletMethod,
               number: walletNumber,
               name: walletName
