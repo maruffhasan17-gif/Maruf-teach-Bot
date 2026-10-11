@@ -692,9 +692,57 @@ function OrdersList() {
   const [bonusAmt, setBonusAmt] = React.useState('');
   const [dailyLimit, setDailyLimit] = React.useState('');
 
+  const [mockId, setMockId] = React.useState('');
+  const [mockAmount, setMockAmount] = React.useState('');
+  const [mockMethod, setMockMethod] = React.useState('bKash');
+  const [mockResult, setMockResult] = React.useState(null);
+  const [mockLoading, setMockLoading] = React.useState(false);
+  const [mockList, setMockList] = React.useState([]);
+
   React.useEffect(() => {
     fetchOrders();
+    fetchMockList();
   }, []);
+
+  const fetchMockList = () => {
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/mock-trxs`)
+      .then(r => r.json())
+      .then(d => { if (d.success) setMockList(d.list || []); })
+      .catch(e => console.error(e));
+  };
+
+  const generateRandomTrx = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let res = '';
+    for (let i = 0; i < 8; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setMockId(res);
+  };
+
+  const handleCreateMockTrx = async () => {
+    if (!mockId || !mockAmount) return alert("Please enter both 8-digit TrxID and Amount!");
+    setMockLoading(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/create-mock-trx`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trxId: mockId, amount: mockAmount, method: mockMethod })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMockResult(data);
+        fetchMockList();
+        fetchOrders();
+      } else {
+        alert(data.error || 'Failed to create mock transaction');
+      }
+    } catch(e) {
+      alert('Error creating mock transaction: ' + e.message);
+    } finally {
+      setMockLoading(false);
+    }
+  };
 
   const fetchOrders = () => {
       fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/orders`)
@@ -754,14 +802,167 @@ function OrdersList() {
     <div className="p-8">
       <h2 className="text-3xl font-extrabold text-blue-400 mb-6">Orders History</h2>
       
-      <div className="flex gap-4 mb-6">
-        <button onClick={() => setTab('buy')} className="px-6 py-2 rounded-xl font-bold transition-all ">Buy Orders</button>
-        <button onClick={() => setTab('sell')} className="px-6 py-2 rounded-xl font-bold transition-all ">Sell Orders</button>
-        <button onClick={() => setTab('withdraw')} className="px-6 py-2 rounded-xl font-bold transition-all ">Fiat Withdrawals</button>
-        <button onClick={() => setTab('bonus')} className="px-6 py-2 rounded-xl font-bold transition-all ">Bonus & Limits</button>
+      <div className="flex flex-wrap gap-4 mb-6">
+        <button onClick={() => setTab('buy')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'buy' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Buy Orders</button>
+        <button onClick={() => setTab('sell')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'sell' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Sell Orders</button>
+        <button onClick={() => setTab('withdraw')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'withdraw' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Fiat Withdrawals</button>
+        <button onClick={() => setTab('bonus')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'bonus' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Bonus & Limits</button>
+        <button onClick={() => { setTab('mock'); fetchMockList(); }} className={`px-6 py-2 rounded-xl font-bold transition-all flex items-center gap-2 ${tab === 'mock' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30' : 'bg-gray-800 text-purple-400 hover:text-white'}`}>
+          <span>⚡</span> Mock TrxID (Test Tool)
+        </button>
       </div>
 
       <div className="bg-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-800 overflow-x-auto">
+        {tab === 'mock' && (
+          <div className="space-y-8">
+            <div className="bg-gradient-to-br from-gray-800/80 to-purple-950/30 p-6 rounded-2xl border border-purple-500/30 shadow-xl">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-xl">
+                  ⚡
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white">Mock Transaction Generator (SMS Simulator)</h3>
+                  <p className="text-xs text-gray-400">Creates an instant verified TrxID in the database with auto-formatted SMS text for testing your Web App.</p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">TrxID / TxnID (8 Digits or Custom)</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={mockId} 
+                      onChange={e => setMockId(e.target.value.toUpperCase())} 
+                      placeholder="e.g. 9B7X2K4L" 
+                      className="bg-gray-950 border border-gray-700 text-white px-4 py-3 rounded-xl flex-1 font-mono uppercase tracking-widest text-lg font-bold focus:outline-none focus:border-purple-500" 
+                    />
+                    <button 
+                      type="button"
+                      onClick={generateRandomTrx}
+                      className="bg-gray-800 hover:bg-gray-700 text-purple-300 px-3 py-2 rounded-xl text-xs font-bold border border-gray-700 transition-colors"
+                      title="Generate Random 8-character TrxID"
+                    >
+                      🎲 Random
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Amount (BDT)</label>
+                  <input 
+                    type="number" 
+                    value={mockAmount} 
+                    onChange={e => setMockAmount(e.target.value)} 
+                    placeholder="e.g. 500" 
+                    className="bg-gray-950 border border-gray-700 text-white px-4 py-3 rounded-xl w-full font-mono text-lg font-bold focus:outline-none focus:border-purple-500" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Payment Method</label>
+                  <select 
+                    value={mockMethod} 
+                    onChange={e => setMockMethod(e.target.value)}
+                    className="bg-gray-950 border border-gray-700 text-white px-4 py-3 rounded-xl w-full font-bold focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="bKash">bKash (TrxID)</option>
+                    <option value="nagad">Nagad (TxnID)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-4">
+                <button 
+                  onClick={handleCreateMockTrx}
+                  disabled={mockLoading || !mockId || !mockAmount}
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 text-white font-extrabold px-8 py-3.5 rounded-xl shadow-lg shadow-purple-500/25 transition-all active:scale-95 flex items-center gap-2"
+                >
+                  {mockLoading ? 'Saving...' : '🚀 Save Mock TrxID to Database'}
+                </button>
+                <span className="text-xs text-gray-500">
+                  Auto-saves to <code className="text-purple-400">verified_trx</code> collection with server timestamp.
+                </span>
+              </div>
+
+              {mockResult && (
+                <div className="mt-6 p-4 bg-purple-950/50 border border-purple-500/40 rounded-xl text-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-emerald-400 flex items-center gap-2">
+                      <span>✅</span> {mockResult.message}
+                    </span>
+                    <button 
+                      onClick={() => { navigator.clipboard.writeText(mockResult.trxId); alert("Copied TrxID: " + mockResult.trxId); }}
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors"
+                    >
+                      📋 Copy TrxID ({mockResult.trxId})
+                    </button>
+                  </div>
+                  <div className="bg-gray-950/80 p-3 rounded-lg font-mono text-xs text-gray-300 border border-gray-800 break-all">
+                    <strong>Simulated SMS:</strong> {mockResult.fakeSms}
+                  </div>
+                  {mockResult.autoCompleted && (
+                    <p className="text-xs text-emerald-300 font-bold mt-2">
+                      🎉 A matching pending buy order was found and was automatically marked as COMPLETED!
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* List of Recent Mock Transactions */}
+            <div className="bg-gray-800/40 p-6 rounded-2xl border border-gray-700/60">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span>📋</span> Recently Generated Mock TrxIDs
+                </h4>
+                <button 
+                  onClick={fetchMockList}
+                  className="text-xs text-purple-400 hover:text-purple-300 font-bold underline"
+                >
+                  Refresh List
+                </button>
+              </div>
+
+              {mockList.length === 0 ? (
+                <p className="text-sm text-gray-500 italic py-4">No mock transactions generated yet. Use the form above to generate one.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-gray-300">
+                    <thead className="bg-gray-900/60 text-gray-400 font-bold border-b border-gray-700">
+                      <tr>
+                        <th className="py-3 px-3">TrxID</th>
+                        <th className="py-3">Amount</th>
+                        <th className="py-3">Method</th>
+                        <th className="py-3">Created SMS Preview</th>
+                        <th className="py-3 px-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {mockList.map(item => (
+                        <tr key={item.id} className="hover:bg-gray-800/30 transition-colors">
+                          <td className="py-3 px-3 font-mono font-bold text-purple-400">{item.id}</td>
+                          <td className="py-3 font-bold text-emerald-400">৳{item.amount || '0'}</td>
+                          <td className="py-3 uppercase text-xs font-semibold text-gray-400">{item.sender || 'bKash'}</td>
+                          <td className="py-3 text-xs text-gray-400 max-w-[320px] truncate" title={item.message}>{item.message}</td>
+                          <td className="py-3 px-3 text-right">
+                            <button 
+                              onClick={() => { navigator.clipboard.writeText(item.id); alert("Copied TrxID: " + item.id); }}
+                              className="bg-purple-600/30 hover:bg-purple-600 text-purple-300 hover:text-white px-3 py-1 rounded-lg text-xs font-bold transition-all"
+                            >
+                              Copy TrxID
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {tab === 'bonus' && (
           <div className="space-y-8">
               <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-700">

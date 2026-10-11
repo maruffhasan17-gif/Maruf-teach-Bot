@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2 } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -1148,7 +1148,7 @@ function PremiumSellPage({ user }) {
               {/* Swap Icon */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
                   <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md border border-[var(--color-border)]/50">
-                      <ArrowRightLeft className="rotate-90" size={16} className="text-[var(--color-text-secondary)]" />
+                      <ArrowRightLeft size={16} className="rotate-90 text-[var(--color-text-secondary)]" />
                   </div>
               </div>
 
@@ -1228,6 +1228,24 @@ function PremiumSellPage({ user }) {
         <TransactionStatusModal status={txStatus} message={txMessage} />
       </div>
     </>
+  );
+}
+
+function TransactionStatusModal({ status, message }) {
+  if (!status) return null;
+  const isSuccess = status === 'success';
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
+        <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${isSuccess ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'}`}>
+          {isSuccess ? <CheckCircle2 size={36} /> : <X size={36} />}
+        </div>
+        <h3 className="text-lg font-extrabold text-gray-900 mb-2">
+          {isSuccess ? 'Transaction Successful' : 'Notice'}
+        </h3>
+        <p className="text-xs text-gray-600 mb-4">{message}</p>
+      </div>
+    </div>
   );
 }
 

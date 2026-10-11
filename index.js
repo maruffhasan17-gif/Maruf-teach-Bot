@@ -1089,6 +1089,66 @@ app.post('/api/admin/approve-withdraw', async (req, res) => {
 });
 
 
+
+app.post('/api/admin/create-mock-trx', async (req, res) => {
+    try {
+        let { trxId, amount, method } = req.body;
+        if (!trxId || !amount) return res.status(400).json({ error: "Missing TrxID or Amount" });
+        
+        trxId = trxId.toString().trim().toUpperCase();
+        const parsedAmount = parseFloat(amount);
+        const selectedMethod = (method || 'bKash').toLowerCase();
+
+        const fakeSms = selectedMethod === 'nagad'
+            ? `You have received Tk ${parsedAmount.toFixed(2)} from 01878580320. Fee Tk 0.00. Balance Tk 5,420.50. TxnID ${trxId} at ${new Date().toLocaleString()}`
+            : `You have received Tk ${parsedAmount.toFixed(2)} from 01752561935. Fee Tk 0.00. Balance Tk 5,420.50. TrxID ${trxId} at ${new Date().toLocaleString()}`;
+        
+        await db.collection('verified_trx').doc(trxId).set({
+            sender: selectedMethod,
+            message: fakeSms,
+            amount: parsedAmount,
+            timestamp: FieldValue.serverTimestamp()
+        });
+
+        // If user already placed a buy order with this trxId, auto-verify it immediately!
+        let autoCompleted = false;
+        const buyRef = db.collection('miniapp_buys').doc(trxId);
+        const buyDoc = await buyRef.get();
+        if (buyDoc.exists) {
+            const order = buyDoc.data();
+            if (order.status === 'pending') {
+                await buyRef.update({ status: 'completed' });
+                autoCompleted = true;
+                if (bot && order.userId) {
+                    bot.sendMessage(order.userId, `🎉 Your payment for ${order.amount} ${order.asset} has been automatically verified via Admin Mock Test!\n\nThe admin will send the asset to your wallet shortly.`).catch(e => console.error(e.message));
+                }
+            }
+        }
+        
+        res.json({ 
+            success: true, 
+            message: `Mock TrxID ${trxId} (${parsedAmount} TK) created successfully!`,
+            trxId,
+            amount: parsedAmount,
+            autoCompleted,
+            fakeSms
+        });
+    } catch(e) {
+        console.error("Mock Trx Error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/mock-trxs', async (req, res) => {
+    try {
+        const snap = await db.collection('verified_trx').orderBy('timestamp', 'desc').limit(20).get();
+        const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.json({ success: true, list });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/settings', async (req, res) => {
     try {
         await saveConfig(req.body);
