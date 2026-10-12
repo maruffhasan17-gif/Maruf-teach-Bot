@@ -1,5 +1,5 @@
-﻿<!doctype html>
-<html lang="en">
+<!doctype html>
+<html lang="bn">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -8,9 +8,40 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      body {
+        margin: 0;
+        background-color: #0f172a;
+        overflow-x: hidden;
+      }
+      @keyframes pulseCoin {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(16,185,129,0.3)); }
+        50% { transform: scale(1.08); filter: drop-shadow(0 0 25px rgba(16,185,129,0.6)); }
+      }
+      @keyframes progBar {
+        0% { transform: translateX(-100%); }
+        50% { transform: translateX(20%); }
+        100% { transform: translateX(100%); }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="splash-loader" style="position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;z-index:99999;">
+        <div style="width:76px;height:76px;border-radius:24px;background:linear-gradient(135deg, #10b981, #047857);display:flex;align-items:center;justify-content:center;box-shadow:0 12px 30px rgba(16,185,129,0.35);border:2px solid rgba(255,255,255,0.25);animation:pulseCoin 1.8s infinite ease-in-out;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="8" r="6"/>
+            <path d="M18.09 10.37A6 6 0 1 1 10.34 18"/>
+            <path d="m7 6 5 5"/>
+          </svg>
+        </div>
+        <div style="margin-top:22px;font-size:19px;font-weight:900;color:#ffffff;letter-spacing:-0.02em;">Maruf Earn Bot</div>
+        <div style="margin-top:6px;font-size:12px;font-weight:600;color:#94a3b8;letter-spacing:0.02em;">লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</div>
+        <div style="width:130px;height:4px;background:rgba(255,255,255,0.1);border-radius:99px;margin-top:22px;overflow:hidden;position:relative;">
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg,#10b981,#34d399);border-radius:99px;animation:progBar 1.4s infinite ease-in-out;"></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

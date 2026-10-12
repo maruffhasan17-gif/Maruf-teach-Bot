@@ -117,8 +117,119 @@ function TonConnectStyles() {
     return null;
 }
 
+const translations = {
+  bn: {
+    appName: 'Maruf Earn Bot',
+    welcome: 'স্বাগতম',
+    totalBalance: 'মোট ব্যালেন্স',
+    balanceSub: 'উইথড্র ও ক্রিপ্টো কেনায় ব্যবহারযোগ্য',
+    addMoney: 'অ্যাড মানি',
+    buyCrypto: 'ক্রিপ্টো কিনুন',
+    buyCryptoSub: 'ইনস্ট্যান্ট সেন্ড',
+    sellCrypto: 'ক্রিপ্টো বিক্রি',
+    sellCryptoSub: 'ইনস্ট্যান্ট সোয়াপ',
+    chartTitle: 'USDT/TK লাইভ চার্ট',
+    home: 'হোম',
+    sell: 'সেল',
+    profile: 'প্রোফাইল',
+    claim: 'ফ্রি ক্লেইম',
+    availableBal: 'অ্যাভেইলেবল ব্যালেন্স',
+    userId: 'ইউজার আইডি',
+    withdrawBalance: 'টাকা তুলুন (WITHDRAW)',
+    transactionHistory: 'ট্রানজেকশন হিস্ট্রি',
+    transactionHistorySub: 'সব ক্রয়, বিক্রয় ও উত্তোলনের বিবরণ',
+    referEarn: 'রেফার এবং আর্ন',
+    referEarnSub: 'বন্ধুদের ইনভাইট করে বোনাস পান',
+    languageSetting: 'ভাষা পরিবর্তন (Language)',
+    currentLang: 'বাংলা',
+    selectCrypto: 'ক্রিপ্টো নির্বাচন করুন',
+    bdtSpend: 'টাকার পরিমাণ (BDT)',
+    youWillReceive: 'আপনি পাবেন',
+    receiveAddress: 'রিসিভ অ্যাড্রেস (ওয়ালেট)',
+    confirmBuy: 'ক্রয় নিশ্চিত করুন',
+    insufficientBal: 'অপর্যাপ্ত ব্যালেন্স!',
+    sendTrx: 'টাকা পাঠিয়ে TrxID সাবমিট করুন',
+    adminNumber: 'অ্যাডমিন নাম্বার',
+    verifyAddMoney: 'ভেরিফাই ও অ্যাড মানি',
+    depositAmount: 'জমার পরিমাণ (BDT)',
+    selectMethod: 'পেমেন্ট মেথড সিলেক্ট করুন',
+    instantCreditNote: 'টাকা পাঠানোর সাথে সাথে TrxID অটো-ভেরিফাই হবে এবং ইন-অ্যাপ ব্যালেন্সে যুক্ত হবে।',
+    continuePayment: 'পরবর্তী ধাপ (পেমেন্ট)',
+    inProgress: 'প্রক্রিয়াধীন',
+    completed: 'সফল',
+    withdrawFunds: 'টাকা উত্তোলন করুন',
+    fee: 'ফি (৫%)',
+    youReceive: 'আপনি পাবেন',
+    withdrawNote: 'উইথড্র রিকোয়েস্ট সাধারণত ১ থেকে ২ ঘণ্টার মধ্যে এবং সর্বোচ্চ ২৪ ঘণ্টার মধ্যে সম্পন্ন হয়।',
+    loading: 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...'
+  },
+  en: {
+    appName: 'Maruf Earn Bot',
+    welcome: 'Welcome back',
+    totalBalance: 'Total Balance',
+    balanceSub: 'Available for withdrawal & crypto purchase',
+    addMoney: 'Add Money',
+    buyCrypto: 'Buy Crypto',
+    buyCryptoSub: 'Instant Send',
+    sellCrypto: 'Sell Crypto',
+    sellCryptoSub: 'Instant Swap',
+    chartTitle: 'USDT/TK Live Chart',
+    home: 'HOME',
+    sell: 'SELL',
+    profile: 'PROFILE',
+    claim: 'CLAIM',
+    availableBal: 'Available Balance',
+    userId: 'User ID',
+    withdrawBalance: 'WITHDRAW BALANCE',
+    transactionHistory: 'Transaction History',
+    transactionHistorySub: 'All buys, sells & withdrawals',
+    referEarn: 'Refer & Earn',
+    referEarnSub: 'Invite friends for bonus',
+    languageSetting: 'Language / ভাষা',
+    currentLang: 'English',
+    selectCrypto: 'Select Crypto Asset',
+    bdtSpend: 'BDT Amount to Spend',
+    youWillReceive: 'You Will Receive',
+    receiveAddress: 'Receive Address (TON Wallet)',
+    confirmBuy: 'CONFIRM & BUY',
+    insufficientBal: 'Insufficient Balance!',
+    sendTrx: 'Send Money & Submit TrxID',
+    adminNumber: 'Admin Number',
+    verifyAddMoney: 'VERIFY & ADD MONEY',
+    depositAmount: 'Deposit Amount (BDT)',
+    selectMethod: 'Select Payment Method',
+    instantCreditNote: 'Payment is auto-verified via SMS and credited to your balance instantly.',
+    continuePayment: 'CONTINUE TO PAYMENT',
+    inProgress: 'In Progress',
+    completed: 'Completed',
+    withdrawFunds: 'WITHDRAW FUNDS',
+    fee: 'Fee (5%)',
+    youReceive: 'You will receive',
+    withdrawNote: 'Withdrawals usually take 1 to 2 hours or up to 24 hours to process.',
+    loading: 'Loading, please wait...'
+  }
+};
+
 export default function App() {
-  
+  const [lang, setLang] = useState(() => localStorage.getItem('app_lang') || 'bn');
+  const t = translations[lang] || translations.bn;
+
+  const handleSetLang = (newLang) => {
+    setLang(newLang);
+    localStorage.setItem('app_lang', newLang);
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    }
+  };
+
+  const [appLoading, setAppLoading] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppLoading(false);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, []);
+
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   useEffect(() => {
     const handleFocus = (e) => {
@@ -137,12 +248,14 @@ export default function App() {
       window.removeEventListener('focusout', handleBlur);
     };
   }, []);
-const [activeTab, setActiveTab] = useState('home');
+
+  const [activeTab, setActiveTab] = useState('home');
   const [showBuyCryptoModal, setShowBuyCryptoModal] = useState(false);
 
-    useEffect(() => {
-        window.scrollTo(0, 0);
-    }, [activeTab]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
   const [fiatWallet, setFiatWallet] = useState(null);
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
   const [mbsId, setMbsId] = useState(null);
@@ -155,26 +268,44 @@ const [activeTab, setActiveTab] = useState('home');
     setBalance(data.balance);
     setFiatWallet(data.fiatWallet || null);
     setFiatWithdrawPending(data.fiatWithdrawPending || null);
-      setMbsId(data.mbsId);
+    setMbsId(data.mbsId);
   };
 
   useEffect(() => {
     try {
-const GUEST_ID = 123456789;
-        const tgWebApp = window.Telegram?.WebApp;
-        if (tgWebApp?.initDataUnsafe?.user) {
-          setUser(tgWebApp.initDataUnsafe.user);
-          loadData(tgWebApp.initDataUnsafe.user.id);
-        } else {
-          setUser({ id: GUEST_ID, first_name: "Guest", last_name: "Account" });
-          loadData(GUEST_ID);
-        }
+      const GUEST_ID = 123456789;
+      const tgWebApp = window.Telegram?.WebApp;
+      if (tgWebApp?.initDataUnsafe?.user) {
+        setUser(tgWebApp.initDataUnsafe.user);
+        loadData(tgWebApp.initDataUnsafe.user.id);
+      } else {
+        setUser({ id: GUEST_ID, first_name: "Guest", last_name: "Account" });
+        loadData(GUEST_ID);
+      }
     } catch(e) {
-        loadData(123456789);
+      loadData(123456789);
     }
   }, []);
 
   const manifestUrl = 'https://maruf-teach-bot.onrender.com/tonconnect-manifest.json';
+
+  if (appLoading) {
+    return (
+      <div className="fixed inset-0 bg-[#0f172a] z-[99999] flex flex-col items-center justify-center font-sans select-none">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-xl shadow-emerald-500/30 border-2 border-white/20 animate-pulse">
+          <Coins size={32} className="text-white drop-shadow-md" />
+        </div>
+        <h2 className="text-white font-black text-base mt-4 tracking-tight">Maruf Earn Bot</h2>
+        <p className="text-gray-400 text-xs mt-1.5 font-medium flex items-center gap-2">
+          <Loader2 size={13} className="animate-spin text-emerald-400" />
+          {lang === 'bn' ? 'লোড হচ্ছে, অপেক্ষা করুন...' : 'Loading, please wait...'}
+        </p>
+        <div className="w-28 h-1 bg-white/10 rounded-full mt-5 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-300 rounded-full animate-pulse" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <TonConnectUIProvider manifestUrl={manifestUrl}>
@@ -189,8 +320,8 @@ const GUEST_ID = 123456789;
                     {(user?.first_name?.charAt(0)?.toUpperCase() || 'U')}
                  </div>
                  <div>
-                    <h1 className="text-base font-semibold text-[var(--color-text-primary)] leading-tight">Maruf Earn Bot</h1>
-                    <p className="text-[10px] font-medium text-[var(--color-brand)] uppercase tracking-[0.15em]">Welcome back</p>
+                    <h1 className="text-base font-semibold text-[var(--color-text-primary)] leading-tight">{t.appName}</h1>
+                    <p className="text-[10px] font-medium text-[var(--color-brand)] uppercase tracking-[0.15em]">{t.welcome}</p>
                  </div>
              </div>
              {/* Styling the TonConnect button is limited, but we wrap it to constrain it */}
@@ -203,6 +334,8 @@ const GUEST_ID = 123456789;
               <HomePage 
                   balance={balance} 
                   user={user} 
+                  lang={lang}
+                  t={t}
                   fiatWithdrawPending={fiatWithdrawPending} 
                   onGoToClaim={() => setActiveTab('claim')} 
                   onOpenBuyCrypto={() => setShowBuyCryptoModal(true)}
@@ -213,6 +346,8 @@ const GUEST_ID = 123456789;
           {activeTab === 'add-money' && (
               <AddMoneyPage 
                   user={user} 
+                  lang={lang}
+                  t={t}
                   onDone={() => setActiveTab('home')}
                   onGoToBuyCrypto={() => {
                       setActiveTab('home');
@@ -221,11 +356,37 @@ const GUEST_ID = 123456789;
                   reloadData={() => loadData(user?.id || 123456789)}
               />
           )}
-          {activeTab === 'sell' && <PremiumSellPage user={user} />}
-          {activeTab === 'history' && <HistoryPage user={user} onBack={() => setActiveTab('profile')} />}
-          {activeTab === 'profile' && <ProfilePage user={user} balance={balance} mbsId={mbsId} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onGoToWithdraw={() => setActiveTab('withdraw')} onGoToHistory={() => setActiveTab('history')} setFiatWallet={setFiatWallet} reloadData={() => loadData(user?.id || 123456789)} />}
-          {activeTab === 'claim' && <ClaimPage user={user} onBack={() => setActiveTab('home')} />}
-          {activeTab === 'withdraw' && <WithdrawFiatPage user={user} balance={balance} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onBack={() => setActiveTab('profile')} reloadData={() => loadData(user?.id || 123456789)} />}
+          {activeTab === 'sell' && <PremiumSellPage user={user} lang={lang} t={t} />}
+          {activeTab === 'history' && <HistoryPage user={user} lang={lang} t={t} onBack={() => setActiveTab('profile')} />}
+          {activeTab === 'profile' && (
+              <ProfilePage 
+                  user={user} 
+                  balance={balance} 
+                  mbsId={mbsId} 
+                  lang={lang}
+                  t={t}
+                  onSetLang={handleSetLang}
+                  fiatWallet={fiatWallet} 
+                  fiatWithdrawPending={fiatWithdrawPending} 
+                  onGoToWithdraw={() => setActiveTab('withdraw')} 
+                  onGoToHistory={() => setActiveTab('history')} 
+                  setFiatWallet={setFiatWallet} 
+                  reloadData={() => loadData(user?.id || 123456789)} 
+              />
+          )}
+          {activeTab === 'claim' && <ClaimPage user={user} lang={lang} t={t} onBack={() => setActiveTab('home')} />}
+          {activeTab === 'withdraw' && (
+              <WithdrawFiatPage 
+                  user={user} 
+                  balance={balance} 
+                  lang={lang}
+                  t={t}
+                  fiatWallet={fiatWallet} 
+                  fiatWithdrawPending={fiatWithdrawPending} 
+                  onBack={() => setActiveTab('profile')} 
+                  reloadData={() => loadData(user?.id || 123456789)} 
+              />
+          )}
         </div>
 
         {/* Buy Crypto Modal (Realtime On-Chain Send) */}
@@ -234,6 +395,8 @@ const GUEST_ID = 123456789;
             onClose={() => setShowBuyCryptoModal(false)}
             user={user}
             balance={balance}
+            lang={lang}
+            t={t}
             reloadData={() => loadData(user?.id || 123456789)}
             onGoToAddMoney={() => {
                 setShowBuyCryptoModal(false);
@@ -250,7 +413,7 @@ const GUEST_ID = 123456789;
                     <button onClick={() => setActiveTab('home')} className="relative flex flex-col items-center justify-center w-[76px] h-[64px] transition-all duration-300 group active:scale-95">
                         <div className="relative flex flex-col items-center justify-center z-10">
                             <Home size={22} strokeWidth={activeTab === 'home' ? 2.5 : 2} className={`mb-1.5 transition-colors duration-300 ${activeTab === 'home' ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className={`text-[9px] font-extrabold tracking-widest transition-colors duration-300 ${activeTab === 'home' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>HOME</span>
+                            <span className={`text-[9px] font-extrabold tracking-widest transition-colors duration-300 ${activeTab === 'home' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>{t.home}</span>
                         </div>
                         {/* Active Indicator & Background */}
                         <div className={`absolute bottom-0 w-5 h-1 bg-emerald-500 rounded-t-full transition-all duration-300 ${activeTab === 'home' ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-50'}`} />
@@ -261,7 +424,7 @@ const GUEST_ID = 123456789;
                     <button onClick={() => setActiveTab('add-money')} className="relative flex flex-col items-center justify-center w-[76px] h-[64px] transition-all duration-300 group active:scale-95">
                         <div className="relative flex flex-col items-center justify-center z-10">
                             <PlusCircle size={22} strokeWidth={activeTab === 'add-money' ? 2.5 : 2} className={`mb-1.5 transition-colors duration-300 ${activeTab === 'add-money' ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className={`text-[8px] font-extrabold tracking-wider transition-colors duration-300 ${activeTab === 'add-money' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>ADD MONEY</span>
+                            <span className={`text-[8px] font-extrabold tracking-wider transition-colors duration-300 ${activeTab === 'add-money' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>{t.addMoney}</span>
                         </div>
                         {/* Active Indicator & Background */}
                         <div className={`absolute bottom-0 w-5 h-1 bg-emerald-500 rounded-t-full transition-all duration-300 ${activeTab === 'add-money' ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-50'}`} />
@@ -272,7 +435,7 @@ const GUEST_ID = 123456789;
                     <button onClick={() => setActiveTab('sell')} className="relative flex flex-col items-center justify-center w-[76px] h-[64px] transition-all duration-300 group active:scale-95">
                         <div className="relative flex flex-col items-center justify-center z-10">
                             <ArrowUp size={22} strokeWidth={activeTab === 'sell' ? 2.5 : 2} className={`mb-1.5 transition-colors duration-300 ${activeTab === 'sell' ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className={`text-[9px] font-extrabold tracking-widest transition-colors duration-300 ${activeTab === 'sell' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>SELL</span>
+                            <span className={`text-[9px] font-extrabold tracking-widest transition-colors duration-300 ${activeTab === 'sell' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>{t.sell}</span>
                         </div>
                         {/* Active Indicator & Background */}
                         <div className={`absolute bottom-0 w-5 h-1 bg-emerald-500 rounded-t-full transition-all duration-300 ${activeTab === 'sell' ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-50'}`} />
@@ -283,7 +446,7 @@ const GUEST_ID = 123456789;
                     <button onClick={() => setActiveTab('profile')} className="relative flex flex-col items-center justify-center w-[76px] h-[64px] transition-all duration-300 group active:scale-95">
                         <div className="relative flex flex-col items-center justify-center z-10">
                             <User size={22} strokeWidth={activeTab === 'profile' ? 2.5 : 2} className={`mb-1.5 transition-colors duration-300 ${activeTab === 'profile' ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className={`text-[9px] font-extrabold tracking-widest transition-colors duration-300 ${activeTab === 'profile' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>PROFILE</span>
+                            <span className={`text-[9px] font-extrabold tracking-widest transition-colors duration-300 ${activeTab === 'profile' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>{t.profile}</span>
                         </div>
                         {/* Active Indicator & Background */}
                         <div className={`absolute bottom-0 w-5 h-1 bg-emerald-500 rounded-t-full transition-all duration-300 ${activeTab === 'profile' ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-50'}`} />
@@ -330,7 +493,7 @@ function AppHeader({ user }) {
   );
 }
 
-function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney }) {
+function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney, lang = 'bn', t = {} }) {
   const [graphData, setGraphData] = useState(initialGraphData);
 
   useEffect(() => {
@@ -359,10 +522,10 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
                       <div className="flex items-center gap-2">
                           <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
                           <p className="text-[12px] text-emerald-800 font-bold">
-                              Withdrawal Sent: <b>{fiatWithdrawPending.amount} TK</b>
+                              {lang === 'bn' ? 'উইথড্র সফল:' : 'Withdrawal Sent:'} <b>{fiatWithdrawPending.amount} TK</b>
                           </p>
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/20 px-2 py-0.5 rounded">Success</span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/20 px-2 py-0.5 rounded">{t?.completed || 'Success'}</span>
                   </div>
               )
           ) : (
@@ -370,7 +533,7 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
                   <div className="flex items-center gap-2">
                       <Clock size={16} className="text-amber-500 shrink-0" />
                       <p className="text-[12px] text-amber-800 font-bold">
-                          Withdrawal Pending: <b>{fiatWithdrawPending.amount} TK</b>
+                          {lang === 'bn' ? 'উইথড্র প্রক্রিয়াধীন:' : 'Withdrawal Pending:'} <b>{fiatWithdrawPending.amount} TK</b>
                       </p>
                   </div>
                   <span className="text-[10px] font-bold text-amber-700 bg-amber-500/20 px-2 py-0.5 rounded">#{fiatWithdrawPending.serial || '1'}</span>
@@ -384,20 +547,20 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
             <AbstractWalletIcon />
          </div>
          <div className="flex justify-between items-start mb-1">
-            <p className="text-[11px] font-bold text-[var(--color-text-secondary)] tracking-wider uppercase">Total Balance</p>
+            <p className="text-[11px] font-bold text-[var(--color-text-secondary)] tracking-wider uppercase">{t?.totalBalance || 'Total Balance'}</p>
             <button 
                 onClick={onGoToAddMoney} 
                 className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-full flex items-center gap-1 transition-colors border border-emerald-200/60 active:scale-95 shadow-sm"
             >
                 <PlusCircle size={12} strokeWidth={2.5} />
-                <span>Add Money</span>
+                <span>{t?.addMoney || 'Add Money'}</span>
             </button>
          </div>
          <div className="flex items-baseline gap-1">
             <h2 className="text-3xl font-black text-[var(--color-text-primary)]">{balance}</h2>
             <span className="text-base font-bold text-[var(--color-brand)]">TK</span>
          </div>
-         <p className="text-[12px] text-[var(--color-text-secondary)] mt-1">Available for withdrawal & crypto purchase</p>
+         <p className="text-[12px] text-[var(--color-text-secondary)] mt-1">{t?.balanceSub || 'Available for withdrawal & crypto purchase'}</p>
       </div>
 
       {/* Quick Action Buttons: Buy Crypto & Sell Crypto */}
@@ -410,8 +573,8 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
                  <Coins size={18} />
              </div>
              <div>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-wider leading-none">Instant Send</p>
-                 <p className="text-[15px] font-bold text-white leading-tight mt-1 tracking-tight">Buy Crypto</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-wider leading-none">{t?.buyCryptoSub || 'Instant Send'}</p>
+                 <p className="text-[15px] font-bold text-white leading-tight mt-1 tracking-tight">{t?.buyCrypto || 'Buy Crypto'}</p>
              </div>
          </button>
          
@@ -423,8 +586,8 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
                  <ArrowRightLeft size={18} />
              </div>
              <div>
-                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none">Instant Swap</p>
-                 <p className="text-[15px] font-bold text-gray-900 leading-tight mt-1 tracking-tight">Sell Crypto</p>
+                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none">{t?.sellCryptoSub || 'Instant Swap'}</p>
+                 <p className="text-[15px] font-bold text-gray-900 leading-tight mt-1 tracking-tight">{t?.sellCrypto || 'Sell Crypto'}</p>
              </div>
          </button>
       </div>
@@ -434,7 +597,7 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
          <div className="flex justify-between items-start mb-3">
             <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
                 <TrendingUp size={15} className="text-[var(--color-text-secondary)]" />
-                <h3 className="text-[15px] font-bold">USDT/TK Live Chart</h3>
+                <h3 className="text-[15px] font-bold">{t?.chartTitle || 'USDT/TK Live Chart'}</h3>
             </div>
             <div className="flex items-center gap-1 bg-[var(--color-success)]/10 px-2 py-0.5 rounded-full border border-[var(--color-success)]/20">
                 <div className="w-1.5 h-1.5 bg-[var(--color-success)] rounded-full animate-pulse" />
@@ -660,7 +823,7 @@ function ClaimPage({ user, onBack }) {
 
 
 
-function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
+function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadData }) {
     const [step, setStep] = useState(1);
     const [amount, setAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('bKash');
@@ -802,7 +965,7 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                         className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm tracking-wide"
                     >
                         <Coins size={18} />
-                        BUY CRYPTO NOW
+                        {t?.buyCrypto || 'BUY CRYPTO NOW'}
                     </button>
                     <button 
                         onClick={() => {
@@ -814,7 +977,7 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                         }} 
                         className="w-full bg-white text-gray-700 font-bold py-3.5 rounded-2xl border border-gray-200 active:scale-95 transition-all text-sm"
                     >
-                        BACK TO HOME
+                        {lang === 'bn' ? 'হোমে ফিরে যান' : 'BACK TO HOME'}
                     </button>
                 </div>
             </div>
@@ -834,8 +997,12 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                         <ArrowDown size={18} className="rotate-90" />
                     </button>
                     <div>
-                        <h2 className="text-xl font-black text-gray-900 tracking-tight">Send Money Verification</h2>
-                        <p className="text-gray-500 text-xs mt-0.5">টাকা পাঠিয়ে TrxID সাবমিট করুন</p>
+                        <h2 className="text-xl font-black text-gray-900 tracking-tight">
+                            {lang === 'bn' ? 'পেমেন্ট ভেরিফিকেশন' : 'Send Money Verification'}
+                        </h2>
+                        <p className="text-gray-500 text-xs mt-0.5">
+                            {t?.sendTrx || 'টাকা পাঠিয়ে TrxID সাবমিট করুন'}
+                        </p>
                     </div>
                 </div>
 
@@ -858,11 +1025,11 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                             />
                             <div>
                                 <span className="font-bold text-gray-900 text-[13px] block">{paymentMethod} Personal</span>
-                                <span className="text-[10px] text-gray-400 font-medium">Send Money Only</span>
+                                <span className="text-[10px] text-gray-400 font-medium">{lang === 'bn' ? 'শুধু সেন্ড মানি' : 'Send Money Only'}</span>
                             </div>
                         </div>
                         <div className="text-right">
-                            <span className="text-[10px] text-gray-400 font-medium block">Send exactly</span>
+                            <span className="text-[10px] text-gray-400 font-medium block">{lang === 'bn' ? 'সঠিক টাকা পাঠান' : 'Send exactly'}</span>
                             <span className="text-[15px] font-black text-emerald-600">৳{amount} BDT</span>
                         </div>
                     </div>
@@ -870,7 +1037,9 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                     {/* Admin Number with Copy */}
                     <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                         <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Admin {paymentMethod} Number</span>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                {t?.adminNumber || `Admin ${paymentMethod} Number`}
+                            </span>
                             <span className="text-[10px] text-emerald-600 font-bold">Personal</span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -879,18 +1048,27 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                                 onClick={handleCopy} 
                                 className={"flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold text-[11px] shadow-sm transition-all active:scale-95 " + (copied ? "bg-emerald-600 text-white" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50")}
                             >
-                                {copied ? <><CheckCircle2 size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
+                                {copied ? <><CheckCircle2 size={13} /> {lang === 'bn' ? 'কপি হয়েছে' : 'Copied'}</> : <><Copy size={13} /> {lang === 'bn' ? 'কপি' : 'Copy'}</>}
                             </button>
                         </div>
                     </div>
 
-                    {/* Bangla Guidance */}
-                    <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
-                        <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">কিভাবে টাকা পাঠাবেন:</p>
-                        <p>১. আপনার <b>{paymentMethod}</b> অ্যাপ থেকে <b>Send Money</b> অপশনে যান।</p>
-                        <p>২. উপরে দেওয়া নাম্বারে সঠিক <b>৳{amount} টাকা</b> পাঠান।</p>
-                        <p>৩. এসএমএস থেকে পাওয়া <b>Transaction ID (TrxID)</b> নিচে লিখে সাবমিট করুন।</p>
-                    </div>
+                    {/* Guidance */}
+                    {lang === 'bn' ? (
+                        <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
+                            <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">কিভাবে টাকা পাঠাবেন:</p>
+                            <p>১. আপনার <b>{paymentMethod}</b> অ্যাপ থেকে <b>Send Money</b> অপশনে যান।</p>
+                            <p>২. উপরে দেওয়া নাম্বারে সঠিক <b>৳{amount} টাকা</b> পাঠান।</p>
+                            <p>৩. এসএমএস থেকে পাওয়া <b>Transaction ID (TrxID)</b> নিচে লিখে সাবমিট করুন।</p>
+                        </div>
+                    ) : (
+                        <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
+                            <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">How to pay:</p>
+                            <p>1. Open your <b>{paymentMethod}</b> app and tap <b>Send Money</b>.</p>
+                            <p>2. Send exact <b>৳{amount} BDT</b> to the admin number above.</p>
+                            <p>3. Enter the <b>Transaction ID (TrxID)</b> from SMS below and submit.</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* TrxID Input Card */}
@@ -925,7 +1103,7 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                         <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2.5 animate-in fade-in duration-300">
                             <AlertCircle size={17} className="text-red-600 shrink-0 mt-0.5" />
                             <div className="text-[12px]">
-                                <p className="font-bold text-red-700">ভুল বা অমিল TrxID!</p>
+                                <p className="font-bold text-red-700">{lang === 'bn' ? 'ভুল বা অমিল TrxID!' : 'Invalid or Mismatched TrxID!'}</p>
                                 <p className="text-red-600 leading-tight">{errorMessage}</p>
                             </div>
                         </div>
@@ -940,9 +1118,9 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                         className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
                     >
                         {loading ? (
-                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> VERIFYING SMS...</>
+                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {lang === 'bn' ? 'যাচাই করা হচ্ছে...' : 'VERIFYING SMS...'}</>
                         ) : (
-                            <><CheckCircle2 size={16} /> VERIFY & ADD MONEY</>
+                            <><CheckCircle2 size={16} /> {t?.verifyAddMoney || 'VERIFY & ADD MONEY'}</>
                         )}
                     </button>
                 </div>
@@ -959,8 +1137,12 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                     <PlusCircle size={18} strokeWidth={2.5} />
                 </div>
                 <div>
-                    <h2 className="text-[15px] font-extrabold text-gray-900 tracking-tight leading-tight">Add Money</h2>
-                    <p className="text-gray-500 text-[12px]">টাকা জমা করুন আপনার একাউন্ট ব্যালেন্সে</p>
+                    <h2 className="text-[15px] font-extrabold text-gray-900 tracking-tight leading-tight">
+                        {t?.addMoney || 'Add Money'}
+                    </h2>
+                    <p className="text-gray-500 text-[12px]">
+                        {lang === 'bn' ? 'টাকা জমা করুন আপনার একাউন্ট ব্যালেন্সে' : 'Deposit money to your account balance'}
+                    </p>
                 </div>
             </div>
 
@@ -977,7 +1159,7 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                 <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-3">
                     <div>
                         <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase mb-1.5 ml-0.5">
-                            Deposit Amount (BDT)
+                            {t?.depositAmount || 'Deposit Amount (BDT)'}
                         </label>
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-base text-gray-700">৳</span>
@@ -1014,7 +1196,7 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                 {/* Payment Method Selection */}
                 <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-2.5">
                     <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase ml-0.5">
-                        Select Payment Method
+                        {t?.selectMethod || 'Select Payment Method'}
                     </label>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -1074,7 +1256,7 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                 <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 flex items-center gap-2.5">
                     <Sparkles size={16} className="text-emerald-600 shrink-0" />
                     <p className="text-emerald-800 text-[12px] font-medium leading-tight">
-                        টাকা পাঠানোর সাথে সাথে আপনার TrxID অটো-ভেরিফাই হবে এবং ইন-অ্যাপ ব্যালেন্সে যুক্ত হবে।
+                        {t?.instantCreditNote || 'টাকা পাঠানোর সাথে সাথে আপনার TrxID অটো-ভেরিফাই হবে এবং ইন-অ্যাপ ব্যালেন্সে যুক্ত হবে।'}
                     </p>
                 </div>
             </div>
@@ -1086,7 +1268,7 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                     disabled={!amount || parseFloat(amount) < 20} 
                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px]"
                 >
-                    <span>CONTINUE TO PAYMENT</span>
+                    <span>{t?.continuePayment || 'CONTINUE TO PAYMENT'}</span>
                     <ArrowDown size={15} className="-rotate-90" />
                 </button>
             </div>
@@ -1095,9 +1277,9 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
 }
 
 // REALTIME BUY CRYPTO MODAL (Live On-Chain Payout from User BDT Balance)
-function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddMoney }) {
+function BuyCryptoModal({ isOpen, onClose, user, balance, lang = 'bn', t, reloadData, onGoToAddMoney }) {
     const userTonAddress = useTonAddress();
-    const [selectedAsset, setSelectedAsset] = useState('TON'); // 'TON' or 'GRAM'
+    const [selectedAsset, setSelectedAsset] = useState('GRAM'); // 'GRAM' or 'USDT'
     const [bdtAmount, setBdtAmount] = useState('');
     const [receiveAddress, setReceiveAddress] = useState('');
     const [stage, setStage] = useState('idle'); // 'idle' | 'processing' | 'success' | 'error'
@@ -1114,8 +1296,8 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
 
     if (!isOpen) return null;
 
-    // Rates: 1 TON ≈ 228 BDT (1.9 USDT * 120 BDT), 1 GRAM ≈ 120 BDT
-    const cryptoRate = selectedAsset === 'GRAM' ? 120 : 228;
+    // Rates: 1 GRAM ≈ 120 BDT, 1 USDT ≈ 125 BDT
+    const cryptoRate = selectedAsset === 'USDT' ? 125 : 120;
     const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
         ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
         : '0.0000';
@@ -1188,9 +1370,11 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                     <div>
                         <h3 className="text-[15px] font-bold text-gray-900 tracking-tight flex items-center gap-1.5">
                             <Coins size={18} className="text-emerald-600" />
-                            Buy Crypto
+                            {t?.buyCrypto || 'Buy Crypto'}
                         </h3>
-                        <p className="text-gray-400 text-[11px]">আপনার ব্যালেন্স থেকে সরাসরি ওয়ালেটে পাঠানো হবে</p>
+                        <p className="text-gray-400 text-[11px]">
+                            {lang === 'bn' ? 'আপনার ব্যালেন্স থেকে সরাসরি ওয়ালেটে পাঠানো হবে' : 'Sent directly to your wallet from balance'}
+                        </p>
                     </div>
                     <button 
                         onClick={handleResetAndClose} 
@@ -1211,10 +1395,12 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                         </div>
 
                         <h4 className="text-[15px] font-bold text-gray-900 mb-1">
-                            Payment Sent Successfully! 🎉
+                            {lang === 'bn' ? 'পেমেন্ট সফলভাবে পাঠানো হয়েছে! 🎉' : 'Payment Sent Successfully! 🎉'}
                         </h4>
                         <p className="text-gray-500 text-[12px] mb-4 max-w-[280px] mx-auto leading-relaxed">
-                            আপনার ওয়ালেটে <b>{calculatedCrypto} {selectedAsset}</b> সফলভাবে পাঠানো হয়েছে।
+                            {lang === 'bn' 
+                                ? <>আপনার ওয়ালেটে <b>{calculatedCrypto} {selectedAsset}</b> সফলভাবে পাঠানো হয়েছে।</>
+                                : <>Successfully sent <b>{calculatedCrypto} {selectedAsset}</b> to your wallet.</>}
                         </p>
 
                         <div className="bg-gray-50 rounded-xl p-3 text-left text-[12px] space-y-1.5 border border-gray-100 mb-4">
@@ -1240,7 +1426,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                             onClick={handleResetAndClose} 
                             className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all text-[12px]"
                         >
-                            DONE / সম্পন্ন
+                            {lang === 'bn' ? 'সম্পন্ন / DONE' : 'DONE'}
                         </button>
                     </div>
                 ) : stage === 'error' ? (
@@ -1249,7 +1435,9 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                         <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center text-red-600 mx-auto mb-3 border-2 border-white shadow-md">
                             <AlertCircle size={28} />
                         </div>
-                        <h4 className="text-[15px] font-bold text-gray-900 mb-1">ট্রানজেকশন ব্যর্থ হয়েছে</h4>
+                        <h4 className="text-[15px] font-bold text-gray-900 mb-1">
+                            {lang === 'bn' ? 'ট্রানজেকশন ব্যর্থ হয়েছে' : 'Transaction Failed'}
+                        </h4>
                         <p className="text-red-600 text-[12px] mb-4 leading-relaxed bg-red-50 p-2.5 rounded-xl border border-red-100 max-w-[320px] mx-auto">
                             {errorMessage}
                         </p>
@@ -1257,7 +1445,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                             onClick={() => setStage('idle')} 
                             className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl active:scale-95 transition-all text-[12px]"
                         >
-                            TRY AGAIN
+                            {lang === 'bn' ? 'আবার চেষ্টা করুন (TRY AGAIN)' : 'TRY AGAIN'}
                         </button>
                     </div>
                 ) : stage === 'processing' ? (
@@ -1272,14 +1460,14 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
 
                         <div>
                             <h4 className="text-[15px] font-bold text-gray-900 mb-1">
-                                {processStep === 1 && 'Checking Balance & Rate...'}
-                                {processStep === 2 && 'Sending on TON Blockchain...'}
-                                {processStep === 3 && 'Awaiting Confirmation...'}
+                                {lang === 'bn' 
+                                    ? (processStep === 1 ? 'ব্যালেন্স ও এক্সচেঞ্জ রেট চেক করা হচ্ছে...' : processStep === 2 ? `সরাসরি ওয়ালেটে ${selectedAsset} পাঠানো হচ্ছে...` : 'ব্লকচেইন কনফার্মেশন যাচাই হচ্ছে...')
+                                    : (processStep === 1 ? 'Checking Balance & Rate...' : processStep === 2 ? `Sending ${selectedAsset} on TON Blockchain...` : 'Awaiting Confirmation...')}
                             </h4>
                             <p className="text-gray-400 text-[12px]">
-                                {processStep === 1 && 'আপনার ব্যালেন্স এবং এক্সচেঞ্জ রেট চেক করা হচ্ছে'}
-                                {processStep === 2 && 'বট সরাসরি আপনার ওয়ালেটে ক্রিপ্টো পাঠাচ্ছে'}
-                                {processStep === 3 && 'ব্লকচেইন কনফার্মেশন চূড়ান্ত হচ্ছে'}
+                                {lang === 'bn' 
+                                    ? (processStep === 1 ? 'আপনার একাউন্ট ব্যালেন্স যাচাই করা হচ্ছে' : processStep === 2 ? 'বট অন-চেইনে রিয়েলটাইমে ক্রিপ্টো ট্রান্সফার করছে' : 'ব্লকচেইন ট্রানজেকশন সফলভাবে নিশ্চিত হচ্ছে')
+                                    : (processStep === 1 ? 'Verifying available balance and crypto rate' : processStep === 2 ? 'Broadcasting live transaction to your wallet' : 'Finalizing on-chain confirmation')}
                             </p>
                         </div>
 
@@ -1296,52 +1484,54 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                         {/* Current User Balance Banner */}
                         <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex justify-between items-center">
                             <div>
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Available Balance</span>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                                    {t?.availableBal || 'Available Balance'}
+                                </span>
                                 <span className="text-[15px] font-bold text-gray-900">{balance} <span className="text-emerald-600 text-[12px]">TK</span></span>
                             </div>
                             <button 
                                 onClick={onGoToAddMoney} 
                                 className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[11px] font-bold flex items-center gap-1 border border-emerald-200/60 transition-colors"
                             >
-                                <PlusCircle size={13} /> Add Money
+                                <PlusCircle size={13} /> {t?.addMoney || 'Add Money'}
                             </button>
                         </div>
 
-                        {/* Select Asset: TON vs GRAM */}
+                        {/* Select Asset: GRAM vs USDT (With Authentic Vector SVGs) */}
                         <div>
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
-                                Select Crypto Asset
+                                {t?.selectCrypto || 'Select Crypto Asset'}
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     type="button"
-                                    onClick={() => setSelectedAsset('TON')}
-                                    className={`p-2.5 rounded-xl border flex items-center gap-2 transition-all ${
-                                        selectedAsset === 'TON' 
-                                            ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
+                                    onClick={() => setSelectedAsset('GRAM')}
+                                    className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition-all ${
+                                        selectedAsset === 'GRAM' 
+                                            ? 'border-emerald-500 bg-emerald-50/50 shadow-sm ring-1 ring-emerald-500/30' 
                                             : 'border-gray-100 bg-gray-50 hover:bg-gray-100/60'
                                     }`}
                                 >
-                                    <img src="https://cryptologos.cc/logos/toncoin-ton-logo.svg?v=035" className="w-5 h-5" alt="TON" />
+                                    <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-6 h-6 object-contain shrink-0" alt="GRAM" />
                                     <div className="text-left">
-                                        <span className="font-bold text-[12px] text-gray-900 block leading-tight">TON Coin</span>
-                                        <span className="text-[10px] text-gray-400 font-medium">≈ ৳228 TK</span>
+                                        <span className="font-bold text-[12px] text-gray-900 block leading-tight">GRAM</span>
+                                        <span className="text-[10px] text-gray-400 font-medium">≈ ৳120 TK</span>
                                     </div>
                                 </button>
 
                                 <button
                                     type="button"
-                                    onClick={() => setSelectedAsset('GRAM')}
-                                    className={`p-2.5 rounded-xl border flex items-center gap-2 transition-all ${
-                                        selectedAsset === 'GRAM' 
-                                            ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
+                                    onClick={() => setSelectedAsset('USDT')}
+                                    className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition-all ${
+                                        selectedAsset === 'USDT' 
+                                            ? 'border-emerald-500 bg-emerald-50/50 shadow-sm ring-1 ring-emerald-500/30' 
                                             : 'border-gray-100 bg-gray-50 hover:bg-gray-100/60'
                                     }`}
                                 >
-                                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[9px] font-bold">G</div>
+                                    <img src={`${import.meta.env.BASE_URL}usdt.svg`} className="w-6 h-6 object-contain shrink-0" alt="USDT" />
                                     <div className="text-left">
-                                        <span className="font-bold text-[12px] text-gray-900 block leading-tight">GRAM</span>
-                                        <span className="text-[10px] text-gray-400 font-medium">≈ ৳120 TK</span>
+                                        <span className="font-bold text-[12px] text-gray-900 block leading-tight">USDT</span>
+                                        <span className="text-[10px] text-gray-400 font-medium">≈ ৳125 TK</span>
                                     </div>
                                 </button>
                             </div>
@@ -1351,7 +1541,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                         <div>
                             <div className="flex justify-between items-center mb-1">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                    BDT Amount to Spend (টাকার পরিমাণ)
+                                    {t?.bdtSpend || (lang === 'bn' ? 'টাকার পরিমাণ (BDT)' : 'BDT Amount to Spend')}
                                 </label>
                                 <span className="text-[10px] text-gray-400">Min ৳20</span>
                             </div>
@@ -1392,7 +1582,9 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                         {/* Middle: Calculated Crypto Output */}
                         <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3 flex justify-between items-center">
                             <div>
-                                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">You Will Receive (আপনি পাবেন)</span>
+                                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                                    {t?.youWillReceive || (lang === 'bn' ? 'আপনি পাবেন' : 'You Will Receive')}
+                                </span>
                                 <span className="text-[11px] text-emerald-600 font-medium">Rate: 1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
                             </div>
                             <div className="text-right">
@@ -1405,7 +1597,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                         <div>
                             <div className="flex justify-between items-center mb-1">
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                                    Receive Address (TON Wallet)
+                                    {t?.receiveAddress || (lang === 'bn' ? 'রিসিভ অ্যাড্রেস (ওয়ালেট)' : 'Receive Address (TON Wallet)')}
                                 </label>
                                 {userTonAddress && (
                                     <button 
@@ -1413,7 +1605,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                                         onClick={() => setReceiveAddress(userTonAddress)} 
                                         className="text-[10px] text-emerald-600 font-bold hover:underline"
                                     >
-                                        Use Connected Wallet
+                                        {lang === 'bn' ? 'কানেক্টেড ওয়ালেট ব্যবহার করুন' : 'Use Connected Wallet'}
                                     </button>
                                 )}
                             </div>
@@ -1446,8 +1638,12 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                             <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-start gap-2 animate-in fade-in duration-200">
                                 <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
                                 <div className="text-[11px] text-amber-800">
-                                    <p className="font-bold">অপর্যাপ্ত ব্যালেন্স!</p>
-                                    <p className="mt-0.5">আপনার অ্যাকাউন্টে আছে ৳{balance} TK। দয়া করে প্রথমে Add Money করুন।</p>
+                                    <p className="font-bold">{t?.insufficientBal || 'অপর্যাপ্ত ব্যালেন্স!'}</p>
+                                    <p className="mt-0.5">
+                                        {lang === 'bn' 
+                                            ? `আপনার অ্যাকাউন্টে আছে ৳${balance} TK। দয়া করে প্রথমে Add Money করুন।` 
+                                            : `Your balance is ৳${balance} TK. Please Add Money first.`}
+                                    </p>
                                 </div>
                             </div>
                         )}
@@ -1460,7 +1656,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md shadow-emerald-500/20 active:scale-95 transition-all text-[12px] flex items-center justify-center gap-1.5"
                                 >
                                     <PlusCircle size={16} />
-                                    ADD MONEY TO WALLET
+                                    {t?.addMoney || 'ADD MONEY'} {lang === 'bn' ? 'করুন' : 'TO WALLET'}
                                 </button>
                             ) : (
                                 <button 
@@ -1469,7 +1665,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                                     className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3 rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all text-[12px] flex items-center justify-center gap-1.5"
                                 >
                                     <Coins size={16} />
-                                    CONFIRM & BUY {selectedAsset}
+                                    {t?.confirmBuy || 'CONFIRM & BUY'} {selectedAsset}
                                 </button>
                             )}
                         </div>
@@ -1860,7 +2056,7 @@ function TransactionStatusModal({ status, message }) {
   );
 }
 
-function HistoryPage({ user, onBack }) {
+function HistoryPage({ user, lang = 'bn', t, onBack }) {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -1890,7 +2086,9 @@ function HistoryPage({ user, onBack }) {
                 <button onClick={onBack} className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 active:scale-95 transition-transform text-gray-600">
                     <ChevronRight size={18} className="rotate-180" />
                 </button>
-                <h2 className="text-[15px] font-extrabold text-gray-900 leading-tight">Transaction History</h2>
+                <h2 className="text-[15px] font-extrabold text-gray-900 leading-tight">
+                    {t?.transactionHistory || 'Transaction History'}
+                </h2>
             </div>
             
             {loading ? (
@@ -1902,8 +2100,12 @@ function HistoryPage({ user, onBack }) {
                     <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-3">
                         <Clock size={20} />
                     </div>
-                    <p className="font-bold text-gray-900 text-[13px] mb-0.5">No Transactions Yet</p>
-                    <p className="text-[12px] text-gray-500">Your buying, selling and withdrawal history will appear here.</p>
+                    <p className="font-bold text-gray-900 text-[13px] mb-0.5">
+                        {lang === 'bn' ? 'এখনও কোনো লেনদেন হয়নি' : 'No Transactions Yet'}
+                    </p>
+                    <p className="text-[12px] text-gray-500">
+                        {lang === 'bn' ? 'আপনার সকল ক্রয়, বিক্রয় ও উত্তোলনের বিবরণ এখানে দেখতে পাবেন।' : 'Your buying, selling and withdrawal history will appear here.'}
+                    </p>
                 </div>
             ) : (
                 <div className="space-y-2.5">
@@ -1954,7 +2156,7 @@ function HistoryPage({ user, onBack }) {
 }
 
 
-function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, setFiatWallet, reloadData }) {
+function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, setFiatWallet, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
 
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -2007,14 +2209,59 @@ function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWit
          </div>
       </div>
 
+      {/* Language Selector Card (User can change language anytime!) */}
+      <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex items-center justify-between">
+         <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-base shrink-0 border border-emerald-100">
+               🌐
+            </div>
+            <div>
+               <h4 className="text-[13px] font-extrabold text-[var(--color-text-primary)] leading-tight">
+                  {t?.languageSetting || 'ভাষা পরিবর্তন (Language)'}
+               </h4>
+               <p className="text-[11px] text-[var(--color-text-secondary)] font-medium">
+                  {lang === 'bn' ? 'বর্তমান ভাষা: বাংলা 🇧🇩' : 'Current Language: English 🇬🇧'}
+               </p>
+            </div>
+         </div>
+         <div className="flex bg-gray-100 p-1 rounded-xl gap-1 border border-gray-200/60">
+            <button
+               type="button"
+               onClick={() => onSetLang && onSetLang('bn')}
+               className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                  lang === 'bn' 
+                     ? 'bg-emerald-600 text-white shadow-sm' 
+                     : 'text-gray-600 hover:text-gray-900'
+               }`}
+            >
+               🇧🇩 বাংলা
+            </button>
+            <button
+               type="button"
+               onClick={() => onSetLang && onSetLang('en')}
+               className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                  lang === 'en' 
+                     ? 'bg-emerald-600 text-white shadow-sm' 
+                     : 'text-gray-600 hover:text-gray-900'
+               }`}
+            >
+               🇬🇧 English
+            </button>
+         </div>
+      </div>
+
       {/* Balance & User ID */}
       <div className="grid grid-cols-2 gap-2.5">
          <div className="bg-white p-3.5 rounded-xl premium-shadow border border-[var(--color-border)] flex flex-col justify-center">
-            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-0.5 uppercase tracking-wide">Available Balance</p>
+            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-0.5 uppercase tracking-wide">
+               {t?.availableBal || 'Available Balance'}
+            </p>
             <p className="text-lg font-black text-[var(--color-text-primary)]">{balance} <span className="text-[var(--color-brand)] text-xs">TK</span></p>
          </div>
          <div className="bg-white p-3.5 rounded-xl premium-shadow border border-[var(--color-border)] flex flex-col justify-center">
-            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-0.5 uppercase tracking-wide">User ID</p>
+            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-0.5 uppercase tracking-wide">
+               {t?.userId || 'User ID'}
+            </p>
             <p className="text-[12px] font-mono font-bold text-[var(--color-text-primary)] flex items-center gap-1.5 cursor-pointer" onClick={() => { navigator.clipboard.writeText(user?.id); if (WebApp.HapticFeedback) WebApp.HapticFeedback.impactOccurred('light'); }}>
                {user?.id || '000000'} <Copy size={11} className="text-gray-400 active:text-emerald-600 transition-colors" />
             </p>
@@ -2024,9 +2271,9 @@ function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWit
       {/* Withdraw Button */}
       <button onClick={handleWithdrawClick} disabled={withdrawing} className="w-full bg-gradient-to-r from-[var(--color-brand)] to-emerald-500 text-white font-bold h-[46px] rounded-xl shadow-md shadow-[var(--color-brand)]/20 active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2 text-[14px]">
          {withdrawing ? (
-            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> PROCESSING...</>
+            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {lang === 'bn' ? 'প্রক্রিয়াধীন...' : 'PROCESSING...'}</>
          ) : (
-            <><Wallet size={16} /> WITHDRAW BALANCE</>
+            <><Wallet size={16} /> {t?.withdrawBalance || 'WITHDRAW BALANCE'}</>
          )}
       </button>
 
@@ -2037,8 +2284,12 @@ function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWit
                <Clock size={18} />
             </div>
             <div>
-               <span className="font-bold text-[var(--color-text-primary)] block text-[13px] leading-tight">Transaction History</span>
-               <span className="text-[11px] text-[var(--color-text-secondary)] font-medium">All buys, sells & withdrawals</span>
+               <span className="font-bold text-[var(--color-text-primary)] block text-[13px] leading-tight">
+                  {t?.transactionHistory || 'Transaction History'}
+               </span>
+               <span className="text-[11px] text-[var(--color-text-secondary)] font-medium">
+                  {t?.transactionHistorySub || 'All buys, sells & withdrawals'}
+               </span>
             </div>
          </div>
          <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600 transition-colors" />
@@ -2051,8 +2302,12 @@ function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWit
                <Share2 size={18} />
             </div>
             <div>
-               <span className="font-bold text-[var(--color-text-primary)] block text-[13px] leading-tight">Refer & Earn</span>
-               <span className="text-[11px] text-[var(--color-text-secondary)] font-medium">Invite friends for bonus</span>
+               <span className="font-bold text-[var(--color-text-primary)] block text-[13px] leading-tight">
+                  {t?.referEarn || 'Refer & Earn'}
+               </span>
+               <span className="text-[11px] text-[var(--color-text-secondary)] font-medium">
+                  {t?.referEarnSub || 'Invite friends for bonus'}
+               </span>
             </div>
          </div>
          <ChevronRight size={16} className="text-gray-400 group-hover:text-[var(--color-brand-secondary)] transition-colors" />
@@ -2148,7 +2403,7 @@ function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWit
 
 
 
-function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBack, reloadData }) {
+function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, fiatWithdrawPending, onBack, reloadData }) {
     const [amount, setAmount] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState('');
@@ -2176,9 +2431,9 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
 
     const handleSubmit = async () => {
           const amt = parseFloat(amount);
-          if (!amount || isNaN(amt) || amt <= 0) return window.Telegram?.WebApp?.showAlert("Invalid amount") || alert("Invalid amount");
-          if (amt < 20) return window.Telegram?.WebApp?.showAlert("Minimum withdraw amount is 20 BDT") || alert("Minimum withdraw amount is 20 BDT");
-          if (amt > balance) return window.Telegram?.WebApp?.showAlert("Insufficient balance") || alert("Insufficient balance");
+          if (!amount || isNaN(amt) || amt <= 0) return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "সঠিক পরিমাণ লিখুন" : "Invalid amount") : alert("Invalid amount");
+          if (amt < 20) return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম উত্তোলন ২০ টাকা" : "Minimum withdraw amount is 20 BDT") : alert("Minimum withdraw amount is 20 BDT");
+          if (amt > balance) return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "অপর্যাপ্ত ব্যালেন্স" : "Insufficient balance") : alert("Insufficient balance");
           
           setIsSubmitting(true);
           try {
@@ -2188,7 +2443,7 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
                   fee: parseFloat((amt * 0.05).toFixed(2)),
                   receiveAmount: parseFloat((amt * 0.95).toFixed(2))
               });
-              if(window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert("Withdrawal submitted successfully!");
+              if(window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(lang === 'bn' ? "উইথড্র রিকোয়েস্ট সফলভাবে জমা হয়েছে!" : "Withdrawal submitted successfully!");
               else alert("Withdrawal submitted successfully!");
               reloadData();
           } catch (e) {
@@ -2212,8 +2467,12 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
                     <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
                 </button>
                 <div>
-                    <h2 className="text-[15px] font-extrabold text-[var(--color-text-primary)] leading-tight">Withdraw Funds</h2>
-                    <p className="text-[var(--color-text-secondary)] text-[12px] font-medium">Cashout to {fiatWallet?.method || 'Wallet'}</p>
+                    <h2 className="text-[15px] font-extrabold text-[var(--color-text-primary)] leading-tight">
+                        {t?.withdrawFunds || 'Withdraw Funds'}
+                    </h2>
+                    <p className="text-[var(--color-text-secondary)] text-[12px] font-medium">
+                        {lang === 'bn' ? `${fiatWallet?.method || 'ওয়ালেট'}-এ ক্যাশআউট` : `Cashout to ${fiatWallet?.method || 'Wallet'}`}
+                    </p>
                 </div>
             </div>
 
@@ -2225,12 +2484,14 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
                             <Clock size={15} />
                         </div>
                         <div>
-                            <p className="text-[12px] font-bold text-amber-800">Processing: ৳{fiatWithdrawPending.amount} TK</p>
+                            <p className="text-[12px] font-bold text-amber-800">
+                                {lang === 'bn' ? 'প্রক্রিয়াধীন:' : 'Processing:'} ৳{fiatWithdrawPending.amount} TK
+                            </p>
                             <p className="text-[11px] text-amber-600">via {fiatWithdrawPending.method} ({fiatWithdrawPending.number})</p>
                         </div>
                     </div>
                     <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-800 px-2 py-0.5 rounded-md">
-                        In Progress
+                        {t?.inProgress || 'In Progress'}
                     </span>
                 </div>
             )}
@@ -2238,8 +2499,12 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
             {/* Amount Input Card */}
             <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)]">
                 <label className="flex justify-between items-center mb-2">
-                    <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">Amount (BDT)</span>
-                    <span className="text-[12px] font-bold text-[var(--color-text-primary)]">Bal: ৳{balance.toFixed(2)}</span>
+                    <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">
+                        {lang === 'bn' ? 'উত্তোলনের পরিমাণ (BDT)' : 'Amount (BDT)'}
+                    </span>
+                    <span className="text-[12px] font-bold text-[var(--color-text-primary)]">
+                        {lang === 'bn' ? `ব্যালেন্স: ৳${balance.toFixed(2)}` : `Bal: ৳${balance.toFixed(2)}`}
+                    </span>
                 </label>
                 <div className="relative flex items-center">
                     <span className="absolute left-3.5 text-gray-400 font-bold text-lg">৳</span>
@@ -2258,16 +2523,16 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
             {amount && !isNaN(amount) && parseFloat(amount) > 0 && (
                 <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#E4E7EC] shadow-sm space-y-1.5 text-[12px]">
                     <div className="flex justify-between items-center">
-                        <span className="text-[#475467] font-medium">Withdraw Amount</span>
+                        <span className="text-[#475467] font-medium">{lang === 'bn' ? 'উত্তোলনের পরিমাণ' : 'Withdraw Amount'}</span>
                         <span className="font-bold text-[#101828]">৳ {parseFloat(amount).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                        <span className="text-red-500 font-medium">Fee (5%)</span>
+                        <span className="text-red-500 font-medium">{t?.fee || 'Fee (5%)'}</span>
                         <span className="font-bold text-red-500">- ৳ {(parseFloat(amount) * 0.05).toFixed(2)}</span>
                     </div>
                     <div className="h-px bg-[#E4E7EC] my-1 w-full" />
                     <div className="flex justify-between items-center text-[12px]">
-                        <span className="text-[#00A878] font-bold">You will receive</span>
+                        <span className="text-[#00A878] font-bold">{t?.youReceive || 'You will receive'}</span>
                         <span className="font-black text-[#00A878] text-[13px]">৳ {(parseFloat(amount) * 0.95).toFixed(2)}</span>
                     </div>
                 </div>
@@ -2287,7 +2552,7 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
             <div className="bg-blue-50/60 border border-blue-100/70 p-3 rounded-xl flex items-center gap-2.5">
                 <Info size={16} className="text-blue-500 shrink-0" />
                 <p className="text-[11px] text-blue-700 font-medium leading-tight">
-                    উইথড্র রিকোয়েস্ট সাধারণত <b>১ থেকে ২ ঘণ্টার</b> মধ্যে এবং সর্বোচ্চ <b>২৪ ঘণ্টার</b> মধ্যে সম্পূর্ণ হয়।
+                    {t?.withdrawNote || 'উইথড্র রিকোয়েস্ট সাধারণত ১ থেকে ২ ঘণ্টার মধ্যে এবং সর্বোচ্চ ২৪ ঘণ্টার মধ্যে সম্পূর্ণ হয়।'}
                 </p>
             </div>
 
@@ -2297,7 +2562,7 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
                 disabled={!amount || isSubmitting} 
                 className="w-full h-[48px] mt-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-[14px] tracking-wide flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50 disabled:active:scale-100 shadow-md shadow-emerald-500/20"
             >
-                {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "WITHDRAW FUNDS"}
+                {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (t?.withdrawFunds || "WITHDRAW FUNDS")}
             </button>
         </div>
     );
