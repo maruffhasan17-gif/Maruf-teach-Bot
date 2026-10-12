@@ -1822,6 +1822,51 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
     }
 });
 
+app.post('/api/miniapp/support', async (req, res) => {
+    try {
+        const { userId, name, username, message } = req.body;
+        if (!message || !message.trim()) {
+            return res.status(400).json({ error: 'মেসেজ খালি হতে পারে না (Message cannot be empty)' });
+        }
+
+        const trimmedMsg = message.trim();
+        const ticketRef = await db.collection('support_tickets').add({
+            userId: userId || 'Anonymous',
+            name: name || 'User',
+            username: username || '',
+            message: trimmedMsg,
+            status: 'open',
+            timestamp: FieldValue.serverTimestamp()
+        });
+
+        const config = botConfig || {};
+        const adminChatId = config.adminGroupId || 8799135330;
+
+        const safeMsg = trimmedMsg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const adminAlert = `🎧 <b>নতুন কাস্টমার সাপোর্ট মেসেজ (Customer Support)!</b>\n\n` +
+            `👤 ইউজার: <b>${name || 'User'}</b> ${username ? '(@' + username + ')' : ''}\n` +
+            `🆔 User ID: <code>${userId || 'N/A'}</code>\n` +
+            `🎫 Ticket ID: <code>${ticketRef.id}</code>\n\n` +
+            `💬 <b>মেসেজ / সমস্যা:</b>\n<blockquote>${safeMsg}</blockquote>\n\n` +
+            `<i>সরাসরি উত্তর দিতে ইউজারের সাথে যোগাযোগ করুন।</i>`;
+
+        if (bot) {
+            bot.sendMessage(adminChatId, adminAlert, { parse_mode: 'HTML' }).catch(err => {
+                console.error("Support Telegram alert error:", err.message);
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            message: 'আপনার সাপোর্ট রিকোয়েস্ট সফলভাবে পাঠানো হয়েছে!',
+            ticketId: ticketRef.id 
+        });
+    } catch (e) {
+        console.error("Support API error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.use('/app', (req, res) => {
     const p = path.join(__dirname, 'miniapp/dist/index.html');
     if (fs.existsSync(p)) res.sendFile(p);

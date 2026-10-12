@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto } from './api';
+import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage } from './api';
 
 const initialGraphData = [
   { time: '10:00', price: 118.5 },
@@ -119,7 +119,7 @@ function TonConnectStyles() {
 
 const translations = {
   bn: {
-    appName: 'Maruf Earn Bot',
+    appName: 'Crypto Buy Sell',
     welcome: 'স্বাগতম',
     totalBalance: 'মোট ব্যালেন্স',
     balanceSub: 'উইথড্র ও ক্রিপ্টো কেনায় ব্যবহারযোগ্য',
@@ -138,8 +138,8 @@ const translations = {
     withdrawBalance: 'টাকা তুলুন (WITHDRAW)',
     transactionHistory: 'ট্রানজেকশন হিস্ট্রি',
     transactionHistorySub: 'সব ক্রয়, বিক্রয় ও উত্তোলনের বিবরণ',
-    referEarn: 'রেফার এবং আর্ন',
-    referEarnSub: 'বন্ধুদের ইনভাইট করে বোনাস পান',
+    customerSupport: 'সাপোর্ট ও সাহায্য',
+    customerSupportSub: 'সরাসরি অ্যাডমিন টিমের সাথে কথা বলুন',
     languageSetting: 'ভাষা পরিবর্তন (Language)',
     currentLang: 'বাংলা',
     selectCrypto: 'ক্রিপ্টো নির্বাচন করুন',
@@ -164,7 +164,7 @@ const translations = {
     loading: 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...'
   },
   en: {
-    appName: 'Maruf Earn Bot',
+    appName: 'Crypto Buy Sell',
     welcome: 'Welcome back',
     totalBalance: 'Total Balance',
     balanceSub: 'Available for withdrawal & crypto purchase',
@@ -183,8 +183,8 @@ const translations = {
     withdrawBalance: 'WITHDRAW BALANCE',
     transactionHistory: 'Transaction History',
     transactionHistorySub: 'All buys, sells & withdrawals',
-    referEarn: 'Refer & Earn',
-    referEarnSub: 'Invite friends for bonus',
+    customerSupport: 'Customer Support',
+    customerSupportSub: 'Direct message to admin team',
     languageSetting: 'Language / ভাষা',
     currentLang: 'English',
     selectCrypto: 'Select Crypto Asset',
@@ -292,10 +292,10 @@ export default function App() {
   if (appLoading) {
     return (
       <div className="fixed inset-0 bg-[#f8fafc] z-[99999] flex flex-col items-center justify-center font-sans select-none">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 border-2 border-white animate-pulse">
-          <Coins size={32} className="text-white drop-shadow-sm" />
+        <div className="w-24 h-24 rounded-3xl bg-white flex items-center justify-center shadow-xl shadow-slate-200/60 border border-slate-100 p-2 animate-bounce">
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Crypto Buy Sell" className="w-full h-full object-contain drop-shadow" />
         </div>
-        <h2 className="text-[#0f172a] font-black text-base mt-4 tracking-tight">Maruf Earn Bot</h2>
+        <h2 className="text-[#0f172a] font-black text-lg mt-4 tracking-tight">Crypto Buy Sell</h2>
         <p className="text-[#64748b] text-xs mt-1.5 font-semibold flex items-center gap-2">
           <Loader2 size={13} className="animate-spin text-emerald-500" />
           {lang === 'bn' ? 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Loading, please wait...'}
@@ -316,8 +316,8 @@ export default function App() {
           {/* Header */}
           <div id="main-app-header" className="flex justify-between items-center mb-6 pt-2 transition-all duration-300">
              <div className="flex items-center gap-3">
-                 <div className="w-[42px] h-[42px] bg-white rounded-full flex items-center justify-center font-bold text-[var(--color-text-primary)] premium-shadow border border-[var(--color-border)]">
-                    {(user?.first_name?.charAt(0)?.toUpperCase() || 'U')}
+                 <div className="w-[42px] h-[42px] bg-white rounded-full flex items-center justify-center font-bold text-[var(--color-text-primary)] premium-shadow border border-[var(--color-border)] p-1 overflow-hidden">
+                    <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Crypto Buy Sell" className="w-full h-full object-contain" />
                  </div>
                  <div>
                     <h1 className="text-base font-semibold text-[var(--color-text-primary)] leading-tight">{t.appName}</h1>
@@ -2180,6 +2180,11 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
   const [isSaving, setIsSaving] = useState(false);
   const [txStatus, setTxStatus] = useState(null);
   const [txMessage, setTxMessage] = useState('');
+
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportMsg, setSupportMsg] = useState('');
+  const [isSendingSupport, setIsSendingSupport] = useState(false);
+  const [supportFeedback, setSupportFeedback] = useState(null);
   
   const handleWithdrawClick = () => {
       if (fiatWallet) {
@@ -2308,23 +2313,155 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
          <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600 transition-colors" />
       </div>
 
-      {/* Refer & Earn */}
-      <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex justify-between items-center group active:scale-[0.98] transition-transform cursor-pointer">
+      {/* Customer Support Card */}
+      <div 
+         onClick={() => { setShowSupportModal(true); setSupportFeedback(null); }} 
+         className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex justify-between items-center group active:scale-[0.98] transition-transform cursor-pointer"
+      >
          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-[var(--color-brand-secondary)] group-hover:scale-105 transition-transform shrink-0">
-               <Share2 size={18} />
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0 border border-emerald-100">
+               <Headphones size={18} />
             </div>
             <div>
                <span className="font-bold text-[var(--color-text-primary)] block text-[13px] leading-tight">
-                  {t?.referEarn || 'Refer & Earn'}
+                  {t?.customerSupport || 'সাপোর্ট ও সাহায্য'}
                </span>
                <span className="text-[11px] text-[var(--color-text-secondary)] font-medium">
-                  {t?.referEarnSub || 'Invite friends for bonus'}
+                  {t?.customerSupportSub || 'সরাসরি অ্যাডমিন টিমের সাথে কথা বলুন'}
                </span>
             </div>
          </div>
-         <ChevronRight size={16} className="text-gray-400 group-hover:text-[var(--color-brand-secondary)] transition-colors" />
+         <ChevronRight size={16} className="text-gray-400 group-hover:text-emerald-600 transition-colors" />
       </div>
+
+      {/* Support Message Modal */}
+      {showSupportModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white rounded-[28px] p-5 w-full max-w-[340px] shadow-2xl border border-gray-100 animate-in zoom-in-95">
+                  <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                              <Headphones size={16} />
+                          </div>
+                          <div>
+                              <h3 className="text-[15px] font-extrabold text-gray-900 leading-tight">
+                                  {lang === 'bn' ? 'কাস্টমার সাপোর্ট' : 'Customer Support'}
+                              </h3>
+                              <p className="text-[11px] text-gray-400 font-medium">
+                                  {lang === 'bn' ? 'সরাসরি হেল্পলাইন' : 'Direct Helpline'}
+                              </p>
+                          </div>
+                      </div>
+                      <button 
+                          onClick={() => setShowSupportModal(false)} 
+                          className="p-1.5 bg-gray-100 rounded-full text-gray-400 hover:text-gray-700 active:scale-90 transition-all"
+                      >
+                          <X size={15} strokeWidth={2.5} />
+                      </button>
+                  </div>
+
+                  {supportFeedback ? (
+                      <div className="py-4 text-center space-y-3">
+                          <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center ${supportFeedback.success ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                              {supportFeedback.success ? <CheckCircle2 size={26} /> : <AlertCircle size={26} />}
+                          </div>
+                          <div>
+                              <h4 className="text-[14px] font-bold text-gray-900">
+                                  {supportFeedback.success ? (lang === 'bn' ? 'মেসেজ পাঠানো হয়েছে!' : 'Message Sent!') : (lang === 'bn' ? 'ব্যর্থ হয়েছে' : 'Failed')}
+                              </h4>
+                              <p className="text-[12px] text-gray-500 mt-1 leading-snug">
+                                  {supportFeedback.message}
+                              </p>
+                          </div>
+                          <button 
+                              onClick={() => {
+                                  setShowSupportModal(false);
+                                  setSupportFeedback(null);
+                              }}
+                              className="w-full mt-2 h-[42px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[13px] transition-all"
+                          >
+                              {lang === 'bn' ? 'ঠিক আছে' : 'OK'}
+                          </button>
+                      </div>
+                  ) : (
+                      <div className="space-y-3 pt-1">
+                          <div className="bg-emerald-50/60 border border-emerald-100/70 p-2.5 rounded-xl text-[11px] text-emerald-800 leading-relaxed font-medium">
+                              {lang === 'bn' 
+                                  ? 'আপনার যেকোনো সমস্যা বা প্রশ্ন থাকলে নিচে লিখুন। মেসেজটি সরাসরি আমাদের অ্যাডমিন গ্রুপে পৌঁছাবে।' 
+                                  : 'Type your message or issue below. It will be forwarded directly to our admin team in Telegram.'}
+                          </div>
+
+                          <div>
+                              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                                  {lang === 'bn' ? 'আপনার মেসেজ লিখুন' : 'Write your message'}
+                              </label>
+                              <textarea
+                                  rows={4}
+                                  value={supportMsg}
+                                  onChange={(e) => setSupportMsg(e.target.value)}
+                                  placeholder={lang === 'bn' ? 'এখানে আপনার মেসেজ বা সমস্যার বিবরণ লিখুন...' : 'Type details here...'}
+                                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-[12px] text-gray-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 outline-none resize-none transition-all placeholder:text-gray-400 font-medium"
+                              />
+                          </div>
+
+                          <div className="flex gap-2 pt-1">
+                              <button
+                                  type="button"
+                                  onClick={() => setShowSupportModal(false)}
+                                  className="flex-1 h-[44px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-[13px] active:scale-95 transition-all"
+                              >
+                                  {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+                              </button>
+                              <button
+                                  type="button"
+                                  disabled={isSendingSupport || !supportMsg.trim()}
+                                  onClick={async () => {
+                                      if (!supportMsg.trim()) return;
+                                      setIsSendingSupport(true);
+                                      try {
+                                          await submitSupportMessage({
+                                              userId: user?.id,
+                                              name: user?.first_name,
+                                              username: user?.username,
+                                              message: supportMsg.trim()
+                                          });
+                                          setSupportMsg('');
+                                          setSupportFeedback({
+                                              success: true,
+                                              message: lang === 'bn' ? 'আপনার মেসেজ সফলভাবে গ্রুপে পাঠানো হয়েছে। অ্যাডমিন টিম শীঘ্রই উত্তর দিবে।' : 'Your message has been sent to our support group.'
+                                          });
+                                          if (WebApp?.HapticFeedback) {
+                                              WebApp.HapticFeedback.notificationOccurred('success');
+                                          }
+                                      } catch (err) {
+                                          setSupportFeedback({
+                                              success: false,
+                                              message: err.message || (lang === 'bn' ? 'পাঠাতে সমস্যা হয়েছে, আবার চেষ্টা করুন।' : 'Failed to send, try again.')
+                                          });
+                                          if (WebApp?.HapticFeedback) {
+                                              WebApp.HapticFeedback.notificationOccurred('error');
+                                          }
+                                      } finally {
+                                          setIsSendingSupport(false);
+                                      }
+                                  }}
+                                  className="flex-1 h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all disabled:opacity-50"
+                              >
+                                  {isSendingSupport ? (
+                                      <Loader2 size={16} className="animate-spin" />
+                                  ) : (
+                                      <>
+                                          <Send size={14} />
+                                          <span>{lang === 'bn' ? 'পাঠান' : 'Send'}</span>
+                                      </>
+                                  )}
+                              </button>
+                          </div>
+                      </div>
+                  )}
+              </div>
+          </div>
+      )}
       {/* Wallet Setup Modal */}
       {showWalletModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">

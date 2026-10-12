@@ -89,4 +89,14 @@ export const submitBuyCrypto = async (payload) => {
     }
 };
 
+export const submitSupportMessage = async (payload) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/support`, payload);
+        return res.data;
+    } catch (e) {
+        throw new Error(e.response?.data?.error || e.message || 'Failed to send message to support');
+    }
+};
+
+
 
