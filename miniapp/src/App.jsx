@@ -1805,8 +1805,12 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleContinue = (e) => {
-        if (e && e.preventDefault) e.preventDefault();
+    // Direct Sell via Tonkeeper
+    const handleDirectSell = async () => {
+        if (!userTonAddress) {
+            tonConnectUI.openModal();
+            return;
+        }
         if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
             return window.Telegram?.WebApp?.showAlert 
                 ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "সঠিক ক্রিপ্টো পরিমাণ দিন" : "Enter a valid crypto amount") 
@@ -1817,19 +1821,10 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম বিক্রয় ১ টাকা" : "Minimum sell value is 1 BDT") 
                 : alert("Minimum sell value is 1 BDT");
         }
-        setErrorMessage('');
-        setStep(2);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
 
-    // 1-Click TonConnect Pay
-    const handleTonConnectPay = async () => {
-        if (!userTonAddress) {
-            tonConnectUI.openModal();
-            return;
-        }
         setIsTonSending(true);
         setErrorMessage('');
+
         try {
             const txRes = await buildTransaction({
                 asset,
@@ -1838,55 +1833,20 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 adminWallet: botWalletAddress
             });
 
-            if (txRes && txRes.tx) {
-                await tonConnectUI.sendTransaction(txRes.tx);
-
-                // Successfully signed and sent on-chain! Now submit and credit!
-                const res = await submitSellOrder({
-                    userId: user?.id || 123456789,
-                    asset,
-                    amount: numAmount,
-                    estimatedTk,
-                    wallet: userTonAddress,
-                    status: 'completed'
-                });
-
-                if (res.success) {
-                    setSellResult({ ...res, amount: numAmount, estimatedTk });
-                    if (reloadData) reloadData();
-                    if (window.Telegram?.WebApp?.HapticFeedback) {
-                        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                    }
-                    setStep(3);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
+            if (!txRes || !txRes.tx) {
+                throw new Error("Failed to prepare transaction");
             }
-        } catch (err) {
-            console.error("TonConnect transfer error:", err);
-            setErrorMessage(err.message || (lang === 'bn' ? 'ওয়ালেট দিয়ে পেমেন্ট বাতিল বা ব্যর্থ হয়েছে। আপনি নিচে সরাসরি অ্যাড্রেসে পাঠাতে পারেন।' : 'Wallet payment cancelled or failed. You can send manually below.'));
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            }
-        } finally {
-            setIsTonSending(false);
-        }
-    };
 
-    // Manual Submission
-    const handleManualSubmit = async () => {
-        if (!trxId || trxId.trim().length < 4) {
-            setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে সঠিক TxID বা আপনার সেন্ডার ওয়ালেট অ্যাড্রেস দিন' : 'Please enter valid TxID or your sender wallet address');
-            return;
-        }
-        setLoading(true);
-        setErrorMessage('');
-        try {
+            // Direct Tonkeeper Confirmation
+            const tonResult = await tonConnectUI.sendTransaction(txRes.tx);
+
+            // Successfully signed and sent on-chain! Credit user balance!
             const res = await submitSellOrder({
                 userId: user?.id || 123456789,
                 asset,
                 amount: numAmount,
                 estimatedTk,
-                wallet: trxId.trim(),
+                wallet: userTonAddress,
                 status: 'completed'
             });
 
@@ -1896,20 +1856,27 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 }
-                setStep(3);
+                setStep(2); // Directly jump to Success Receipt
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
-                setErrorMessage(res.error || 'ভেরিফিকেশন ব্যর্থ হয়েছে');
+                throw new Error(res.error || 'ব্যালেন্সে টাকা যোগ করতে সমস্যা হয়েছে');
             }
-        } catch (e) {
-            setErrorMessage(e.message || 'সাবমিট করতে সমস্যা হয়েছে, অনুগ্রহ করে আবার চেষ্টা করুন।');
+        } catch (err) {
+            console.error("TonConnect transfer error:", err);
+            const isUserCancel = err.message?.includes('Reject') || err.message?.includes('cancel') || err.message?.includes('declined');
+            setErrorMessage(isUserCancel 
+                ? (lang === 'bn' ? 'টোনকিপারে পেমেন্ট বাতিল করা হয়েছে।' : 'Payment rejected in Tonkeeper.')
+                : (err.message || (lang === 'bn' ? 'টোনকিপার দিয়ে পেমেন্ট ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Payment failed. Please try again.')));
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            }
         } finally {
-            setLoading(false);
+            setIsTonSending(false);
         }
     };
 
-    // STEP 3: LUXURY FINTECH SUCCESS RECEIPT
-    if (step === 3) {
+    // LUXURY FINTECH SUCCESS RECEIPT
+    if (step === 2) {
         return (
             <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-4 text-center pb-24">
                 <div className="relative mb-6 mt-4">
@@ -1975,167 +1942,6 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                         className="w-full bg-white text-gray-700 font-bold py-3.5 rounded-2xl border border-gray-200 active:scale-95 transition-all text-sm"
                     >
                         {lang === 'bn' ? 'হোমে ফিরে যান' : 'BACK TO HOME'}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    // STEP 2: TRANSFER & CONFIRMATION
-    if (step === 2) {
-        return (
-            <div className="flex flex-col h-full animate-in slide-in-from-right duration-300 pb-24">
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-5">
-                    <button 
-                        onClick={() => { setStep(1); setErrorMessage(''); }} 
-                        className="p-2.5 bg-white rounded-full shadow-sm text-gray-700 border border-gray-100 active:scale-95 transition-transform"
-                    >
-                        <ArrowDown size={18} className="rotate-90" />
-                    </button>
-                    <div>
-                        <h2 className="text-xl font-black text-gray-900 tracking-tight">
-                            {lang === 'bn' ? 'ক্রিপ্টো ট্রান্সফার ভেরিফিকেশন' : 'Crypto Transfer Verification'}
-                        </h2>
-                        <p className="text-gray-500 text-xs mt-0.5">
-                            {lang === 'bn' ? 'ক্রিপ্টো পাঠিয়ে ট্রানজেকশন সাবমিট করুন' : 'Transfer crypto to complete swap'}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="flex items-center gap-2 mb-6 px-1">
-                    <div className="h-1.5 flex-1 bg-emerald-500 rounded-full" />
-                    <div className="h-1.5 flex-1 bg-emerald-500 rounded-full relative">
-                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-emerald-500 rounded-full ring-4 ring-emerald-100" />
-                    </div>
-                </div>
-
-                {/* Instructions Card */}
-                <div className="bg-white rounded-2xl p-3.5 mb-3 border border-gray-100 shadow-sm space-y-3">
-                    <div className="flex justify-between items-center pb-2.5 border-b border-gray-100">
-                        <div className="flex items-center gap-2">
-                            <img 
-                                src={asset === 'GRAM' ? `${import.meta.env.BASE_URL}gram.svg` : `${import.meta.env.BASE_URL}usdt.svg`} 
-                                className="w-6 h-6 object-contain" 
-                                alt={asset} 
-                            />
-                            <div>
-                                <span className="font-bold text-gray-900 text-[13px] block">{asset} (TON Network)</span>
-                                <span className="text-[10px] text-gray-400 font-medium">Rate: 1 {asset} ≈ ৳{currentRate} TK</span>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <span className="text-[10px] text-gray-400 font-medium block">{lang === 'bn' ? 'ব্যালেন্সে যোগ হবে' : 'You will receive'}</span>
-                            <span className="text-[15px] font-black text-emerald-600">৳{estimatedTk} BDT</span>
-                        </div>
-                    </div>
-
-                    {/* Admin Receiving Wallet */}
-                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                {lang === 'bn' ? 'বট ওয়ালেট অ্যাড্রেস (রিসিভার)' : 'Bot Receiver Address'}
-                            </span>
-                            <span className="text-[10px] text-emerald-600 font-bold">TON Blockchain</span>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                            <span className="text-[12px] font-bold text-gray-900 font-mono tracking-wider truncate flex-1">{botWalletAddress}</span>
-                            <button 
-                                onClick={handleCopy} 
-                                className={"flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold text-[11px] shadow-sm transition-all active:scale-95 shrink-0 " + (copied ? "bg-emerald-600 text-white" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50")}
-                            >
-                                {copied ? <><CheckCircle2 size={13} /> {lang === 'bn' ? 'কপি হয়েছে' : 'Copied'}</> : <><Copy size={13} /> {lang === 'bn' ? 'কপি' : 'Copy'}</>}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Guidance */}
-                    {lang === 'bn' ? (
-                        <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
-                            <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">কিভাবে বিক্রি করবেন:</p>
-                            <p>১. আপনার ওয়ালেট (Tonkeeper / Telegram / Binance) থেকে উপরে দেওয়া অ্যাড্রেসে ঠিক <b>{numAmount} {asset}</b> পাঠান।</p>
-                            <p>২. ট্রান্সফারের পর আপনার <b>Tx Hash (TrxID)</b> বা <b>সেন্ডার ওয়ালেট অ্যাড্রেস</b> নিচের ঘরে লিখে সাবমিট করুন।</p>
-                            <p>৩. সাথে সাথে আপনার ইন-অ্যাপ ব্যালেন্সে <b>৳{estimatedTk} BDT</b> যুক্ত হবে।</p>
-                        </div>
-                    ) : (
-                        <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
-                            <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">How to sell:</p>
-                            <p>1. Send exact <b>{numAmount} {asset}</b> from your wallet to the bot address above.</p>
-                            <p>2. Paste your <b>Transaction Hash (TxID)</b> or <b>Sender Wallet Address</b> below.</p>
-                            <p>3. Submit to instantly receive <b>৳{estimatedTk} BDT</b> into your balance.</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* 1-Click TonConnect Quick Pay (If User Prefers) */}
-                {userTonAddress && (
-                    <div className="bg-white rounded-2xl p-3.5 mb-3 border border-emerald-200/80 shadow-sm">
-                        <button
-                            type="button"
-                            disabled={isTonSending}
-                            onClick={handleTonConnectPay}
-                            className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-xl py-3 font-bold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition-all"
-                        >
-                            {isTonSending ? (
-                                <><Loader2 size={16} className="animate-spin text-emerald-600" /> {lang === 'bn' ? 'ওয়ালেটে সাইন হচ্ছে...' : 'Signing in wallet...'}</>
-                            ) : (
-                                <><Zap size={16} className="text-emerald-600" /> {lang === 'bn' ? '⚡ ওয়ালেট দিয়ে সরাসরি পাঠান (1-Click Wallet Pay)' : '⚡ 1-Click Wallet Pay'}</>
-                            )}
-                        </button>
-                    </div>
-                )}
-
-                {/* TrxID / Wallet Input Card */}
-                <div className="bg-white rounded-2xl p-3.5 mb-3 border border-gray-100 shadow-sm space-y-2.5">
-                    <label className="text-[11px] font-bold text-gray-500 block uppercase tracking-wider">
-                        {lang === 'bn' ? 'Transaction Hash / সেন্ডার ওয়ালেট অ্যাড্রেস' : 'Transaction Hash / Sender Wallet'}
-                    </label>
-                    <div className="relative">
-                        <input 
-                            type="text" 
-                            value={trxId} 
-                            onChange={e => setTrxId(e.target.value)} 
-                            placeholder={lang === 'bn' ? 'এখানে Tx Hash বা ওয়ালেট পেস্ট করুন' : 'Paste Tx Hash or Wallet here'} 
-                            className="w-full bg-gray-50 rounded-xl p-3 pr-10 text-[13px] font-mono font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 transition-all outline-none" 
-                        />
-                        <button 
-                            onClick={async () => { 
-                                try { 
-                                    const text = await navigator.clipboard.readText(); 
-                                    if (text) setTrxId(text.trim()); 
-                                } catch(e){} 
-                            }} 
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white text-gray-400 hover:text-emerald-600 rounded-lg transition-all shadow-sm border border-gray-200"
-                            title="Paste from clipboard"
-                        >
-                            <ClipboardPaste size={16} />
-                        </button>
-                    </div>
-
-                    {errorMessage && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2.5 animate-in fade-in duration-300">
-                            <AlertCircle size={17} className="text-red-600 shrink-0 mt-0.5" />
-                            <div className="text-[12px]">
-                                <p className="font-bold text-red-700">{lang === 'bn' ? 'নোটিশ' : 'Notice'}</p>
-                                <p className="text-red-600 leading-tight">{errorMessage}</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Submit Button */}
-                <div className="mt-auto">
-                    <button 
-                        onClick={handleManualSubmit} 
-                        disabled={!trxId.trim() || loading} 
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
-                    >
-                        {loading ? (
-                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {lang === 'bn' ? 'যাচাই করা হচ্ছে...' : 'VERIFYING...'}</>
-                        ) : (
-                            <><CheckCircle2 size={16} /> {lang === 'bn' ? 'ভেরিফাই ও টাকা যোগ করুন' : 'CONFIRM & RECEIVE TAKA'}</>
-                        )}
                     </button>
                 </div>
             </div>

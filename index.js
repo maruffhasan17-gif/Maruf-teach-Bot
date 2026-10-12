@@ -917,6 +917,19 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
 
         if (asset === 'USDT') {
             const amountInMicro = Math.floor(amount * 1e6);
+            const usdtMaster = 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs';
+            let targetContract = adminWallet;
+            if (userAddress) {
+                try {
+                    const jwRes = await axios.get(`https://tonapi.io/v2/blockchain/accounts/${usdtMaster}/methods/get_wallet_address?args=${userAddress}`);
+                    if (jwRes.data?.decoded?.jetton_wallet_address) {
+                        targetContract = Address.parse(jwRes.data.decoded.jetton_wallet_address).toString();
+                    }
+                } catch(e) {
+                    console.error("Error finding user Jetton wallet:", e.message);
+                }
+            }
+
             let payload = null;
             try {
                 const body = beginCell()
@@ -937,7 +950,7 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
                 tx: {
                     validUntil: Math.floor(Date.now() / 1000) + 600,
                     messages: [{
-                        address: adminWallet,
+                        address: targetContract,
                         amount: '50000000', // 0.05 TON
                         payload: payload || undefined
                     }]
