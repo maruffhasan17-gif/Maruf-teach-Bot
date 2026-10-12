@@ -840,18 +840,16 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
 app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
     try {
         const { userId, amount, fee, receiveAmount } = req.body;
+        if (!userId) throw new Error("User ID is required");
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
         
         if (!userDoc.exists) throw new Error("User not found");
         const userData = userDoc.data();
         if ((userData.balance || 0) < amount) throw new Error("Insufficient balance");
-        
-        // Remove old pending if it's expired
-        if (userData.fiatWithdrawPending && userData.fiatWithdrawPending.status === 'completed' && (Date.now() - userData.fiatWithdrawPending.completedAt > 3 * 60 * 60 * 1000)) {
-            // It's old, allow new withdraw
-        } else if (userData.fiatWithdrawPending && userData.fiatWithdrawPending.status === 'pending') {
-            throw new Error("You already have a pending withdrawal");
+
+        if (!userData.fiatWallet || !userData.fiatWallet.number) {
+            throw new Error("Please set your withdrawal wallet number first");
         }
 
         // Check daily limit
@@ -883,32 +881,41 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         const calcFee = fee || (amount * 0.05);
         const calcReceive = receiveAmount || (amount - calcFee);
 
-        // Deduct balance and set pending
-        const withdrawData = {
+        // Record withdrawal in dedicated fiat_withdrawals collection
+        const withdrawDoc = {
+            userId: parseInt(userId) || userId,
             serial: serialNum,
             amount: amount,
             fee: calcFee,
             receiveAmount: calcReceive,
             status: 'pending',
-            timestamp: Date.now(),
+            timestamp: FieldValue.serverTimestamp(),
+            createdAt: Date.now(),
             method: userData.fiatWallet.method,
             number: userData.fiatWallet.number,
-            name: userData.fiatWallet.name
+            name: userData.fiatWallet.name || userData.first_name || 'User'
         };
 
+        const withdrawRef = await db.collection('fiat_withdrawals').add(withdrawDoc);
+
+        // Deduct balance and update user fiatWithdrawPending with doc id
         await userRef.update({
-            balance: (userData.balance || 0) - amount,
-            fiatWithdrawPending: withdrawData
+            balance: FieldValue.increment(-amount),
+            fiatWithdrawPending: {
+                ...withdrawDoc,
+                id: withdrawRef.id,
+                timestamp: Date.now()
+            }
         });
         
         // Notify Admin Group
         const config = require('./config.json');
         if (config.adminGroupId) {
-            const msg = `<blockquote><b>💳 New Fiat Withdrawal</b></blockquote>\n\n👤 User: <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a>\n🆔 ID: ${userId}\n\n#️⃣ <b>Serial No: ${serialNum}</b>\n💰 Total Amount: <b>৳ ${amount} BDT</b>\n📉 Fee (5%): <b>৳ ${calcFee.toFixed(2)} BDT</b>\n✅ Send Exactly: <b>৳ ${calcReceive.toFixed(2)} BDT</b>\n\n🏦 Method: ${userData.fiatWallet.method}\n📞 Number: <code>${userData.fiatWallet.number}</code>\n📛 Name: ${userData.fiatWallet.name}\n\n⚙️ <b>Actions (Reply to this):</b>\n- <code>Ok</code> to mark paid\n- <code>Reject [reason]</code> to refund`;
+            const msg = `<blockquote><b>💳 New Fiat Withdrawal</b></blockquote>\n\n👤 User: <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a>\n🆔 ID: ${userId}\n\n#️⃣ <b>Serial No: ${serialNum}</b>\n💰 Total Amount: <b>৳ ${amount} BDT</b>\n📉 Fee (5%): <b>৳ ${calcFee.toFixed(2)} BDT</b>\n✅ Send Exactly: <b>৳ ${calcReceive.toFixed(2)} BDT</b>\n\n🏦 Method: ${userData.fiatWallet.method}\n📞 Number: <code>${userData.fiatWallet.number}</code>\n📛 Name: ${userData.fiatWallet.name || 'User'}\n\n⚙️ <b>Actions (Reply to this):</b>\n- <code>Ok</code> to mark paid\n- <code>Reject [reason]</code> to refund`;
             await bot.sendMessage(config.adminGroupId, msg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
         
-        res.json({ success: true, serial: serialNum });
+        res.json({ success: true, serial: serialNum, withdrawId: withdrawRef.id });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
@@ -1369,20 +1376,46 @@ app.get('/api/admin/orders', async (req, res) => {
         const buys = buysSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         const sells = sellsSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        // Get all users who have a pending fiat withdrawal
-        const usersSnapshot = await db.collection('users').get();
         const withdrawals = [];
+        const seenWithdrawIds = new Set();
+
+        // 1. Get from fiat_withdrawals collection
+        try {
+            const fwSnap = await db.collection('fiat_withdrawals').get();
+            fwSnap.forEach(doc => {
+                const data = doc.data();
+                seenWithdrawIds.add(doc.id);
+                withdrawals.push({
+                    id: doc.id,
+                    withdrawId: doc.id,
+                    userId: data.userId,
+                    firstName: data.name || 'User',
+                    ...data,
+                    fiatWithdrawPending: data
+                });
+            });
+        } catch(e) {
+            console.error("Error reading fiat_withdrawals collection:", e);
+        }
+
+        // 2. Get from users collection (legacy support)
+        const usersSnapshot = await db.collection('users').get();
         usersSnapshot.forEach(doc => {
             const data = doc.data();
             if (data.fiatWithdrawPending) {
-                withdrawals.push({
-                    id: doc.id,
-                    userId: doc.id,
-                    firstName: data.first_name || 'Unknown',
-                    username: data.username || '',
-                    fiatWithdrawPending: data.fiatWithdrawPending,
-                    ...data.fiatWithdrawPending
-                });
+                const pendId = data.fiatWithdrawPending.id || doc.id;
+                if (!seenWithdrawIds.has(pendId)) {
+                    seenWithdrawIds.add(pendId);
+                    withdrawals.push({
+                        id: pendId,
+                        withdrawId: pendId,
+                        userId: doc.id,
+                        firstName: data.first_name || 'Unknown',
+                        username: data.username || '',
+                        fiatWithdrawPending: data.fiatWithdrawPending,
+                        ...data.fiatWithdrawPending
+                    });
+                }
             }
         });
 
@@ -1533,16 +1566,30 @@ app.get('/api/admin/limits', async (req, res) => {
 
 app.post('/api/admin/approve-withdraw', async (req, res) => {
     try {
-        const { userId } = req.body;
-        const userRef = db.collection('users').doc(userId.toString());
-        const doc = await userRef.get();
-        if(!doc.exists) return res.status(404).json({ error: 'Not found' });
+        const { userId, id, withdrawId } = req.body;
+        const targetId = withdrawId || id;
         
-        const data = doc.data();
-        if(!data.fiatWithdrawPending) return res.status(400).json({ error: 'No pending withdrawal' });
-        
-        await userRef.update({ 'fiatWithdrawPending.status': 'completed', 'fiatWithdrawPending.completedAt': Date.now() });
-        bot.sendMessage(userId, '✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!', { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        // Update in fiat_withdrawals if id provided
+        if (targetId) {
+            try {
+                await db.collection('fiat_withdrawals').doc(targetId).update({
+                    status: 'completed',
+                    completedAt: Date.now()
+                });
+            } catch(e) {}
+        }
+
+        if (userId) {
+            const userRef = db.collection('users').doc(userId.toString());
+            const doc = await userRef.get();
+            if(doc.exists) {
+                await userRef.update({
+                    'fiatWithdrawPending.status': 'completed',
+                    'fiatWithdrawPending.completedAt': Date.now()
+                });
+                bot.sendMessage(userId, '✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!', { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            }
+        }
         res.json({ success: true });
     } catch(e) {
         res.status(500).json({ error: e.message });
@@ -1551,26 +1598,47 @@ app.post('/api/admin/approve-withdraw', async (req, res) => {
 
 app.post('/api/admin/reject-withdraw', async (req, res) => {
     try {
-        const { userId, reason } = req.body;
-        if (!userId) return res.status(400).json({ error: 'User ID is required' });
+        const { userId, id, withdrawId, reason, refundAmt: reqRefund } = req.body;
+        const targetId = withdrawId || id;
+        if (!userId && !targetId) return res.status(400).json({ error: 'User ID or Withdrawal ID is required' });
         
-        const userRef = db.collection('users').doc(userId.toString());
-        const doc = await userRef.get();
-        if(!doc.exists) return res.status(404).json({ error: 'User not found' });
+        let refundAmt = parseFloat(reqRefund) || 0;
+        let targetUser = userId;
+
+        if (targetId) {
+            try {
+                const fwRef = db.collection('fiat_withdrawals').doc(targetId);
+                const fwDoc = await fwRef.get();
+                if (fwDoc.exists) {
+                    const fwData = fwDoc.data();
+                    if (!targetUser) targetUser = fwData.userId;
+                    if (!refundAmt) refundAmt = parseFloat(fwData.amount) || 0;
+                    await fwRef.update({
+                        status: 'rejected',
+                        rejectReason: reason || 'Rejected by admin',
+                        rejectedAt: Date.now()
+                    });
+                }
+            } catch(e) {}
+        }
         
-        const data = doc.data();
-        if(!data.fiatWithdrawPending) return res.status(400).json({ error: 'No pending withdrawal found' });
-        
-        const refundAmt = parseFloat(data.fiatWithdrawPending.amount) || 0;
-        
-        await userRef.update({
-            'fiatWithdrawPending.status': 'rejected',
-            'fiatWithdrawPending.rejectReason': reason || 'Rejected by admin',
-            'fiatWithdrawPending.rejectedAt': Date.now(),
-            balance: FieldValue.increment(refundAmt)
-        });
-        
-        bot.sendMessage(userId, `❌ <b>Withdrawal Request Rejected</b>\n\nReason: ${reason || 'Incorrect account details'}\n\n💰 <b>৳${refundAmt} TK has been refunded back to your account balance!</b>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        if (targetUser) {
+            const userRef = db.collection('users').doc(targetUser.toString());
+            const doc = await userRef.get();
+            if(doc.exists) {
+                const data = doc.data();
+                if (!refundAmt && data.fiatWithdrawPending) {
+                    refundAmt = parseFloat(data.fiatWithdrawPending.amount) || 0;
+                }
+                await userRef.update({
+                    'fiatWithdrawPending.status': 'rejected',
+                    'fiatWithdrawPending.rejectReason': reason || 'Rejected by admin',
+                    'fiatWithdrawPending.rejectedAt': Date.now(),
+                    balance: FieldValue.increment(refundAmt)
+                });
+                bot.sendMessage(targetUser, `❌ <b>Withdrawal Request Rejected</b>\n\nReason: ${reason || 'Incorrect account details'}\n\n💰 <b>৳${refundAmt} TK has been refunded back to your account balance!</b>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            }
+        }
         
         res.json({ success: true, message: `Withdrawal rejected and ৳${refundAmt} refunded to user.` });
     } catch(e) {
@@ -1677,19 +1745,74 @@ app.use('/app', express.static(path.join(__dirname, 'miniapp/dist')));
 
 app.get('/api/miniapp/history/:userId', async (req, res) => {
     try {
-        const userId = parseInt(req.params.userId);
+        const rawUserId = req.params.userId;
+        const numUserId = parseInt(rawUserId);
+        const strUserId = rawUserId.toString();
         
-        const buysSnapshot = await db.collection('miniapp_buys').where('userId', '==', userId).get();
-        const sellsSnapshot = await db.collection('miniapp_sells').where('userId', '==', userId).get();
+        const buysSnapshot = await db.collection('miniapp_buys').where('userId', '==', numUserId).get();
+        const sellsSnapshot = await db.collection('miniapp_sells').where('userId', '==', numUserId).get();
         
         const history = [];
         buysSnapshot.forEach(doc => history.push({ id: doc.id, type: 'buy', ...doc.data() }));
         sellsSnapshot.forEach(doc => history.push({ id: doc.id, type: 'sell', ...doc.data() }));
+
+        // 1. Also fetch from fiat_withdrawals collection
+        try {
+            const withSnapshot = await db.collection('fiat_withdrawals').where('userId', 'in', [numUserId, strUserId]).get();
+            withSnapshot.forEach(doc => {
+                const data = doc.data();
+                history.push({
+                    id: doc.id,
+                    type: 'withdraw',
+                    asset: 'BDT',
+                    amount: data.amount,
+                    fee: data.fee,
+                    receiveAmount: data.receiveAmount,
+                    method: data.method,
+                    number: data.number,
+                    status: data.status || 'pending',
+                    timestamp: data.timestamp || data.createdAt || Date.now()
+                });
+            });
+        } catch(e) {
+            console.error("History fetch fiat_withdrawals error:", e);
+        }
+
+        // 2. Also check if user has legacy fiatWithdrawPending
+        try {
+            const userDoc = await db.collection('users').doc(strUserId).get();
+            if (userDoc.exists && userDoc.data().fiatWithdrawPending) {
+                const p = userDoc.data().fiatWithdrawPending;
+                const exists = history.some(h => h.type === 'withdraw' && (h.id === p.id || h.serial === p.serial));
+                if (!exists) {
+                    history.push({
+                        id: p.id || 'legacy_withdraw',
+                        type: 'withdraw',
+                        asset: 'BDT',
+                        amount: p.amount,
+                        fee: p.fee,
+                        receiveAmount: p.receiveAmount,
+                        method: p.method,
+                        number: p.number,
+                        status: p.status || 'pending',
+                        timestamp: p.timestamp || Date.now()
+                    });
+                }
+            }
+        } catch(e) {
+            console.error("History fetch legacy withdraw error:", e);
+        }
         
         history.sort((a, b) => {
-            const timeA = a.timestamp ? a.timestamp.toMillis() : Date.now();
-            const timeB = b.timestamp ? b.timestamp.toMillis() : Date.now();
-            return timeB - timeA;
+            const getTime = (item) => {
+                if (!item) return 0;
+                if (item.timestamp?._seconds) return item.timestamp._seconds * 1000;
+                if (item.timestamp?.toMillis) return item.timestamp.toMillis();
+                if (typeof item.timestamp === 'number') return item.timestamp;
+                if (item.timestamp) return new Date(item.timestamp).getTime();
+                return 0;
+            };
+            return getTime(b) - getTime(a);
         });
         
         res.json({ success: true, history });

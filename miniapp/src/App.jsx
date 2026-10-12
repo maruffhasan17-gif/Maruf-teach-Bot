@@ -350,104 +350,104 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
   }, []);
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
+    <div className="space-y-3 animate-in fade-in slide-in-from-left-4 duration-300">
       
       {fiatWithdrawPending && (
           fiatWithdrawPending.status === 'completed' ? (
               Date.now() - (fiatWithdrawPending.completedAt || Date.now()) < 3 * 60 * 60 * 1000 && (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-3xl flex items-center gap-4">
-                      <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-500 shrink-0 shadow-inner">
-                          <CheckCircle2 size={24} />
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl flex items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2">
+                          <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                          <p className="text-[12px] text-emerald-800 font-bold">
+                              Withdrawal Sent: <b>{fiatWithdrawPending.amount} TK</b>
+                          </p>
                       </div>
-                      <div>
-                          <h3 className="text-emerald-500 font-extrabold text-sm tracking-widest uppercase">Withdrawal Successful</h3>
-                          <p className="text-[var(--color-text-secondary)] text-xs mt-0.5">Your <b>{fiatWithdrawPending.amount} TK</b> has been sent to {fiatWithdrawPending.method} ({fiatWithdrawPending.number}).</p>
-                      </div>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/20 px-2 py-0.5 rounded">Success</span>
                   </div>
               )
           ) : (
-              <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-3xl flex items-center gap-4">
-                  <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-500 shrink-0 shadow-inner">
-                      <Clock size={24} />
+              <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl flex items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-amber-500 shrink-0" />
+                      <p className="text-[12px] text-amber-800 font-bold">
+                          Withdrawal Pending: <b>{fiatWithdrawPending.amount} TK</b>
+                      </p>
                   </div>
-                  <div>
-                      <h3 className="text-amber-500 font-extrabold text-sm tracking-widest uppercase">Withdrawal Pending</h3>
-                      <p className="text-[var(--color-text-secondary)] text-xs mt-0.5">Serial <b>#{fiatWithdrawPending.serial || 'N/A'}</b>: <b>{fiatWithdrawPending.amount} TK</b> via {fiatWithdrawPending.method} ({fiatWithdrawPending.number}).</p>
-                  </div>
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-500/20 px-2 py-0.5 rounded">#{fiatWithdrawPending.serial || '1'}</span>
               </div>
           )
       )}
       
       {/* Total Balance Card */}
-      <div className="bg-white p-6 rounded-[24px] premium-shadow border border-[var(--color-border)] relative overflow-hidden">
-         <div className="absolute top-4 right-4 pointer-events-none">
+      <div className="bg-white p-4 rounded-2xl premium-shadow border border-[var(--color-border)] relative overflow-hidden">
+         <div className="absolute top-3 right-3 pointer-events-none opacity-50">
             <AbstractWalletIcon />
          </div>
          <div className="flex justify-between items-start mb-1">
-            <p className="text-[11px] font-medium text-[var(--color-text-secondary)] tracking-widest uppercase">Total Balance</p>
+            <p className="text-[11px] font-bold text-[var(--color-text-secondary)] tracking-wider uppercase">Total Balance</p>
             <button 
                 onClick={onGoToAddMoney} 
-                className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-full flex items-center gap-1.5 transition-colors border border-emerald-200/60 active:scale-95 shadow-sm"
+                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-full flex items-center gap-1 transition-colors border border-emerald-200/60 active:scale-95 shadow-sm"
             >
-                <PlusCircle size={13} strokeWidth={2.5} />
+                <PlusCircle size={12} strokeWidth={2.5} />
                 <span>Add Money</span>
             </button>
          </div>
          <div className="flex items-baseline gap-1">
-            <h2 className="text-4xl font-bold text-[var(--color-text-primary)]">{balance}</h2>
-            <span className="text-xl font-semibold text-[var(--color-brand)]">TK</span>
+            <h2 className="text-3xl font-black text-[var(--color-text-primary)]">{balance}</h2>
+            <span className="text-base font-bold text-[var(--color-brand)]">TK</span>
          </div>
-         <p className="text-[11px] text-[var(--color-text-secondary)] mt-2">Available for withdrawal & crypto purchase</p>
+         <p className="text-[12px] text-[var(--color-text-secondary)] mt-1">Available for withdrawal & crypto purchase</p>
       </div>
 
       {/* Quick Action Buttons: Buy Crypto & Sell Crypto */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2.5">
          <button 
              onClick={onOpenBuyCrypto} 
-             className="flex items-center gap-3 bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white p-4 rounded-[22px] shadow-lg shadow-emerald-500/25 active:scale-[0.97] transition-all text-left group"
+             className="flex items-center gap-2.5 bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white p-3 rounded-2xl shadow-md shadow-emerald-500/20 active:scale-[0.97] transition-all text-left group"
          >
-             <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform shadow-inner">
-                 <Coins size={20} />
+             <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+                 <Coins size={18} />
              </div>
              <div>
-                 <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest leading-none">Instant Send</p>
-                 <p className="text-[15px] font-black text-white leading-tight mt-1 tracking-tight">Buy Crypto</p>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-wider leading-none">Instant Send</p>
+                 <p className="text-[15px] font-bold text-white leading-tight mt-1 tracking-tight">Buy Crypto</p>
              </div>
          </button>
          
          <button 
              onClick={onGoToSell} 
-             className="flex items-center gap-3 bg-white text-gray-900 p-4 rounded-[22px] premium-shadow border border-[var(--color-border)] active:scale-[0.97] transition-all text-left group hover:border-gray-300"
+             className="flex items-center gap-2.5 bg-white text-gray-900 p-3 rounded-2xl premium-shadow border border-[var(--color-border)] active:scale-[0.97] transition-all text-left group hover:border-gray-300"
          >
-             <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-700 shrink-0 group-hover:scale-110 transition-transform">
-                 <ArrowRightLeft size={20} />
+             <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-700 shrink-0 group-hover:scale-105 transition-transform">
+                 <ArrowRightLeft size={18} />
              </div>
              <div>
-                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">Instant Swap</p>
-                 <p className="text-[15px] font-black text-gray-900 leading-tight mt-1 tracking-tight">Sell Crypto</p>
+                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none">Instant Swap</p>
+                 <p className="text-[15px] font-bold text-gray-900 leading-tight mt-1 tracking-tight">Sell Crypto</p>
              </div>
          </button>
       </div>
 
       {/* Live Chart Card */}
-      <div className="bg-white p-5 rounded-[24px] premium-shadow border border-[var(--color-border)]">
-         <div className="flex justify-between items-start mb-4">
+      <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)]">
+         <div className="flex justify-between items-start mb-3">
             <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
-                <TrendingUp size={16} className="text-[var(--color-text-secondary)]" />
-                <h3 className="text-sm font-semibold">USDT/TK Live Chart</h3>
+                <TrendingUp size={15} className="text-[var(--color-text-secondary)]" />
+                <h3 className="text-[15px] font-bold">USDT/TK Live Chart</h3>
             </div>
-            <div className="flex items-center gap-1.5 bg-[var(--color-success)]/10 px-2 py-1 rounded-full border border-[var(--color-success)]/20">
+            <div className="flex items-center gap-1 bg-[var(--color-success)]/10 px-2 py-0.5 rounded-full border border-[var(--color-success)]/20">
                 <div className="w-1.5 h-1.5 bg-[var(--color-success)] rounded-full animate-pulse" />
                 <span className="text-[9px] font-bold text-[var(--color-success)] tracking-wide">LIVE</span>
             </div>
          </div>
          
-         <div className="flex items-baseline gap-1.5 mb-6">
-            <span className="text-2xl font-bold text-[var(--color-text-primary)]">{graphData[graphData.length-1].price.toFixed(2)}</span>
-            <span className="text-xs font-medium text-[var(--color-text-secondary)]">TK/USDT</span>
+         <div className="flex items-baseline gap-1.5 mb-3">
+            <span className="text-xl font-bold text-[var(--color-text-primary)]">{graphData[graphData.length-1].price.toFixed(2)}</span>
+            <span className="text-[12px] font-medium text-[var(--color-text-secondary)]">TK/USDT</span>
          </div>
 
-         <div className="h-32 w-full ml-[-15px]">
+         <div className="h-28 w-full ml-[-15px]">
             <ResponsiveContainer width="100%" height="100%">
                <AreaChart data={graphData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
                  <defs>
@@ -564,69 +564,69 @@ function ClaimPage({ user, onBack }) {
           <div className="bg-white rounded-[24px] premium-shadow border border-[var(--color-border)] overflow-hidden flex flex-col">
               
               {/* 3D Treasure Chest Hero */}
-              <div className="w-full flex justify-center py-6 bg-gradient-to-b from-[var(--color-bg-primary)] to-white relative">
+              <div className="w-full flex justify-center py-4 bg-gradient-to-b from-[var(--color-bg-primary)] to-white relative">
                   <div className="absolute inset-0 bg-[var(--color-brand)]/5 blur-3xl rounded-full scale-150" />
-                  <div className="w-[160px] h-[160px] relative z-10">
+                  <div className="w-[120px] h-[120px] relative z-10">
                      <PremiumGiftBox />
                   </div>
               </div>
 
-              <div className="px-6 pb-8 text-center flex-1 flex flex-col">
-                  <h2 className="text-[25px] font-extrabold text-[var(--color-text-primary)] mb-1">Claim Free TON</h2>
-                  <p className="text-[12px] text-[var(--color-text-secondary)] font-medium leading-relaxed max-w-[250px] mx-auto mb-8">
+              <div className="px-4 pb-6 text-center flex-1 flex flex-col">
+                  <h2 className="text-[15px] font-bold text-[var(--color-text-primary)] mb-1">Claim Free TON</h2>
+                  <p className="text-[12px] text-[var(--color-text-secondary)] font-medium leading-relaxed max-w-[250px] mx-auto mb-5">
                       Submit your wallet to receive VIC mining reward
                   </p>
 
-                  <div className="space-y-4 text-left w-full mx-auto">
+                  <div className="space-y-3 text-left w-full mx-auto">
                       
                       {/* Full Name Field */}
                       <div>
-                          <label className="block text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-[0.1em] mb-2 pl-1">Full Name</label>
+                          <label className="block text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-[0.1em] mb-1 pl-1">Full Name</label>
                           <div className="relative flex items-center">
-                              <div className="absolute left-4 text-[var(--color-text-secondary)]">
-                                  <User size={18} />
+                              <div className="absolute left-3 text-[var(--color-text-secondary)]">
+                                  <User size={15} />
                               </div>
                               <input 
                                   readOnly 
                                   value={user.first_name} 
-                                  className="w-full h-[52px] bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-[16px] pl-11 pr-4 text-[14px] font-medium text-[var(--color-text-primary)] outline-none shadow-inner"
+                                  className="w-full h-[42px] bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl pl-9 pr-3 text-[12px] font-medium text-[var(--color-text-primary)] outline-none shadow-inner"
                               />
                           </div>
                       </div>
 
                       {/* Select Network Field */}
                       <div>
-                          <label className="block text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-[0.1em] mb-2 pl-1">Select Network</label>
+                          <label className="block text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-[0.1em] mb-1 pl-1">Select Network</label>
                           <div className="relative">
                               <select 
                                   value={network} 
                                   onChange={e => setNetwork(e.target.value)}
-                                  className="w-full h-[52px] bg-[#E8F8F3] border border-[var(--color-brand)] rounded-[16px] px-4 text-[14px] font-semibold text-[var(--color-text-primary)] outline-none appearance-none transition-colors focus:ring-2 focus:ring-[var(--color-brand)]/20"
+                                  className="w-full h-[42px] bg-[#E8F8F3] border border-[var(--color-brand)] rounded-xl px-3 text-[12px] font-semibold text-[var(--color-text-primary)] outline-none appearance-none transition-colors focus:ring-2 focus:ring-[var(--color-brand)]/20"
                               >
                                   <option value="TON">TON</option>
                                   <option value="GRAM">GRAM</option>
                               </select>
-                              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--color-brand)] pointer-events-none">
-                                  <ChevronRight size={18} className="rotate-90" />
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-brand)] pointer-events-none">
+                                  <ChevronRight size={15} className="rotate-90" />
                               </div>
                           </div>
                       </div>
 
                       {/* Wallet Address Field */}
                       <div>
-                          <label className="block text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-[0.1em] mb-2 pl-1">Wallet Address</label>
+                          <label className="block text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-[0.1em] mb-1 pl-1">Wallet Address</label>
                           <div className="relative flex items-center">
-                              <div className="absolute left-4 text-[var(--color-text-secondary)]">
-                                  <Wallet size={18} />
+                              <div className="absolute left-3 text-[var(--color-text-secondary)]">
+                                  <Wallet size={15} />
                               </div>
                               <input 
                                   readOnly 
                                   value={userTonAddress || ''} 
                                   placeholder="UQ..."
-                                  className="w-full h-[52px] bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-[16px] pl-11 pr-11 text-[14px] font-medium text-[var(--color-text-primary)] outline-none shadow-inner truncate"
+                                  className="w-full h-[42px] bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-xl pl-9 pr-9 text-[12px] font-medium text-[var(--color-text-primary)] outline-none shadow-inner truncate"
                               />
-                              <div className="absolute right-4 text-[var(--color-text-secondary)] hover:text-[var(--color-brand)] transition-colors cursor-pointer active:scale-95">
-                                  <Copy size={16} />
+                              <div className="absolute right-3 text-[var(--color-text-secondary)] hover:text-[var(--color-brand)] transition-colors cursor-pointer active:scale-95">
+                                  <Copy size={15} />
                               </div>
                           </div>
                       </div>
@@ -637,7 +637,7 @@ function ClaimPage({ user, onBack }) {
        </div>
 
        {/* Fixed Bottom Action Area */}
-       <div className="px-5 pb-8 pt-4 bg-gradient-to-t from-[var(--color-bg-primary)] via-[var(--color-bg-primary)] to-transparent shrink-0 w-full max-w-md mx-auto z-50">
+       <div className="px-5 pb-6 pt-3 bg-gradient-to-t from-[var(--color-bg-primary)] via-[var(--color-bg-primary)] to-transparent shrink-0 w-full max-w-md mx-auto z-50">
           {!userTonAddress ? (
               <div className="w-full">
                   <TonConnectButton className="w-full !flex !justify-center" />
@@ -646,7 +646,7 @@ function ClaimPage({ user, onBack }) {
               <button 
                   onClick={handleClaim} 
                   disabled={loading || success} 
-                  className="w-full h-[54px] bg-[var(--color-brand)] text-white font-bold text-[15px] rounded-[15px] premium-shadow active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full h-[44px] bg-[var(--color-brand)] text-white font-bold text-[12px] rounded-xl premium-shadow active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                   {loading ? 'PROCESSING...' : success ? 'CLAIMED SUCCESSFULLY 🎉' : 'CLAIM FREE TON'}
               </button>
@@ -848,44 +848,44 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                 </div>
 
                 {/* Instructions Card */}
-                <div className="bg-white rounded-3xl p-5 mb-4 border border-gray-100 shadow-sm space-y-4">
-                    <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-                        <div className="flex items-center gap-2.5">
+                <div className="bg-white rounded-2xl p-3.5 mb-3 border border-gray-100 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center pb-2.5 border-b border-gray-100">
+                        <div className="flex items-center gap-2">
                             <img 
                                 src={paymentMethod === 'bKash' ? 'https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png' : 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ1M8VPPADiai-0lEgQMNXBEir230b0dAn61cgVHRVQat7qn3-H0L4m1Zg&s=10'} 
-                                className="w-7 h-7 object-contain" 
+                                className="w-6 h-6 object-contain" 
                                 alt={paymentMethod} 
                             />
                             <div>
-                                <span className="font-extrabold text-gray-900 text-sm block">{paymentMethod} Personal</span>
+                                <span className="font-bold text-gray-900 text-[13px] block">{paymentMethod} Personal</span>
                                 <span className="text-[10px] text-gray-400 font-medium">Send Money Only</span>
                             </div>
                         </div>
                         <div className="text-right">
                             <span className="text-[10px] text-gray-400 font-medium block">Send exactly</span>
-                            <span className="text-base font-black text-emerald-600">৳{amount} BDT</span>
+                            <span className="text-[15px] font-black text-emerald-600">৳{amount} BDT</span>
                         </div>
                     </div>
 
                     {/* Admin Number with Copy */}
-                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                        <div className="flex justify-between items-center mb-1.5">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Admin {paymentMethod} Number</span>
+                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Admin {paymentMethod} Number</span>
                             <span className="text-[10px] text-emerald-600 font-bold">Personal</span>
                         </div>
                         <div className="flex items-center justify-between">
-                            <span className="text-lg font-black text-gray-900 font-mono tracking-wider">{adminNumber}</span>
+                            <span className="text-base font-bold text-gray-900 font-mono tracking-wider">{adminNumber}</span>
                             <button 
                                 onClick={handleCopy} 
-                                className={"flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition-all active:scale-95 " + (copied ? "bg-emerald-600 text-white" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50")}
+                                className={"flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold text-[11px] shadow-sm transition-all active:scale-95 " + (copied ? "bg-emerald-600 text-white" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50")}
                             >
-                                {copied ? <><CheckCircle2 size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                                {copied ? <><CheckCircle2 size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
                             </button>
                         </div>
                     </div>
 
                     {/* Bangla Guidance */}
-                    <div className="bg-emerald-50/60 rounded-2xl p-3.5 border border-emerald-100 text-xs text-emerald-900 space-y-1.5">
+                    <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
                         <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">কিভাবে টাকা পাঠাবেন:</p>
                         <p>১. আপনার <b>{paymentMethod}</b> অ্যাপ থেকে <b>Send Money</b> অপশনে যান।</p>
                         <p>২. উপরে দেওয়া নাম্বারে সঠিক <b>৳{amount} টাকা</b> পাঠান।</p>
@@ -894,8 +894,8 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                 </div>
 
                 {/* TrxID Input Card */}
-                <div className="bg-white rounded-3xl p-5 mb-4 border border-gray-100 shadow-sm space-y-3">
-                    <label className="text-[11px] font-black text-gray-500 block uppercase tracking-widest">
+                <div className="bg-white rounded-2xl p-3.5 mb-3 border border-gray-100 shadow-sm space-y-2.5">
+                    <label className="text-[11px] font-bold text-gray-500 block uppercase tracking-wider">
                         Transaction ID (TrxID)
                     </label>
                     <div className="relative">
@@ -904,7 +904,7 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                             value={trxId} 
                             onChange={e => setTrxId(e.target.value.toUpperCase())} 
                             placeholder="e.g. 9J26XYZ789" 
-                            className="w-full bg-gray-50 rounded-2xl p-4 pr-12 text-base font-mono font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none" 
+                            className="w-full bg-gray-50 rounded-xl p-3 pr-10 text-[15px] font-mono font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 transition-all outline-none" 
                         />
                         <button 
                             onClick={async () => { 
@@ -913,20 +913,20 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                                     if (text) setTrxId(text.trim().toUpperCase()); 
                                 } catch(e){} 
                             }} 
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white text-gray-400 hover:text-emerald-600 rounded-xl transition-all shadow-sm border border-gray-200"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white text-gray-400 hover:text-emerald-600 rounded-lg transition-all shadow-sm border border-gray-200"
                             title="Paste from clipboard"
                         >
-                            <ClipboardPaste size={18} />
+                            <ClipboardPaste size={16} />
                         </button>
                     </div>
 
                     {/* Prominent Realtime Error Alert */}
                     {errorMessage && (
-                        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
-                            <div className="text-xs">
-                                <p className="font-bold text-red-700 mb-0.5">ভুল বা অমিল TrxID!</p>
-                                <p className="text-red-600 leading-relaxed">{errorMessage}</p>
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2.5 animate-in fade-in duration-300">
+                            <AlertCircle size={17} className="text-red-600 shrink-0 mt-0.5" />
+                            <div className="text-[12px]">
+                                <p className="font-bold text-red-700">ভুল বা অমিল TrxID!</p>
+                                <p className="text-red-600 leading-tight">{errorMessage}</p>
                             </div>
                         </div>
                     )}
@@ -937,12 +937,12 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                     <button 
                         onClick={handleSubmit} 
                         disabled={!trxId.trim() || loading} 
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-2xl p-4 shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-sm tracking-wide"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
                     >
                         {loading ? (
-                            <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> VERIFYING SMS...</>
+                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> VERIFYING SMS...</>
                         ) : (
-                            <><CheckCircle2 size={18} /> VERIFY & ADD MONEY</>
+                            <><CheckCircle2 size={16} /> VERIFY & ADD MONEY</>
                         )}
                     </button>
                 </div>
@@ -954,52 +954,52 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
     return (
         <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
             {/* Header */}
-            <div className="flex items-center gap-3 mb-5">
-                <div className="w-11 h-11 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm">
-                    <PlusCircle size={22} strokeWidth={2.5} />
+            <div className="flex items-center gap-2.5 mb-3.5">
+                <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm shrink-0">
+                    <PlusCircle size={18} strokeWidth={2.5} />
                 </div>
                 <div>
-                    <h2 className="text-xl font-black text-gray-900 tracking-tight">Add Money</h2>
-                    <p className="text-gray-500 text-xs mt-0.5">টাকা জমা করুন আপনার একাউন্ট ব্যালেন্সে</p>
+                    <h2 className="text-[15px] font-extrabold text-gray-900 tracking-tight leading-tight">Add Money</h2>
+                    <p className="text-gray-500 text-[12px]">টাকা জমা করুন আপনার একাউন্ট ব্যালেন্সে</p>
                 </div>
             </div>
 
             {/* Progress Bar */}
-            <div className="flex items-center gap-2 mb-6 px-1">
-                <div className="h-1.5 flex-1 bg-emerald-500 rounded-full relative">
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-emerald-500 rounded-full ring-4 ring-emerald-100" />
+            <div className="flex items-center gap-2 mb-4 px-1">
+                <div className="h-1 flex-1 bg-emerald-500 rounded-full relative">
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-emerald-100" />
                 </div>
-                <div className="h-1.5 flex-1 bg-gray-200 rounded-full" />
+                <div className="h-1 flex-1 bg-gray-200 rounded-full" />
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {/* Amount Card */}
-                <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
+                <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-3">
                     <div>
-                        <label className="text-[11px] font-black text-gray-400 block tracking-widest uppercase mb-2 ml-1">
+                        <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase mb-1.5 ml-0.5">
                             Deposit Amount (BDT)
                         </label>
                         <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-lg text-gray-700">৳</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-base text-gray-700">৳</span>
                             <input 
                                 type="number" 
                                 value={amount} 
                                 onChange={e => setAmount(e.target.value)} 
                                 placeholder="0.00" 
-                                className="w-full bg-gray-50 rounded-2xl p-4 pl-9 pr-16 text-xl font-black text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none" 
+                                className="w-full bg-gray-50 rounded-xl h-[48px] pl-7 pr-12 text-lg font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 transition-all outline-none" 
                             />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-xs text-gray-400">BDT</span>
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-[11px] text-gray-400">BDT</span>
                         </div>
                     </div>
 
                     {/* Quick Amount Chips */}
-                    <div className="flex flex-wrap gap-2 pt-1">
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
                         {quickAmounts.map(val => (
                             <button
                                 key={val}
                                 type="button"
                                 onClick={() => setAmount(val.toString())}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                                className={`px-3 py-1 rounded-lg text-[12px] font-bold transition-all active:scale-95 ${
                                     amount === val.toString() 
                                         ? 'bg-emerald-600 text-white shadow-sm' 
                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -1012,16 +1012,16 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                 </div>
 
                 {/* Payment Method Selection */}
-                <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-3">
-                    <label className="text-[11px] font-black text-gray-400 block tracking-widest uppercase mb-1 ml-1">
+                <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-2.5">
+                    <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase ml-0.5">
                         Select Payment Method
                     </label>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2.5">
                         {/* bKash */}
                         <div 
                             onClick={() => setPaymentMethod('bKash')}
-                            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-2 ${
+                            className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 ${
                                 paymentMethod === 'bKash' 
                                     ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
                                     : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'
@@ -1029,16 +1029,16 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                         >
                             <img 
                                 src="https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png" 
-                                className="w-10 h-10 object-contain" 
+                                className="w-8 h-8 object-contain" 
                                 alt="bKash" 
                             />
                             <div>
-                                <span className="font-extrabold text-sm text-gray-900 block">bKash</span>
+                                <span className="font-bold text-[13px] text-gray-900 block leading-tight">bKash</span>
                                 <span className="text-[10px] text-gray-400 font-medium">Personal</span>
                             </div>
                             {paymentMethod === 'bKash' && (
-                                <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white mt-1">
-                                    <Check size={12} strokeWidth={3} />
+                                <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-white mt-0.5">
+                                    <Check size={10} strokeWidth={3} />
                                 </div>
                             )}
                         </div>
@@ -1046,7 +1046,7 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                         {/* Nagad */}
                         <div 
                             onClick={() => setPaymentMethod('Nagad')}
-                            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-2 ${
+                            className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 ${
                                 paymentMethod === 'Nagad' 
                                     ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
                                     : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'
@@ -1054,16 +1054,16 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                         >
                             <img 
                                 src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ1M8VPPADiai-0lEgQMNXBEir230b0dAn61cgVHRVQat7qn3-H0L4m1Zg&s=10" 
-                                className="w-10 h-10 object-contain" 
+                                className="w-8 h-8 object-contain" 
                                 alt="Nagad" 
                             />
                             <div>
-                                <span className="font-extrabold text-sm text-gray-900 block">Nagad</span>
+                                <span className="font-bold text-[13px] text-gray-900 block leading-tight">Nagad</span>
                                 <span className="text-[10px] text-gray-400 font-medium">Personal</span>
                             </div>
                             {paymentMethod === 'Nagad' && (
-                                <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white mt-1">
-                                    <Check size={12} strokeWidth={3} />
+                                <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-white mt-0.5">
+                                    <Check size={10} strokeWidth={3} />
                                 </div>
                             )}
                         </div>
@@ -1071,22 +1071,23 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                 </div>
 
                 {/* Instant Credit Note */}
-                <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
-                    <Sparkles size={20} className="text-emerald-600 shrink-0" />
-                    <p className="text-emerald-800 text-xs font-medium leading-relaxed">
+                <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 flex items-center gap-2.5">
+                    <Sparkles size={16} className="text-emerald-600 shrink-0" />
+                    <p className="text-emerald-800 text-[12px] font-medium leading-tight">
                         টাকা পাঠানোর সাথে সাথে আপনার TrxID অটো-ভেরিফাই হবে এবং ইন-অ্যাপ ব্যালেন্সে যুক্ত হবে।
                     </p>
                 </div>
             </div>
 
             {/* Next Button */}
-            <div className="mt-6">
+            <div className="mt-4">
                 <button 
                     onClick={handleContinue} 
                     disabled={!amount || parseFloat(amount) < 20} 
-                    className="w-full bg-gray-900 hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-2xl p-4 shadow-lg shadow-black/10 active:scale-95 transition-all text-sm tracking-wide"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px]"
                 >
-                    CONTINUE TO PAYMENT
+                    <span>CONTINUE TO PAYMENT</span>
+                    <ArrowDown size={15} className="-rotate-90" />
                 </button>
             </div>
         </div>
@@ -1180,46 +1181,46 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
 
     return (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="w-full max-w-md bg-white rounded-t-[32px] sm:rounded-[32px] p-6 max-h-[92vh] overflow-y-auto border border-gray-100 shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <div className="w-full max-w-md bg-white rounded-t-[24px] sm:rounded-[24px] p-4 max-h-[92vh] overflow-y-auto border border-gray-100 shadow-2xl animate-in slide-in-from-bottom duration-300">
                 
                 {/* Header */}
-                <div className="flex justify-between items-center mb-5 pb-3 border-b border-gray-100">
+                <div className="flex justify-between items-center mb-3 pb-2.5 border-b border-gray-100">
                     <div>
-                        <h3 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-                            <Coins size={22} className="text-emerald-600" />
+                        <h3 className="text-[15px] font-bold text-gray-900 tracking-tight flex items-center gap-1.5">
+                            <Coins size={18} className="text-emerald-600" />
                             Buy Crypto
                         </h3>
-                        <p className="text-gray-400 text-xs">আপনার ব্যালেন্স থেকে সরাসরি ওয়ালেটে পাঠানো হবে</p>
+                        <p className="text-gray-400 text-[11px]">আপনার ব্যালেন্স থেকে সরাসরি ওয়ালেটে পাঠানো হবে</p>
                     </div>
                     <button 
                         onClick={handleResetAndClose} 
-                        className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-full transition-colors active:scale-95"
+                        className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-full transition-colors active:scale-95"
                     >
-                        <X size={18} strokeWidth={2.5} />
+                        <X size={16} strokeWidth={2.5} />
                     </button>
                 </div>
 
                 {/* SUCCESS STAGE */}
                 {stage === 'success' ? (
-                    <div className="py-6 text-center animate-in zoom-in-95 duration-400">
-                        <div className="relative mb-5 inline-block">
+                    <div className="py-4 text-center animate-in zoom-in-95 duration-400">
+                        <div className="relative mb-3 inline-block">
                             <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl animate-pulse" />
-                            <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-xl shadow-emerald-500/30 relative z-10 border-4 border-white">
-                                <CheckCircle2 size={40} />
+                            <div className="w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 relative z-10 border-2 border-white">
+                                <CheckCircle2 size={28} />
                             </div>
                         </div>
 
-                        <h4 className="text-xl font-black text-gray-900 mb-1">
+                        <h4 className="text-[15px] font-bold text-gray-900 mb-1">
                             Payment Sent Successfully! 🎉
                         </h4>
-                        <p className="text-gray-500 text-xs mb-6 max-w-[280px] mx-auto leading-relaxed">
+                        <p className="text-gray-500 text-[12px] mb-4 max-w-[280px] mx-auto leading-relaxed">
                             আপনার ওয়ালেটে <b>{calculatedCrypto} {selectedAsset}</b> সফলভাবে পাঠানো হয়েছে।
                         </p>
 
-                        <div className="bg-gray-50 rounded-2xl p-4 text-left text-xs space-y-2 border border-gray-100 mb-6">
+                        <div className="bg-gray-50 rounded-xl p-3 text-left text-[12px] space-y-1.5 border border-gray-100 mb-4">
                             <div className="flex justify-between">
                                 <span className="text-gray-400 font-medium">Crypto Sent:</span>
-                                <span className="font-black text-emerald-600">{calculatedCrypto} {selectedAsset}</span>
+                                <span className="font-bold text-emerald-600">{calculatedCrypto} {selectedAsset}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-400 font-medium">BDT Deducted:</span>
@@ -1237,45 +1238,45 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
 
                         <button 
                             onClick={handleResetAndClose} 
-                            className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all text-sm"
+                            className="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all text-[12px]"
                         >
                             DONE / সম্পন্ন
                         </button>
                     </div>
                 ) : stage === 'error' ? (
                     /* ERROR STAGE */
-                    <div className="py-6 text-center animate-in zoom-in-95 duration-400">
-                        <div className="w-18 h-18 bg-red-100 rounded-full flex items-center justify-center text-red-600 mx-auto mb-4 border-4 border-white shadow-lg">
-                            <AlertCircle size={36} />
+                    <div className="py-4 text-center animate-in zoom-in-95 duration-400">
+                        <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center text-red-600 mx-auto mb-3 border-2 border-white shadow-md">
+                            <AlertCircle size={28} />
                         </div>
-                        <h4 className="text-lg font-black text-gray-900 mb-1">ট্রানজেকশন ব্যর্থ হয়েছে</h4>
-                        <p className="text-red-600 text-xs mb-6 leading-relaxed bg-red-50 p-3 rounded-xl border border-red-100 max-w-[320px] mx-auto">
+                        <h4 className="text-[15px] font-bold text-gray-900 mb-1">ট্রানজেকশন ব্যর্থ হয়েছে</h4>
+                        <p className="text-red-600 text-[12px] mb-4 leading-relaxed bg-red-50 p-2.5 rounded-xl border border-red-100 max-w-[320px] mx-auto">
                             {errorMessage}
                         </p>
                         <button 
                             onClick={() => setStage('idle')} 
-                            className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all text-sm"
+                            className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl active:scale-95 transition-all text-[12px]"
                         >
                             TRY AGAIN
                         </button>
                     </div>
                 ) : stage === 'processing' ? (
                     /* LIVE REALTIME PROCESSING STAGE */
-                    <div className="py-8 text-center animate-in fade-in duration-300 space-y-6">
+                    <div className="py-6 text-center animate-in fade-in duration-300 space-y-4">
                         <div className="relative inline-block">
-                            <div className="w-20 h-20 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                            <div className="w-14 h-14 border-3 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
                             <div className="absolute inset-0 flex items-center justify-center text-emerald-600">
-                                <Coins size={28} className="animate-pulse" />
+                                <Coins size={22} className="animate-pulse" />
                             </div>
                         </div>
 
                         <div>
-                            <h4 className="text-lg font-black text-gray-900 mb-1">
+                            <h4 className="text-[15px] font-bold text-gray-900 mb-1">
                                 {processStep === 1 && 'Checking Balance & Rate...'}
                                 {processStep === 2 && 'Sending on TON Blockchain...'}
                                 {processStep === 3 && 'Awaiting Confirmation...'}
                             </h4>
-                            <p className="text-gray-400 text-xs">
+                            <p className="text-gray-400 text-[12px]">
                                 {processStep === 1 && 'আপনার ব্যালেন্স এবং এক্সচেঞ্জ রেট চেক করা হচ্ছে'}
                                 {processStep === 2 && 'বট সরাসরি আপনার ওয়ালেটে ক্রিপ্টো পাঠাচ্ছে'}
                                 {processStep === 3 && 'ব্লকচেইন কনফার্মেশন চূড়ান্ত হচ্ছে'}
@@ -1283,7 +1284,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                         </div>
 
                         {/* Multi-step indicator */}
-                        <div className="flex items-center justify-center gap-2 max-w-[260px] mx-auto">
+                        <div className="flex items-center justify-center gap-1.5 max-w-[220px] mx-auto">
                             <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${processStep >= 1 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
                             <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${processStep >= 2 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
                             <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${processStep >= 3 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
@@ -1291,39 +1292,39 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                     </div>
                 ) : (
                     /* IDLE / INPUT STAGE */
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {/* Current User Balance Banner */}
-                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-3.5 flex justify-between items-center">
+                        <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex justify-between items-center">
                             <div>
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Available Balance</span>
-                                <span className="text-lg font-black text-gray-900">{balance} <span className="text-emerald-600 text-sm">TK</span></span>
+                                <span className="text-[15px] font-bold text-gray-900">{balance} <span className="text-emerald-600 text-[12px]">TK</span></span>
                             </div>
                             <button 
                                 onClick={onGoToAddMoney} 
-                                className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-emerald-200/60 transition-colors"
+                                className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[11px] font-bold flex items-center gap-1 border border-emerald-200/60 transition-colors"
                             >
-                                <PlusCircle size={14} /> Add Money
+                                <PlusCircle size={13} /> Add Money
                             </button>
                         </div>
 
                         {/* Select Asset: TON vs GRAM */}
                         <div>
-                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
                                 Select Crypto Asset
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setSelectedAsset('TON')}
-                                    className={`p-3 rounded-2xl border-2 flex items-center gap-2.5 transition-all ${
+                                    className={`p-2.5 rounded-xl border flex items-center gap-2 transition-all ${
                                         selectedAsset === 'TON' 
                                             ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
                                             : 'border-gray-100 bg-gray-50 hover:bg-gray-100/60'
                                     }`}
                                 >
-                                    <img src="https://cryptologos.cc/logos/toncoin-ton-logo.svg?v=035" className="w-6 h-6" alt="TON" />
+                                    <img src="https://cryptologos.cc/logos/toncoin-ton-logo.svg?v=035" className="w-5 h-5" alt="TON" />
                                     <div className="text-left">
-                                        <span className="font-extrabold text-xs text-gray-900 block">TON Coin</span>
+                                        <span className="font-bold text-[12px] text-gray-900 block leading-tight">TON Coin</span>
                                         <span className="text-[10px] text-gray-400 font-medium">≈ ৳228 TK</span>
                                     </div>
                                 </button>
@@ -1331,15 +1332,15 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                                 <button
                                     type="button"
                                     onClick={() => setSelectedAsset('GRAM')}
-                                    className={`p-3 rounded-2xl border-2 flex items-center gap-2.5 transition-all ${
+                                    className={`p-2.5 rounded-xl border flex items-center gap-2 transition-all ${
                                         selectedAsset === 'GRAM' 
                                             ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
                                             : 'border-gray-100 bg-gray-50 hover:bg-gray-100/60'
                                     }`}
                                 >
-                                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-black">G</div>
+                                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-[9px] font-bold">G</div>
                                     <div className="text-left">
-                                        <span className="font-extrabold text-xs text-gray-900 block">GRAM</span>
+                                        <span className="font-bold text-[12px] text-gray-900 block leading-tight">GRAM</span>
                                         <span className="text-[10px] text-gray-400 font-medium">≈ ৳120 TK</span>
                                     </div>
                                 </button>
@@ -1348,32 +1349,32 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
 
                         {/* Top Field: BDT Amount Input */}
                         <div>
-                            <div className="flex justify-between items-center mb-1.5">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                     BDT Amount to Spend (টাকার পরিমাণ)
                                 </label>
                                 <span className="text-[10px] text-gray-400">Min ৳20</span>
                             </div>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-gray-700">৳</span>
+                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-gray-700 text-[12px]">৳</span>
                                 <input 
                                     type="number" 
                                     value={bdtAmount} 
                                     onChange={e => setBdtAmount(e.target.value)} 
                                     placeholder="0.00" 
-                                    className="w-full bg-gray-50 rounded-2xl p-4 pl-9 pr-14 text-base font-black text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none" 
+                                    className="w-full bg-gray-50 rounded-xl p-3 pl-8 pr-12 text-[12px] font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 transition-all outline-none" 
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-xs text-gray-400">BDT</span>
+                                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-[11px] text-gray-400">BDT</span>
                             </div>
 
                             {/* Quick Presets */}
-                            <div className="flex gap-2 mt-2">
+                            <div className="flex gap-1.5 mt-1.5">
                                 {[100, 500, 1000].map(val => (
                                     <button 
                                         key={val} 
                                         type="button" 
                                         onClick={() => setBdtAmount(val.toString())} 
-                                        className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-bold text-gray-700 transition-colors"
+                                        className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-[11px] font-semibold text-gray-700 transition-colors"
                                     >
                                         ৳{val}
                                     </button>
@@ -1381,7 +1382,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                                 <button 
                                     type="button" 
                                     onClick={() => setBdtAmount(Math.floor(balance).toString())} 
-                                    className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold transition-colors ml-auto border border-emerald-200/50"
+                                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[11px] font-bold transition-colors ml-auto border border-emerald-200/50"
                                 >
                                     MAX (৳{Math.floor(balance)})
                                 </button>
@@ -1389,21 +1390,21 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                         </div>
 
                         {/* Middle: Calculated Crypto Output */}
-                        <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-4 flex justify-between items-center">
+                        <div className="bg-emerald-50/70 border border-emerald-100 rounded-xl p-3 flex justify-between items-center">
                             <div>
                                 <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">You Will Receive (আপনি পাবেন)</span>
-                                <span className="text-xs text-emerald-600 font-medium">Rate: 1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
+                                <span className="text-[11px] text-emerald-600 font-medium">Rate: 1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
                             </div>
                             <div className="text-right">
-                                <span className="text-xl font-black text-emerald-700">{calculatedCrypto}</span>
-                                <span className="text-xs font-bold text-emerald-800 ml-1">{selectedAsset}</span>
+                                <span className="text-[15px] font-bold text-emerald-700">{calculatedCrypto}</span>
+                                <span className="text-[11px] font-bold text-emerald-800 ml-1">{selectedAsset}</span>
                             </div>
                         </div>
 
                         {/* Bottom Field: Receive Address */}
                         <div>
-                            <div className="flex justify-between items-center mb-1.5">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                                     Receive Address (TON Wallet)
                                 </label>
                                 {userTonAddress && (
@@ -1422,7 +1423,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                                     value={receiveAddress} 
                                     onChange={e => setReceiveAddress(e.target.value)} 
                                     placeholder="UQ... or EQ..." 
-                                    className="w-full bg-gray-50 rounded-2xl p-4 pr-12 text-xs font-mono font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none" 
+                                    className="w-full bg-gray-50 rounded-xl p-3 pr-10 text-[12px] font-mono font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 transition-all outline-none" 
                                 />
                                 <button 
                                     type="button"
@@ -1432,19 +1433,19 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                                             if (text) setReceiveAddress(text.trim());
                                         } catch (e) {}
                                     }}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white text-gray-400 hover:text-emerald-600 rounded-xl transition-all shadow-sm border border-gray-200"
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 bg-white text-gray-400 hover:text-emerald-600 rounded-lg transition-all shadow-sm border border-gray-200"
                                     title="Paste"
                                 >
-                                    <ClipboardPaste size={16} />
+                                    <ClipboardPaste size={14} />
                                 </button>
                             </div>
                         </div>
 
                         {/* Balance Warning if Insufficient */}
                         {hasInsufficientBalance && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-2.5 animate-in fade-in duration-200">
-                                <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                                <div className="text-xs text-amber-800">
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-start gap-2 animate-in fade-in duration-200">
+                                <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                                <div className="text-[11px] text-amber-800">
                                     <p className="font-bold">অপর্যাপ্ত ব্যালেন্স!</p>
                                     <p className="mt-0.5">আপনার অ্যাকাউন্টে আছে ৳{balance} TK। দয়া করে প্রথমে Add Money করুন।</p>
                                 </div>
@@ -1452,22 +1453,22 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddM
                         )}
 
                         {/* Submit Button */}
-                        <div className="pt-2">
+                        <div className="pt-1">
                             {hasInsufficientBalance ? (
                                 <button 
                                     onClick={onGoToAddMoney} 
-                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow-md shadow-emerald-500/20 active:scale-95 transition-all text-[12px] flex items-center justify-center gap-1.5"
                                 >
-                                    <PlusCircle size={18} />
+                                    <PlusCircle size={16} />
                                     ADD MONEY TO WALLET
                                 </button>
                             ) : (
                                 <button 
                                     onClick={handleConfirmBuy} 
                                     disabled={!numBdt || !receiveAddress || numBdt < 20} 
-                                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3 rounded-xl shadow-md shadow-emerald-600/20 active:scale-95 transition-all text-[12px] flex items-center justify-center gap-1.5"
                                 >
-                                    <Coins size={18} />
+                                    <Coins size={16} />
                                     CONFIRM & BUY {selectedAsset}
                                 </button>
                             )}
@@ -1679,60 +1680,60 @@ function PremiumSellPage({ user }) {
                </button>
            </div>
         )}
-        <div className="glass-panel p-4 rounded-[28px] relative overflow-visible z-10 transition-all duration-300 hover:premium-shadow">
+        <div className="glass-panel p-3.5 rounded-2xl relative overflow-visible z-10 transition-all duration-300 hover:premium-shadow">
            
-           <div className="flex items-center gap-3 mb-1">
-              <div className="w-9 h-9 bg-[var(--color-brand)]/10 rounded-full flex items-center justify-center text-[var(--color-brand)] shadow-inner">
+           <div className="flex items-center gap-2.5 mb-1">
+              <div className="w-8 h-8 bg-[var(--color-brand)]/10 rounded-xl flex items-center justify-center text-[var(--color-brand)] shadow-inner">
                   <ArrowRightLeft size={16} strokeWidth={2.5} />
               </div>
-              <h2 className="text-lg font-extrabold text-[var(--color-text-primary)] tracking-tight">Swap to Taka</h2>
+              <h2 className="text-[15px] font-extrabold text-[var(--color-text-primary)] tracking-tight leading-tight">Swap to Taka</h2>
            </div>
            {!showKeyboard && (
               <>
-                 <p className="text-[var(--color-text-secondary)] text-[11px] mb-5 font-medium tracking-wide">
-                               Instantly convert Crypto to TK. Securely via Tonkeeper.
-                            </p>
-                            
-                            <div className="flex items-center justify-center mb-5">
-                               {!userTonAddress ? (
-                                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50/80 border border-red-100/50 rounded-full">
-                                     <div className="w-1.5 h-1.5 bg-[var(--color-danger)] rounded-full animate-pulse" />
-                                     <span className="text-[9px] font-bold text-[var(--color-danger)] tracking-[0.1em] uppercase">Wallet Disconnected</span>
-                                  </div>
-                               ) : (
-                                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--color-brand)]/5 border border-[var(--color-brand)]/10 rounded-full">
-                                     <div className="w-1.5 h-1.5 bg-[var(--color-brand)] rounded-full" />
-                                     <span className="text-[9px] font-bold text-[var(--color-brand)] tracking-[0.1em] uppercase">Wallet Connected</span>
-                                  </div>
-                               )}
-                            </div>
+                 <p className="text-[var(--color-text-secondary)] text-[12px] mb-3 font-medium">
+                    Instantly convert Crypto to TK. Securely via Tonkeeper.
+                 </p>
+                 
+                 <div className="flex items-center justify-center mb-3">
+                    {!userTonAddress ? (
+                       <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-red-50/80 border border-red-100/50 rounded-full">
+                          <div className="w-1.5 h-1.5 bg-[var(--color-danger)] rounded-full animate-pulse" />
+                          <span className="text-[9px] font-bold text-[var(--color-danger)] tracking-[0.1em] uppercase">Wallet Disconnected</span>
+                       </div>
+                    ) : (
+                       <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--color-brand)]/5 border border-[var(--color-brand)]/10 rounded-full">
+                          <div className="w-1.5 h-1.5 bg-[var(--color-brand)] rounded-full" />
+                          <span className="text-[9px] font-bold text-[var(--color-brand)] tracking-[0.1em] uppercase">Wallet Connected</span>
+                       </div>
+                    )}
+                 </div>
               </>
            )}
 
            <div className="space-y-1.5 relative z-10">
-              <div onClick={() => { setInputType('crypto'); setShowKeyboard(true); }} className={`p-3.5 rounded-[22px] cursor-pointer transition-all duration-300 ${showKeyboard && inputType === 'crypto' ? 'glass-button ring-1 ring-[var(--color-brand)]/50' : 'glass-input-container input-shadow'}`}>
-               <div className="flex justify-between items-center mb-3">
+              <div onClick={() => { setInputType('crypto'); setShowKeyboard(true); }} className={`p-3 rounded-xl cursor-pointer transition-all duration-300 ${showKeyboard && inputType === 'crypto' ? 'glass-button ring-1 ring-[var(--color-brand)]/50' : 'glass-input-container input-shadow'}`}>
+               <div className="flex justify-between items-center mb-2">
                   <label className={`text-[10px] font-bold uppercase tracking-[0.15em] ${inputType === 'crypto' ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-secondary)]'}`}>You Pay</label>
                   
                   <div className="relative">
-                     <div onClick={(e) => { e.stopPropagation(); setShowAssetModal(!showAssetModal); }} className="flex items-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 cursor-pointer hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-10">
+                     <div onClick={(e) => { e.stopPropagation(); setShowAssetModal(!showAssetModal); }} className="flex items-center gap-1.5 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1 cursor-pointer hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-10">
                         <AssetIcon />
                         <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">{asset}</span>
-                        <ChevronDown size={14} className="text-[var(--color-text-secondary)] ml-0.5" />
+                        <ChevronDown size={13} className="text-[var(--color-text-secondary)] ml-0.5" />
                      </div>
                      
                      {showAssetModal && (
                         <>
                            <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setShowAssetModal(false); }}></div>
                            {asset !== 'USDT' && (
-                              <button onClick={(e) => { e.stopPropagation(); setAsset('USDT'); setShowAssetModal(false); }} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
-                                 <CircleDollarSign size={14} className="text-emerald-500" />
+                              <button onClick={(e) => { e.stopPropagation(); setAsset('USDT'); setShowAssetModal(false); }} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
+                                 <CircleDollarSign size={13} className="text-emerald-500" />
                                  <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">USDT</span>
                               </button>
                            )}
                            {asset !== 'GRAM' && (
-                              <button onClick={(e) => { e.stopPropagation(); setAsset('GRAM'); setShowAssetModal(false); }} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1.5 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
-                                 <Gem size={14} className="text-blue-500" />
+                              <button onClick={(e) => { e.stopPropagation(); setAsset('GRAM'); setShowAssetModal(false); }} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
+                                 <Gem size={13} className="text-blue-500" />
                                  <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">GRAM</span>
                               </button>
                            )}
@@ -1742,56 +1743,56 @@ function PremiumSellPage({ user }) {
                </div>
                  
                <div className="flex items-baseline">
-                  <div className={`text-4xl font-black tracking-tight ${cryptoAmount ? 'text-[var(--color-text-primary)]' : 'text-gray-300'}`}>
+                  <div className={`text-3xl font-black tracking-tight ${cryptoAmount ? 'text-[var(--color-text-primary)]' : 'text-gray-300'}`}>
                      {cryptoAmount || '0'}
                   </div>
                   {inputType === 'crypto' && showKeyboard && (
-                      <span className="w-0.5 h-8 bg-[var(--color-brand)] animate-pulse ml-1 rounded-full"></span>
+                      <span className="w-0.5 h-6 bg-[var(--color-brand)] animate-pulse ml-1 rounded-full"></span>
                   )}
                </div>
                
-               <div className="mt-2 text-[10px] font-bold text-[var(--color-text-secondary)]/70 uppercase tracking-widest">
+               <div className="mt-1 text-[10px] font-bold text-[var(--color-text-secondary)]/70 uppercase tracking-wider">
                   Enter {asset} amount
                </div>
               </div>
 
               {/* Swap Icon */}
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-                  <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md border border-[var(--color-border)]/50">
-                      <ArrowRightLeft size={16} className="rotate-90 text-[var(--color-text-secondary)]" />
+                  <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md border border-[var(--color-border)]/50">
+                      <ArrowRightLeft size={14} className="rotate-90 text-[var(--color-text-secondary)]" />
                   </div>
               </div>
 
               {/* Fiat Receive Block */}
-              <div onClick={() => { setInputType('fiat'); setShowKeyboard(true); }} className={`p-3.5 rounded-[22px] cursor-pointer transition-all duration-300 ${showKeyboard && inputType === 'fiat' ? 'glass-button ring-1 ring-[var(--color-brand)]/50' : 'glass-input-container input-shadow'}`}>
-               <div className="flex justify-between items-center mb-3">
+              <div onClick={() => { setInputType('fiat'); setShowKeyboard(true); }} className={`p-3 rounded-xl cursor-pointer transition-all duration-300 ${showKeyboard && inputType === 'fiat' ? 'glass-button ring-1 ring-[var(--color-brand)]/50' : 'glass-input-container input-shadow'}`}>
+               <div className="flex justify-between items-center mb-2">
                   <label className={`text-[10px] font-bold uppercase tracking-[0.15em] ${inputType === 'fiat' ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-secondary)]'}`}>You Receive</label>
                   
-                  <div className="flex items-center gap-1.5 bg-emerald-50/50 border border-emerald-100/50 rounded-full px-2.5 py-1">
-                      <span className="text-[9px] font-black text-emerald-600 tracking-widest">TK BDT</span>
+                  <div className="flex items-center gap-1.5 bg-emerald-50/50 border border-emerald-100/50 rounded-full px-2 py-0.5">
+                      <span className="text-[9px] font-black text-emerald-600 tracking-wider">TK BDT</span>
                   </div>
                </div>
                  
                <div className="flex items-baseline">
-                  <div className={`text-4xl font-black tracking-tight ${fiatAmount ? 'text-[var(--color-text-primary)]' : 'text-gray-300'}`}>
+                  <div className={`text-3xl font-black tracking-tight ${fiatAmount ? 'text-[var(--color-text-primary)]' : 'text-gray-300'}`}>
                      {fiatAmount || '0'}
                   </div>
                   {inputType === 'fiat' && showKeyboard && (
-                      <span className="w-0.5 h-8 bg-[var(--color-brand)] animate-pulse ml-1 rounded-full"></span>
+                      <span className="w-0.5 h-6 bg-[var(--color-brand)] animate-pulse ml-1 rounded-full"></span>
                   )}
                </div>
-               <div className="mt-2 text-[10px] font-bold text-[var(--color-text-secondary)]/70 uppercase tracking-widest">
+               <div className="mt-1 text-[10px] font-bold text-[var(--color-text-secondary)]/70 uppercase tracking-wider">
                   Enter Taka amount
                </div>
               </div>
            </div>
 
            {!showKeyboard && (
-              <div className="mt-6 mb-2">
-                 <button onPointerDown={handleSell} disabled={loading || !cryptoAmount || parseFloat(cryptoAmount) <= 0 || !userTonAddress} className={`w-full py-4 rounded-2xl font-extrabold text-sm tracking-[0.1em] transition-all duration-300 ${!userTonAddress ? 'bg-gray-100 text-gray-400' : loading ? 'bg-[var(--color-brand)]/70 text-white' : 'bg-[var(--color-brand)] text-white premium-shadow active-scale'}`}>
+              <div className="mt-4 mb-1">
+                 <button onPointerDown={handleSell} disabled={loading || !cryptoAmount || parseFloat(cryptoAmount) <= 0 || !userTonAddress} className={`w-full h-[46px] rounded-xl font-bold text-[14px] tracking-wide transition-all duration-300 ${!userTonAddress ? 'bg-gray-100 text-gray-400' : loading ? 'bg-[var(--color-brand)]/70 text-white' : 'bg-[var(--color-brand)] text-white shadow-md active-scale'}`}>
                     {loading ? (
                         <div className="flex items-center justify-center gap-2">
-                            <Loader2 size={18} className="animate-spin" />
+                            <Loader2 size={16} className="animate-spin" />
                             <span>PROCESSING...</span>
                         </div>
                     ) : !userTonAddress ? (
@@ -1884,47 +1885,68 @@ function HistoryPage({ user, onBack }) {
     }, [user]);
 
     return (
-        <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 pb-20 max-w-md mx-auto">
-            <div className="flex items-center gap-3 mb-6">
-                <button onClick={onBack} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 active:scale-95 transition-transform text-gray-600">
-                    <ChevronRight size={20} className="rotate-180" />
+        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-20 max-w-md mx-auto">
+            <div className="flex items-center gap-3 mb-4">
+                <button onClick={onBack} className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 active:scale-95 transition-transform text-gray-600">
+                    <ChevronRight size={18} className="rotate-180" />
                 </button>
-                <h2 className="text-xl font-extrabold text-gray-900">Transaction History</h2>
+                <h2 className="text-[15px] font-extrabold text-gray-900 leading-tight">Transaction History</h2>
             </div>
             
             {loading ? (
                 <div className="flex justify-center py-10">
-                    <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                 </div>
             ) : history.length === 0 ? (
-                <div className="bg-white p-8 rounded-[24px] text-center shadow-sm border border-gray-100 flex flex-col items-center">
-                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-4">
-                        <Clock size={24} />
+                <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 flex flex-col items-center">
+                    <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-3">
+                        <Clock size={20} />
                     </div>
-                    <p className="font-bold text-gray-900 mb-1">No Transactions Yet</p>
-                    <p className="text-sm text-gray-500">Your buying and selling history will appear here.</p>
+                    <p className="font-bold text-gray-900 text-[13px] mb-0.5">No Transactions Yet</p>
+                    <p className="text-[12px] text-gray-500">Your buying, selling and withdrawal history will appear here.</p>
                 </div>
             ) : (
-                <div className="space-y-3">
-                    {history.map((tx, idx) => (
-                        <div key={idx} className="bg-white p-4 rounded-[20px] shadow-sm border border-gray-100 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${tx.type === 'buy' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
-                                    {tx.type === 'buy' ? <ArrowDown size={20} /> : <ArrowUp size={20} />}
+                <div className="space-y-2.5">
+                    {history.map((tx, idx) => {
+                        const isWithdraw = tx.type === 'withdraw';
+                        const isBuy = tx.type === 'buy';
+                        const isSell = tx.type === 'sell';
+                        const ts = tx.timestamp?._seconds ? tx.timestamp._seconds * 1000 : (typeof tx.timestamp === 'number' ? tx.timestamp : (tx.timestamp ? new Date(tx.timestamp).getTime() : Date.now()));
+                        const formattedDate = new Date(ts).toLocaleDateString() + ' ' + new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                        return (
+                            <div key={idx} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                        isWithdraw ? 'bg-orange-50 text-orange-600' :
+                                        isBuy ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
+                                    }`}>
+                                        {isWithdraw ? <Wallet size={16} /> : isBuy ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-gray-900 text-[13px] leading-tight capitalize">
+                                            {isWithdraw ? `Withdraw (${tx.method || 'BDT'})` : `${tx.type} ${tx.asset || 'Crypto'}`}
+                                        </p>
+                                        <p className="text-[11px] font-medium text-gray-400 mt-0.5">
+                                            {formattedDate} {tx.number ? `• ${tx.number}` : ''}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="font-bold text-gray-900 capitalize">{tx.type} {tx.asset}</p>
-                                    <p className="text-[11px] font-medium text-gray-400 mt-0.5">{new Date(tx.timestamp?._seconds * 1000 || Date.now()).toLocaleDateString()}</p>
+                                <div className="text-right">
+                                    <p className="font-extrabold text-gray-900 text-[13px]">
+                                        {isWithdraw ? `-৳${tx.amount} TK` : isBuy ? `+${tx.amount} ${tx.asset || 'TON'}` : `-${tx.amount} ${tx.asset || 'TON'}`}
+                                    </p>
+                                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mt-0.5 uppercase tracking-wider ${
+                                        tx.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                        tx.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                                        'bg-amber-50 text-amber-600'
+                                    }`}>
+                                        {tx.status || 'PENDING'}
+                                    </span>
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <p className="font-extrabold text-gray-900">{tx.amount} {tx.asset}</p>
-                                <p className={`text-[11px] font-bold mt-0.5 ${tx.status === 'completed' ? 'text-emerald-500' : tx.status === 'pending' ? 'text-orange-500' : 'text-red-500'}`}>
-                                    {tx.status?.toUpperCase() || 'PENDING'}
-                                </p>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -1932,7 +1954,7 @@ function HistoryPage({ user, onBack }) {
 }
 
 
-function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWithdraw, setFiatWallet, reloadData }) {
+function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, setFiatWallet, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
 
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -1973,52 +1995,67 @@ function ProfilePage({ user, balance, fiatWallet, fiatWithdrawPending, onGoToWit
   };
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto">
-      <div className="bg-white p-6 rounded-[24px] premium-shadow border border-[var(--color-border)] flex items-center gap-5 relative overflow-hidden">
-         <div className="absolute -right-4 -top-4 w-24 h-24 bg-[var(--color-brand)]/5 rounded-full blur-2xl pointer-events-none" />
-         <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center text-[var(--color-brand)] font-bold text-2xl relative z-10">
+    <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto">
+      {/* Profile Header */}
+      <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex items-center gap-3 relative overflow-hidden">
+         <div className="w-12 h-12 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center text-[var(--color-brand)] font-bold text-lg relative z-10 shrink-0">
             {user?.first_name?.charAt(0)?.toUpperCase() || 'U'}
          </div>
-         <div className="relative z-10">
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">{user?.first_name || 'User'}</h2>
-            <p className="text-[var(--color-text-secondary)] text-sm font-medium">@{user?.username || 'user'}</p>
+         <div className="relative z-10 flex-1">
+            <h2 className="text-[15px] font-extrabold text-[var(--color-text-primary)] leading-tight">{user?.first_name || 'User'}</h2>
+            <p className="text-[var(--color-text-secondary)] text-[12px] font-medium">@{user?.username || 'user'}</p>
          </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-         <div className="bg-white p-5 rounded-[20px] premium-shadow border border-[var(--color-border)] flex flex-col justify-center relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-brand)]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-1 uppercase tracking-wide">Available Balance</p>
-            <p className="text-xl font-bold text-[var(--color-text-primary)]">{balance} <span className="text-[var(--color-brand)] text-sm">TK</span></p>
+      {/* Balance & User ID */}
+      <div className="grid grid-cols-2 gap-2.5">
+         <div className="bg-white p-3.5 rounded-xl premium-shadow border border-[var(--color-border)] flex flex-col justify-center">
+            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-0.5 uppercase tracking-wide">Available Balance</p>
+            <p className="text-lg font-black text-[var(--color-text-primary)]">{balance} <span className="text-[var(--color-brand)] text-xs">TK</span></p>
          </div>
-         <div className="bg-white p-5 rounded-[20px] premium-shadow border border-[var(--color-border)] flex flex-col justify-center">
-            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-1 uppercase tracking-wide">User ID</p>
-            <p className="text-sm font-mono font-bold text-[var(--color-text-primary)] flex items-center gap-2" onClick={() => { navigator.clipboard.writeText(user?.id); WebApp.HapticFeedback.impactOccurred('light'); }}>
-               {user?.id || '000000'} <Copy size={12} className="text-[var(--color-text-secondary)] active:text-[var(--color-brand)] transition-colors" />
+         <div className="bg-white p-3.5 rounded-xl premium-shadow border border-[var(--color-border)] flex flex-col justify-center">
+            <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] mb-0.5 uppercase tracking-wide">User ID</p>
+            <p className="text-[12px] font-mono font-bold text-[var(--color-text-primary)] flex items-center gap-1.5 cursor-pointer" onClick={() => { navigator.clipboard.writeText(user?.id); if (WebApp.HapticFeedback) WebApp.HapticFeedback.impactOccurred('light'); }}>
+               {user?.id || '000000'} <Copy size={11} className="text-gray-400 active:text-emerald-600 transition-colors" />
             </p>
          </div>
       </div>
 
-      <button onClick={handleWithdrawClick} disabled={withdrawing} className="w-full bg-gradient-to-r from-[var(--color-brand)] to-emerald-500 text-white font-bold py-4 rounded-2xl shadow-lg shadow-[var(--color-brand)]/30 active:scale-[0.98] transition-all disabled:opacity-70 group relative overflow-hidden flex items-center justify-center gap-2">
+      {/* Withdraw Button */}
+      <button onClick={handleWithdrawClick} disabled={withdrawing} className="w-full bg-gradient-to-r from-[var(--color-brand)] to-emerald-500 text-white font-bold h-[46px] rounded-xl shadow-md shadow-[var(--color-brand)]/20 active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2 text-[14px]">
          {withdrawing ? (
             <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> PROCESSING...</>
          ) : (
-            <><Wallet size={18} /> WITHDRAW BALANCE</>
+            <><Wallet size={16} /> WITHDRAW BALANCE</>
          )}
-         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
       </button>
 
-      <div className="bg-white p-5 rounded-[24px] premium-shadow border border-[var(--color-border)] flex justify-between items-center mt-2 group active:scale-[0.98] transition-transform cursor-pointer">
-         <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-[var(--color-brand-secondary)] group-hover:scale-110 transition-transform">
-               <Share2 size={20} />
+      {/* Transaction History Button */}
+      <div onClick={onGoToHistory} className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex justify-between items-center group active:scale-[0.98] transition-transform cursor-pointer">
+         <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 group-hover:scale-105 transition-transform shrink-0">
+               <Clock size={18} />
             </div>
             <div>
-               <span className="font-semibold text-[var(--color-text-primary)] block text-sm">Refer & Earn</span>
-               <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">Invite friends for bonus</span>
+               <span className="font-bold text-[var(--color-text-primary)] block text-[13px] leading-tight">Transaction History</span>
+               <span className="text-[11px] text-[var(--color-text-secondary)] font-medium">All buys, sells & withdrawals</span>
             </div>
          </div>
-         <ChevronRight size={18} className="text-[var(--color-text-secondary)] group-hover:text-[var(--color-brand-secondary)] transition-colors" />
+         <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600 transition-colors" />
+      </div>
+
+      {/* Refer & Earn */}
+      <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex justify-between items-center group active:scale-[0.98] transition-transform cursor-pointer">
+         <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-[var(--color-brand-secondary)] group-hover:scale-105 transition-transform shrink-0">
+               <Share2 size={18} />
+            </div>
+            <div>
+               <span className="font-bold text-[var(--color-text-primary)] block text-[13px] leading-tight">Refer & Earn</span>
+               <span className="text-[11px] text-[var(--color-text-secondary)] font-medium">Invite friends for bonus</span>
+            </div>
+         </div>
+         <ChevronRight size={16} className="text-gray-400 group-hover:text-[var(--color-brand-secondary)] transition-colors" />
       </div>
       {/* Wallet Setup Modal */}
       {showWalletModal && (
@@ -2168,100 +2205,100 @@ function WithdrawFiatPage({ user, balance, fiatWallet, fiatWithdrawPending, onBa
     };
 
     return (
-        <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
+        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
             {/* Header */}
-            <div className="flex items-center gap-3 mb-6">
-                <button onClick={onBack} className="p-2.5 bg-white rounded-full premium-shadow text-[var(--color-text-primary)] active:scale-95 transition-transform">
-                    <ChevronRight size={20} className="rotate-180" strokeWidth={3} />
+            <div className="flex items-center gap-3 mb-4">
+                <button onClick={onBack} className="p-2 bg-white rounded-full premium-shadow text-[var(--color-text-primary)] active:scale-95 transition-transform border border-gray-100">
+                    <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
                 </button>
                 <div>
-                    <h2 className="text-xl font-extrabold text-[var(--color-text-primary)]">Withdraw Funds</h2>
-                    <p className="text-[var(--color-text-secondary)] text-xs font-medium">Cashout to {fiatWallet?.method}</p>
+                    <h2 className="text-[15px] font-extrabold text-[var(--color-text-primary)] leading-tight">Withdraw Funds</h2>
+                    <p className="text-[var(--color-text-secondary)] text-[12px] font-medium">Cashout to {fiatWallet?.method || 'Wallet'}</p>
                 </div>
             </div>
 
-            {fiatWithdrawPending ? (
-                <div className="bg-white p-6 rounded-[24px] premium-shadow border border-[var(--color-border)] text-center relative overflow-hidden">
-                    <div className="w-16 h-16 mx-auto bg-orange-50 text-orange-500 rounded-full flex items-center justify-center mb-4 relative">
-                        <div className="absolute inset-0 border-4 border-orange-500/20 rounded-full animate-ping" />
-                        <Clock size={32} strokeWidth={2.5} />
-                    </div>
-                    <h3 className="text-lg font-bold text-[var(--color-text-primary)] mb-1">Withdrawal Pending</h3>
-                    <p className="text-[var(--color-text-secondary)] text-sm font-medium mb-5">Your request for {fiatWithdrawPending.amount} BDT is being processed.</p>
-                    
-                    {fiatWithdrawPending.status === 'waiting' && timeLeft && (
-                        <div className="bg-orange-50 border border-orange-100 rounded-[16px] p-4 inline-block min-w-[200px]">
-                            <p className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-1">Estimated Time</p>
-                            <p className="text-2xl font-black text-orange-600 tracking-tight">{timeLeft}</p>
+            {/* Optional Small Status Badge for Pending without blocking */}
+            {fiatWithdrawPending && fiatWithdrawPending.status === 'pending' && (
+                <div className="bg-amber-50 border border-amber-200/80 p-3 rounded-2xl flex items-center justify-between gap-3 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 bg-amber-500/20 text-amber-600 rounded-full flex items-center justify-center shrink-0">
+                            <Clock size={15} />
                         </div>
-                    )}
-                </div>
-            ) : (
-                <>
-                    {/* Amount Input */}
-                    <div className="bg-white p-5 rounded-[24px] premium-shadow border border-[var(--color-border)]">
-                        <label className="flex justify-between items-center mb-3">
-                            <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.2em]">Amount (BDT)</span>
-                            <span className="text-[11px] font-bold text-[var(--color-text-primary)]">Bal: {balance.toFixed(2)}</span>
-                        </label>
-                        <div className="relative flex items-center">
-                            <span className="absolute left-4 text-gray-400 font-medium">৳</span>
-                            <input 
-                                type="number" 
-                                value={amount} 
-                                onChange={(e) => setAmount(e.target.value)} 
-                                placeholder="0.00" 
-                                className="w-full h-[60px] bg-gray-50 border border-gray-100 rounded-[16px] pl-8 pr-20 font-black text-2xl text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:bg-white focus:ring-4 focus:ring-[var(--color-brand)]/10 transition-all placeholder:text-gray-300"
-                            />
-                            <button onClick={handleMax} className="absolute right-3 px-3 py-1.5 bg-[var(--color-brand)]/10 text-[var(--color-brand)] font-bold text-[11px] rounded-full active:scale-95 transition-transform">MAX</button>
-                        </div>
-                    </div>
-                      {amount && !isNaN(amount) && parseFloat(amount) > 0 && (
-                          <div className="bg-[#F8FAFC] p-4 rounded-[20px] border border-[#E4E7EC] shadow-sm mb-2 mt-2">
-                              <div className="flex justify-between items-center text-sm mb-2">
-                                  <span className="text-[#475467] font-medium">Withdraw Amount</span>
-                                  <span className="font-bold text-[#101828]">৳ {parseFloat(amount).toFixed(2)}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-sm mb-2">
-                                  <span className="text-red-500 font-medium">Fee (5%)</span>
-                                  <span className="font-bold text-red-500">- ৳ {(parseFloat(amount) * 0.05).toFixed(2)}</span>
-                              </div>
-                              <div className="h-px bg-[#E4E7EC] my-2 w-full"></div>
-                              <div className="flex justify-between items-center text-sm">
-                                  <span className="text-[#00A878] font-bold">You will receive</span>
-                                  <span className="font-black text-[#00A878]">৳ {(parseFloat(amount) * 0.95).toFixed(2)}</span>
-                              </div>
-                          </div>
-                      )}
-
-                    {/* Saved Wallet Info */}
-                    <div className="bg-white p-5 rounded-[24px] premium-shadow border border-[var(--color-border)] flex items-center gap-4">
-                        <img src={getLogo()} alt={fiatWallet?.method} className="w-12 h-12 rounded-full object-cover border border-gray-100 p-1" />
                         <div>
-                            <h4 className="text-[15px] font-bold text-[var(--color-text-primary)] tracking-tight">{fiatWallet?.method} Wallet</h4>
-                            <p className="text-sm font-bold text-[var(--color-text-secondary)]">{fiatWallet?.number}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{fiatWallet?.name}</p>
+                            <p className="text-[12px] font-bold text-amber-800">Processing: ৳{fiatWithdrawPending.amount} TK</p>
+                            <p className="text-[11px] text-amber-600">via {fiatWithdrawPending.method} ({fiatWithdrawPending.number})</p>
                         </div>
                     </div>
-
-                    {/* Warning Note */}
-                    <div className="bg-blue-50/50 border border-blue-100/50 p-4 rounded-[20px] flex gap-3">
-                        <Info size={20} className="text-blue-500 shrink-0" />
-                        <p className="text-[11px] text-blue-600 font-medium leading-relaxed">
-                            Withdrawals may take <strong className="font-bold">1 to 2 hours</strong> or up to <strong className="font-bold">24 hours</strong> to be processed securely.
-                        </p>
-                    </div>
-
-                    {/* Submit Button */}
-                    <button 
-                        onClick={handleSubmit} 
-                        disabled={!amount || isSubmitting} 
-                        className="w-full h-[56px] mt-4 bg-[var(--color-text-primary)] text-white rounded-[20px] font-extrabold text-[15px] tracking-wide flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50 disabled:active:scale-100 premium-shadow"
-                    >
-                        {isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "WITHDRAW FUNDS"}
-                    </button>
-                </>
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-800 px-2 py-0.5 rounded-md">
+                        In Progress
+                    </span>
+                </div>
             )}
+
+            {/* Amount Input Card */}
+            <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)]">
+                <label className="flex justify-between items-center mb-2">
+                    <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">Amount (BDT)</span>
+                    <span className="text-[12px] font-bold text-[var(--color-text-primary)]">Bal: ৳{balance.toFixed(2)}</span>
+                </label>
+                <div className="relative flex items-center">
+                    <span className="absolute left-3.5 text-gray-400 font-bold text-lg">৳</span>
+                    <input 
+                        type="number" 
+                        value={amount} 
+                        onChange={(e) => setAmount(e.target.value)} 
+                        placeholder="0.00" 
+                        className="w-full h-[50px] bg-gray-50 border border-gray-100 rounded-xl pl-8 pr-16 font-black text-xl text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--color-brand)]/10 transition-all placeholder:text-gray-300"
+                    />
+                    <button onClick={handleMax} className="absolute right-2.5 px-2.5 py-1 bg-[var(--color-brand)]/10 text-[var(--color-brand)] font-bold text-[11px] rounded-lg active:scale-95 transition-transform">MAX</button>
+                </div>
+            </div>
+
+            {/* Live Fee Breakdown */}
+            {amount && !isNaN(amount) && parseFloat(amount) > 0 && (
+                <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#E4E7EC] shadow-sm space-y-1.5 text-[12px]">
+                    <div className="flex justify-between items-center">
+                        <span className="text-[#475467] font-medium">Withdraw Amount</span>
+                        <span className="font-bold text-[#101828]">৳ {parseFloat(amount).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-red-500 font-medium">Fee (5%)</span>
+                        <span className="font-bold text-red-500">- ৳ {(parseFloat(amount) * 0.05).toFixed(2)}</span>
+                    </div>
+                    <div className="h-px bg-[#E4E7EC] my-1 w-full" />
+                    <div className="flex justify-between items-center text-[12px]">
+                        <span className="text-[#00A878] font-bold">You will receive</span>
+                        <span className="font-black text-[#00A878] text-[13px]">৳ {(parseFloat(amount) * 0.95).toFixed(2)}</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Saved Wallet Info */}
+            <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex items-center gap-3">
+                <img src={getLogo()} alt={fiatWallet?.method} className="w-10 h-10 rounded-full object-cover border border-gray-100 p-0.5" />
+                <div className="flex-1">
+                    <h4 className="text-[13px] font-bold text-[var(--color-text-primary)] leading-tight">{fiatWallet?.method || 'bKash'} Wallet</h4>
+                    <p className="text-[12px] font-mono font-bold text-[var(--color-text-secondary)]">{fiatWallet?.number}</p>
+                    {fiatWallet?.name && <p className="text-[11px] text-gray-400">{fiatWallet?.name}</p>}
+                </div>
+            </div>
+
+            {/* Warning Note */}
+            <div className="bg-blue-50/60 border border-blue-100/70 p-3 rounded-xl flex items-center gap-2.5">
+                <Info size={16} className="text-blue-500 shrink-0" />
+                <p className="text-[11px] text-blue-700 font-medium leading-tight">
+                    উইথড্র রিকোয়েস্ট সাধারণত <b>১ থেকে ২ ঘণ্টার</b> মধ্যে এবং সর্বোচ্চ <b>২৪ ঘণ্টার</b> মধ্যে সম্পূর্ণ হয়।
+                </p>
+            </div>
+
+            {/* Submit Button */}
+            <button 
+                onClick={handleSubmit} 
+                disabled={!amount || isSubmitting} 
+                className="w-full h-[48px] mt-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-[14px] tracking-wide flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50 disabled:active:scale-100 shadow-md shadow-emerald-500/20"
+            >
+                {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "WITHDRAW FUNDS"}
+            </button>
         </div>
     );
 }
