@@ -1017,55 +1017,55 @@ function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
                         Select Payment Method
                     </label>
 
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-2 gap-2">
                         {/* bKash */}
                         <div 
                             onClick={() => setPaymentMethod('bKash')}
-                            className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 ${
+                            className={`px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-2.5 ${
                                 paymentMethod === 'bKash' 
-                                    ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
-                                    : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'
+                                    ? 'border-emerald-500 bg-emerald-50/50 shadow-sm' 
+                                    : 'border-gray-100 bg-gray-50/60 hover:bg-gray-50'
                             }`}
                         >
                             <img 
                                 src="https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png" 
-                                className="w-8 h-8 object-contain" 
+                                className="w-6 h-6 object-contain shrink-0" 
                                 alt="bKash" 
                             />
-                            <div>
-                                <span className="font-bold text-[13px] text-gray-900 block leading-tight">bKash</span>
-                                <span className="text-[10px] text-gray-400 font-medium">Personal</span>
+                            <div className="flex-1 text-left min-w-0">
+                                <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">bKash</span>
+                                <span className="text-[10px] text-gray-400 font-medium block">Personal</span>
                             </div>
-                            {paymentMethod === 'bKash' && (
-                                <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-white mt-0.5">
-                                    <Check size={10} strokeWidth={3} />
-                                </div>
-                            )}
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                paymentMethod === 'bKash' ? 'bg-emerald-500 text-white' : 'border border-gray-300'
+                            }`}>
+                                {paymentMethod === 'bKash' && <Check size={10} strokeWidth={3} />}
+                            </div>
                         </div>
 
                         {/* Nagad */}
                         <div 
                             onClick={() => setPaymentMethod('Nagad')}
-                            className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 ${
+                            className={`px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-2.5 ${
                                 paymentMethod === 'Nagad' 
-                                    ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
-                                    : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'
+                                    ? 'border-emerald-500 bg-emerald-50/50 shadow-sm' 
+                                    : 'border-gray-100 bg-gray-50/60 hover:bg-gray-50'
                             }`}
                         >
                             <img 
                                 src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ1M8VPPADiai-0lEgQMNXBEir230b0dAn61cgVHRVQat7qn3-H0L4m1Zg&s=10" 
-                                className="w-8 h-8 object-contain" 
+                                className="w-6 h-6 object-contain shrink-0" 
                                 alt="Nagad" 
                             />
-                            <div>
-                                <span className="font-bold text-[13px] text-gray-900 block leading-tight">Nagad</span>
-                                <span className="text-[10px] text-gray-400 font-medium">Personal</span>
+                            <div className="flex-1 text-left min-w-0">
+                                <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">Nagad</span>
+                                <span className="text-[10px] text-gray-400 font-medium block">Personal</span>
                             </div>
-                            {paymentMethod === 'Nagad' && (
-                                <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-white mt-0.5">
-                                    <Check size={10} strokeWidth={3} />
-                                </div>
-                            )}
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                paymentMethod === 'Nagad' ? 'bg-emerald-500 text-white' : 'border border-gray-300'
+                            }`}>
+                                {paymentMethod === 'Nagad' && <Check size={10} strokeWidth={3} />}
+                            </div>
                         </div>
                     </div>
                 </div>
