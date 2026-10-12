@@ -633,43 +633,41 @@ app.post('/api/miniapp/task', async (req, res) => {
 
 app.post('/api/miniapp/build-tx', async (req, res) => {
     try {
-        const { asset, amount, userAddress } = req.body;
-        const botWallet = await getOrCreateBotWallet();
-        const adminWallet = botWallet.address;
+        let { asset, amount, userAddress } = req.body;
+        amount = parseFloat(amount) || 0;
+        asset = (asset || 'GRAM').toUpperCase();
+        const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+
         if (asset === 'USDT') {
-            const response = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}/jettons/EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs`);
-            let userJettonWallet = null;
-            if (response.data && response.data.wallet_address) {
-                userJettonWallet = response.data.wallet_address.address;
-            } else {
-                return res.status(400).json({ error: "USDT Wallet not found for this user" });
-            }
-            
-            const amountInMicro = Math.floor(parseFloat(amount) * 1e6);
-            const body = beginCell()
-                .storeUint(0xf8a7ea5, 32)
-                .storeUint(0, 64)
-                .storeCoins(amountInMicro)
-                .storeAddress(Address.parse(adminWallet))
-                .storeAddress(Address.parse(userAddress))
-                .storeBit(0)
-                .storeCoins(1)
-                .storeBit(0)
-                .endCell();
-            
+            const amountInMicro = Math.floor(amount * 1e6);
+            let payload = null;
+            try {
+                const body = beginCell()
+                    .storeUint(0xf8a7ea5, 32)
+                    .storeUint(0, 64)
+                    .storeCoins(amountInMicro)
+                    .storeAddress(Address.parse(adminWallet))
+                    .storeAddress(Address.parse(userAddress || adminWallet))
+                    .storeBit(0)
+                    .storeCoins(1)
+                    .storeBit(0)
+                    .endCell();
+                payload = body.toBoc().toString('base64');
+            } catch(e) {}
+
             res.json({
                 success: true,
                 tx: {
                     validUntil: Math.floor(Date.now() / 1000) + 600,
                     messages: [{
-                        address: userJettonWallet,
-                        amount: '50000000',
-                        payload: body.toBoc().toString('base64')
+                        address: adminWallet,
+                        amount: '50000000', // 0.05 TON
+                        payload: payload || undefined
                     }]
                 }
             });
         } else {
-            const amountInNano = Math.floor(parseFloat(amount) * 1e9);
+            const amountInNano = Math.floor(amount * 1e9);
             res.json({
                 success: true,
                 tx: {
@@ -682,53 +680,82 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
             });
         }
     } catch(e) {
-        console.error(e);
+        console.error("build-tx error:", e);
         res.status(500).json({ error: e.message });
     }
 });
 
 app.post('/api/miniapp/sell', async (req, res) => {
     try {
-        const { userId, asset, amount, estimatedTk, wallet, status } = req.body;
+        const { userId, asset, amount, estimatedTk, wallet, status, orderId } = req.body;
+        const numEstimatedTk = parseFloat(estimatedTk) || 0;
+        const numAmount = parseFloat(amount) || 0;
         
         if (status === 'pending') {
             const docRef = await db.collection('miniapp_sells').add({
-                userId, asset, amount, estimatedTk, wallet,
+                userId, 
+                asset: asset || 'TON', 
+                amount: numAmount, 
+                estimatedTk: numEstimatedTk, 
+                wallet: wallet || 'Manual',
                 status: 'pending',
                 timestamp: FieldValue.serverTimestamp()
             });
             return res.json({ success: true, orderId: docRef.id });
         }
 
-        const { orderId } = req.body;
+        let savedOrderId = orderId;
         if (orderId) {
-            await db.collection('miniapp_sells').doc(orderId).update({ status: 'completed' });
+            await db.collection('miniapp_sells').doc(orderId).update({ 
+                status: 'completed',
+                completedAt: FieldValue.serverTimestamp()
+            });
         } else {
-            await db.collection('miniapp_sells').add({
-                userId, asset, amount, estimatedTk, wallet, status: 'completed',
+            const docRef = await db.collection('miniapp_sells').add({
+                userId, 
+                asset: asset || 'TON', 
+                amount: numAmount, 
+                estimatedTk: numEstimatedTk, 
+                wallet: wallet || 'Manual', 
+                status: 'completed',
                 timestamp: FieldValue.serverTimestamp()
             });
+            savedOrderId = docRef.id;
         }
 
         // Increment user balance
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
         if (userDoc.exists) {
-            await userRef.update({ balance: FieldValue.increment(estimatedTk) });
+            await userRef.update({ balance: FieldValue.increment(numEstimatedTk) });
         } else {
-            await userRef.set({ balance: estimatedTk, joinedAt: FieldValue.serverTimestamp() });
+            await userRef.set({ balance: numEstimatedTk, joinedAt: FieldValue.serverTimestamp() }, { merge: true });
         }
+
+        const updatedDoc = await userRef.get();
+        const newBalance = updatedDoc.data()?.balance || numEstimatedTk;
 
         // Notify Admin Group
-        const config = require('./config.json');
-        if (config.adminGroupId) {
-            const msg = `<blockquote><b>🔄 Crypto Sold (User to Bot)</b></blockquote>\n\n👤 User ID: <code>${userId}</code>\n💰 Asset: <b>${amount} ${asset}</b>\n💵 Credited: <b>৳ ${estimatedTk} BDT</b>\n🏦 From Wallet: <code>${wallet}</code>`;
-            bot.sendMessage(config.adminGroupId, msg, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
+        const config = botConfig || {};
+        const adminGroupId = config.adminGroupId || 8799135330;
+        if (adminGroupId && bot) {
+            const msg = `<blockquote><b>🔄 ক্রিপ্টো বিক্রয় সম্পন্ন (Crypto Sold)!</b></blockquote>\n\n` +
+                `👤 User: <code>${userId}</code>\n` +
+                `💎 Sold: <b>${numAmount} ${asset || 'TON'}</b>\n` +
+                `💵 ব্যালেন্সে যুক্ত: <b>৳${numEstimatedTk} BDT</b>\n` +
+                `🏦 Wallet/Trx: <code>${wallet || 'Direct'}</code>\n` +
+                `🆔 Order ID: <code>${savedOrderId}</code>`;
+            bot.sendMessage(adminGroupId, msg, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
         }
 
-        res.json({ success: true });
+        // Send confirmation to User in Telegram
+        if (bot && userId) {
+            bot.sendMessage(userId, `🎉 <b>ক্রিপ্টো বিক্রয় সফল হয়েছে!</b>\n\nআপনার <b>${numAmount} ${asset}</b> বিক্রয়ের বিনিময়ে <b>৳${numEstimatedTk} BDT</b> আপনার ব্যালেন্সে যোগ হয়েছে।\n💰 বর্তমান ব্যালেন্স: <b>৳${newBalance} BDT</b>`, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
+        }
+
+        res.json({ success: true, orderId: savedOrderId, newBalance });
     } catch(e) {
-        console.error(e);
+        console.error("Sell order error:", e);
         res.status(500).json({ error: e.message });
     }
 });

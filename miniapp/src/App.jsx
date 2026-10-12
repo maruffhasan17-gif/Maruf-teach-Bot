@@ -356,7 +356,16 @@ export default function App() {
                   reloadData={() => loadData(user?.id || 123456789)}
               />
           )}
-          {activeTab === 'sell' && <PremiumSellPage user={user} lang={lang} t={t} />}
+          {activeTab === 'sell' && (
+              <SellCryptoPage 
+                  user={user} 
+                  lang={lang} 
+                  t={t} 
+                  onDone={() => setActiveTab('home')} 
+                  onGoToWithdraw={() => setActiveTab('withdraw')} 
+                  reloadData={() => loadData(user?.id || 123456789)} 
+              />
+          )}
           {activeTab === 'history' && <HistoryPage user={user} lang={lang} t={t} onBack={() => setActiveTab('profile')} />}
           {activeTab === 'profile' && (
               <ProfilePage 
@@ -1277,7 +1286,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
 }
 
 // REALTIME BUY CRYPTO MODAL (Live On-Chain Payout from User BDT Balance)
-function BuyCryptoModal({ isOpen, onClose, user, balance, lang = 'bn', t, reloadData, onGoToAddMoney }) {
+function BuyCryptoModal({ isOpen, onClose, user, balance = 0, lang = 'bn', t, reloadData, onGoToAddMoney }) {
     const userTonAddress = useTonAddress();
     const [selectedAsset, setSelectedAsset] = useState('GRAM'); // 'GRAM' or 'USDT'
     const [bdtAmount, setBdtAmount] = useState('');
@@ -1286,37 +1295,38 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, lang = 'bn', t, reload
     const [processStep, setProcessStep] = useState(1);
     const [errorMessage, setErrorMessage] = useState('');
     const [txResult, setTxResult] = useState(null);
+    const [liveRates, setLiveRates] = useState({ GRAM: 180, USDT: 125 });
 
     // Auto-fill connected TonConnect wallet if address empty
     useEffect(() => {
         if (userTonAddress && !receiveAddress) {
             setReceiveAddress(userTonAddress);
         }
-    }, [userTonAddress]);
-
-    if (!isOpen) return null;
-
-    // Real Live Market BDT Rates: GRAM (TON) ≈ 180 BDT, USDT ≈ 125 BDT
-    const [liveRates, setLiveRates] = useState({ GRAM: 180, USDT: 125 });
+    }, [userTonAddress, receiveAddress]);
 
     useEffect(() => {
+        let isMounted = true;
         fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether&vs_currencies=bdt')
             .then(res => res.json())
             .then(data => {
+                if (!isMounted) return;
                 const tonBdt = data['the-open-network']?.bdt ? Math.round(data['the-open-network'].bdt) : 180;
                 const usdtBdt = data['tether']?.bdt ? Math.round(data['tether'].bdt) : 125;
                 setLiveRates({ GRAM: Math.max(tonBdt, 175), USDT: Math.max(usdtBdt, 125) });
             })
             .catch(() => {});
+        return () => { isMounted = false; };
     }, []);
 
-    const cryptoRate = selectedAsset === 'USDT' ? liveRates.USDT : liveRates.GRAM;
+    if (!isOpen) return null;
+
+    const cryptoRate = selectedAsset === 'USDT' ? (liveRates?.USDT || 125) : (liveRates?.GRAM || 180);
     const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
         ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
         : '0.0000';
 
     const numBdt = parseFloat(bdtAmount) || 0;
-    const hasInsufficientBalance = numBdt > balance;
+    const hasInsufficientBalance = numBdt > (balance || 0);
 
     const handleConfirmBuy = async () => {
         if (!numBdt || numBdt < 20) {
@@ -1691,382 +1701,531 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, lang = 'bn', t, reload
 
 
 
-function PremiumSellPage({ user }) {
-  const [loading, setLoading] = useState(false);
-  const [txStatus, setTxStatus] = useState(null);
-  const [txMessage, setTxMessage] = useState('');
-  const [asset, setAsset] = useState('USDT');
-  
-  // Bidirectional Input State
-  const [inputType, setInputType] = useState('crypto'); // 'crypto' or 'fiat'
-  const [cryptoAmount, setCryptoAmount] = useState('');
-  const [fiatAmount, setFiatAmount] = useState('');
-  
-  const [showKeyboard, setShowKeyboard] = useState(false);
-  const [showAssetModal, setShowAssetModal] = useState(false);
-  const [liveCryptoRate, setLiveCryptoRate] = useState(1.9);
-  const [liveUsdBdt, setLiveUsdBdt] = useState(120);
+function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadData }) {
+    const userTonAddress = useTonAddress();
+    const [tonConnectUI] = useTonConnectUI();
+    const [step, setStep] = useState(1);
+    const [asset, setAsset] = useState('GRAM'); // 'GRAM' (TON) or 'USDT'
+    const [cryptoAmount, setCryptoAmount] = useState('');
+    const [trxId, setTrxId] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [isTonSending, setIsTonSending] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [copied, setCopied] = useState(false);
+    const [sellResult, setSellResult] = useState(null);
+    const [liveRates, setLiveRates] = useState({ GRAM: 180, USDT: 125 });
 
-  const userTonAddress = useTonAddress();
-  const [tonConnectUI] = useTonConnectUI();
+    // Fetch live market rates
+    useEffect(() => {
+        let isMounted = true;
+        fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether&vs_currencies=bdt')
+            .then(res => res.json())
+            .then(data => {
+                if (!isMounted) return;
+                const tonBdt = data['the-open-network']?.bdt ? Math.round(data['the-open-network'].bdt) : 180;
+                const usdtBdt = data['tether']?.bdt ? Math.round(data['tether'].bdt) : 125;
+                setLiveRates({ GRAM: Math.max(tonBdt, 175), USDT: Math.max(usdtBdt, 125) });
+            })
+            .catch(() => {});
+        return () => { isMounted = false; };
+    }, []);
 
-  useEffect(() => {
-     const fetchPrice = async () => {
-         try {
-             const cached = localStorage.getItem('maruf_crypto_rates');
-             if (cached) {
-                 const parsed = JSON.parse(cached);
-                 const now = Date.now();
-                 if (now - parsed.timestamp < 3600000) {
-                     setLiveCryptoRate(parsed.tonPrice);
-                     setLiveUsdBdt(parsed.usdBdt);
-                     return;
-                 }
-             }
+    const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 125) : (liveRates?.GRAM || 180);
+    const numAmount = parseFloat(cryptoAmount) || 0;
+    const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
 
-             const resTon = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT');
-             const dataTon = await resTon.json();
-             const tonPrice = parseFloat(dataTon.price) || 1.9;
+    const quickAmounts = asset === 'GRAM' ? [1, 2, 5, 10, 20] : [5, 10, 20, 50, 100];
 
-             const resBdt = await fetch('https://open.er-api.com/v6/latest/USD');
-             const dataBdt = await resBdt.json();
-             const usdBdt = dataBdt.rates.BDT || 120;
+    const handleCopy = () => {
+        navigator.clipboard.writeText(botWalletAddress);
+        setCopied(true);
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+        }
+        setTimeout(() => setCopied(false), 2000);
+    };
 
-             localStorage.setItem('maruf_crypto_rates', JSON.stringify({
-                 tonPrice, usdBdt, timestamp: Date.now()
-             }));
+    const handleContinue = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
+            return window.Telegram?.WebApp?.showAlert 
+                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "সঠিক ক্রিপ্টো পরিমাণ দিন" : "Enter a valid crypto amount") 
+                : alert("Enter a valid crypto amount");
+        }
+        if (estimatedTk < 20) {
+            return window.Telegram?.WebApp?.showAlert 
+                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম বিক্রয় ২০ টাকা" : "Minimum sell value is 20 BDT") 
+                : alert("Minimum sell value is 20 BDT");
+        }
+        setErrorMessage('');
+        setStep(2);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
-             setLiveCryptoRate(tonPrice);
-             setLiveUsdBdt(usdBdt);
-         } catch(e) {
-             console.error("Failed to fetch live price", e);
-             const cached = localStorage.getItem('maruf_crypto_rates');
-             if (cached) {
-                 const parsed = JSON.parse(cached);
-                 setLiveCryptoRate(parsed.tonPrice);
-                 setLiveUsdBdt(parsed.usdBdt);
-             }
-         }
-     };
-     fetchPrice();
-     const interval = setInterval(fetchPrice, 60000);
-     return () => clearInterval(interval);
-  }, []);
+    // 1-Click TonConnect Pay
+    const handleTonConnectPay = async () => {
+        if (!userTonAddress) {
+            tonConnectUI.openModal();
+            return;
+        }
+        setIsTonSending(true);
+        setErrorMessage('');
+        try {
+            const txRes = await buildTransaction({
+                asset,
+                amount: numAmount,
+                userAddress: userTonAddress,
+                adminWallet: botWalletAddress
+            });
 
-  const profitMargin = 0.90; // We take 10% profit
-  const marketRate = asset === 'USDT' ? liveUsdBdt : (liveCryptoRate * liveUsdBdt);
-  const rate = marketRate * profitMargin;
+            if (txRes && txRes.tx) {
+                await tonConnectUI.sendTransaction(txRes.tx);
 
-  // Sync the inputs whenever one changes or asset changes
-  useEffect(() => {
-      if (inputType === 'crypto') {
-          if (!cryptoAmount) {
-              setFiatAmount('');
-          } else {
-              setFiatAmount(Math.floor(parseFloat(cryptoAmount) * rate).toString());
-          }
-      } else {
-          if (!fiatAmount) {
-              setCryptoAmount('');
-          } else {
-              setCryptoAmount((parseFloat(fiatAmount) / rate).toFixed(4));
-          }
-      }
-  }, [cryptoAmount, fiatAmount, inputType, asset, rate]);
+                // Successfully signed and sent on-chain! Now submit and credit!
+                const res = await submitSellOrder({
+                    userId: user?.id || 123456789,
+                    asset,
+                    amount: numAmount,
+                    estimatedTk,
+                    wallet: userTonAddress,
+                    status: 'completed'
+                });
 
-  useEffect(() => {
-     if(showKeyboard) {
-        setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 100);
-     }
-  }, [showKeyboard]);
+                if (res.success) {
+                    setSellResult({ ...res, amount: numAmount, estimatedTk });
+                    if (reloadData) reloadData();
+                    if (window.Telegram?.WebApp?.HapticFeedback) {
+                        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    }
+                    setStep(3);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            }
+        } catch (err) {
+            console.error("TonConnect transfer error:", err);
+            setErrorMessage(err.message || (lang === 'bn' ? 'ওয়ালেট দিয়ে পেমেন্ট বাতিল বা ব্যর্থ হয়েছে। আপনি নিচে সরাসরি অ্যাড্রেসে পাঠাতে পারেন।' : 'Wallet payment cancelled or failed. You can send manually below.'));
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            }
+        } finally {
+            setIsTonSending(false);
+        }
+    };
 
-  const handleKeyPress = (key) => {
-     if (inputType === 'crypto') {
-         if (key === 'del') {
-            setCryptoAmount(prev => prev.slice(0, -1));
-         } else if (key === '.') {
-            if (!cryptoAmount.includes('.')) setCryptoAmount(prev => prev + (prev === '' ? '0.' : '.'));
-         } else {
-            if (cryptoAmount.length < 10) setCryptoAmount(prev => prev + key);
-         }
-     } else {
-         // Fiat input (no decimals allowed)
-         if (key === 'del') {
-            setFiatAmount(prev => prev.slice(0, -1));
-         } else if (key === '.') {
-            // Do nothing, no dot allowed in BDT
-         } else {
-            if (fiatAmount.length < 10) setFiatAmount(prev => prev + key);
-         }
-     }
-  };
+    // Manual Submission
+    const handleManualSubmit = async () => {
+        if (!trxId || trxId.trim().length < 4) {
+            setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে সঠিক TxID বা আপনার সেন্ডার ওয়ালেট অ্যাড্রেস দিন' : 'Please enter valid TxID or your sender wallet address');
+            return;
+        }
+        setLoading(true);
+        setErrorMessage('');
+        try {
+            const res = await submitSellOrder({
+                userId: user?.id || 123456789,
+                asset,
+                amount: numAmount,
+                estimatedTk,
+                wallet: trxId.trim(),
+                status: 'completed'
+            });
 
-  const handleSell = async (e) => {
-    if(e.preventDefault) e.preventDefault();
-    if(!userTonAddress || !cryptoAmount || !fiatAmount) return;
-    
-    if (parseFloat(fiatAmount) < 1) return window.Telegram?.WebApp?.showAlert("Minimum sell amount is 1 BDT");
-    if (parseFloat(fiatAmount) > 20000) return window.Telegram?.WebApp?.showAlert("Maximum sell amount is 20000 BDT");
-    
-    setLoading(true);
-    let pendingOrderId = null;
-    
-    try {
-      const txRes = await buildTransaction({
-          asset,
-          amount: parseFloat(cryptoAmount),
-          userAddress: userTonAddress,
-          adminWallet: "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb"
-      });
-      if (!txRes.success) throw new Error(txRes.error || "Failed to build transaction");
+            if (res.success) {
+                setSellResult({ ...res, amount: numAmount, estimatedTk });
+                if (reloadData) reloadData();
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+                setStep(3);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                setErrorMessage(res.error || 'ভেরিফিকেশন ব্যর্থ হয়েছে');
+            }
+        } catch (e) {
+            setErrorMessage(e.message || 'সাবমিট করতে সমস্যা হয়েছে, অনুগ্রহ করে আবার চেষ্টা করুন।');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      // 1. Submit pending order to DB before confirming in wallet (in case app closes)
-      const pendingRes = await submitSellOrder({
-        userId: user?.id || 123456789 || 123456789, 
-        asset, 
-        amount: parseFloat(cryptoAmount), 
-        estimatedTk: parseFloat(fiatAmount), 
-        wallet: userTonAddress,
-        status: 'pending'
-      });
-      
-      if (pendingRes && pendingRes.orderId) {
-          pendingOrderId = pendingRes.orderId;
-      }
+    // STEP 3: LUXURY FINTECH SUCCESS RECEIPT
+    if (step === 3) {
+        return (
+            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-4 text-center pb-24">
+                <div className="relative mb-6 mt-4">
+                    <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-2xl animate-pulse" />
+                    <div className="w-24 h-24 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-full flex items-center justify-center shadow-xl shadow-emerald-500/30 border-4 border-white relative z-10">
+                        <CheckCircle2 size={48} className="text-white drop-shadow-md" />
+                    </div>
+                </div>
 
-      // 2. Open wallet and send
-      await tonConnectUI.sendTransaction(txRes.tx);
+                <h2 className="text-2xl font-black text-gray-900 mb-1 tracking-tight">
+                    ৳{estimatedTk} BDT Added! 🎉
+                </h2>
+                <p className="text-gray-500 text-xs mb-6 max-w-[280px] leading-relaxed">
+                    {lang === 'bn' 
+                        ? 'আপনার ক্রিপ্টো বিক্রয় সফল হয়েছে এবং ব্যালেন্সে টাকা যুক্ত করা হয়েছে।' 
+                        : 'Your crypto sale was successful and BDT balance has been credited.'}
+                </p>
 
-      // 3. Mark completed and add TK to user balance
-      await submitSellOrder({
-        userId: user?.id || 123456789 || 123456789, 
-        asset, 
-        amount: parseFloat(cryptoAmount), 
-        estimatedTk: parseFloat(fiatAmount), 
-        wallet: userTonAddress,
-        orderId: pendingOrderId,
-        status: 'completed'
-      });
-      
-      if (window.reloadGlobalData) window.reloadGlobalData();
-
-      setTxStatus('success');
-      setTxMessage('Successfully swapped to TK BDT');
-      setCryptoAmount('');
-      setFiatAmount('');
-      setShowKeyboard(false);
-      setTimeout(() => setTxStatus(null), 3000);
-    } catch(e) {
-      setTxStatus('error');
-      setTxMessage('There will be no changes to your account.');
-      setTimeout(() => setTxStatus(null), 3000);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const AssetIcon = () => {
-      if (asset === 'USDT') return <CircleDollarSign size={14} className="text-emerald-500" />;
-      return <Gem size={14} className="text-blue-500" />;
-  };
-
-  return (
-    <>
-      {showKeyboard && (
-          <style>{`
-              .fixed.bottom-0.z-50.flex.justify-center { display: none !important; }
-              #main-app-header { max-height: 0px !important; opacity: 0 !important; pointer-events: none; margin: 0 !important; padding: 0 !important; overflow: hidden; }
-              body { overflow: hidden !important; }
-          `}</style>
-      )}
-      <div className={`animate-in fade-in max-w-md mx-auto relative h-full transition-all duration-300 ease-out ${showKeyboard ? 'pb-[280px] pt-4' : 'pb-24'}`}>
-        
-        {showKeyboard && (
-           <div className="flex items-center mb-4 animate-in slide-in-from-top-4 duration-300">
-               <button onClick={() => setShowKeyboard(false)} className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-[var(--color-border)] premium-shadow active-scale transition-colors text-[var(--color-text-primary)]">
-                  <ChevronDown size={16} className="rotate-90" />
-                  <span className="text-[11px] font-bold">Back</span>
-               </button>
-           </div>
-        )}
-        <div className="glass-panel p-3.5 rounded-2xl relative overflow-visible z-10 transition-all duration-300 hover:premium-shadow">
-           
-           <div className="flex items-center gap-2.5 mb-1">
-              <div className="w-8 h-8 bg-[var(--color-brand)]/10 rounded-xl flex items-center justify-center text-[var(--color-brand)] shadow-inner">
-                  <ArrowRightLeft size={16} strokeWidth={2.5} />
-              </div>
-              <h2 className="text-[15px] font-extrabold text-[var(--color-text-primary)] tracking-tight leading-tight">Swap to Taka</h2>
-           </div>
-           {!showKeyboard && (
-              <>
-                 <p className="text-[var(--color-text-secondary)] text-[12px] mb-3 font-medium">
-                    Instantly convert Crypto to TK. Securely via Tonkeeper.
-                 </p>
-                 
-                 <div className="flex items-center justify-center mb-3">
-                    {!userTonAddress ? (
-                       <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-red-50/80 border border-red-100/50 rounded-full">
-                          <div className="w-1.5 h-1.5 bg-[var(--color-danger)] rounded-full animate-pulse" />
-                          <span className="text-[9px] font-bold text-[var(--color-danger)] tracking-[0.1em] uppercase">Wallet Disconnected</span>
-                       </div>
-                    ) : (
-                       <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-[var(--color-brand)]/5 border border-[var(--color-brand)]/10 rounded-full">
-                          <div className="w-1.5 h-1.5 bg-[var(--color-brand)] rounded-full" />
-                          <span className="text-[9px] font-bold text-[var(--color-brand)] tracking-[0.1em] uppercase">Wallet Connected</span>
-                       </div>
-                    )}
-                 </div>
-              </>
-           )}
-
-           <div className="space-y-1.5 relative z-10">
-              <div onClick={() => { setInputType('crypto'); setShowKeyboard(true); }} className={`p-3 rounded-xl cursor-pointer transition-all duration-300 ${showKeyboard && inputType === 'crypto' ? 'glass-button ring-1 ring-[var(--color-brand)]/50' : 'glass-input-container input-shadow'}`}>
-               <div className="flex justify-between items-center mb-2">
-                  <label className={`text-[10px] font-bold uppercase tracking-[0.15em] ${inputType === 'crypto' ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-secondary)]'}`}>You Pay</label>
-                  
-                  <div className="relative">
-                     <div onClick={(e) => { e.stopPropagation(); setShowAssetModal(!showAssetModal); }} className="flex items-center gap-1.5 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1 cursor-pointer hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-10">
-                        <AssetIcon />
-                        <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">{asset}</span>
-                        <ChevronDown size={13} className="text-[var(--color-text-secondary)] ml-0.5" />
-                     </div>
-                     
-                     {showAssetModal && (
-                        <>
-                           <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setShowAssetModal(false); }}></div>
-                           {asset !== 'USDT' && (
-                              <button onClick={(e) => { e.stopPropagation(); setAsset('USDT'); setShowAssetModal(false); }} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
-                                 <CircleDollarSign size={13} className="text-emerald-500" />
-                                 <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">USDT</span>
-                              </button>
-                           )}
-                           {asset !== 'GRAM' && (
-                              <button onClick={(e) => { e.stopPropagation(); setAsset('GRAM'); setShowAssetModal(false); }} className="absolute left-0 right-0 top-full mt-2 w-full flex items-center justify-center gap-2 bg-white border border-[var(--color-border)] rounded-full px-2.5 py-1 hover:border-[var(--color-brand)]/50 transition-colors shadow-sm active-scale z-50 animate-in fade-in zoom-in-95 duration-200">
-                                 <Gem size={13} className="text-blue-500" />
-                                 <span className="text-[11px] font-extrabold text-[var(--color-text-primary)]">GRAM</span>
-                              </button>
-                           )}
-                        </>
-                     )}
-                  </div>
-               </div>
-                 
-               <div className="flex items-baseline">
-                  <div className={`text-3xl font-black tracking-tight ${cryptoAmount ? 'text-[var(--color-text-primary)]' : 'text-gray-300'}`}>
-                     {cryptoAmount || '0'}
-                  </div>
-                  {inputType === 'crypto' && showKeyboard && (
-                      <span className="w-0.5 h-6 bg-[var(--color-brand)] animate-pulse ml-1 rounded-full"></span>
-                  )}
-               </div>
-               
-               <div className="mt-1 text-[10px] font-bold text-[var(--color-text-secondary)]/70 uppercase tracking-wider">
-                  Enter {asset} amount
-               </div>
-              </div>
-
-              {/* Swap Icon */}
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
-                  <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md border border-[var(--color-border)]/50">
-                      <ArrowRightLeft size={14} className="rotate-90 text-[var(--color-text-secondary)]" />
-                  </div>
-              </div>
-
-              {/* Fiat Receive Block */}
-              <div onClick={() => { setInputType('fiat'); setShowKeyboard(true); }} className={`p-3 rounded-xl cursor-pointer transition-all duration-300 ${showKeyboard && inputType === 'fiat' ? 'glass-button ring-1 ring-[var(--color-brand)]/50' : 'glass-input-container input-shadow'}`}>
-               <div className="flex justify-between items-center mb-2">
-                  <label className={`text-[10px] font-bold uppercase tracking-[0.15em] ${inputType === 'fiat' ? 'text-[var(--color-brand)]' : 'text-[var(--color-text-secondary)]'}`}>You Receive</label>
-                  
-                  <div className="flex items-center gap-1.5 bg-emerald-50/50 border border-emerald-100/50 rounded-full px-2 py-0.5">
-                      <span className="text-[9px] font-black text-emerald-600 tracking-wider">TK BDT</span>
-                  </div>
-               </div>
-                 
-               <div className="flex items-baseline">
-                  <div className={`text-3xl font-black tracking-tight ${fiatAmount ? 'text-[var(--color-text-primary)]' : 'text-gray-300'}`}>
-                     {fiatAmount || '0'}
-                  </div>
-                  {inputType === 'fiat' && showKeyboard && (
-                      <span className="w-0.5 h-6 bg-[var(--color-brand)] animate-pulse ml-1 rounded-full"></span>
-                  )}
-               </div>
-               <div className="mt-1 text-[10px] font-bold text-[var(--color-text-secondary)]/70 uppercase tracking-wider">
-                  Enter Taka amount
-               </div>
-              </div>
-           </div>
-
-           {!showKeyboard && (
-              <div className="mt-4 mb-1">
-                 <button onPointerDown={handleSell} disabled={loading || !cryptoAmount || parseFloat(cryptoAmount) <= 0 || !userTonAddress} className={`w-full h-[46px] rounded-xl font-bold text-[14px] tracking-wide transition-all duration-300 ${!userTonAddress ? 'bg-gray-100 text-gray-400' : loading ? 'bg-[var(--color-brand)]/70 text-white' : 'bg-[var(--color-brand)] text-white shadow-md active-scale'}`}>
-                    {loading ? (
-                        <div className="flex items-center justify-center gap-2">
-                            <Loader2 size={16} className="animate-spin" />
-                            <span>PROCESSING...</span>
+                <div className="bg-white border border-gray-100 rounded-3xl p-5 w-full max-w-[340px] mb-6 shadow-xl shadow-gray-100/60 relative overflow-hidden">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
+                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status</span>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black border border-emerald-200/60">
+                            <Sparkles size={12} /> Auto-Completed
                         </div>
-                    ) : !userTonAddress ? (
-                        "CONNECT WALLET FIRST"
+                    </div>
+                    
+                    <div className="space-y-2.5 text-left text-xs">
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-400 font-medium">Crypto Sold</span>
+                            <span className="font-bold text-gray-900">{numAmount} {asset}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-400 font-medium">Rate</span>
+                            <span className="font-bold text-gray-900">1 {asset} ≈ ৳{currentRate} TK</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-400 font-medium">Amount Credited</span>
+                            <span className="font-extrabold text-emerald-600 text-sm">৳{estimatedTk} BDT</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-400 font-medium">Destination</span>
+                            <span className="font-bold text-gray-900">In-App Balance</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="w-full max-w-[340px] space-y-2.5">
+                    <button 
+                        onClick={onGoToWithdraw} 
+                        className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm tracking-wide"
+                    >
+                        <Wallet size={18} />
+                        {t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন (WITHDRAW)' : 'WITHDRAW FUNDS')}
+                    </button>
+                    <button 
+                        onClick={() => {
+                            setStep(1);
+                            setCryptoAmount('');
+                            setTrxId('');
+                            setErrorMessage('');
+                            onDone();
+                        }} 
+                        className="w-full bg-white text-gray-700 font-bold py-3.5 rounded-2xl border border-gray-200 active:scale-95 transition-all text-sm"
+                    >
+                        {lang === 'bn' ? 'হোমে ফিরে যান' : 'BACK TO HOME'}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // STEP 2: TRANSFER & CONFIRMATION
+    if (step === 2) {
+        return (
+            <div className="flex flex-col h-full animate-in slide-in-from-right duration-300 pb-24">
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-5">
+                    <button 
+                        onClick={() => { setStep(1); setErrorMessage(''); }} 
+                        className="p-2.5 bg-white rounded-full shadow-sm text-gray-700 border border-gray-100 active:scale-95 transition-transform"
+                    >
+                        <ArrowDown size={18} className="rotate-90" />
+                    </button>
+                    <div>
+                        <h2 className="text-xl font-black text-gray-900 tracking-tight">
+                            {lang === 'bn' ? 'ক্রিপ্টো ট্রান্সফার ভেরিফিকেশন' : 'Crypto Transfer Verification'}
+                        </h2>
+                        <p className="text-gray-500 text-xs mt-0.5">
+                            {lang === 'bn' ? 'ক্রিপ্টো পাঠিয়ে ট্রানজেকশন সাবমিট করুন' : 'Transfer crypto to complete swap'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="flex items-center gap-2 mb-6 px-1">
+                    <div className="h-1.5 flex-1 bg-emerald-500 rounded-full" />
+                    <div className="h-1.5 flex-1 bg-emerald-500 rounded-full relative">
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-emerald-500 rounded-full ring-4 ring-emerald-100" />
+                    </div>
+                </div>
+
+                {/* Instructions Card */}
+                <div className="bg-white rounded-2xl p-3.5 mb-3 border border-gray-100 shadow-sm space-y-3">
+                    <div className="flex justify-between items-center pb-2.5 border-b border-gray-100">
+                        <div className="flex items-center gap-2">
+                            <img 
+                                src={asset === 'GRAM' ? `${import.meta.env.BASE_URL}gram.svg` : `${import.meta.env.BASE_URL}usdt.svg`} 
+                                className="w-6 h-6 object-contain" 
+                                alt={asset} 
+                            />
+                            <div>
+                                <span className="font-bold text-gray-900 text-[13px] block">{asset} (TON Network)</span>
+                                <span className="text-[10px] text-gray-400 font-medium">Rate: 1 {asset} ≈ ৳{currentRate} TK</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] text-gray-400 font-medium block">{lang === 'bn' ? 'ব্যালেন্সে যোগ হবে' : 'You will receive'}</span>
+                            <span className="text-[15px] font-black text-emerald-600">৳{estimatedTk} BDT</span>
+                        </div>
+                    </div>
+
+                    {/* Admin Receiving Wallet */}
+                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                {lang === 'bn' ? 'বট ওয়ালেট অ্যাড্রেস (রিসিভার)' : 'Bot Receiver Address'}
+                            </span>
+                            <span className="text-[10px] text-emerald-600 font-bold">TON Blockchain</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-[12px] font-bold text-gray-900 font-mono tracking-wider truncate flex-1">{botWalletAddress}</span>
+                            <button 
+                                onClick={handleCopy} 
+                                className={"flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold text-[11px] shadow-sm transition-all active:scale-95 shrink-0 " + (copied ? "bg-emerald-600 text-white" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50")}
+                            >
+                                {copied ? <><CheckCircle2 size={13} /> {lang === 'bn' ? 'কপি হয়েছে' : 'Copied'}</> : <><Copy size={13} /> {lang === 'bn' ? 'কপি' : 'Copy'}</>}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Guidance */}
+                    {lang === 'bn' ? (
+                        <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
+                            <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">কিভাবে বিক্রি করবেন:</p>
+                            <p>১. আপনার ওয়ালেট (Tonkeeper / Telegram / Binance) থেকে উপরে দেওয়া অ্যাড্রেসে ঠিক <b>{numAmount} {asset}</b> পাঠান।</p>
+                            <p>২. ট্রান্সফারের পর আপনার <b>Tx Hash (TrxID)</b> বা <b>সেন্ডার ওয়ালেট অ্যাড্রেস</b> নিচের ঘরে লিখে সাবমিট করুন।</p>
+                            <p>৩. সাথে সাথে আপনার ইন-অ্যাপ ব্যালেন্সে <b>৳{estimatedTk} BDT</b> যুক্ত হবে।</p>
+                        </div>
                     ) : (
-                        "CONFIRM SWAP"
+                        <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
+                            <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">How to sell:</p>
+                            <p>1. Send exact <b>{numAmount} {asset}</b> from your wallet to the bot address above.</p>
+                            <p>2. Paste your <b>Transaction Hash (TxID)</b> or <b>Sender Wallet Address</b> below.</p>
+                            <p>3. Submit to instantly receive <b>৳{estimatedTk} BDT</b> into your balance.</p>
+                        </div>
                     )}
-                 </button>
-              </div>
-           )}
+                </div>
+
+                {/* 1-Click TonConnect Quick Pay (If User Prefers) */}
+                {userTonAddress && (
+                    <div className="bg-white rounded-2xl p-3.5 mb-3 border border-emerald-200/80 shadow-sm">
+                        <button
+                            type="button"
+                            disabled={isTonSending}
+                            onClick={handleTonConnectPay}
+                            className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-xl py-3 font-bold text-[13px] flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        >
+                            {isTonSending ? (
+                                <><Loader2 size={16} className="animate-spin text-emerald-600" /> {lang === 'bn' ? 'ওয়ালেটে সাইন হচ্ছে...' : 'Signing in wallet...'}</>
+                            ) : (
+                                <><Zap size={16} className="text-emerald-600" /> {lang === 'bn' ? '⚡ ওয়ালেট দিয়ে সরাসরি পাঠান (1-Click Wallet Pay)' : '⚡ 1-Click Wallet Pay'}</>
+                            )}
+                        </button>
+                    </div>
+                )}
+
+                {/* TrxID / Wallet Input Card */}
+                <div className="bg-white rounded-2xl p-3.5 mb-3 border border-gray-100 shadow-sm space-y-2.5">
+                    <label className="text-[11px] font-bold text-gray-500 block uppercase tracking-wider">
+                        {lang === 'bn' ? 'Transaction Hash / সেন্ডার ওয়ালেট অ্যাড্রেস' : 'Transaction Hash / Sender Wallet'}
+                    </label>
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            value={trxId} 
+                            onChange={e => setTrxId(e.target.value)} 
+                            placeholder={lang === 'bn' ? 'এখানে Tx Hash বা ওয়ালেট পেস্ট করুন' : 'Paste Tx Hash or Wallet here'} 
+                            className="w-full bg-gray-50 rounded-xl p-3 pr-10 text-[13px] font-mono font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 transition-all outline-none" 
+                        />
+                        <button 
+                            onClick={async () => { 
+                                try { 
+                                    const text = await navigator.clipboard.readText(); 
+                                    if (text) setTrxId(text.trim()); 
+                                } catch(e){} 
+                            }} 
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white text-gray-400 hover:text-emerald-600 rounded-lg transition-all shadow-sm border border-gray-200"
+                            title="Paste from clipboard"
+                        >
+                            <ClipboardPaste size={16} />
+                        </button>
+                    </div>
+
+                    {errorMessage && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2.5 animate-in fade-in duration-300">
+                            <AlertCircle size={17} className="text-red-600 shrink-0 mt-0.5" />
+                            <div className="text-[12px]">
+                                <p className="font-bold text-red-700">{lang === 'bn' ? 'নোটিশ' : 'Notice'}</p>
+                                <p className="text-red-600 leading-tight">{errorMessage}</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Submit Button */}
+                <div className="mt-auto">
+                    <button 
+                        onClick={handleManualSubmit} 
+                        disabled={!trxId.trim() || loading} 
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
+                    >
+                        {loading ? (
+                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {lang === 'bn' ? 'যাচাই করা হচ্ছে...' : 'VERIFYING...'}</>
+                        ) : (
+                            <><CheckCircle2 size={16} /> {lang === 'bn' ? 'ভেরিফাই ও টাকা যোগ করুন' : 'CONFIRM & RECEIVE TAKA'}</>
+                        )}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // STEP 1: AMOUNT & ASSET SELECTION (Just like Add Money Page)
+    return (
+        <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
+            {/* Header */}
+            <div className="flex items-center gap-2.5 mb-3.5">
+                <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm shrink-0">
+                    <ArrowRightLeft size={18} strokeWidth={2.5} />
+                </div>
+                <div>
+                    <h2 className="text-[15px] font-extrabold text-gray-900 tracking-tight leading-tight">
+                        {t?.sellCrypto || 'Sell Crypto'}
+                    </h2>
+                    <p className="text-gray-500 text-[12px]">
+                        {lang === 'bn' ? 'ক্রিপ্টো সোয়াপ করে ইন-অ্যাপ ব্যালেন্সে টাকা নিন' : 'Swap crypto and receive BDT in account balance'}
+                    </p>
+                </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="flex items-center gap-2 mb-4 px-1">
+                <div className="h-1 flex-1 bg-emerald-500 rounded-full relative">
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-emerald-100" />
+                </div>
+                <div className="h-1 flex-1 bg-gray-200 rounded-full" />
+            </div>
+
+            <div className="space-y-3">
+                {/* Asset Selection Cards */}
+                <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-2.5">
+                    <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase ml-0.5">
+                        {t?.selectCrypto || 'Select Crypto Asset'}
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        {/* GRAM (TON) */}
+                        <div 
+                            onClick={() => setAsset('GRAM')}
+                            className={`px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-2.5 ${
+                                asset === 'GRAM' 
+                                    ? 'border-emerald-500 bg-emerald-50/50 shadow-sm' 
+                                    : 'border-gray-100 bg-gray-50/60 hover:bg-gray-50'
+                            }`}
+                        >
+                            <img 
+                                src={`${import.meta.env.BASE_URL}gram.svg`} 
+                                className="w-6 h-6 object-contain shrink-0" 
+                                alt="GRAM" 
+                            />
+                            <div className="flex-1 text-left min-w-0">
+                                <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">GRAM (TON)</span>
+                                <span className="text-[10px] text-emerald-600 font-bold block">≈ ৳{liveRates.GRAM} TK</span>
+                            </div>
+                        </div>
+
+                        {/* USDT */}
+                        <div 
+                            onClick={() => setAsset('USDT')}
+                            className={`px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-2.5 ${
+                                asset === 'USDT' 
+                                    ? 'border-emerald-500 bg-emerald-50/50 shadow-sm' 
+                                    : 'border-gray-100 bg-gray-50/60 hover:bg-gray-50'
+                            }`}
+                        >
+                            <img 
+                                src={`${import.meta.env.BASE_URL}usdt.svg`} 
+                                className="w-6 h-6 object-contain shrink-0" 
+                                alt="USDT" 
+                            />
+                            <div className="flex-1 text-left min-w-0">
+                                <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">USDT</span>
+                                <span className="text-[10px] text-emerald-600 font-bold block">≈ ৳{liveRates.USDT} TK</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Amount Input Card */}
+                <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-3">
+                    <div>
+                        <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase mb-1.5 ml-0.5">
+                            {lang === 'bn' ? `বিক্রয়ের পরিমাণ (${asset})` : `Amount to Sell (${asset})`}
+                        </label>
+                        <div className="relative">
+                            <input 
+                                type="number" 
+                                value={cryptoAmount} 
+                                onChange={e => setCryptoAmount(e.target.value)} 
+                                placeholder="0.00" 
+                                className="w-full bg-gray-50 rounded-xl h-[48px] pl-3 pr-14 text-lg font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 transition-all outline-none" 
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-[11px] text-gray-400">{asset}</span>
+                        </div>
+                    </div>
+
+                    {/* Quick Preset Chips */}
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {quickAmounts.map(val => (
+                            <button
+                                key={val}
+                                type="button"
+                                onClick={() => setCryptoAmount(val.toString())}
+                                className={`px-3 py-1 rounded-lg text-[12px] font-bold transition-all active:scale-95 ${
+                                    cryptoAmount === val.toString() 
+                                        ? 'bg-emerald-600 text-white shadow-sm' 
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                {val} {asset}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Receive Calculation Box */}
+                <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-2">
+                    <div className="flex justify-between items-center text-[12px]">
+                        <span className="text-gray-500 font-medium">{lang === 'bn' ? 'বর্তমান এক্সচেঞ্জ রেট' : 'Current Rate'}</span>
+                        <span className="font-bold text-gray-800">1 {asset} ≈ ৳{currentRate} BDT</span>
+                    </div>
+                    <div className="h-px bg-gray-100 w-full" />
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <span className="text-[12px] font-bold text-gray-700 block">{lang === 'bn' ? 'আপনি মোট পাবেন' : 'You will receive'}</span>
+                            <span className="text-[10px] text-gray-400">{lang === 'bn' ? 'ব্যালেন্সে ইনস্ট্যান্ট যোগ হবে' : 'Credited to balance'}</span>
+                        </div>
+                        <span className="text-xl font-black text-emerald-600">৳{estimatedTk} BDT</span>
+                    </div>
+                </div>
+
+                {/* Continue Button */}
+                <div className="pt-2">
+                    <button 
+                        onClick={handleContinue} 
+                        disabled={!numAmount || numAmount <= 0} 
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
+                    >
+                        <span>{t?.continuePayment || 'পরবর্তী ধাপ (ট্রান্সফার)'}</span>
+                        <ChevronRight size={16} />
+                    </button>
+                </div>
+            </div>
         </div>
-
-        {/* Custom Numpad Keyboard */}
-        <div className={`fixed bottom-0 left-0 w-full bg-[#f2f4f7] rounded-t-[32px] p-5 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] z-[60] transition-transform duration-300 ease-out ${showKeyboard ? 'translate-y-0' : 'translate-y-full pointer-events-none'}`}>
-          <div className="flex justify-between items-center mb-4 px-2">
-             <span className="text-[10px] font-extrabold text-[#98A2B3] tracking-[0.2em] uppercase">ENTER AMOUNT</span>
-             <button onClick={() => setShowKeyboard(false)} className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-sm text-[#475467] active:scale-90 transition-transform">
-                <ChevronDown size={18} />
-             </button>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-2">
-             {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(key => (
-                <button key={key} onClick={() => handleKeyPress(key)} className="h-14 bg-white rounded-2xl text-2xl font-semibold text-[#101828] active:bg-[#E4E7EC] active:scale-95 transition-all shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
-                   {key}
-                </button>
-             ))}
-             <button onClick={() => handleKeyPress('.')} className={`h-14 bg-white rounded-2xl text-2xl font-bold text-[#101828] active:bg-[#E4E7EC] active:scale-95 transition-all shadow-[0_2px_4px_rgba(0,0,0,0.02)] ${inputType === 'fiat' ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                .
-             </button>
-             <button onClick={() => handleKeyPress('0')} className="h-14 bg-white rounded-2xl text-2xl font-semibold text-[#101828] active:bg-[#E4E7EC] active:scale-95 transition-all shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
-                0
-             </button>
-             <button onClick={() => handleKeyPress('del')} className="h-14 bg-white rounded-2xl flex justify-center items-center text-[#475467] active:bg-[#E4E7EC] active:scale-95 transition-all shadow-[0_2px_4px_rgba(0,0,0,0.02)]">
-                <Delete size={24} />
-             </button>
-          </div>
-
-          <button onPointerDown={handleSell} disabled={loading || !cryptoAmount || parseFloat(cryptoAmount) <= 0} className="w-full mt-4 h-14 bg-[#101828] disabled:bg-[#101828]/50 text-white rounded-2xl font-extrabold tracking-wide text-sm active:scale-95 transition-all shadow-lg shadow-[#101828]/20 flex items-center justify-center gap-2">
-             {loading ? <Loader2 size={18} className="animate-spin" /> : 'CONFIRM SWAP'}
-          </button>
-        </div>
-
-        <TransactionStatusModal status={txStatus} message={txMessage} />
-      </div>
-    </>
-  );
-}
-
-function TransactionStatusModal({ status, message }) {
-  if (!status) return null;
-  const isSuccess = status === 'success';
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-200">
-        <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${isSuccess ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'}`}>
-          {isSuccess ? <CheckCircle2 size={36} /> : <X size={36} />}
-        </div>
-        <h3 className="text-lg font-extrabold text-gray-900 mb-2">
-          {isSuccess ? 'Transaction Successful' : 'Notice'}
-        </h3>
-        <p className="text-xs text-gray-600 mb-4">{message}</p>
-      </div>
-    </div>
-  );
+    );
 }
 
 function HistoryPage({ user, lang = 'bn', t, onBack }) {
