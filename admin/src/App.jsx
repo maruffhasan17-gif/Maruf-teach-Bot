@@ -1006,7 +1006,7 @@ function OrdersList() {
   };
 
   const handleApprove = async (id) => {
-    if(!window.confirm("Approve this Buy Order manually?")) return;
+    if(!window.confirm("Approve this Buy Order and automatically send TON on-chain to the user's wallet?")) return;
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/approve-buy`, {
         method: 'POST',
@@ -1015,13 +1015,34 @@ function OrdersList() {
       });
       const data = await res.json();
       if(data.success) {
-        alert('Approved!');
+        alert(data.message || 'Approved & TON successfully sent on-chain!');
         fetchOrders();
       } else {
-        alert(data.error);
+        alert(data.error || 'Approval failed');
       }
     } catch(e) {
-      alert('Error approving');
+      alert('Error approving buy order: ' + e.message);
+    }
+  };
+
+  const handleRejectBuy = async (id) => {
+    const reason = prompt("Enter rejection reason (optional):", "Payment verification failed");
+    if (reason === null) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/reject-buy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, reason })
+      });
+      const data = await res.json();
+      if(data.success) {
+        alert(data.message || 'Order rejected and Taka balance refunded to user!');
+        fetchOrders();
+      } else {
+        alert(data.error || 'Rejection failed');
+      }
+    } catch(e) {
+      alert('Error rejecting buy order: ' + e.message);
     }
   };
 
@@ -1286,23 +1307,53 @@ function OrdersList() {
             <tbody className="divide-y divide-gray-800/50">
               {buys.map(b => (
                 <tr key={b.id} className="hover:bg-gray-800/30 transition-colors">
-                  <td className="py-4 px-4 font-mono text-cyan-400">{b.trxId}</td>
+                  <td className="py-4 px-4 font-mono font-bold text-cyan-400">{b.trxId}</td>
                   <td className="py-4">{b.userId}</td>
                   <td className="py-4 font-bold text-white">{b.amount} {b.asset}</td>
-                  <td className="py-4 text-emerald-400 font-bold">?{b.totalBdt}</td>
-                  <td className="py-4 capitalize">{b.paymentMethod}</td>
-                  <td className="py-4 text-xs text-gray-400 break-all max-w-[150px]">{b.receiveAddress}</td>
+                  <td className="py-4 text-emerald-400 font-bold">৳{b.totalBdt}</td>
+                  <td className="py-4 capitalize font-semibold">{b.paymentMethod}</td>
+                  <td className="py-4 text-xs text-gray-400 font-mono break-all max-w-[150px]">{b.receiveAddress}</td>
                   <td className="py-4">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold ">
-                      {b.status ? b.status.toUpperCase() : 'PENDING'}
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      b.status === 'completed' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                      b.status === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                      b.status === 'rejected' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                      'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    }`}>
+                      {b.status === 'verified' ? 'AUTO-VERIFIED (READY)' :
+                       b.status === 'pending' ? 'PENDING (WAITING SMS)' :
+                       b.status === 'completed' ? 'COMPLETED (SENT)' :
+                       b.status === 'rejected' ? 'REJECTED (REFUNDED)' :
+                       (b.status || 'PENDING').toUpperCase()}
                     </span>
                   </td>
                   <td className="py-4 px-4">
-                    {b.status === 'pending' && (
-                      <button onClick={() => handleApprove(b.id)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold shadow-md">
-                        Accept
-                      </button>
-                    )}
+                    {(b.status === 'pending' || b.status === 'verified') ? (
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleApprove(b.id)} 
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all active:scale-95 flex items-center gap-1"
+                          title="Send TON on-chain and complete order"
+                        >
+                          <span>✓</span> Accept
+                        </button>
+                        <button 
+                          onClick={() => handleRejectBuy(b.id)} 
+                          className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all active:scale-95 flex items-center gap-1"
+                          title="Reject and refund paid BDT to user balance"
+                        >
+                          <span>✕</span> Reject
+                        </button>
+                      </div>
+                    ) : b.status === 'completed' ? (
+                      <span className="text-xs text-blue-400 font-bold flex items-center gap-1">
+                        <span>✓</span> Sent (On-Chain)
+                      </span>
+                    ) : b.status === 'rejected' ? (
+                      <span className="text-xs text-rose-400 font-bold flex items-center gap-1">
+                        <span>✕</span> Refunded
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -1329,7 +1380,7 @@ function OrdersList() {
                   <td className="py-4 px-4 font-mono text-cyan-400 text-xs">{s.id.slice(0, 8)}...</td>
                   <td className="py-4">{s.userId}</td>
                   <td className="py-4 font-bold text-white">{s.amount} {s.asset}</td>
-                  <td className="py-4 text-emerald-400 font-bold">?{s.estimatedTk}</td>
+                  <td className="py-4 text-emerald-400 font-bold">৳{s.estimatedTk}</td>
                   <td className="py-4 text-xs text-gray-400 font-mono break-all max-w-[150px]">{s.wallet}</td>
                   <td className="py-4 px-4 text-xs text-gray-500">
                     {(s.timestamp && s.timestamp._seconds) ? new Date(s.timestamp._seconds * 1000).toLocaleString() : 'Just now'}

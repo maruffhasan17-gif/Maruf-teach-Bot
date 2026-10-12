@@ -595,6 +595,7 @@ function PremiumBuyPage({ user }) {
     const [paymentMethod, setPaymentMethod] = React.useState('bKash');
     const [trxId, setTrxId] = React.useState('');
     const [receiveAddress, setReceiveAddress] = React.useState('');
+    const [orderResult, setOrderResult] = React.useState(null);
     
     const [showAssetModal, setShowAssetModal] = React.useState(false);
     const [showMethodModal, setShowMethodModal] = React.useState(false);
@@ -639,7 +640,7 @@ function PremiumBuyPage({ user }) {
         if(!isValidStep2) return;
         setLoading(true);
         try {
-            await submitBuyOrder({
+            const res = await submitBuyOrder({
                 userId: user?.id || 123456789,
                 asset,
                 amount: parseFloat(totalCrypto),
@@ -648,6 +649,7 @@ function PremiumBuyPage({ user }) {
                 trxId,
                 receiveAddress: receiveAddress
             });
+            setOrderResult(res);
             setStep(3); window.scrollTo({top:0, behavior:'smooth'});
         } catch (e) {
             alert(e.message || 'Failed to submit order'); window.Telegram?.WebApp?.showAlert(e.message || 'Failed to submit order');
@@ -656,24 +658,36 @@ function PremiumBuyPage({ user }) {
     };
 
     if (step === 3) {
+        const isAutoVerified = orderResult && orderResult.autoVerified;
         return (
             <div className="flex flex-col h-full items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-6 text-center">
-                <div className="w-24 h-24 bg-[#ECFDF3] rounded-full flex items-center justify-center mb-6 shadow-sm border-[6px] border-[#D1FADF]">
-                    <Sparkles size={40} className="text-[#027A48]" />
+                <div className={`w-24 h-24 ${isAutoVerified ? 'bg-[#ECFDF3] border-[#D1FADF]' : 'bg-amber-50 border-amber-200'} rounded-full flex items-center justify-center mb-6 shadow-sm border-[6px]`}>
+                    <Sparkles size={40} className={isAutoVerified ? 'text-[#027A48]' : 'text-amber-600'} />
                 </div>
-                <h2 className="text-2xl font-extrabold text-[#101828] mb-2">Payment Submitted</h2>
-                <p className="text-[#475467] text-sm mb-8 leading-relaxed max-w-[260px]">
-                    Your payment is being verified. We’ll process your order once verification is complete.
+                <h2 className="text-2xl font-extrabold text-[#101828] mb-2">
+                    {isAutoVerified ? 'Payment Auto-Verified! 🎉' : 'Payment Submitted'}
+                </h2>
+                <p className="text-[#475467] text-sm mb-8 leading-relaxed max-w-[280px]">
+                    {isAutoVerified 
+                        ? 'Your payment was automatically verified via SMS! Admin has received the dispatch alert to send your asset.' 
+                        : 'Your payment is being verified. We’ll process your order once verification is complete.'}
                 </p>
                 <div className="bg-white border border-[#E4E7EC] rounded-2xl p-5 w-full max-w-[300px] mb-8 shadow-sm">
-                    <p className="text-xs text-[#98A2B3] font-bold uppercase tracking-wider mb-1">Order ID</p>
-                    <p className="text-lg font-bold text-[#101828] mb-3">#TON-{Math.floor(Math.random() * 900000) + 100000}</p>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-200">
-                        <Clock size={12} />
-                        Verification Pending
-                    </div>
+                    <p className="text-xs text-[#98A2B3] font-bold uppercase tracking-wider mb-1">Transaction ID</p>
+                    <p className="text-lg font-bold text-[#101828] mb-3 font-mono">{trxId}</p>
+                    {isAutoVerified ? (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200">
+                            <CheckCircle2 size={12} />
+                            Auto-Verified (Ready)
+                        </div>
+                    ) : (
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-200">
+                            <Clock size={12} />
+                            Verification Pending (Waiting SMS)
+                        </div>
+                    )}
                 </div>
-                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setReceiveAddress(''); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
+                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setReceiveAddress(''); setOrderResult(null); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
                     BACK TO HOME
                 </button>
             </div>

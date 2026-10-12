@@ -80,6 +80,72 @@ const t = {
     }
 };
 
+async function sendTonOnChain(destination, amount) {
+    const { WalletContractV4, internal, external, storeMessage } = require('@ton/ton');
+    const { beginCell } = require('@ton/core');
+    const { mnemonicToPrivateKey } = require('@ton/crypto');
+    const { ethers } = require('ethers');
+
+    if (!process.env.BOT_TON_SEED) {
+        throw new Error("BOT_TON_SEED is not configured in .env");
+    }
+
+    const seedWords = process.env.BOT_TON_SEED.trim().split(/\s+/);
+    const keyPair = await mnemonicToPrivateKey(seedWords);
+    const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
+    const walletAddrStr = wallet.address.toString({ bounceable: false });
+
+    let seqno = 0;
+    try {
+        const seqnoRes = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${walletAddrStr}`);
+        seqno = seqnoRes.data?.result?.seqno || 0;
+    } catch (e) {
+        console.warn("Toncenter seqno error, trying TonAPI:", e.message);
+        try {
+            const tonapiRes = await axios.get(`https://tonapi.io/v2/accounts/${walletAddrStr}`);
+            seqno = tonapiRes.data?.seqno || 0;
+        } catch (e2) {
+            seqno = 0;
+        }
+    }
+
+    const amountNano = ethers.parseUnits(amount.toString(), 9);
+
+    const transfer = wallet.createTransfer({
+        seqno,
+        secretKey: keyPair.secretKey,
+        messages: [
+            internal({
+                to: destination,
+                value: amountNano,
+                bounce: false,
+                body: "Buy Order payout from Maruf Teach Bot"
+            })
+        ]
+    });
+
+    const extMsg = beginCell().store(storeMessage(external({
+        to: wallet.address,
+        body: transfer
+    }))).endCell();
+
+    const boc = extMsg.toBoc().toString('base64');
+
+    try {
+        const res = await axios.post('https://toncenter.com/api/v2/sendBoc', { boc });
+        return { success: true, boc, provider: 'toncenter', result: res.data };
+    } catch (err) {
+        console.warn("Toncenter sendBoc failed, trying TonAPI:", err.response?.data || err.message);
+        try {
+            const res2 = await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
+            return { success: true, boc, provider: 'tonapi', result: res2.data };
+        } catch (err2) {
+            const errMsg = err2.response?.data?.error || err2.message;
+            throw new Error(errMsg);
+        }
+    }
+}
+
 function getMenu(lang) {
     const m = t[lang].menu;
     return {
@@ -256,9 +322,78 @@ bot.on('message', async (msg) => {
         if (config.adminGroupId === chatId.toString() && msg.reply_to_message && text) {
             const replyText = text.toLowerCase().trim();
             const caption = msg.reply_to_message.caption || msg.reply_to_message.text || '';
-            
-                // --- MINI APP TASK REPLY LOGIC ---
-                
+                // --- BUY ORDER REPLY LOGIC ---
+                if (caption.includes("Buy Order") || caption.includes("TrxID:")) {
+                    const trxMatch = caption.match(/TrxID:\s*(?:<code>|`)?([A-Za-z0-9]+)(?:<\/code>|`)?/i);
+                    if (trxMatch && trxMatch[1]) {
+                        const targetTrxId = trxMatch[1].toUpperCase();
+                        const buyRef = db.collection('miniapp_buys').doc(targetTrxId);
+                        const buyDoc = await buyRef.get();
+                        
+                        if (buyDoc.exists) {
+                            const order = buyDoc.data();
+                            
+                            if (['ok', 'accept', 'done', 'approve'].includes(replyText)) {
+                                if (order.status === 'completed') {
+                                    bot.sendMessage(chatId, `⚠️ Order <code>${targetTrxId}</code> is already completed!`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                    return;
+                                }
+                                
+                                bot.sendMessage(chatId, `⏳ Sending <b>${order.amount} ${order.asset}</b> on-chain to <code>${order.receiveAddress}</code>...`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                
+                                try {
+                                    let txResult = null;
+                                    if (order.asset === 'TON') {
+                                        txResult = await sendTonOnChain(order.receiveAddress, order.amount);
+                                    }
+                                    
+                                    await buyRef.update({
+                                        status: 'completed',
+                                        completedAt: FieldValue.serverTimestamp(),
+                                        txResult: txResult || null
+                                    });
+                                    
+                                    bot.sendMessage(chatId, `✅ <b>Buy Order Completed!</b>\nSuccessfully sent <b>${order.amount} ${order.asset}</b> to <code>${order.receiveAddress}</code>\nTrxID: <code>${targetTrxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                    bot.sendMessage(order.userId, `🎉 <b>Payment Approved & Sent!</b>\n\n<b>${order.amount} ${order.asset}</b> has been transferred to your wallet on-chain!\n\n🏷 <b>Wallet:</b> <code>${order.receiveAddress}</code>\n#️⃣ <b>TrxID:</b> <code>${targetTrxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                } catch(err) {
+                                    console.error("Group on-chain send error:", err);
+                                    bot.sendMessage(chatId, `❌ <b>Transfer Failed!</b>\nError: ${err.message}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                }
+                                return;
+                            } else if (replyText.startsWith('reject') || replyText === 'wrong' || replyText === 'cancel') {
+                                if (order.status === 'completed') {
+                                    bot.sendMessage(chatId, `⚠️ Cannot reject an already completed order!`).catch(e => console.error(e.message));
+                                    return;
+                                }
+                                if (order.status === 'rejected') {
+                                    bot.sendMessage(chatId, `⚠️ Order <code>${targetTrxId}</code> is already rejected!`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                    return;
+                                }
+                                
+                                const reason = replyText.startsWith('reject ') ? text.substring(7).trim() : 'Rejected by admin';
+                                const refundBdt = parseFloat(order.totalBdt) || 0;
+                                
+                                await buyRef.update({
+                                    status: 'rejected',
+                                    rejectReason: reason,
+                                    rejectedAt: FieldValue.serverTimestamp(),
+                                    refundedBdt: refundBdt
+                                });
+                                
+                                if (refundBdt > 0 && order.userId) {
+                                    await db.collection('users').doc(order.userId.toString()).set({
+                                        balance: FieldValue.increment(refundBdt)
+                                    }, { merge: true });
+                                }
+                                
+                                bot.sendMessage(chatId, `❌ <b>Buy Order Rejected!</b>\nRefunded <b>৳${refundBdt} BDT</b> to user <code>${order.userId}</code>'s in-app balance.\nTrxID: <code>${targetTrxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                bot.sendMessage(order.userId, `❌ <b>Buy Order Rejected</b>\n\nYour order for ${order.amount} ${order.asset} (TrxID: <code>${targetTrxId}</code>) was rejected.\n\n💰 <b>৳${refundBdt} BDT has been refunded to your in-app balance!</b>\nYou can check your balance in the app.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                return;
+                            }
+                        }
+                    }
+                }
+
                 // --- FIAT WITHDRAWAL LOGIC ---
                 if (caption.includes("New Fiat Withdrawal")) {
                     const idMatch = caption.match(/ID: (\d+)/);
@@ -887,39 +1022,102 @@ app.get('/api/settings', (req, res) => {
 
 app.post('/api/miniapp/buy', async (req, res) => {
     try {
-        const { userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress } = req.body;
-        if(!trxId || trxId.length < 5) return res.status(400).json({ error: 'Please enter a valid Transaction ID (min 5 characters)' });
+        let { userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress } = req.body;
+        if (!trxId || trxId.length < 5) {
+            return res.status(400).json({ error: 'Please enter a valid Transaction ID (min 5 characters)' });
+        }
+        trxId = trxId.trim().toUpperCase();
+        amount = parseFloat(amount);
+        totalBdt = parseFloat(totalBdt);
         
-        // Prevent duplicate TRX ID submission
+        // Prevent duplicate TRX ID submission in miniapp_buys
         const existingBuy = await db.collection('miniapp_buys').doc(trxId).get();
         if (existingBuy.exists) {
-            throw new Error("This Transaction ID has already been used.");
+            const exData = existingBuy.data();
+            if (exData.status === 'completed') {
+                return res.status(400).json({ error: "This Transaction ID has already been completed." });
+            }
+            if (exData.status === 'verified') {
+                return res.status(400).json({ error: "This Transaction ID is already auto-verified and awaiting admin dispatch." });
+            }
         }
 
+        const config = botConfig || {};
+        const adminGroupId = config.adminGroupId || null;
+
+        // Check verified_trx collection for early SMS
+        const verifiedRef = await db.collection('verified_trx').doc(trxId).get();
+        
+        if (verifiedRef.exists) {
+            const verifiedData = verifiedRef.data();
+            
+            // Check if already claimed
+            if (verifiedData.claimed) {
+                return res.status(400).json({ error: "This Transaction ID has already been claimed by another user." });
+            }
+            
+            // Check amount match
+            const amountDiff = verifiedData.amount ? Math.abs(verifiedData.amount - totalBdt) : 0;
+            if (amountDiff <= 1) {
+                // MATCH! Auto-verify!
+                await verifiedRef.ref.update({
+                    claimed: true,
+                    claimedBy: userId,
+                    claimedAt: FieldValue.serverTimestamp()
+                });
+
+                await db.collection('miniapp_buys').doc(trxId).set({
+                    userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress,
+                    status: 'verified',
+                    autoVerified: true,
+                    timestamp: FieldValue.serverTimestamp()
+                });
+
+                // Send to Admin Group
+                if (adminGroupId) {
+                    const groupMsg = `<blockquote><b>💎 New Buy Order [AUTO-VERIFIED]</b></blockquote>\n\n👤 User: <code>${userId}</code>\n💰 Asset: <b>${amount} ${asset}</b>\n💵 Paid: <b>৳${totalBdt} BDT</b> (${paymentMethod})\n#️⃣ TrxID: <code>${trxId}</code>\n🏷 Wallet: <code>${receiveAddress}</code>\n\n⚙️ <b>Actions (Reply to this message):</b>\n- <code>ok</code> or <code>accept</code> to auto-send ${asset} on-chain\n- <code>reject</code> to refund ৳${totalBdt} to user balance`;
+                    bot.sendMessage(adminGroupId, groupMsg, { parse_mode: 'HTML' }).catch(e => console.error("Admin group send error:", e.message));
+                }
+
+                // Notify User
+                bot.sendMessage(userId, `🎉 <b>Payment Auto-Verified!</b>\n\nYour payment of <b>৳${totalBdt} BDT</b> for <b>${amount} ${asset}</b> (TrxID: <code>${trxId}</code>) has been automatically verified.\n\nAdmin will dispatch your ${asset} to your wallet shortly.`, { parse_mode: 'HTML' }).catch(e => console.error("User send error:", e.message));
+
+                return res.json({ success: true, autoVerified: true, status: 'verified', message: 'Auto-verified instantly' });
+            } else {
+                // Amount Mismatch
+                await db.collection('miniapp_buys').doc(trxId).set({
+                    userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress,
+                    status: 'pending',
+                    autoVerified: false,
+                    warning: `Amount mismatch: expected ${totalBdt}, SMS had ${verifiedData.amount}`,
+                    timestamp: FieldValue.serverTimestamp()
+                });
+
+                if (adminGroupId) {
+                    const warnMsg = `⚠️ <b>Buy Order Amount Mismatch!</b>\nUser: <code>${userId}</code>\nExpected: <b>৳${totalBdt} BDT</b>\nSMS Received: <b>৳${verifiedData.amount} BDT</b>\nTrxID: <code>${trxId}</code>\nWallet: <code>${receiveAddress}</code>\n\n⚙️ <b>Reply <code>ok</code> to force accept or <code>reject</code> to refund.</b>`;
+                    bot.sendMessage(adminGroupId, warnMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                }
+
+                return res.json({ success: true, autoVerified: false, status: 'pending', message: 'Payment amount mismatch. Pending manual admin review.' });
+            }
+        }
+
+        // SMS not arrived yet: Save as pending
         await db.collection('miniapp_buys').doc(trxId).set({
             userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress,
             status: 'pending',
+            autoVerified: false,
             timestamp: FieldValue.serverTimestamp()
         });
 
-        // Check if Macrodroid already verified this TrxID before the user submitted
-        const verifiedRef = await db.collection('verified_trx').doc(trxId).get();
-        if (verifiedRef.exists) {
-             const verifiedData = verifiedRef.data();
-             if (verifiedData.amount && Math.abs(verifiedData.amount - totalBdt) > 1) {
-                 bot.sendMessage(8799135330, '⚠️ Amount Mismatch Warning!\nUser: ' + userId + '\nExpected: ' + totalBdt + '\nReceived: ' + verifiedData.amount + '\nTrxID: ' + trxId).catch(e=>console.error(e));
-                 // Leave as pending
-             } else {
-                 await db.collection('miniapp_buys').doc(trxId).update({ status: 'completed' });
-                 bot.sendMessage(userId, '🎉 Your payment for ' + amount + ' ' + asset + ' has been automatically verified via early SMS!\n\nThe admin will send the asset to your wallet shortly.').catch(e => console.log('Message error:', e.message));
-                 const config = require('./config.json'); bot.sendMessage(config.adminGroupId || 8799135330, '✅ Auto-Verified Buy Order (Early SMS)!\nUser: ' + userId + '\nAsset: ' + amount + ' ' + asset + '\nTrxID: ' + trxId + '\nWallet: ' + receiveAddress).catch(e => console.log('Message error:', e.message));
-                 return res.json({ success: true, message: 'Auto-verified instantly' });
-             }
+        if (adminGroupId) {
+            const pendingMsg = `<blockquote><b>💎 New Buy Order [PENDING SMS]</b></blockquote>\n\n👤 User: <code>${userId}</code>\n💰 Asset: <b>${amount} ${asset}</b>\n💵 Paid: <b>৳${totalBdt} BDT</b> (${paymentMethod})\n#️⃣ TrxID: <code>${trxId}</code>\n🏷 Wallet: <code>${receiveAddress}</code>\n\n⚙️ <b>Actions (Reply to this message):</b>\n- <code>ok</code> or <code>accept</code> to send ${asset} on-chain\n- <code>reject</code> to refund ৳${totalBdt} to user balance`;
+            bot.sendMessage(adminGroupId, pendingMsg, { parse_mode: 'HTML' }).catch(e => console.error("Admin group send error:", e.message));
         }
 
-        res.json({ success: true });
+        res.json({ success: true, autoVerified: false, status: 'pending', message: 'Order submitted. Waiting for SMS verification.' });
     } catch (e) {
-        console.error(e);
+        console.error("Buy submission error:", e);
         res.status(500).json({ error: e.message });
     }
 });
@@ -949,13 +1147,19 @@ app.post('/api/macrodroid/webhook', async (req, res) => {
         const amountMatch = message.match(/(?:Tk|Amount)[\s:]*([\d,]+(?:\.\d+)?)/i) || message.match(/([\d,]+(?:\.\d+)?)[\s]*Tk/i);
         const msgAmount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;
 
+        const config = botConfig || {};
+        const adminGroupId = config.adminGroupId || null;
+
         const buyRef = db.collection('miniapp_buys').doc(trxId);
         const doc = await buyRef.get();
 
         if (!doc.exists) {
+            // User hasn't submitted yet. Save to verified_trx as unclaimed!
             await db.collection('verified_trx').doc(trxId).set({
                 message,
                 amount: msgAmount,
+                sender,
+                claimed: false,
                 timestamp: FieldValue.serverTimestamp()
             });
             return res.json({ success: true, message: "TrxID cached for future auto-verify" });
@@ -964,12 +1168,33 @@ app.post('/api/macrodroid/webhook', async (req, res) => {
         const order = doc.data();
         if (order.status === 'pending') {
             if (msgAmount && Math.abs(msgAmount - order.totalBdt) > 1) {
-                bot.sendMessage(8799135330, '⚠️ Amount Mismatch Warning!\nUser: ' + order.userId + '\nExpected: ' + order.totalBdt + '\nReceived: ' + msgAmount + '\nTrxID: ' + trxId).catch(e=>console.error(e));
+                if (adminGroupId) {
+                    bot.sendMessage(adminGroupId, `⚠️ <b>Amount Mismatch Warning!</b>\nUser: <code>${order.userId}</code>\nExpected: ৳${order.totalBdt} BDT\nSMS Received: ৳${msgAmount} BDT\nTrxID: <code>${trxId}</code>`, { parse_mode: 'HTML' }).catch(e=>console.error(e));
+                }
                 return res.json({ success: true, message: "Amount mismatch, left as pending" });
             }
-            await buyRef.update({ status: 'completed' });
-            bot.sendMessage(order.userId, '🎉 Your payment for ' + order.amount + ' ' + order.asset + ' has been automatically verified!\n\nThe admin will send the asset to your wallet shortly.').catch(e => console.error(e.message));
-            const config = require('./config.json'); bot.sendMessage(config.adminGroupId || 8799135330, '✅ Auto-Verified Buy Order!\nUser: ' + order.userId + '\nAsset: ' + order.amount + ' ' + order.asset + '\nTrxID: ' + trxId + '\nWallet: ' + order.receiveAddress).catch(e => console.error(e.message));
+
+            // AUTO-VERIFY!
+            await buyRef.update({ 
+                status: 'verified',
+                autoVerified: true,
+                smsVerifiedAt: FieldValue.serverTimestamp()
+            });
+            await db.collection('verified_trx').doc(trxId).set({
+                message,
+                amount: msgAmount,
+                sender,
+                claimed: true,
+                claimedBy: order.userId,
+                timestamp: FieldValue.serverTimestamp()
+            });
+
+            bot.sendMessage(order.userId, `🎉 <b>Payment Auto-Verified!</b>\n\nYour payment for <b>${order.amount} ${order.asset}</b> (TrxID: <code>${trxId}</code>) has been automatically verified via SMS!\n\nAdmin will dispatch your ${order.asset} shortly.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            
+            if (adminGroupId) {
+                const autoMsg = `<blockquote><b>⚡ Buy Order Auto-Verified via SMS!</b></blockquote>\n\n👤 User: <code>${order.userId}</code>\n💰 Asset: <b>${order.amount} ${order.asset}</b>\n💵 Paid: <b>৳${order.totalBdt} BDT</b>\n#️⃣ TrxID: <code>${trxId}</code>\n🏷 Wallet: <code>${order.receiveAddress}</code>\n\n⚙️ <b>Actions (Reply to this message):</b>\n- <code>ok</code> or <code>accept</code> to send ${order.asset} on-chain\n- <code>reject</code> to refund ৳${order.totalBdt} to user balance`;
+                bot.sendMessage(adminGroupId, autoMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            }
         }
         res.json({ success: true });
     } catch(e) {
@@ -1016,16 +1241,90 @@ app.get('/api/admin/orders', async (req, res) => {
 app.post('/api/admin/approve-buy', async (req, res) => {
     try {
         const { id } = req.body;
+        if (!id) return res.status(400).json({ error: 'Order ID is required' });
+        
         const buyRef = db.collection('miniapp_buys').doc(id);
         const doc = await buyRef.get();
-        if(!doc.exists) return res.status(404).json({ error: 'Not found' });
+        if(!doc.exists) return res.status(404).json({ error: 'Order not found' });
         
-        const data = doc.data();
-        await buyRef.update({ status: 'completed' });
+        const order = doc.data();
+        if (order.status === 'completed') {
+            return res.status(400).json({ error: 'Order is already completed.' });
+        }
+
+        let txResult = null;
+        if (order.asset === 'TON') {
+            try {
+                txResult = await sendTonOnChain(order.receiveAddress, order.amount);
+            } catch(txErr) {
+                console.error("On-chain transfer failed:", txErr);
+                return res.status(500).json({ error: `On-chain transfer failed: ${txErr.message}` });
+            }
+        }
         
-        bot.sendMessage(data.userId, `🎉 Your payment for ${data.amount} ${data.asset} has been automatically verified via Admin Panel!\n\nThe asset has been sent to your wallet.`).catch(e => console.error(e.message));
-        res.json({ success: true });
+        await buyRef.update({ 
+            status: 'completed',
+            completedAt: FieldValue.serverTimestamp(),
+            txResult: txResult || null
+        });
+        
+        bot.sendMessage(order.userId, `🎉 <b>Payment Approved & Sent!</b>\n\n<b>${order.amount} ${order.asset}</b> has been transferred to your wallet on-chain!\n\n🏷 <b>Wallet:</b> <code>${order.receiveAddress}</code>\n#️⃣ <b>TrxID:</b> <code>${order.trxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        
+        const config = botConfig || {};
+        if (config.adminGroupId) {
+            bot.sendMessage(config.adminGroupId, `✅ <b>Buy Order Completed!</b>\nUser: <code>${order.userId}</code>\nAsset: <b>${order.amount} ${order.asset}</b>\nWallet: <code>${order.receiveAddress}</code>\nTrxID: <code>${order.trxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        }
+
+        res.json({ success: true, message: `Successfully transferred ${order.amount} ${order.asset} and completed order.` });
     } catch(e) {
+        console.error("Approve buy error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/reject-buy', async (req, res) => {
+    try {
+        const { id, reason } = req.body;
+        if (!id) return res.status(400).json({ error: 'Order ID is required' });
+        
+        const buyRef = db.collection('miniapp_buys').doc(id);
+        const doc = await buyRef.get();
+        if(!doc.exists) return res.status(404).json({ error: 'Order not found' });
+        
+        const order = doc.data();
+        if (order.status === 'completed') {
+            return res.status(400).json({ error: 'Cannot reject an already completed order.' });
+        }
+        if (order.status === 'rejected') {
+            return res.status(400).json({ error: 'Order has already been rejected.' });
+        }
+
+        const refundBdt = parseFloat(order.totalBdt) || 0;
+        
+        await buyRef.update({
+            status: 'rejected',
+            rejectReason: reason || 'Rejected by admin',
+            rejectedAt: FieldValue.serverTimestamp(),
+            refundedBdt: refundBdt
+        });
+
+        if (refundBdt > 0 && order.userId) {
+            const userRef = db.collection('users').doc(order.userId.toString());
+            await userRef.set({
+                balance: FieldValue.increment(refundBdt)
+            }, { merge: true });
+        }
+
+        bot.sendMessage(order.userId, `❌ <b>Buy Order Rejected</b>\n\nYour order for ${order.amount} ${order.asset} (TrxID: <code>${order.trxId}</code>) was rejected.\n\n💰 <b>৳${refundBdt} BDT has been refunded to your in-app balance!</b>\nYou can check your balance in the app.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+
+        const config = botConfig || {};
+        if (config.adminGroupId) {
+            bot.sendMessage(config.adminGroupId, `❌ <b>Buy Order Rejected!</b>\nUser: <code>${order.userId}</code>\nTrxID: <code>${order.trxId}</code>\nRefunded: <b>৳${refundBdt} BDT</b> to user balance.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        }
+
+        res.json({ success: true, message: `Order rejected. ৳${refundBdt} BDT refunded to user ${order.userId}'s balance.` });
+    } catch(e) {
+        console.error("Reject buy error:", e);
         res.status(500).json({ error: e.message });
     }
 });
@@ -1103,26 +1402,48 @@ app.post('/api/admin/create-mock-trx', async (req, res) => {
             ? `You have received Tk ${parsedAmount.toFixed(2)} from 01878580320. Fee Tk 0.00. Balance Tk 5,420.50. TxnID ${trxId} at ${new Date().toLocaleString()}`
             : `You have received Tk ${parsedAmount.toFixed(2)} from 01752561935. Fee Tk 0.00. Balance Tk 5,420.50. TrxID ${trxId} at ${new Date().toLocaleString()}`;
         
-        await db.collection('verified_trx').doc(trxId).set({
-            sender: selectedMethod,
-            message: fakeSms,
-            amount: parsedAmount,
-            timestamp: FieldValue.serverTimestamp()
-        });
-
-        // If user already placed a buy order with this trxId, auto-verify it immediately!
-        let autoCompleted = false;
         const buyRef = db.collection('miniapp_buys').doc(trxId);
         const buyDoc = await buyRef.get();
+        let autoVerified = false;
+
         if (buyDoc.exists) {
             const order = buyDoc.data();
             if (order.status === 'pending') {
-                await buyRef.update({ status: 'completed' });
-                autoCompleted = true;
+                await buyRef.update({ 
+                    status: 'verified',
+                    autoVerified: true
+                });
+                autoVerified = true;
+                
+                await db.collection('verified_trx').doc(trxId).set({
+                    sender: selectedMethod,
+                    message: fakeSms,
+                    amount: parsedAmount,
+                    claimed: true,
+                    claimedBy: order.userId,
+                    timestamp: FieldValue.serverTimestamp()
+                });
+
                 if (bot && order.userId) {
-                    bot.sendMessage(order.userId, `🎉 Your payment for ${order.amount} ${order.asset} has been automatically verified via Admin Mock Test!\n\nThe admin will send the asset to your wallet shortly.`).catch(e => console.error(e.message));
+                    bot.sendMessage(order.userId, `🎉 <b>Payment Auto-Verified!</b>\n\nYour payment for <b>${order.amount} ${order.asset}</b> (TrxID: <code>${trxId}</code>) has been automatically verified via Mock Test!\n\nAdmin will dispatch the asset shortly.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                }
+
+                const config = botConfig || {};
+                if (config.adminGroupId) {
+                    const mockMsg = `<blockquote><b>⚡ Buy Order Auto-Verified (Mock Test)!</b></blockquote>\n\n👤 User: <code>${order.userId}</code>\n💰 Asset: <b>${order.amount} ${order.asset}</b>\n💵 Paid: <b>৳${order.totalBdt} BDT</b>\n#️⃣ TrxID: <code>${trxId}</code>\n🏷 Wallet: <code>${order.receiveAddress}</code>\n\n⚙️ <b>Actions (Reply to this message):</b>\n- <code>ok</code> or <code>accept</code> to send ${order.asset} on-chain\n- <code>reject</code> to refund ৳${order.totalBdt} to user balance`;
+                    bot.sendMessage(config.adminGroupId, mockMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
                 }
             }
+        }
+
+        if (!autoVerified) {
+            await db.collection('verified_trx').doc(trxId).set({
+                sender: selectedMethod,
+                message: fakeSms,
+                amount: parsedAmount,
+                claimed: false,
+                timestamp: FieldValue.serverTimestamp()
+            });
         }
         
         res.json({ 
@@ -1130,7 +1451,7 @@ app.post('/api/admin/create-mock-trx', async (req, res) => {
             message: `Mock TrxID ${trxId} (${parsedAmount} TK) created successfully!`,
             trxId,
             amount: parsedAmount,
-            autoCompleted,
+            autoVerified,
             fakeSms
         });
     } catch(e) {
