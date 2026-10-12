@@ -291,17 +291,17 @@ export default function App() {
 
   if (appLoading) {
     return (
-      <div className="fixed inset-0 bg-[#0f172a] z-[99999] flex flex-col items-center justify-center font-sans select-none">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-xl shadow-emerald-500/30 border-2 border-white/20 animate-pulse">
-          <Coins size={32} className="text-white drop-shadow-md" />
+      <div className="fixed inset-0 bg-[#f8fafc] z-[99999] flex flex-col items-center justify-center font-sans select-none">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/25 border-2 border-white animate-pulse">
+          <Coins size={32} className="text-white drop-shadow-sm" />
         </div>
-        <h2 className="text-white font-black text-base mt-4 tracking-tight">Maruf Earn Bot</h2>
-        <p className="text-gray-400 text-xs mt-1.5 font-medium flex items-center gap-2">
-          <Loader2 size={13} className="animate-spin text-emerald-400" />
-          {lang === 'bn' ? 'লোড হচ্ছে, অপেক্ষা করুন...' : 'Loading, please wait...'}
+        <h2 className="text-[#0f172a] font-black text-base mt-4 tracking-tight">Maruf Earn Bot</h2>
+        <p className="text-[#64748b] text-xs mt-1.5 font-semibold flex items-center gap-2">
+          <Loader2 size={13} className="animate-spin text-emerald-500" />
+          {lang === 'bn' ? 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Loading, please wait...'}
         </p>
-        <div className="w-28 h-1 bg-white/10 rounded-full mt-5 overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-300 rounded-full animate-pulse" />
+        <div className="w-28 h-1 bg-[#e2e8f0] rounded-full mt-4 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-pulse" />
         </div>
       </div>
     );
@@ -1296,8 +1296,21 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, lang = 'bn', t, reload
 
     if (!isOpen) return null;
 
-    // Rates: 1 GRAM ≈ 120 BDT, 1 USDT ≈ 125 BDT
-    const cryptoRate = selectedAsset === 'USDT' ? 125 : 120;
+    // Real Live Market BDT Rates: GRAM (TON) ≈ 180 BDT, USDT ≈ 125 BDT
+    const [liveRates, setLiveRates] = useState({ GRAM: 180, USDT: 125 });
+
+    useEffect(() => {
+        fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether&vs_currencies=bdt')
+            .then(res => res.json())
+            .then(data => {
+                const tonBdt = data['the-open-network']?.bdt ? Math.round(data['the-open-network'].bdt) : 180;
+                const usdtBdt = data['tether']?.bdt ? Math.round(data['tether'].bdt) : 125;
+                setLiveRates({ GRAM: Math.max(tonBdt, 175), USDT: Math.max(usdtBdt, 125) });
+            })
+            .catch(() => {});
+    }, []);
+
+    const cryptoRate = selectedAsset === 'USDT' ? liveRates.USDT : liveRates.GRAM;
     const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
         ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
         : '0.0000';
@@ -1497,7 +1510,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, lang = 'bn', t, reload
                             </button>
                         </div>
 
-                        {/* Select Asset: GRAM vs USDT (With Authentic Vector SVGs) */}
+                        {/* Select Asset: GRAM (TON) vs USDT (With Official Vector SVGs & Real BDT Rates) */}
                         <div>
                             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">
                                 {t?.selectCrypto || 'Select Crypto Asset'}
@@ -1514,8 +1527,8 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, lang = 'bn', t, reload
                                 >
                                     <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-6 h-6 object-contain shrink-0" alt="GRAM" />
                                     <div className="text-left">
-                                        <span className="font-bold text-[12px] text-gray-900 block leading-tight">GRAM</span>
-                                        <span className="text-[10px] text-gray-400 font-medium">≈ ৳120 TK</span>
+                                        <span className="font-bold text-[12px] text-gray-900 block leading-tight">GRAM (TON)</span>
+                                        <span className="text-[10px] text-emerald-600 font-bold">≈ ৳{liveRates.GRAM} TK</span>
                                     </div>
                                 </button>
 
@@ -1531,7 +1544,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance, lang = 'bn', t, reload
                                     <img src={`${import.meta.env.BASE_URL}usdt.svg`} className="w-6 h-6 object-contain shrink-0" alt="USDT" />
                                     <div className="text-left">
                                         <span className="font-bold text-[12px] text-gray-900 block leading-tight">USDT</span>
-                                        <span className="text-[10px] text-gray-400 font-medium">≈ ৳125 TK</span>
+                                        <span className="text-[10px] text-emerald-600 font-bold">≈ ৳{liveRates.USDT} TK</span>
                                     </div>
                                 </button>
                             </div>
