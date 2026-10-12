@@ -1,7 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Users, CreditCard, Activity, LayoutDashboard, LogOut, Bot, Wallet, Settings, ArrowDownToLine, Send, Copy, CheckCircle2, XCircle , List, AlertTriangle, PlusCircle, X } from 'lucide-react';
+import { Users, CreditCard, Activity, LayoutDashboard, LogOut, Bot, Wallet, Settings, ArrowDownToLine, Send, Copy, CheckCircle2, XCircle , List, AlertTriangle, PlusCircle, X, RefreshCw } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
+
+export const API_BASE = import.meta.env.VITE_API_URL || 
+  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname.includes('127.0.0.1'))
+    ? 'http://localhost:3000' 
+    : 'https://maruf-teach-bot.onrender.com');
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6 text-white">
+          <div className="bg-gray-900 border border-red-500/30 p-8 rounded-3xl max-w-lg w-full text-center shadow-2xl">
+            <div className="w-16 h-16 bg-red-500/20 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-black">
+              ⚠️
+            </div>
+            <h2 className="text-2xl font-black text-red-400 mb-2">Interface Error Recovered</h2>
+            <p className="text-xs text-gray-400 mb-6 font-mono bg-gray-950 p-3 rounded-xl break-all">
+              {this.state.error?.message || String(this.state.error)}
+            </p>
+            <button 
+              onClick={() => { this.setState({ hasError: false, error: null }); window.location.href = '/transactions'; }}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-black text-sm tracking-wide shadow-lg transition-all cursor-pointer"
+            >
+              Reload Orders & Transactions
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function Sidebar({ onOpenCreateTrx }) {
   const location = useLocation();
@@ -10,8 +52,9 @@ function Sidebar({ onOpenCreateTrx }) {
     { path: '/bot-wallet', name: 'Bot Wallet & Stats', icon: <Wallet size={20} /> },
     { path: '/bot-settings', name: 'Bot Settings', icon: <Bot size={20} /> },
     { path: '/users', name: 'Users List', icon: <Users size={20} /> },
+    { path: '/withdraw', name: 'Fiat Withdrawals', icon: <ArrowDownToLine size={20} className="text-emerald-400" /> },
     { path: '/fraud', name: 'Fraud Logs', icon: <AlertTriangle size={20} className="text-red-400" /> },
-    { path: '/transactions', name: 'Transactions', icon: <List size={20} /> },
+    { path: '/transactions', name: 'Orders & Trx', icon: <List size={20} /> },
   ];
 
   return (
@@ -131,7 +174,7 @@ function CreateTrxModal({ isOpen, onClose }) {
     }
     setLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/create-mock-trx`, {
+      const res = await fetch(`${API_BASE}/api/admin/create-mock-trx`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -301,7 +344,7 @@ function useBotData() {
 
     useEffect(() => {
         const fetchData = () => {
-            fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/stats?_t=${Date.now()}`)
+            fetch(`${API_BASE}/api/stats?_t=${Date.now()}`)
                 .then(res => res.json())
                 .then(json => {
                     setData(json);
@@ -405,7 +448,7 @@ function BotWallet() {
       if (!amount) return;
       setWithdrawing(true);
       try {
-          const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/withdraw`, {
+          const res = await fetch(`${API_BASE}/api/withdraw`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -678,7 +721,7 @@ function BotSettings() {
   const [statusModal, setStatusModal] = useState({ isOpen: false, type: 'success', title: '', message: '' });
 
   useEffect(() => {
-      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/settings`)
+      fetch(`${API_BASE}/api/settings`)
           .then(res => res.json())
           .then(data => { setSettings(data); setLoading(false); })
           .catch(() => setLoading(false));
@@ -694,7 +737,7 @@ function BotSettings() {
   const handleDeploy = async () => {
       setSaving(true);
       try {
-          const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/settings`, {
+          const res = await fetch(`${API_BASE}/api/settings`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(settings)
@@ -814,7 +857,7 @@ function FraudList() {
       if (!confirmApprove) return;
       
       try {
-          const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/approve-fraud`, {
+          const res = await fetch(`${API_BASE}/api/approve-fraud`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ docId, chatId })
@@ -892,30 +935,35 @@ function Dashboard() {
 export default function App() {
   return (
     <TonConnectUIProvider manifestUrl="https://ton-connect.github.io/demo-dapp-with-react-ui/tonconnect-manifest.json">
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/bot-wallet" element={<BotWallet />} />
-            <Route path="/bot-settings" element={<BotSettings />} />
-            <Route path="/users" element={<UsersList />} />
-            <Route path="/fraud" element={<FraudList />} />
-              <Route path="/transactions" element={<OrdersList />} />
-          </Routes>
-        </Layout>
-      </Router>
+      <ErrorBoundary>
+        <Router>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/bot-wallet" element={<BotWallet />} />
+              <Route path="/bot-settings" element={<BotSettings />} />
+              <Route path="/users" element={<UsersList />} />
+              <Route path="/fraud" element={<FraudList />} />
+              <Route path="/transactions" element={<OrdersList initialTab="buy" />} />
+              <Route path="/withdraw" element={<OrdersList initialTab="withdraw" />} />
+              <Route path="/withdrawals" element={<OrdersList initialTab="withdraw" />} />
+              <Route path="*" element={<Dashboard />} />
+            </Routes>
+          </Layout>
+        </Router>
+      </ErrorBoundary>
     </TonConnectUIProvider>
   );
 }
 
 
 
-function OrdersList() {
+function OrdersList({ initialTab = 'buy' }) {
   const [buys, setBuys] = React.useState([]);
   const [sells, setSells] = React.useState([]);
   const [withdraws, setWithdraws] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [tab, setTab] = React.useState('buy');
+  const [tab, setTab] = React.useState(initialTab);
   
   const [bonusUser, setBonusUser] = React.useState('');
   const [bonusAmt, setBonusAmt] = React.useState('');
@@ -929,12 +977,18 @@ function OrdersList() {
   const [mockList, setMockList] = React.useState([]);
 
   React.useEffect(() => {
+    if (initialTab) {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
+
+  React.useEffect(() => {
     fetchOrders();
     fetchMockList();
   }, []);
 
   const fetchMockList = () => {
-    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/mock-trxs`)
+    fetch(`${API_BASE}/api/admin/mock-trxs`)
       .then(r => r.json())
       .then(d => { if (d.success) setMockList(d.list || []); })
       .catch(e => console.error(e));
@@ -953,7 +1007,7 @@ function OrdersList() {
     if (!mockId || !mockAmount) return alert("Please enter both 8-digit TrxID and Amount!");
     setMockLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/create-mock-trx`, {
+      const res = await fetch(`${API_BASE}/api/admin/create-mock-trx`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trxId: mockId, amount: mockAmount, method: mockMethod })
@@ -974,41 +1028,62 @@ function OrdersList() {
   };
 
   const fetchOrders = () => {
-      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/orders`)
-        .then(r => r.json())
-        .then(d => {
-          setBuys(d.buys || []);
-          setSells(d.sells || []);
-          setWithdraws(d.withdrawals || []);
-          setLoading(false);
-        })
-        .catch(e => { console.error(e); setLoading(false); });
+    fetch(`${API_BASE}/api/admin/orders`)
+      .then(r => r.json())
+      .then(d => {
+        setBuys(Array.isArray(d?.buys) ? d.buys : []);
+        setSells(Array.isArray(d?.sells) ? d.sells : []);
+        setWithdraws(Array.isArray(d?.withdrawals) ? d.withdrawals : []);
+        setLoading(false);
+      })
+      .catch(e => { console.error('fetchOrders error:', e); setLoading(false); });
   };
     
   const handleApproveWithdraw = async (userId) => {
-      if(!window.confirm("Approve this Withdrawal and notify user?")) return;
-      try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/approve-withdraw`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId })
-        });
-        const data = await res.json();
-        if(data.success) {
-          alert("Withdrawal Approved & User Notified!");
-          fetchOrders();
-        } else {
-          alert(data.error);
-        }
-      } catch(e) {
-        alert("Error approving withdrawal");
+    if(!window.confirm("Approve this Withdrawal and notify user?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/approve-withdraw`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if(data.success) {
+        alert("Withdrawal Approved & User Notified!");
+        fetchOrders();
+      } else {
+        alert(data.error || "Approval failed");
       }
+    } catch(e) {
+      alert("Error approving withdrawal: " + e.message);
+    }
+  };
+
+  const handleRejectWithdraw = async (userId, refundAmt) => {
+    const reason = prompt("Enter rejection reason (optional):", "Verification failed or incorrect number");
+    if (reason === null) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/reject-withdraw`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, refundAmt, reason })
+      });
+      const data = await res.json();
+      if(data.success) {
+        alert("Withdrawal rejected and " + (refundAmt ? refundAmt + " TK " : "") + "refunded to user balance!");
+        fetchOrders();
+      } else {
+        alert(data.error || "Rejection failed");
+      }
+    } catch(e) {
+      alert("Error rejecting withdrawal: " + e.message);
+    }
   };
 
   const handleApprove = async (id) => {
     if(!window.confirm("Approve this Buy Order and automatically send TON on-chain to the user's wallet?")) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/approve-buy`, {
+      const res = await fetch(`${API_BASE}/api/admin/approve-buy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
@@ -1029,7 +1104,7 @@ function OrdersList() {
     const reason = prompt("Enter rejection reason (optional):", "Payment verification failed");
     if (reason === null) return;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/reject-buy`, {
+      const res = await fetch(`${API_BASE}/api/admin/reject-buy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, reason })
@@ -1050,12 +1125,12 @@ function OrdersList() {
 
   return (
     <div className="p-8">
-      <h2 className="text-3xl font-extrabold text-blue-400 mb-6">Orders History</h2>
+      <h2 className="text-3xl font-extrabold text-blue-400 mb-6">Orders & Withdrawals</h2>
       
       <div className="flex flex-wrap gap-4 mb-6">
-        <button onClick={() => setTab('buy')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'buy' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Buy Orders</button>
-        <button onClick={() => setTab('sell')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'sell' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Sell Orders</button>
-        <button onClick={() => setTab('withdraw')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'withdraw' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Fiat Withdrawals</button>
+        <button onClick={() => setTab('buy')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'buy' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Buy Orders ({buys.length})</button>
+        <button onClick={() => setTab('sell')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'sell' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Sell Orders ({sells.length})</button>
+        <button onClick={() => setTab('withdraw')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'withdraw' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Fiat Withdrawals ({withdraws.length})</button>
         <button onClick={() => setTab('bonus')} className={`px-6 py-2 rounded-xl font-bold transition-all ${tab === 'bonus' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>Bonus & Limits</button>
         <button onClick={() => { setTab('mock'); fetchMockList(); }} className={`px-6 py-2 rounded-xl font-bold transition-all flex items-center gap-2 ${tab === 'mock' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30' : 'bg-gray-800 text-purple-400 hover:text-white'}`}>
           <span>⚡</span> Mock TrxID (Test Tool)
@@ -1190,14 +1265,14 @@ function OrdersList() {
                     </thead>
                     <tbody className="divide-y divide-gray-800">
                       {mockList.map(item => (
-                        <tr key={item.id} className="hover:bg-gray-800/30 transition-colors">
-                          <td className="py-3 px-3 font-mono font-bold text-purple-400">{item.id}</td>
-                          <td className="py-3 font-bold text-emerald-400">৳{item.amount || '0'}</td>
-                          <td className="py-3 uppercase text-xs font-semibold text-gray-400">{item.sender || 'bKash'}</td>
-                          <td className="py-3 text-xs text-gray-400 max-w-[320px] truncate" title={item.message}>{item.message}</td>
+                        <tr key={item?.id || Math.random()} className="hover:bg-gray-800/30 transition-colors">
+                          <td className="py-3 px-3 font-mono font-bold text-purple-400">{item?.id}</td>
+                          <td className="py-3 font-bold text-emerald-400">৳{item?.amount || '0'}</td>
+                          <td className="py-3 uppercase text-xs font-semibold text-gray-400">{item?.sender || 'bKash'}</td>
+                          <td className="py-3 text-xs text-gray-400 max-w-[320px] truncate" title={item?.message}>{item?.message}</td>
                           <td className="py-3 px-3 text-right">
                             <button 
-                              onClick={() => { navigator.clipboard.writeText(item.id); alert("Copied TrxID: " + item.id); }}
+                              onClick={() => { navigator.clipboard.writeText(item?.id || ''); alert("Copied TrxID: " + item?.id); }}
                               className="bg-purple-600/30 hover:bg-purple-600 text-purple-300 hover:text-white px-3 py-1 rounded-lg text-xs font-bold transition-all"
                             >
                               Copy TrxID
@@ -1223,7 +1298,7 @@ function OrdersList() {
                       <button onClick={async () => {
                           if(!bonusUser || !bonusAmt) return alert("Fill all fields");
                           try {
-                              const r = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/bonus`, {
+                              const r = await fetch(`${API_BASE}/api/admin/bonus`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ username: bonusUser, amount: bonusAmt })
@@ -1243,7 +1318,7 @@ function OrdersList() {
                       <button onClick={async () => {
                           if(!dailyLimit) return;
                           try {
-                              const r = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/limits`, {
+                              const r = await fetch(`${API_BASE}/api/admin/limits`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ limit: dailyLimit })
@@ -1271,20 +1346,44 @@ function OrdersList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/50">
-              {withdraws.map(w => (
-                <tr key={w.userId} className="hover:bg-gray-800/30 transition-colors">
-                  <td className="py-4 px-4 font-bold text-blue-400">{w.userId}</td>
-                  <td className="py-4 text-emerald-400 font-bold">{w.fiatWithdrawPending.method}</td>
-                  <td className="py-4 font-mono">{w.fiatWithdrawPending.number}</td>
-                  <td className="py-4 font-bold">{w.fiatWithdrawPending.amount} TK</td>
-                  <td className="py-4 text-xs text-gray-500">{(w.fiatWithdrawPending.timestamp && w.fiatWithdrawPending.timestamp._seconds) ? new Date(w.fiatWithdrawPending.timestamp._seconds * 1000).toLocaleString() : 'Just now'}</td>
-                  <td className="py-4 px-4">
-                      <button onClick={() => handleApproveWithdraw(w.userId)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold shadow-md">
-                        Approve
-                      </button>
-                  </td>
-                </tr>
-              ))}
+              {withdraws.map(w => {
+                const info = w?.fiatWithdrawPending || w || {};
+                const method = info?.method || w?.method || 'N/A';
+                const number = info?.number || w?.number || 'N/A';
+                const amount = info?.amount || w?.amount || 0;
+                const ts = info?.timestamp || w?.timestamp;
+                const formattedTime = (ts && ts._seconds) 
+                  ? new Date(ts._seconds * 1000).toLocaleString() 
+                  : (ts ? new Date(ts).toLocaleString() : 'Recent');
+
+                return (
+                  <tr key={w?.userId || Math.random()} className="hover:bg-gray-800/30 transition-colors">
+                    <td className="py-4 px-4 font-bold text-blue-400">{w?.userId || 'Unknown'}</td>
+                    <td className="py-4 text-emerald-400 font-bold uppercase">{method}</td>
+                    <td className="py-4 font-mono font-semibold">{number}</td>
+                    <td className="py-4 font-bold text-white">{amount} TK</td>
+                    <td className="py-4 text-xs text-gray-500">{formattedTime}</td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleApproveWithdraw(w.userId)} 
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all active:scale-95 flex items-center gap-1"
+                          title="Approve withdrawal and notify user"
+                        >
+                          <span>✓</span> Approve
+                        </button>
+                        <button 
+                          onClick={() => handleRejectWithdraw(w.userId, amount)} 
+                          className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all active:scale-95 flex items-center gap-1"
+                          title="Reject withdrawal and refund balance"
+                        >
+                          <span>✕</span> Reject & Refund
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {withdraws.length === 0 && <tr><td colSpan="6" className="py-8 text-center text-gray-500 font-bold">No pending withdrawals.</td></tr>}
             </tbody>
           </table>
@@ -1306,29 +1405,29 @@ function OrdersList() {
             </thead>
             <tbody className="divide-y divide-gray-800/50">
               {buys.map(b => (
-                <tr key={b.id} className="hover:bg-gray-800/30 transition-colors">
-                  <td className="py-4 px-4 font-mono font-bold text-cyan-400">{b.trxId}</td>
-                  <td className="py-4">{b.userId}</td>
-                  <td className="py-4 font-bold text-white">{b.amount} {b.asset}</td>
-                  <td className="py-4 text-emerald-400 font-bold">৳{b.totalBdt}</td>
-                  <td className="py-4 capitalize font-semibold">{b.paymentMethod}</td>
-                  <td className="py-4 text-xs text-gray-400 font-mono break-all max-w-[150px]">{b.receiveAddress}</td>
+                <tr key={b?.id || b?.trxId || Math.random()} className="hover:bg-gray-800/30 transition-colors">
+                  <td className="py-4 px-4 font-mono font-bold text-cyan-400">{b?.trxId || 'N/A'}</td>
+                  <td className="py-4">{b?.userId || 'N/A'}</td>
+                  <td className="py-4 font-bold text-white">{b?.amount || '0'} {b?.asset || 'TON'}</td>
+                  <td className="py-4 text-emerald-400 font-bold">৳{b?.totalBdt || '0'}</td>
+                  <td className="py-4 capitalize font-semibold">{b?.paymentMethod || 'N/A'}</td>
+                  <td className="py-4 text-xs text-gray-400 font-mono break-all max-w-[150px]">{b?.receiveAddress || 'N/A'}</td>
                   <td className="py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      b.status === 'completed' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                      b.status === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                      b.status === 'rejected' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
+                      b?.status === 'completed' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                      b?.status === 'verified' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                      b?.status === 'rejected' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
                       'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                     }`}>
-                      {b.status === 'verified' ? 'AUTO-VERIFIED (READY)' :
-                       b.status === 'pending' ? 'PENDING (WAITING SMS)' :
-                       b.status === 'completed' ? 'COMPLETED (SENT)' :
-                       b.status === 'rejected' ? 'REJECTED (REFUNDED)' :
-                       (b.status || 'PENDING').toUpperCase()}
+                      {b?.status === 'verified' ? 'AUTO-VERIFIED (READY)' :
+                       b?.status === 'pending' ? 'PENDING (WAITING SMS)' :
+                       b?.status === 'completed' ? 'COMPLETED (SENT)' :
+                       b?.status === 'rejected' ? 'REJECTED (REFUNDED)' :
+                       (b?.status || 'PENDING').toUpperCase()}
                     </span>
                   </td>
                   <td className="py-4 px-4">
-                    {(b.status === 'pending' || b.status === 'verified') ? (
+                    {(b?.status === 'pending' || b?.status === 'verified') ? (
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={() => handleApprove(b.id)} 
@@ -1345,11 +1444,11 @@ function OrdersList() {
                           <span>✕</span> Reject
                         </button>
                       </div>
-                    ) : b.status === 'completed' ? (
+                    ) : b?.status === 'completed' ? (
                       <span className="text-xs text-blue-400 font-bold flex items-center gap-1">
                         <span>✓</span> Sent (On-Chain)
                       </span>
-                    ) : b.status === 'rejected' ? (
+                    ) : b?.status === 'rejected' ? (
                       <span className="text-xs text-rose-400 font-bold flex items-center gap-1">
                         <span>✕</span> Refunded
                       </span>
@@ -1375,18 +1474,25 @@ function OrdersList() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/50">
-              {sells.map(s => (
-                <tr key={s.id} className="hover:bg-gray-800/30 transition-colors">
-                  <td className="py-4 px-4 font-mono text-cyan-400 text-xs">{s.id.slice(0, 8)}...</td>
-                  <td className="py-4">{s.userId}</td>
-                  <td className="py-4 font-bold text-white">{s.amount} {s.asset}</td>
-                  <td className="py-4 text-emerald-400 font-bold">৳{s.estimatedTk}</td>
-                  <td className="py-4 text-xs text-gray-400 font-mono break-all max-w-[150px]">{s.wallet}</td>
-                  <td className="py-4 px-4 text-xs text-gray-500">
-                    {(s.timestamp && s.timestamp._seconds) ? new Date(s.timestamp._seconds * 1000).toLocaleString() : 'Just now'}
-                  </td>
-                </tr>
-              ))}
+              {sells.map(s => {
+                const sId = (s?.id || '').toString();
+                const displayId = sId.length > 8 ? `${sId.slice(0, 8)}...` : sId || 'N/A';
+                const sTs = s?.timestamp;
+                const formattedTime = (sTs && sTs._seconds)
+                  ? new Date(sTs._seconds * 1000).toLocaleString()
+                  : (sTs ? new Date(sTs).toLocaleString() : 'Just now');
+
+                return (
+                  <tr key={s?.id || Math.random()} className="hover:bg-gray-800/30 transition-colors">
+                    <td className="py-4 px-4 font-mono text-cyan-400 text-xs">{displayId}</td>
+                    <td className="py-4">{s?.userId || 'N/A'}</td>
+                    <td className="py-4 font-bold text-white">{s?.amount || 0} {s?.asset || 'TON'}</td>
+                    <td className="py-4 text-emerald-400 font-bold">৳{s?.estimatedTk || 0}</td>
+                    <td className="py-4 text-xs text-gray-400 font-mono break-all max-w-[150px]">{s?.wallet || 'N/A'}</td>
+                    <td className="py-4 px-4 text-xs text-gray-500">{formattedTime}</td>
+                  </tr>
+                );
+              })}
               {sells.length === 0 && <tr><td colSpan="6" className="py-8 text-center text-gray-500 font-bold">No sell orders yet</td></tr>}
             </tbody>
           </table>
@@ -1395,3 +1501,4 @@ function OrdersList() {
     </div>
   );
 }
+

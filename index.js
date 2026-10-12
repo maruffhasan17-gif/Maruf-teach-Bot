@@ -1380,13 +1380,18 @@ app.get('/api/admin/orders', async (req, res) => {
                     userId: doc.id,
                     firstName: data.first_name || 'Unknown',
                     username: data.username || '',
+                    fiatWithdrawPending: data.fiatWithdrawPending,
                     ...data.fiatWithdrawPending
                 });
             }
         });
 
-        // sort withdrawals by timestamp descending
-        withdrawals.sort((a, b) => b.timestamp - a.timestamp);
+        // sort withdrawals safely by timestamp descending
+        withdrawals.sort((a, b) => {
+            const timeA = a.timestamp?._seconds ? a.timestamp._seconds * 1000 : (typeof a.timestamp === 'number' ? a.timestamp : (a.timestamp ? new Date(a.timestamp).getTime() : 0));
+            const timeB = b.timestamp?._seconds ? b.timestamp._seconds * 1000 : (typeof b.timestamp === 'number' ? b.timestamp : (b.timestamp ? new Date(b.timestamp).getTime() : 0));
+            return timeB - timeA;
+        });
 
         res.json({ buys, sells, withdrawals });
     } catch(e) {
@@ -1540,6 +1545,36 @@ app.post('/api/admin/approve-withdraw', async (req, res) => {
         bot.sendMessage(userId, '✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!', { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         res.json({ success: true });
     } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/reject-withdraw', async (req, res) => {
+    try {
+        const { userId, reason } = req.body;
+        if (!userId) return res.status(400).json({ error: 'User ID is required' });
+        
+        const userRef = db.collection('users').doc(userId.toString());
+        const doc = await userRef.get();
+        if(!doc.exists) return res.status(404).json({ error: 'User not found' });
+        
+        const data = doc.data();
+        if(!data.fiatWithdrawPending) return res.status(400).json({ error: 'No pending withdrawal found' });
+        
+        const refundAmt = parseFloat(data.fiatWithdrawPending.amount) || 0;
+        
+        await userRef.update({
+            'fiatWithdrawPending.status': 'rejected',
+            'fiatWithdrawPending.rejectReason': reason || 'Rejected by admin',
+            'fiatWithdrawPending.rejectedAt': Date.now(),
+            balance: FieldValue.increment(refundAmt)
+        });
+        
+        bot.sendMessage(userId, `❌ <b>Withdrawal Request Rejected</b>\n\nReason: ${reason || 'Incorrect account details'}\n\n💰 <b>৳${refundAmt} TK has been refunded back to your account balance!</b>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        
+        res.json({ success: true, message: `Withdrawal rejected and ৳${refundAmt} refunded to user.` });
+    } catch(e) {
+        console.error("Reject withdraw error:", e);
         res.status(500).json({ error: e.message });
     }
 });
