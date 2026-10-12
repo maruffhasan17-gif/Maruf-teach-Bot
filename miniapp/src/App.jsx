@@ -3,7 +3,7 @@ import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, Arr
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage } from './api';
+import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates } from './api';
 
 const initialGraphData = [
   { time: '10:00', price: 118.5 },
@@ -1295,7 +1295,19 @@ function BuyCryptoModal({ isOpen, onClose, user, balance = 0, lang = 'bn', t, re
     const [processStep, setProcessStep] = useState(1);
     const [errorMessage, setErrorMessage] = useState('');
     const [txResult, setTxResult] = useState(null);
-    const [liveRates, setLiveRates] = useState({ GRAM: 180, USDT: 125 });
+    // Hourly Buyer Rates (USDT real price + 10 TK, GRAM real price in BDT + 10 TK)
+    const [buyerRates, setBuyerRates] = useState(() => {
+        try {
+            const cached = localStorage.getItem('maruf_buyer_rates');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000 && parsed.rates?.USDT) {
+                    return parsed.rates;
+                }
+            }
+        } catch (e) {}
+        return { GRAM: 226, USDT: 130 };
+    });
 
     // Auto-fill connected TonConnect wallet if address empty
     useEffect(() => {
@@ -1306,21 +1318,29 @@ function BuyCryptoModal({ isOpen, onClose, user, balance = 0, lang = 'bn', t, re
 
     useEffect(() => {
         let isMounted = true;
-        fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether&vs_currencies=bdt')
-            .then(res => res.json())
-            .then(data => {
-                if (!isMounted) return;
-                const tonBdt = data['the-open-network']?.bdt ? Math.round(data['the-open-network'].bdt) : 180;
-                const usdtBdt = data['tether']?.bdt ? Math.round(data['tether'].bdt) : 125;
-                setLiveRates({ GRAM: Math.max(tonBdt, 175), USDT: Math.max(usdtBdt, 125) });
-            })
-            .catch(() => {});
+        fetchMarketRates().then(data => {
+            if (!isMounted || !data) return;
+            if (data.buyRates && data.buyRates.USDT && data.buyRates.GRAM) {
+                const newRates = {
+                    GRAM: data.buyRates.GRAM,
+                    USDT: data.buyRates.USDT
+                };
+                setBuyerRates(newRates);
+                try {
+                    localStorage.setItem('maruf_buyer_rates', JSON.stringify({
+                        rates: newRates,
+                        timestamp: Date.now()
+                    }));
+                } catch(e) {}
+            }
+        }).catch(err => console.error("Error fetching buyer market rates:", err));
+
         return () => { isMounted = false; };
     }, []);
 
     if (!isOpen) return null;
 
-    const cryptoRate = selectedAsset === 'USDT' ? (liveRates?.USDT || 125) : (liveRates?.GRAM || 180);
+    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 130) : (buyerRates?.GRAM || 226);
     const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
         ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
         : '0.0000';
@@ -1538,7 +1558,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance = 0, lang = 'bn', t, re
                                     <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-6 h-6 object-contain shrink-0" alt="GRAM" />
                                     <div className="text-left">
                                         <span className="font-bold text-[12px] text-gray-900 block leading-tight">GRAM (TON)</span>
-                                        <span className="text-[10px] text-emerald-600 font-bold">≈ ৳{liveRates.GRAM} TK</span>
+                                        <span className="text-[10px] text-emerald-600 font-bold">≈ ৳{buyerRates.GRAM} TK</span>
                                     </div>
                                 </button>
 
@@ -1554,7 +1574,7 @@ function BuyCryptoModal({ isOpen, onClose, user, balance = 0, lang = 'bn', t, re
                                     <img src={`${import.meta.env.BASE_URL}usdt.svg`} className="w-6 h-6 object-contain shrink-0" alt="USDT" />
                                     <div className="text-left">
                                         <span className="font-bold text-[12px] text-gray-900 block leading-tight">USDT</span>
-                                        <span className="text-[10px] text-emerald-600 font-bold">≈ ৳{liveRates.USDT} TK</span>
+                                        <span className="text-[10px] text-emerald-600 font-bold">≈ ৳{buyerRates.USDT} TK</span>
                                     </div>
                                 </button>
                             </div>
@@ -1713,25 +1733,43 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
     const [errorMessage, setErrorMessage] = useState('');
     const [copied, setCopied] = useState(false);
     const [sellResult, setSellResult] = useState(null);
-    const [liveRates, setLiveRates] = useState({ GRAM: 180, USDT: 125 });
+    const [liveRates, setLiveRates] = useState(() => {
+        try {
+            const cached = localStorage.getItem('maruf_seller_rates');
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000 && parsed.rates?.USDT) {
+                    return parsed.rates;
+                }
+            }
+        } catch(e) {}
+        return { GRAM: 216, USDT: 120 };
+    });
 
     // Fetch live market rates
     useEffect(() => {
         let isMounted = true;
-        fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether&vs_currencies=bdt')
-            .then(res => res.json())
-            .then(data => {
-                if (!isMounted) return;
-                const tonBdt = data['the-open-network']?.bdt ? Math.round(data['the-open-network'].bdt) : 180;
-                const usdtBdt = data['tether']?.bdt ? Math.round(data['tether'].bdt) : 125;
-                setLiveRates({ GRAM: Math.max(tonBdt, 175), USDT: Math.max(usdtBdt, 125) });
-            })
-            .catch(() => {});
+        fetchMarketRates().then(data => {
+            if (!isMounted || !data) return;
+            if (data.sellRates && data.sellRates.USDT && data.sellRates.GRAM) {
+                const newRates = {
+                    GRAM: data.sellRates.GRAM,
+                    USDT: data.sellRates.USDT
+                };
+                setLiveRates(newRates);
+                try {
+                    localStorage.setItem('maruf_seller_rates', JSON.stringify({
+                        rates: newRates,
+                        timestamp: Date.now()
+                    }));
+                } catch(e) {}
+            }
+        }).catch(err => console.error("Error fetching seller market rates:", err));
         return () => { isMounted = false; };
     }, []);
 
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
-    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 125) : (liveRates?.GRAM || 180);
+    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 120) : (liveRates?.GRAM || 216);
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
 

@@ -98,5 +98,16 @@ export const submitSupportMessage = async (payload) => {
     }
 };
 
+export const fetchMarketRates = async () => {
+    try {
+        const res = await axios.get(`${API_URL}/api/miniapp/rates`);
+        return res.data;
+    } catch (e) {
+        console.error("fetchMarketRates error:", e);
+        return null;
+    }
+};
+
+
 
 

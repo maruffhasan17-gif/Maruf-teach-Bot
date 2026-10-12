@@ -563,7 +563,103 @@ bot.on('message', async (msg) => {
 const { ethers } = require('ethers');
 
 
+// ==================== HOURLY MARKET RATES TRACKER ====================
+let cachedMarketRates = {
+    realUsdtBdt: 120,
+    realGramUsdt: 1.80,
+    realGramBdt: 216,
+    buyRates: {
+        USDT: 130, // 120 + 10
+        GRAM: 226  // (1.80 * 120) + 10
+    },
+    sellRates: {
+        USDT: 120,
+        GRAM: 216
+    },
+    lastUpdated: 0
+};
+
+async function updateMarketRates() {
+    try {
+        let usdtBdt = 120;
+        let tonUsdt = 1.80;
+
+        // 1. Fetch live USD/BDT from Open Exchange API
+        try {
+            const usdRes = await axios.get('https://open.er-api.com/v6/latest/USD', { timeout: 4000 });
+            if (usdRes.data && usdRes.data.rates && usdRes.data.rates.BDT) {
+                usdtBdt = parseFloat(usdRes.data.rates.BDT);
+            }
+        } catch(e) {
+            console.warn("Open Exchange rate fetch fallback:", e.message);
+        }
+
+        // 2. Fetch live TON/USDT from Binance or CoinGecko
+        try {
+            const binanceRes = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT', { timeout: 4000 });
+            if (binanceRes.data && binanceRes.data.price) {
+                tonUsdt = parseFloat(binanceRes.data.price);
+            }
+        } catch(e) {
+            try {
+                const cgRes = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether&vs_currencies=usd,bdt', { timeout: 4000 });
+                if (cgRes.data && cgRes.data['the-open-network']?.usd) {
+                    tonUsdt = parseFloat(cgRes.data['the-open-network'].usd);
+                }
+                if (cgRes.data && cgRes.data['tether']?.bdt) {
+                    usdtBdt = parseFloat(cgRes.data['tether'].bdt);
+                }
+            } catch(e2) {
+                console.warn("CoinGecko rate fallback:", e2.message);
+            }
+        }
+
+        const realUsdtBdt = Number(usdtBdt.toFixed(2));
+        const realGramUsdt = Number(tonUsdt.toFixed(4));
+        const realGramBdt = Number((realGramUsdt * realUsdtBdt).toFixed(2));
+
+        // Buyer Price Rule:
+        // USDT: realUsdtBdt + 10 TK (e.g. 120 + 10 = 130 TK)
+        // GRAM: (realGramUsdt in BDT) + 10 TK (e.g. 1.80 * 120 = 216 + 10 = 226 TK)
+        const buyUsdt = Math.round(realUsdtBdt + 10);
+        const buyGram = Math.round(realGramBdt + 10);
+
+        cachedMarketRates = {
+            realUsdtBdt,
+            realGramUsdt,
+            realGramBdt,
+            buyRates: {
+                USDT: buyUsdt,
+                GRAM: buyGram
+            },
+            sellRates: {
+                USDT: Math.round(realUsdtBdt),
+                GRAM: Math.round(realGramBdt)
+            },
+            lastUpdated: Date.now()
+        };
+        console.log(`[RATES UPDATED] Real USDT: ৳${realUsdtBdt}, Real TON: $${realGramUsdt} (৳${realGramBdt}) => Buy USDT: ৳${buyUsdt}, Buy GRAM: ৳${buyGram}`);
+    } catch(err) {
+        console.error("Rates update error:", err.message);
+    }
+}
+
+// Initial fetch on server startup and hourly interval (every 60 minutes)
+updateMarketRates();
+setInterval(updateMarketRates, 60 * 60 * 1000);
+
 // ==================== MINI APP APIs ====================
+app.get('/api/miniapp/rates', async (req, res) => {
+    // If cache older than 1 hour, refresh
+    if (Date.now() - cachedMarketRates.lastUpdated > 60 * 60 * 1000) {
+        await updateMarketRates();
+    }
+    res.json({
+        success: true,
+        ...cachedMarketRates
+    });
+});
+
 app.get('/api/miniapp/user/:id', async (req, res) => {
     try {
         const userId = parseInt(req.params.id);
