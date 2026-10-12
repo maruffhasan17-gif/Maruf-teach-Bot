@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Users, CreditCard, Activity, LayoutDashboard, LogOut, Bot, Wallet, Settings, ArrowDownToLine, Send, Copy, CheckCircle2, XCircle , List, AlertTriangle} from 'lucide-react';
+import { Users, CreditCard, Activity, LayoutDashboard, LogOut, Bot, Wallet, Settings, ArrowDownToLine, Send, Copy, CheckCircle2, XCircle , List, AlertTriangle, PlusCircle, X } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 
-function Sidebar() {
+function Sidebar({ onOpenCreateTrx }) {
   const location = useLocation();
   const navItems = [
     { path: '/', name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -15,7 +15,7 @@ function Sidebar() {
   ];
 
   return (
-    <div className="w-64 bg-gray-900 border-r border-gray-800 h-screen fixed flex flex-col shadow-2xl overflow-y-auto">
+    <div className="w-64 bg-gray-900 border-r border-gray-800 h-screen fixed flex flex-col shadow-2xl overflow-y-auto z-30">
       <div className="p-6 border-b border-gray-800 flex items-center gap-3">
         <img src="/logo.png" alt="Maruf Teach Logo" className="w-10 h-10 rounded-lg shadow-[0_0_15px_rgba(59,130,246,0.5)] object-cover" />
         <div>
@@ -26,6 +26,17 @@ function Sidebar() {
       
       <div className="p-4 border-b border-gray-800 flex justify-center">
         <TonConnectButton />
+      </div>
+
+      {/* PROMINENT CREATE TRXID MENU BUTTON WITH CREATE ICON */}
+      <div className="px-4 pt-4">
+        <button
+          onClick={onOpenCreateTrx}
+          className="w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl font-black bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/30 transition-all active:scale-95 border border-purple-400/30 cursor-pointer"
+        >
+          <PlusCircle size={20} />
+          <span>Create TrxID</span>
+        </button>
       </div>
 
       <nav className="flex-1 p-4 space-y-2">
@@ -43,6 +54,15 @@ function Sidebar() {
             {item.name}
           </Link>
         ))}
+
+        {/* Extra Nav Item For Create Trx */}
+        <button
+          onClick={onOpenCreateTrx}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-purple-400 hover:bg-purple-600/20 hover:text-purple-300 transition-all text-left cursor-pointer"
+        >
+          <PlusCircle size={20} />
+          <span>Create TrxID</span>
+        </button>
       </nav>
       <div className="p-4 border-t border-gray-800">
         <button className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-red-400 hover:bg-red-500/10 hover:text-red-300 w-full transition-all border border-transparent hover:border-red-500/20">
@@ -55,11 +75,220 @@ function Sidebar() {
 }
 
 function Layout({ children }) {
+  const [isCreateTrxOpen, setIsCreateTrxOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-gray-950 flex">
-      <Sidebar />
+    <div className="min-h-screen bg-gray-950 flex relative">
+      <Sidebar onOpenCreateTrx={() => setIsCreateTrxOpen(true)} />
       <div className="flex-1 ml-64 p-8 overflow-y-auto">
+        {/* Top bar with quick create button */}
+        <div className="flex justify-between items-center mb-6 bg-gray-900/60 px-6 py-3.5 rounded-2xl border border-gray-800/80 backdrop-blur-md">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Live Admin Panel</span>
+          </div>
+          <button
+            onClick={() => setIsCreateTrxOpen(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider px-4 py-2.5 rounded-xl shadow-lg shadow-purple-500/25 transition-all active:scale-95 cursor-pointer"
+          >
+            <PlusCircle size={16} />
+            <span>Create TrxID</span>
+          </button>
+        </div>
+
         {children}
+      </div>
+
+      {/* POPUP MODAL */}
+      <CreateTrxModal isOpen={isCreateTrxOpen} onClose={() => setIsCreateTrxOpen(false)} />
+    </div>
+  );
+}
+
+function CreateTrxModal({ isOpen, onClose }) {
+  const [trxId, setTrxId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState('bKash');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+
+  if (!isOpen) return null;
+
+  const handleGenerateRandom = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let res = '';
+    for (let i = 0; i < 8; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setTrxId(res);
+  };
+
+  const handleSend = async (e) => {
+    if (e) e.preventDefault();
+    if (!trxId || !amount) {
+      alert('Please enter both 8-digit TrxID and Amount!');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/admin/create-mock-trx`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trxId: trxId.trim().toUpperCase(),
+          amount: parseFloat(amount),
+          method: method
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult(data);
+      } else {
+        alert(data.error || 'Failed to save to database');
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-gray-900 border border-purple-500/30 rounded-3xl p-6 max-w-lg w-full shadow-2xl relative text-white animate-in zoom-in-95 duration-200">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400">
+              <PlusCircle size={22} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-white">Create Test TrxID</h3>
+              <p className="text-xs text-gray-400">Creates SMS & saves directly to Firestore database</p>
+            </div>
+          </div>
+          <button 
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center text-gray-400 hover:text-white transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSend} className="mt-5 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+              8-Digit TrxID
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={trxId}
+                onChange={(e) => setTrxId(e.target.value.toUpperCase())}
+                placeholder="e.g. 9B7X2K4L"
+                className="bg-gray-950 border border-gray-700 focus:border-purple-500 text-white px-4 py-3 rounded-xl flex-1 font-mono text-lg font-bold uppercase tracking-widest outline-none transition-all"
+                required
+              />
+              <button
+                type="button"
+                onClick={handleGenerateRandom}
+                className="bg-gray-800 hover:bg-gray-700 text-purple-300 px-3 py-2 rounded-xl text-xs font-bold border border-gray-700 transition-colors whitespace-nowrap cursor-pointer"
+              >
+                🎲 Random 8
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+              Amount (BDT)
+            </label>
+            <input
+              type="number"
+              step="any"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="e.g. 500"
+              className="bg-gray-950 border border-gray-700 focus:border-purple-500 text-white px-4 py-3 rounded-xl w-full font-mono text-lg font-bold outline-none transition-all"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+              Payment Method
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setMethod('bKash')}
+                className={`py-2.5 px-4 rounded-xl font-bold text-sm border transition-all cursor-pointer ${
+                  method === 'bKash'
+                    ? 'bg-pink-600/20 border-pink-500 text-pink-300 shadow-[0_0_15px_rgba(236,72,153,0.2)]'
+                    : 'bg-gray-950 border-gray-800 text-gray-400 hover:border-gray-700'
+                }`}
+              >
+                bKash (TrxID)
+              </button>
+              <button
+                type="button"
+                onClick={() => setMethod('nagad')}
+                className={`py-2.5 px-4 rounded-xl font-bold text-sm border transition-all cursor-pointer ${
+                  method === 'nagad'
+                    ? 'bg-orange-600/20 border-orange-500 text-orange-300 shadow-[0_0_15px_rgba(249,115,22,0.2)]'
+                    : 'bg-gray-950 border-gray-800 text-gray-400 hover:border-gray-700'
+                }`}
+              >
+                Nagad (TxnID)
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white font-black py-3.5 rounded-xl shadow-lg shadow-purple-500/25 transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {loading ? (
+                <span>Saving to Database...</span>
+              ) : (
+                <>
+                  <Send size={18} />
+                  <span>Send & Save to Database</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {/* Success Result Box */}
+        {result && (
+          <div className="mt-5 p-4 bg-purple-950/60 border border-purple-500/40 rounded-2xl text-sm animate-in fade-in duration-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle2 size={16} /> Saved Successfully to Database!
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(result.trxId);
+                  alert('Copied TrxID: ' + result.trxId);
+                }}
+                className="bg-purple-600 hover:bg-purple-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Copy size={12} /> Copy TrxID
+              </button>
+            </div>
+            <p className="text-xs text-gray-300 font-mono bg-gray-950/80 p-2.5 rounded-xl border border-gray-800 break-all">
+              {result.fakeSms}
+            </p>
+          </div>
+        )}
+
       </div>
     </div>
   );
