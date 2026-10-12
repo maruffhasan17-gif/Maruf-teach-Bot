@@ -537,7 +537,28 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
                       <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/20 px-2 py-0.5 rounded">{t?.completed || 'Success'}</span>
                   </div>
               )
-          ) : (
+          ) : fiatWithdrawPending.status === 'rejected' ? (
+              Date.now() - (fiatWithdrawPending.rejectedAt || Date.now()) < 3 * 60 * 60 * 1000 && (
+                  <div className="bg-rose-50 border border-rose-200 p-2.5 rounded-xl flex items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2">
+                          <AlertCircle size={16} className="text-rose-500 shrink-0" />
+                          <div>
+                              <p className="text-[12px] text-rose-800 font-bold leading-tight">
+                                  {lang === 'bn' ? 'উইথড্র বাতিল (রিফান্ড সম্পন্ন):' : 'Withdrawal Rejected (Refunded):'} <b>{fiatWithdrawPending.amount} TK</b>
+                              </p>
+                              {fiatWithdrawPending.rejectReason && (
+                                  <p className="text-[10px] text-rose-600 mt-0.5 font-medium">
+                                      {lang === 'bn' ? 'কারণ: ' : 'Reason: '}{fiatWithdrawPending.rejectReason}
+                                  </p>
+                              )}
+                          </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-500/20 px-2 py-0.5 rounded shrink-0">
+                          {lang === 'bn' ? 'বাতিল' : 'Rejected'}
+                      </span>
+                  </div>
+              )
+          ) : (fiatWithdrawPending.status === 'pending' || fiatWithdrawPending.status === 'waiting') ? (
               <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-xl flex items-center justify-between gap-2.5">
                   <div className="flex items-center gap-2">
                       <Clock size={16} className="text-amber-500 shrink-0" />
@@ -547,7 +568,7 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
                   </div>
                   <span className="text-[10px] font-bold text-amber-700 bg-amber-500/20 px-2 py-0.5 rounded">#{fiatWithdrawPending.serial || '1'}</span>
               </div>
-          )
+          ) : null
       )}
       
       {/* Total Balance Card */}

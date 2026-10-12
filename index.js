@@ -574,10 +574,20 @@ bot.on('message', async (msg) => {
                             const userRef = db.collection('users').doc(targetUserId);
                             const userDoc = await userRef.get();
                             if (userDoc.exists && userDoc.data().fiatWithdrawPending) {
-                                const amountToRefund = userDoc.data().fiatWithdrawPending.amount;
+                                const pend = userDoc.data().fiatWithdrawPending;
+                                const amountToRefund = pend.amount;
+                                if (pend.id) {
+                                    db.collection('fiat_withdrawals').doc(pend.id).update({
+                                        status: 'rejected',
+                                        rejectReason: reason,
+                                        rejectedAt: Date.now()
+                                    }).catch(()=>{});
+                                }
                                 await userRef.update({
                                     balance: (userDoc.data().balance || 0) + amountToRefund,
-                                    fiatWithdrawPending: null
+                                    'fiatWithdrawPending.status': 'rejected',
+                                    'fiatWithdrawPending.rejectReason': reason,
+                                    'fiatWithdrawPending.rejectedAt': Date.now()
                                 });
                                 bot.sendMessage(chatId, `❌ Rejected withdrawal for ${targetUserId} and refunded ${amountToRefund} BDT.\nReason: ${reason}`).catch(e => console.error(e.message));
                                 bot.sendMessage(targetUserId, `❌ <b>Withdrawal Rejected</b>\nYour ${amountToRefund} BDT has been refunded to your balance.\nReason: ${reason}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
@@ -846,10 +856,21 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             await userRef.set({ mbsId }, { merge: true });
         }
 
+        let pendingWithdraw = data.fiatWithdrawPending || null;
+        if (pendingWithdraw) {
+            const isFinished = pendingWithdraw.status === 'completed' || pendingWithdraw.status === 'rejected';
+            const finishTime = pendingWithdraw.completedAt || pendingWithdraw.rejectedAt || 0;
+            // If completed or rejected more than 2 hours ago, clear it so it doesn't linger
+            if (isFinished && finishTime && (Date.now() - finishTime > 2 * 60 * 60 * 1000)) {
+                pendingWithdraw = null;
+                userRef.update({ fiatWithdrawPending: null }).catch(()=>{});
+            }
+        }
+
         res.json({ 
             balance: data.balance || 0,
             fiatWallet: data.fiatWallet || null,
-            fiatWithdrawPending: data.fiatWithdrawPending || null,
+            fiatWithdrawPending: pendingWithdraw,
             mbsId: mbsId
         });
     } catch(e) {
