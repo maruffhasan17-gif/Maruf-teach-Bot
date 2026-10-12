@@ -80,6 +80,53 @@ const t = {
     }
 };
 
+async function getAdminTreasuryBalances() {
+    let tonBalance = 0;
+    let usdtBalance = 0;
+    const adminAddress = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+
+    // 1. Fetch live native TON balance
+    try {
+        const res = await axios.get(`https://tonapi.io/v2/accounts/${adminAddress}`, { timeout: 4000 });
+        if (res.data && res.data.balance !== undefined) {
+            tonBalance = parseFloat(res.data.balance) / 1e9;
+        }
+    } catch (e) {
+        try {
+            const res2 = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${adminAddress}`, { timeout: 4000 });
+            if (res2.data?.result?.balance !== undefined) {
+                tonBalance = parseFloat(res2.data.result.balance) / 1e9;
+            }
+        } catch (e2) {
+            console.warn("Failed to fetch admin TON balance:", e2.message);
+        }
+    }
+
+    // 2. Fetch live USDT (Jetton) balance on TON
+    try {
+        const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${adminAddress}/jettons`, { timeout: 4000 });
+        if (jettonRes.data && Array.isArray(jettonRes.data.balances)) {
+            const usdtItem = jettonRes.data.balances.find(j => 
+                j.jetton?.symbol === 'USD₮' || 
+                j.jetton?.symbol === 'USDT' || 
+                j.jetton?.address?.includes('EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs')
+            );
+            if (usdtItem && usdtItem.balance) {
+                const decimals = usdtItem.jetton?.decimals || 6;
+                usdtBalance = parseFloat(usdtItem.balance) / Math.pow(10, decimals);
+            }
+        }
+    } catch (e) {
+        console.warn("Failed to fetch admin USDT balance:", e.message);
+    }
+
+    return {
+        ton: Number(tonBalance.toFixed(4)),
+        usdt: Number(usdtBalance.toFixed(4)),
+        address: adminAddress
+    };
+}
+
 async function sendTonOnChain(destination, amount) {
     const { WalletContractV4, internal, external, storeMessage } = require('@ton/ton');
     const { beginCell } = require('@ton/core');
@@ -88,6 +135,14 @@ async function sendTonOnChain(destination, amount) {
 
     if (!process.env.BOT_TON_SEED) {
         throw new Error("BOT_TON_SEED is not configured in .env");
+    }
+
+    // 1. Strict Treasury Check before creating tx
+    const treasury = await getAdminTreasuryBalances();
+    const MIN_TON_GAS = 0.02;
+    const reqTon = parseFloat(amount);
+    if (treasury.ton < reqTon + MIN_TON_GAS) {
+        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত TON ব্যালেন্স নেই! বর্তমান ব্যালেন্স: ${treasury.ton} TON, প্রয়োজন: ${(reqTon + MIN_TON_GAS).toFixed(4)} TON (গ্যাস ফিসহ)`);
     }
 
     const seedWords = process.env.BOT_TON_SEED.trim().split(/\s+/);
@@ -100,7 +155,6 @@ async function sendTonOnChain(destination, amount) {
         const seqnoRes = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${walletAddrStr}`);
         seqno = seqnoRes.data?.result?.seqno || 0;
     } catch (e) {
-        console.warn("Toncenter seqno error, trying TonAPI:", e.message);
         try {
             const tonapiRes = await axios.get(`https://tonapi.io/v2/accounts/${walletAddrStr}`);
             seqno = tonapiRes.data?.seqno || 0;
@@ -119,7 +173,7 @@ async function sendTonOnChain(destination, amount) {
                 to: destination,
                 value: amountNano,
                 bounce: false,
-                body: "Buy Order payout from Maruf Teach Bot"
+                body: "Crypto Buy payout from Crypto Buy Sell Bot"
             })
         ]
     });
@@ -141,7 +195,105 @@ async function sendTonOnChain(destination, amount) {
             return { success: true, boc, provider: 'tonapi', result: res2.data };
         } catch (err2) {
             const errMsg = err2.response?.data?.error || err2.message;
-            throw new Error(errMsg);
+            throw new Error("Blockchain transfer rejected: " + errMsg);
+        }
+    }
+}
+
+async function sendJettonUsdtOnChain(destination, amount) {
+    const { WalletContractV4, internal, external, storeMessage } = require('@ton/ton');
+    const { beginCell, Address } = require('@ton/core');
+    const { mnemonicToPrivateKey } = require('@ton/crypto');
+    const { ethers } = require('ethers');
+
+    if (!process.env.BOT_TON_SEED) {
+        throw new Error("BOT_TON_SEED is not configured in .env");
+    }
+
+    // 1. Strict Treasury & Gas Check
+    const treasury = await getAdminTreasuryBalances();
+    const reqUsdt = parseFloat(amount);
+    if (treasury.usdt < reqUsdt) {
+        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত USDT নেই! বর্তমান ব্যালেন্স: ${treasury.usdt} USDT, প্রয়োজন: ${reqUsdt} USDT`);
+    }
+    if (treasury.ton < 0.05) {
+        throw new Error(`এডমিন ওয়ালেটে গ্যাস ফি (TON) অপর্যাপ্ত! বর্তমান TON ব্যালেন্স: ${treasury.ton} TON, প্রয়োজন: 0.05 TON`);
+    }
+
+    const seedWords = process.env.BOT_TON_SEED.trim().split(/\s+/);
+    const keyPair = await mnemonicToPrivateKey(seedWords);
+    const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
+    const walletAddrStr = wallet.address.toString({ bounceable: false });
+
+    // 2. Resolve admin's USDT Jetton Wallet
+    const usdtMaster = 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs';
+    let adminJettonWallet = null;
+    try {
+        const jwRes = await axios.get(`https://tonapi.io/v2/blockchain/accounts/${usdtMaster}/methods/get_wallet_address?args=${walletAddrStr}`);
+        if (jwRes.data?.decoded?.jetton_wallet_address) {
+            adminJettonWallet = jwRes.data.decoded.jetton_wallet_address;
+        }
+    } catch(e) {}
+    if (!adminJettonWallet) {
+        adminJettonWallet = 'EQDE4Uycx9ZudIjjmaqmLx3MFTGjURx2FCU6nlH1bzFWCjh3';
+    }
+
+    let seqno = 0;
+    try {
+        const seqnoRes = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${walletAddrStr}`);
+        seqno = seqnoRes.data?.result?.seqno || 0;
+    } catch (e) {
+        try {
+            const tonapiRes = await axios.get(`https://tonapi.io/v2/accounts/${walletAddrStr}`);
+            seqno = tonapiRes.data?.seqno || 0;
+        } catch (e2) {
+            seqno = 0;
+        }
+    }
+
+    const amountInMicro = Math.floor(reqUsdt * 1e6); // 6 decimals for USDT
+
+    const jettonBody = beginCell()
+        .storeUint(0xf8a7ea5, 32)
+        .storeUint(0, 64)
+        .storeCoins(amountInMicro)
+        .storeAddress(Address.parse(destination))
+        .storeAddress(Address.parse(walletAddrStr))
+        .storeBit(0)
+        .storeCoins(1)
+        .storeBit(0)
+        .endCell();
+
+    const transfer = wallet.createTransfer({
+        seqno,
+        secretKey: keyPair.secretKey,
+        messages: [
+            internal({
+                to: Address.parse(adminJettonWallet),
+                value: ethers.parseUnits('0.05', 9),
+                bounce: true,
+                body: jettonBody
+            })
+        ]
+    });
+
+    const extMsg = beginCell().store(storeMessage(external({
+        to: wallet.address,
+        body: transfer
+    }))).endCell();
+
+    const boc = extMsg.toBoc().toString('base64');
+
+    try {
+        const res = await axios.post('https://toncenter.com/api/v2/sendBoc', { boc });
+        return { success: true, boc, provider: 'toncenter', result: res.data };
+    } catch (err) {
+        try {
+            const res2 = await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
+            return { success: true, boc, provider: 'tonapi', result: res2.data };
+        } catch (err2) {
+            const errMsg = err2.response?.data?.error || err2.message;
+            throw new Error("Blockchain USDT transfer rejected: " + errMsg);
         }
     }
 }
@@ -343,8 +495,10 @@ bot.on('message', async (msg) => {
                                 
                                 try {
                                     let txResult = null;
-                                    if (order.asset === 'TON') {
+                                    if (order.asset === 'TON' || order.asset === 'GRAM') {
                                         txResult = await sendTonOnChain(order.receiveAddress, order.amount);
+                                    } else if (order.asset === 'USDT') {
+                                        txResult = await sendJettonUsdtOnChain(order.receiveAddress, order.amount);
                                     }
                                     
                                     await buyRef.update({
@@ -1267,6 +1421,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             return res.status(400).json({ error: 'সঠিক পরিমাণ দিন' });
         }
 
+        // 1. Verify User Balance First
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
         if (!userDoc.exists) {
@@ -1280,17 +1435,84 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             });
         }
 
-        // 1. Deduct BDT balance
+        // 2. CRITICAL: CHECK ADMIN TREASURY & GAS FEE BEFORE DEDUCTING USER BALANCE!
+        const treasury = await getAdminTreasuryBalances();
+        const isTonAsset = (asset === 'GRAM' || asset === 'TON');
+        const MIN_TON_GAS = 0.02;
+
+        const config = botConfig || {};
+        const adminGroupId = config.adminGroupId || 8799135330;
+
+        if (isTonAsset) {
+            const requiredTon = cryptoAmount + MIN_TON_GAS;
+            if (treasury.ton < requiredTon) {
+                // Insufficient TON/gas in Admin Wallet: DO NOT DEDUCT! DO NOT SAY SUCCESS!
+                if (adminGroupId && bot) {
+                    const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে ক্রিপ্টো বা গ্যাস ফি অপর্যাপ্ত!</b>\n\n` +
+                        `👤 ইউজার: <code>${userId}</code>\n` +
+                        `💎 কিনতে চেয়েছে: <b>${cryptoAmount} ${asset}</b> (৳${bdtAmount} BDT)\n` +
+                        `🏷 রিসিভ ওয়ালেট: <code>${receiveAddress}</code>\n\n` +
+                        `🏦 <b>এডমিন ওয়ালেট ব্যালেন্স:</b>\n` +
+                        `💎 বর্তমান TON: <b>${treasury.ton} TON</b>\n` +
+                        `⛽ প্রয়োজনীয় TON: <b>${requiredTon.toFixed(4)} TON</b> (গ্যাস ফিসহ)\n\n` +
+                        `<i>ইউজারের ব্যালেন্স কাটা হয়নি। এডমিন ওয়ালেটে ক্রিপ্টো ডিপোজিট করুন!</i>`;
+                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                }
+
+                return res.status(400).json({
+                    error: `এডমিন ওয়ালেটে বর্তমানে পর্যাপ্ত ${asset} বা গ্যাস ফি নেই (এডমিন ব্যালেন্স: ${treasury.ton} TON, প্রয়োজন: ${requiredTon.toFixed(4)} TON)। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন বা এডমিনকে জানান। আপনার ব্যালেন্স অক্ষত আছে।`
+                });
+            }
+        } else if (asset === 'USDT') {
+            if (treasury.usdt < cryptoAmount) {
+                if (adminGroupId && bot) {
+                    const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে USDT অপর্যাপ্ত!</b>\n\n` +
+                        `👤 ইউজার: <code>${userId}</code>\n` +
+                        `💵 কিনতে চেয়েছে: <b>${cryptoAmount} USDT</b> (৳${bdtAmount} BDT)\n` +
+                        `🏷 রিসিভ ওয়ালেট: <code>${receiveAddress}</code>\n\n` +
+                        `🏦 বর্তমান এডমিন USDT: <b>${treasury.usdt} USDT</b> (প্রয়োজন: ${cryptoAmount} USDT)\n\n` +
+                        `<i>ইউজারের ব্যালেন্স কাটা হয়নি। এডমিন ওয়ালেটে USDT ডিপোজিট করুন!</i>`;
+                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                }
+
+                return res.status(400).json({
+                    error: `এডমিন ওয়ালেটে বর্তমানে পর্যাপ্ত USDT স্টক নেই (এডমিন ব্যালেন্স: ${treasury.usdt} USDT, প্রয়োজন: ${cryptoAmount} USDT)। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন বা এডমিনকে জানান। আপনার ব্যালেন্স অক্ষত আছে।`
+                });
+            }
+
+            if (treasury.ton < 0.05) {
+                if (adminGroupId && bot) {
+                    const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে গ্যাস ফি (TON) অপর্যাপ্ত!</b>\n\n` +
+                        `👤 ইউজার: <code>${userId}</code>\n` +
+                        `💵 USDT অর্ডারের জন্য প্রয়োজনীয় গ্যাস: 0.05 TON\n` +
+                        `🏦 বর্তমান এডমিন TON গ্যাস: <b>${treasury.ton} TON</b>\n\n` +
+                        `<i>ইউজারের ব্যালেন্স কাটা হয়নি। এডমিন ওয়ালেটে TON গ্যাস ফি ডিপোজিট করুন!</i>`;
+                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                }
+
+                return res.status(400).json({
+                    error: `এডমিন ওয়ালেটে ট্রানজেকশনের জন্য প্রয়োজনীয় TON গ্যাস ফি নেই (বর্তমান: ${treasury.ton} TON, প্রয়োজন: 0.05 TON)। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন। আপনার ব্যালেন্স অক্ষত আছে।`
+                });
+            }
+        }
+
+        // 3. ADMIN WALLET HAS VERIFIED FUNDS: NOW DEDUCT USER BDT BALANCE
         await userRef.update({
             balance: FieldValue.increment(-bdtAmount)
         });
 
-        // 2. Broadcast on-chain TON to receiveAddress!
+        // 4. BROADCAST ON-CHAIN TRANSACTION!
         let txResult = null;
         try {
-            txResult = await sendTonOnChain(receiveAddress, cryptoAmount);
+            if (isTonAsset) {
+                txResult = await sendTonOnChain(receiveAddress, cryptoAmount);
+            } else if (asset === 'USDT') {
+                txResult = await sendJettonUsdtOnChain(receiveAddress, cryptoAmount);
+            } else {
+                throw new Error(`Unsupported crypto asset: ${asset}`);
+            }
         } catch (txErr) {
-            // TRANSFER FAILED: IMMEDIATELY ROLLBACK & REFUND BDT!
+            // ON-CHAIN BROADCAST FAILED: IMMEDIATELY ROLLBACK & REFUND BDT!
             await userRef.update({
                 balance: FieldValue.increment(bdtAmount)
             });
@@ -1300,7 +1522,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             });
         }
 
-        // 3. Save order to miniapp_buys
+        // 5. SAVE COMPLETED ORDER
         const orderId = 'BUY' + Date.now().toString().slice(-8);
         await db.collection('miniapp_buys').doc(orderId).set({
             orderId,
@@ -1318,12 +1540,11 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         const newBalance = currentBalance - bdtAmount;
 
-        // 4. Send Telegram confirmations
+        // 6. TELEGRAM CONFIRMATIONS
         bot.sendMessage(userId, `🎉 <b>ক্রিপ্টো কেনা সফল হয়েছে!</b>\n\n<b>${cryptoAmount} ${asset}</b> সফলভাবে আপনার ওয়ালেটে পাঠানো হয়েছে!\n\n🏷 <b>Wallet:</b> <code>${receiveAddress}</code>\n💵 পরিশোধ: <b>৳${bdtAmount} BDT</b>\n💰 বর্তমান ব্যালেন্স: <b>৳${newBalance} BDT</b>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
 
-        const config = botConfig || {};
-        if (config.adminGroupId) {
-            bot.sendMessage(config.adminGroupId, `💎 <b>নতুন ক্রিপ্টো ক্রয় সম্পন্ন (Live Instant)!</b>\n👤 User: <code>${userId}</code>\n💎 ক্রিপ্টো: <b>${cryptoAmount} ${asset}</b>\n💵 ব্যালেন্স থেকে কাটা: <b>৳${bdtAmount} BDT</b>\n🏷 Wallet: <code>${receiveAddress}</code>\n✅ অন-চেইনে সফলভাবে সেন্ট হয়েছে।`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        if (adminGroupId) {
+            bot.sendMessage(adminGroupId, `💎 <b>নতুন ক্রিপ্টো ক্রয় সম্পন্ন (Live Instant)!</b>\n👤 User: <code>${userId}</code>\n💎 ক্রিপ্টো: <b>${cryptoAmount} ${asset}</b>\n💵 ব্যালেন্স থেকে কাটা: <b>৳${bdtAmount} BDT</b>\n🏷 Wallet: <code>${receiveAddress}</code>\n✅ অন-চেইনে সফলভাবে সেন্ট হয়েছে।`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
 
         res.json({
@@ -1577,12 +1798,19 @@ app.post('/api/admin/approve-buy', async (req, res) => {
         }
 
         let txResult = null;
-        if (order.asset === 'TON') {
+        if (order.asset === 'TON' || order.asset === 'GRAM') {
             try {
                 txResult = await sendTonOnChain(order.receiveAddress, order.amount);
             } catch(txErr) {
                 console.error("On-chain transfer failed:", txErr);
                 return res.status(500).json({ error: `On-chain transfer failed: ${txErr.message}` });
+            }
+        } else if (order.asset === 'USDT') {
+            try {
+                txResult = await sendJettonUsdtOnChain(order.receiveAddress, order.amount);
+            } catch(txErr) {
+                console.error("On-chain USDT transfer failed:", txErr);
+                return res.status(500).json({ error: `On-chain USDT transfer failed: ${txErr.message}` });
             }
         }
         
