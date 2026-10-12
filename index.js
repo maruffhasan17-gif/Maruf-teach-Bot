@@ -1020,102 +1020,259 @@ app.get('/api/settings', (req, res) => {
 });
 
 
+app.post('/api/miniapp/add-money', async (req, res) => {
+    try {
+        let { userId, amount, paymentMethod, trxId } = req.body;
+        if (!trxId || trxId.length < 5) {
+            return res.status(400).json({ error: 'সঠিক Transaction ID দিন (কমপক্ষে ৫ অক্ষর)' });
+        }
+        trxId = trxId.trim().toUpperCase();
+        amount = parseFloat(amount);
+        if (!amount || isNaN(amount) || amount <= 0) {
+            return res.status(400).json({ error: 'সঠিক টাকার পরিমাণ দিন' });
+        }
+
+        const verifiedRef = await db.collection('verified_trx').doc(trxId).get();
+        
+        // STRICT: If not found in database, REJECT IMMEDIATELY! NO PENDING!
+        if (!verifiedRef.exists) {
+            return res.status(400).json({ 
+                error: 'ভুল অথবা আনভেরিফাইড Transaction ID! টাকা পাঠিয়ে সঠিক TrxID দিন বা এসএমএস আসা পর্যন্ত ১ মিনিট অপেক্ষা করে আবার চেষ্টা করুন।' 
+            });
+        }
+
+        const verifiedData = verifiedRef.data();
+
+        // If already claimed, REJECT!
+        if (verifiedData.claimed) {
+            return res.status(400).json({ 
+                error: 'এই Transaction ID টি ইতিমধ্যে ব্যবহার করা হয়েছে!' 
+            });
+        }
+
+        // If amount mismatch, REJECT!
+        if (verifiedData.amount && Math.abs(verifiedData.amount - amount) > 1) {
+            return res.status(400).json({ 
+                error: `টাকার পরিমাণ মেলেনি! এসএমএস-এ পাওয়া গেছে ৳${verifiedData.amount} BDT, কিন্তু আপনি দিয়েছেন ৳${amount} BDT` 
+            });
+        }
+
+        // MATCH! Claim TrxID and instantly add money to user's balance!
+        await verifiedRef.ref.update({
+            claimed: true,
+            claimedBy: userId,
+            claimedAt: FieldValue.serverTimestamp()
+        });
+
+        const userRef = db.collection('users').doc(userId.toString());
+        await userRef.set({
+            balance: FieldValue.increment(amount)
+        }, { merge: true });
+
+        // Record completed deposit in database
+        await db.collection('deposits').doc(trxId).set({
+            userId,
+            amount,
+            paymentMethod,
+            trxId,
+            status: 'completed',
+            type: 'add_money',
+            timestamp: FieldValue.serverTimestamp()
+        });
+
+        // Also record in miniapp_buys for Admin Orders List history
+        await db.collection('miniapp_buys').doc(trxId).set({
+            userId,
+            asset: 'BDT',
+            amount,
+            totalBdt: amount,
+            paymentMethod,
+            trxId,
+            status: 'completed',
+            type: 'add_money',
+            timestamp: FieldValue.serverTimestamp()
+        });
+
+        const updatedDoc = await userRef.get();
+        const newBalance = updatedDoc.data()?.balance || amount;
+
+        // Telegram alerts
+        bot.sendMessage(userId, `🎉 <b>টাকা যুক্ত সফল হয়েছে!</b>\n\nআপনার অ্যাকাউন্টে <b>৳${amount} BDT</b> যোগ করা হয়েছে।\n💰 বর্তমান ব্যালেন্স: <b>৳${newBalance} BDT</b>\n#️⃣ TrxID: <code>${trxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+
+        const config = botConfig || {};
+        if (config.adminGroupId) {
+            bot.sendMessage(config.adminGroupId, `💰 <b>নতুন টাকা যুক্ত (Add Money)!</b>\n👤 User: <code>${userId}</code>\n💵 Amount: <b>৳${amount} BDT</b> (${paymentMethod})\n#️⃣ TrxID: <code>${trxId}</code>\n✅ ব্যালেন্সে অটো যোগ হয়েছে।`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        }
+
+        res.json({
+            success: true,
+            message: `৳${amount} BDT সফলভাবে আপনার ব্যালেন্সে যোগ হয়েছে!`,
+            amount,
+            newBalance
+        });
+    } catch(e) {
+        console.error("Add money error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/miniapp/buy-crypto', async (req, res) => {
+    try {
+        let { userId, asset, cryptoAmount, bdtAmount, receiveAddress } = req.body;
+        if (!userId || !cryptoAmount || !bdtAmount || !receiveAddress) {
+            return res.status(400).json({ error: 'সবগুলো তথ্য সঠিকভাবে পূরণ করুন' });
+        }
+        bdtAmount = parseFloat(bdtAmount);
+        cryptoAmount = parseFloat(cryptoAmount);
+        asset = (asset || 'TON').toUpperCase();
+        receiveAddress = receiveAddress.trim();
+
+        if (bdtAmount <= 0 || cryptoAmount <= 0) {
+            return res.status(400).json({ error: 'সঠিক পরিমাণ দিন' });
+        }
+
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const currentBalance = userDoc.data()?.balance || 0;
+        if (currentBalance < bdtAmount) {
+            return res.status(400).json({ 
+                error: `পর্যাপ্ত ব্যালেন্স নেই! আপনার ব্যালেন্স ৳${currentBalance} BDT, কিন্তু প্রয়োজন ৳${bdtAmount} BDT` 
+            });
+        }
+
+        // 1. Deduct BDT balance
+        await userRef.update({
+            balance: FieldValue.increment(-bdtAmount)
+        });
+
+        // 2. Broadcast on-chain TON to receiveAddress!
+        let txResult = null;
+        try {
+            txResult = await sendTonOnChain(receiveAddress, cryptoAmount);
+        } catch (txErr) {
+            // TRANSFER FAILED: IMMEDIATELY ROLLBACK & REFUND BDT!
+            await userRef.update({
+                balance: FieldValue.increment(bdtAmount)
+            });
+            console.error("Buy crypto on-chain transfer failed:", txErr.message);
+            return res.status(500).json({ 
+                error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${bdtAmount} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।` 
+            });
+        }
+
+        // 3. Save order to miniapp_buys
+        const orderId = 'BUY' + Date.now().toString().slice(-8);
+        await db.collection('miniapp_buys').doc(orderId).set({
+            orderId,
+            userId,
+            asset,
+            amount: cryptoAmount,
+            totalBdt: bdtAmount,
+            paymentMethod: 'In-App Balance',
+            trxId: orderId,
+            receiveAddress,
+            status: 'completed',
+            txResult: txResult || null,
+            timestamp: FieldValue.serverTimestamp()
+        });
+
+        const newBalance = currentBalance - bdtAmount;
+
+        // 4. Send Telegram confirmations
+        bot.sendMessage(userId, `🎉 <b>ক্রিপ্টো কেনা সফল হয়েছে!</b>\n\n<b>${cryptoAmount} ${asset}</b> সফলভাবে আপনার ওয়ালেটে পাঠানো হয়েছে!\n\n🏷 <b>Wallet:</b> <code>${receiveAddress}</code>\n💵 পরিশোধ: <b>৳${bdtAmount} BDT</b>\n💰 বর্তমান ব্যালেন্স: <b>৳${newBalance} BDT</b>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+
+        const config = botConfig || {};
+        if (config.adminGroupId) {
+            bot.sendMessage(config.adminGroupId, `💎 <b>নতুন ক্রিপ্টো ক্রয় সম্পন্ন (Live Instant)!</b>\n👤 User: <code>${userId}</code>\n💎 ক্রিপ্টো: <b>${cryptoAmount} ${asset}</b>\n💵 ব্যালেন্স থেকে কাটা: <b>৳${bdtAmount} BDT</b>\n🏷 Wallet: <code>${receiveAddress}</code>\n✅ অন-চেইনে সফলভাবে সেন্ট হয়েছে।`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        }
+
+        res.json({
+            success: true,
+            message: `সফলভাবে ${cryptoAmount} ${asset} আপনার ওয়ালেটে পাঠানো হয়েছে!`,
+            orderId,
+            asset,
+            cryptoAmount,
+            bdtAmount,
+            newBalance,
+            txResult
+        });
+    } catch(e) {
+        console.error("Buy crypto error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.post('/api/miniapp/buy', async (req, res) => {
+    // Alias /api/miniapp/buy to add-money logic if it has no receiveAddress
+    if (!req.body.receiveAddress) {
+        req.body.amount = req.body.amount || req.body.totalBdt;
+        return app._router.handle({ ...req, url: '/api/miniapp/add-money' }, res);
+    }
+    // If it has receiveAddress, route to buy-crypto or add-money
     try {
         let { userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress } = req.body;
         if (!trxId || trxId.length < 5) {
             return res.status(400).json({ error: 'Please enter a valid Transaction ID (min 5 characters)' });
         }
         trxId = trxId.trim().toUpperCase();
-        amount = parseFloat(amount);
-        totalBdt = parseFloat(totalBdt);
-        
-        // Prevent duplicate TRX ID submission in miniapp_buys
-        const existingBuy = await db.collection('miniapp_buys').doc(trxId).get();
-        if (existingBuy.exists) {
-            const exData = existingBuy.data();
-            if (exData.status === 'completed') {
-                return res.status(400).json({ error: "This Transaction ID has already been completed." });
-            }
-            if (exData.status === 'verified') {
-                return res.status(400).json({ error: "This Transaction ID is already auto-verified and awaiting admin dispatch." });
-            }
-        }
+        amount = parseFloat(amount || totalBdt);
+        totalBdt = parseFloat(totalBdt || amount);
 
-        const config = botConfig || {};
-        const adminGroupId = config.adminGroupId || null;
-
-        // Check verified_trx collection for early SMS
         const verifiedRef = await db.collection('verified_trx').doc(trxId).get();
-        
-        if (verifiedRef.exists) {
-            const verifiedData = verifiedRef.data();
-            
-            // Check if already claimed
-            if (verifiedData.claimed) {
-                return res.status(400).json({ error: "This Transaction ID has already been claimed by another user." });
-            }
-            
-            // Check amount match
-            const amountDiff = verifiedData.amount ? Math.abs(verifiedData.amount - totalBdt) : 0;
-            if (amountDiff <= 1) {
-                // MATCH! Auto-verify!
-                await verifiedRef.ref.update({
-                    claimed: true,
-                    claimedBy: userId,
-                    claimedAt: FieldValue.serverTimestamp()
-                });
-
-                await db.collection('miniapp_buys').doc(trxId).set({
-                    userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress,
-                    status: 'verified',
-                    autoVerified: true,
-                    timestamp: FieldValue.serverTimestamp()
-                });
-
-                // Send to Admin Group
-                if (adminGroupId) {
-                    const groupMsg = `<blockquote><b>💎 New Buy Order [AUTO-VERIFIED]</b></blockquote>\n\n👤 User: <code>${userId}</code>\n💰 Asset: <b>${amount} ${asset}</b>\n💵 Paid: <b>৳${totalBdt} BDT</b> (${paymentMethod})\n#️⃣ TrxID: <code>${trxId}</code>\n🏷 Wallet: <code>${receiveAddress}</code>\n\n⚙️ <b>Actions (Reply to this message):</b>\n- <code>ok</code> or <code>accept</code> to auto-send ${asset} on-chain\n- <code>reject</code> to refund ৳${totalBdt} to user balance`;
-                    bot.sendMessage(adminGroupId, groupMsg, { parse_mode: 'HTML' }).catch(e => console.error("Admin group send error:", e.message));
-                }
-
-                // Notify User
-                bot.sendMessage(userId, `🎉 <b>Payment Auto-Verified!</b>\n\nYour payment of <b>৳${totalBdt} BDT</b> for <b>${amount} ${asset}</b> (TrxID: <code>${trxId}</code>) has been automatically verified.\n\nAdmin will dispatch your ${asset} to your wallet shortly.`, { parse_mode: 'HTML' }).catch(e => console.error("User send error:", e.message));
-
-                return res.json({ success: true, autoVerified: true, status: 'verified', message: 'Auto-verified instantly' });
-            } else {
-                // Amount Mismatch
-                await db.collection('miniapp_buys').doc(trxId).set({
-                    userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress,
-                    status: 'pending',
-                    autoVerified: false,
-                    warning: `Amount mismatch: expected ${totalBdt}, SMS had ${verifiedData.amount}`,
-                    timestamp: FieldValue.serverTimestamp()
-                });
-
-                if (adminGroupId) {
-                    const warnMsg = `⚠️ <b>Buy Order Amount Mismatch!</b>\nUser: <code>${userId}</code>\nExpected: <b>৳${totalBdt} BDT</b>\nSMS Received: <b>৳${verifiedData.amount} BDT</b>\nTrxID: <code>${trxId}</code>\nWallet: <code>${receiveAddress}</code>\n\n⚙️ <b>Reply <code>ok</code> to force accept or <code>reject</code> to refund.</b>`;
-                    bot.sendMessage(adminGroupId, warnMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                }
-
-                return res.json({ success: true, autoVerified: false, status: 'pending', message: 'Payment amount mismatch. Pending manual admin review.' });
-            }
+        if (!verifiedRef.exists) {
+            return res.status(400).json({ 
+                error: 'ভুল অথবা আনভেরিফাইড Transaction ID! টাকা পাঠিয়ে সঠিক TrxID দিন বা কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন।' 
+            });
         }
 
-        // SMS not arrived yet: Save as pending
+        const verifiedData = verifiedRef.data();
+        if (verifiedData.claimed) {
+            return res.status(400).json({ error: "এই Transaction ID টি ইতিমধ্যে ব্যবহার করা হয়েছে!" });
+        }
+
+        const amountDiff = verifiedData.amount ? Math.abs(verifiedData.amount - totalBdt) : 0;
+        if (amountDiff > 1) {
+            return res.status(400).json({ 
+                error: `টাকার পরিমাণ মেলেনি! এসএমএস-এ পাওয়া গেছে ৳${verifiedData.amount} BDT, কিন্তু আপনি দিয়েছেন ৳${totalBdt} BDT` 
+            });
+        }
+
+        // MATCH!
+        await verifiedRef.ref.update({
+            claimed: true,
+            claimedBy: userId,
+            claimedAt: FieldValue.serverTimestamp()
+        });
+
+        // Credit to balance!
+        const userRef = db.collection('users').doc(userId.toString());
+        await userRef.set({
+            balance: FieldValue.increment(totalBdt)
+        }, { merge: true });
+
         await db.collection('miniapp_buys').doc(trxId).set({
-            userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress,
-            status: 'pending',
-            autoVerified: false,
+            userId, asset: asset || 'BDT', amount, totalBdt, paymentMethod, trxId, receiveAddress: receiveAddress || '',
+            status: 'completed',
+            autoVerified: true,
             timestamp: FieldValue.serverTimestamp()
         });
 
-        if (adminGroupId) {
-            const pendingMsg = `<blockquote><b>💎 New Buy Order [PENDING SMS]</b></blockquote>\n\n👤 User: <code>${userId}</code>\n💰 Asset: <b>${amount} ${asset}</b>\n💵 Paid: <b>৳${totalBdt} BDT</b> (${paymentMethod})\n#️⃣ TrxID: <code>${trxId}</code>\n🏷 Wallet: <code>${receiveAddress}</code>\n\n⚙️ <b>Actions (Reply to this message):</b>\n- <code>ok</code> or <code>accept</code> to send ${asset} on-chain\n- <code>reject</code> to refund ৳${totalBdt} to user balance`;
-            bot.sendMessage(adminGroupId, pendingMsg, { parse_mode: 'HTML' }).catch(e => console.error("Admin group send error:", e.message));
-        }
+        const updatedDoc = await userRef.get();
+        const newBalance = updatedDoc.data()?.balance || totalBdt;
 
-        res.json({ success: true, autoVerified: false, status: 'pending', message: 'Order submitted. Waiting for SMS verification.' });
+        bot.sendMessage(userId, `🎉 <b>টাকা যুক্ত সফল হয়েছে!</b>\n\nআপনার অ্যাকাউন্টে <b>৳${totalBdt} BDT</b> যোগ করা হয়েছে।\n💰 বর্তমান ব্যালেন্স: <b>৳${newBalance} BDT</b>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+
+        return res.json({ 
+            success: true, 
+            autoVerified: true, 
+            status: 'completed', 
+            message: 'Auto-verified instantly & added to balance!',
+            newBalance
+        });
     } catch (e) {
         console.error("Buy submission error:", e);
         res.status(500).json({ error: e.message });

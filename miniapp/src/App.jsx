@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2 } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder } from './api';
+import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto } from './api';
 
 const initialGraphData = [
   { time: '10:00', price: 118.5 },
@@ -138,6 +138,7 @@ export default function App() {
     };
   }, []);
 const [activeTab, setActiveTab] = useState('home');
+  const [showBuyCryptoModal, setShowBuyCryptoModal] = useState(false);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -198,14 +199,47 @@ const GUEST_ID = 123456789;
              </div>
           </div>
 
-          {activeTab === 'home' && <HomePage balance={balance} user={user} fiatWithdrawPending={fiatWithdrawPending} onGoToClaim={() => setActiveTab('claim')} />}
-          {activeTab === 'buy' && <PremiumBuyPage user={user} />}
+          {activeTab === 'home' && (
+              <HomePage 
+                  balance={balance} 
+                  user={user} 
+                  fiatWithdrawPending={fiatWithdrawPending} 
+                  onGoToClaim={() => setActiveTab('claim')} 
+                  onOpenBuyCrypto={() => setShowBuyCryptoModal(true)}
+                  onGoToSell={() => setActiveTab('sell')}
+                  onGoToAddMoney={() => setActiveTab('add-money')}
+              />
+          )}
+          {activeTab === 'add-money' && (
+              <AddMoneyPage 
+                  user={user} 
+                  onDone={() => setActiveTab('home')}
+                  onGoToBuyCrypto={() => {
+                      setActiveTab('home');
+                      setShowBuyCryptoModal(true);
+                  }}
+                  reloadData={() => loadData(user?.id || 123456789)}
+              />
+          )}
           {activeTab === 'sell' && <PremiumSellPage user={user} />}
           {activeTab === 'history' && <HistoryPage user={user} onBack={() => setActiveTab('profile')} />}
-            {activeTab === 'profile' && <ProfilePage user={user} balance={balance} mbsId={mbsId} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onGoToWithdraw={() => setActiveTab('withdraw')} onGoToHistory={() => setActiveTab('history')} setFiatWallet={setFiatWallet} reloadData={() => loadData(user?.id || 123456789)} />}
+          {activeTab === 'profile' && <ProfilePage user={user} balance={balance} mbsId={mbsId} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onGoToWithdraw={() => setActiveTab('withdraw')} onGoToHistory={() => setActiveTab('history')} setFiatWallet={setFiatWallet} reloadData={() => loadData(user?.id || 123456789)} />}
           {activeTab === 'claim' && <ClaimPage user={user} onBack={() => setActiveTab('home')} />}
           {activeTab === 'withdraw' && <WithdrawFiatPage user={user} balance={balance} fiatWallet={fiatWallet} fiatWithdrawPending={fiatWithdrawPending} onBack={() => setActiveTab('profile')} reloadData={() => loadData(user?.id || 123456789)} />}
         </div>
+
+        {/* Buy Crypto Modal (Realtime On-Chain Send) */}
+        <BuyCryptoModal 
+            isOpen={showBuyCryptoModal}
+            onClose={() => setShowBuyCryptoModal(false)}
+            user={user}
+            balance={balance}
+            reloadData={() => loadData(user?.id || 123456789)}
+            onGoToAddMoney={() => {
+                setShowBuyCryptoModal(false);
+                setActiveTab('add-money');
+            }}
+        />
 
         {/* PREMIUM BOTTOM NAVIGATION */}
         {!isKeyboardVisible && (
@@ -223,15 +257,15 @@ const GUEST_ID = 123456789;
                         <div className={`absolute inset-1 bg-emerald-50/50 rounded-[24px] transition-opacity duration-300 ${activeTab === 'home' ? 'opacity-100' : 'opacity-0'}`} />
                     </button>
   
-                    {/* BUY */}
-                    <button onClick={() => setActiveTab('buy')} className="relative flex flex-col items-center justify-center w-[76px] h-[64px] transition-all duration-300 group active:scale-95">
+                    {/* ADD MONEY */}
+                    <button onClick={() => setActiveTab('add-money')} className="relative flex flex-col items-center justify-center w-[76px] h-[64px] transition-all duration-300 group active:scale-95">
                         <div className="relative flex flex-col items-center justify-center z-10">
-                            <ArrowDown size={22} strokeWidth={activeTab === 'buy' ? 2.5 : 2} className={`mb-1.5 transition-colors duration-300 ${activeTab === 'buy' ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600'}`} />
-                            <span className={`text-[9px] font-extrabold tracking-widest transition-colors duration-300 ${activeTab === 'buy' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>BUY</span>
+                            <PlusCircle size={22} strokeWidth={activeTab === 'add-money' ? 2.5 : 2} className={`mb-1.5 transition-colors duration-300 ${activeTab === 'add-money' ? 'text-emerald-500' : 'text-gray-400 group-hover:text-gray-600'}`} />
+                            <span className={`text-[8px] font-extrabold tracking-wider transition-colors duration-300 ${activeTab === 'add-money' ? 'text-gray-900' : 'text-gray-400 group-hover:text-gray-600'}`}>ADD MONEY</span>
                         </div>
                         {/* Active Indicator & Background */}
-                        <div className={`absolute bottom-0 w-5 h-1 bg-emerald-500 rounded-t-full transition-all duration-300 ${activeTab === 'buy' ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-50'}`} />
-                        <div className={`absolute inset-1 bg-emerald-50/50 rounded-[24px] transition-opacity duration-300 ${activeTab === 'buy' ? 'opacity-100' : 'opacity-0'}`} />
+                        <div className={`absolute bottom-0 w-5 h-1 bg-emerald-500 rounded-t-full transition-all duration-300 ${activeTab === 'add-money' ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-2 scale-50'}`} />
+                        <div className={`absolute inset-1 bg-emerald-50/50 rounded-[24px] transition-opacity duration-300 ${activeTab === 'add-money' ? 'opacity-100' : 'opacity-0'}`} />
                     </button>
   
                     {/* SELL */}
@@ -296,7 +330,7 @@ function AppHeader({ user }) {
   );
 }
 
-function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim }) {
+function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney }) {
   const [graphData, setGraphData] = useState(initialGraphData);
 
   useEffect(() => {
@@ -349,12 +383,50 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim }) {
          <div className="absolute top-4 right-4 pointer-events-none">
             <AbstractWalletIcon />
          </div>
-         <p className="text-[11px] font-medium text-[var(--color-text-secondary)] tracking-widest uppercase mb-1">Total Balance</p>
+         <div className="flex justify-between items-start mb-1">
+            <p className="text-[11px] font-medium text-[var(--color-text-secondary)] tracking-widest uppercase">Total Balance</p>
+            <button 
+                onClick={onGoToAddMoney} 
+                className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-full flex items-center gap-1.5 transition-colors border border-emerald-200/60 active:scale-95 shadow-sm"
+            >
+                <PlusCircle size={13} strokeWidth={2.5} />
+                <span>Add Money</span>
+            </button>
+         </div>
          <div className="flex items-baseline gap-1">
             <h2 className="text-4xl font-bold text-[var(--color-text-primary)]">{balance}</h2>
             <span className="text-xl font-semibold text-[var(--color-brand)]">TK</span>
          </div>
-         <p className="text-[11px] text-[var(--color-text-secondary)] mt-2">Available for withdrawal</p>
+         <p className="text-[11px] text-[var(--color-text-secondary)] mt-2">Available for withdrawal & crypto purchase</p>
+      </div>
+
+      {/* Quick Action Buttons: Buy Crypto & Sell Crypto */}
+      <div className="grid grid-cols-2 gap-3">
+         <button 
+             onClick={onOpenBuyCrypto} 
+             className="flex items-center gap-3 bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white p-4 rounded-[22px] shadow-lg shadow-emerald-500/25 active:scale-[0.97] transition-all text-left group"
+         >
+             <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 group-hover:scale-110 transition-transform shadow-inner">
+                 <Coins size={20} />
+             </div>
+             <div>
+                 <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest leading-none">Instant Send</p>
+                 <p className="text-[15px] font-black text-white leading-tight mt-1 tracking-tight">Buy Crypto</p>
+             </div>
+         </button>
+         
+         <button 
+             onClick={onGoToSell} 
+             className="flex items-center gap-3 bg-white text-gray-900 p-4 rounded-[22px] premium-shadow border border-[var(--color-border)] active:scale-[0.97] transition-all text-left group hover:border-gray-300"
+         >
+             <div className="w-10 h-10 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-700 shrink-0 group-hover:scale-110 transition-transform">
+                 <ArrowRightLeft size={20} />
+             </div>
+             <div>
+                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">Instant Swap</p>
+                 <p className="text-[15px] font-black text-gray-900 leading-tight mt-1 tracking-tight">Sell Crypto</p>
+             </div>
+         </button>
       </div>
 
       {/* Live Chart Card */}
@@ -588,297 +660,821 @@ function ClaimPage({ user, onBack }) {
 
 
 
-function PremiumBuyPage({ user }) {
-    const [step, setStep] = React.useState(1);
-    const [asset, setAsset] = React.useState('TON');
-    const [amount, setAmount] = React.useState('');
-    const [paymentMethod, setPaymentMethod] = React.useState('bKash');
-    const [trxId, setTrxId] = React.useState('');
-    const [receiveAddress, setReceiveAddress] = React.useState('');
-    const [orderResult, setOrderResult] = React.useState(null);
-    
-    const [showAssetModal, setShowAssetModal] = React.useState(false);
-    const [showMethodModal, setShowMethodModal] = React.useState(false);
-    const [loading, setLoading] = React.useState(false);
-    const [copied, setCopied] = React.useState(false);
-    
-    const [adminBkash, setAdminBkash] = React.useState("01752561935");
-    const [adminNagad, setAdminNagad] = React.useState("01878580320");
-    
-    React.useEffect(() => {
+function AddMoneyPage({ user, onDone, onGoToBuyCrypto, reloadData }) {
+    const [step, setStep] = useState(1);
+    const [amount, setAmount] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('bKash');
+    const [trxId, setTrxId] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [copied, setCopied] = useState(false);
+    const [adminBkash, setAdminBkash] = useState("01752561935");
+    const [adminNagad, setAdminNagad] = useState("01878580320");
+    const [depositResult, setDepositResult] = useState(null);
+
+    useEffect(() => {
         fetch((window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://maruf-teach-bot.onrender.com') + '/api/settings')
             .then(res => res.json())
             .then(data => {
-                if(data.adminBkash) setAdminBkash(data.adminBkash);
-                if(data.adminNagad) setAdminNagad(data.adminNagad);
+                if (data.adminBkash) setAdminBkash(data.adminBkash);
+                if (data.adminNagad) setAdminNagad(data.adminNagad);
             }).catch(e => console.log(e));
     }, []);
 
     const adminNumber = paymentMethod === 'bKash' ? adminBkash : adminNagad;
-    
+
     const handleCopy = () => {
         navigator.clipboard.writeText(adminNumber);
         setCopied(true);
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+        }
         setTimeout(() => setCopied(false), 2000);
     };
-    
-    const liveCryptoRate = 1.9;
-    const liveUsdBdt = 120;
-    const totalCrypto = amount ? (Number(amount) / (asset === 'USDT' ? liveUsdBdt : liveCryptoRate * liveUsdBdt)).toFixed(4) : '0.00';
 
-    const isValidStep1 = amount && paymentMethod && receiveAddress;
-    const isValidStep2 = trxId;
+    const quickAmounts = [100, 200, 500, 1000, 2000];
 
     const handleContinue = (e) => {
         if (e && e.preventDefault) e.preventDefault();
-        if (parseFloat(amount) < 20) return window.Telegram?.WebApp?.showAlert("Minimum buy amount is 20 BDT");
-        if (parseFloat(amount) > 30000) return window.Telegram?.WebApp?.showAlert("Maximum buy amount is 30000 BDT");
-        if(isValidStep1) { setStep(2); window.scrollTo({top:0, behavior:'smooth'}); }
+        const num = parseFloat(amount);
+        if (!num || isNaN(num) || num < 20) {
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("নূন্যতম অ্যাড মানি ২০ টাকা") : alert("Minimum amount is 20 BDT");
+        }
+        if (num > 30000) {
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("সর্বোচ্চ অ্যাড মানি ৩০,০০০ টাকা") : alert("Maximum amount is 30,000 BDT");
+        }
+        setErrorMessage('');
+        setStep(2);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleSubmit = async () => {
-        if(!isValidStep2) return;
-        setLoading(true);
-        try {
-            const res = await submitBuyOrder({
-                userId: user?.id || 123456789,
-                asset,
-                amount: parseFloat(totalCrypto),
-                totalBdt: parseFloat(amount),
-                paymentMethod,
-                trxId,
-                receiveAddress: receiveAddress
-            });
-            setOrderResult(res);
-            setStep(3); window.scrollTo({top:0, behavior:'smooth'});
-        } catch (e) {
-            alert(e.message || 'Failed to submit order'); window.Telegram?.WebApp?.showAlert(e.message || 'Failed to submit order');
+        if (!trxId || trxId.trim().length < 5) {
+            setErrorMessage('অনুগ্রহ করে সঠিক Transaction ID (কমপক্ষে ৫ অক্ষর) দিন');
+            return;
         }
-        setLoading(false);
+        setLoading(true);
+        setErrorMessage('');
+        try {
+            const res = await submitAddMoney({
+                userId: user?.id || 123456789,
+                amount: parseFloat(amount),
+                paymentMethod,
+                trxId: trxId.trim().toUpperCase()
+            });
+
+            if (res.success) {
+                setDepositResult(res);
+                if (reloadData) reloadData();
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+                setStep(3);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                setErrorMessage(res.error || 'ভেরিফিকেশন ব্যর্থ হয়েছে');
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+                }
+            }
+        } catch (e) {
+            setErrorMessage(e.message || 'ভুল বা আনভেরিফাইড Transaction ID! টাকা পাঠিয়ে সঠিক TrxID দিন।');
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            }
+        } finally {
+            setLoading(false);
+        }
     };
 
+    // STEP 3: LUXURY FINTECH SUCCESS RECEIPT
     if (step === 3) {
-        const isAutoVerified = orderResult && orderResult.autoVerified;
         return (
-            <div className="flex flex-col h-full items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-6 text-center">
-                <div className={`w-24 h-24 ${isAutoVerified ? 'bg-[#ECFDF3] border-[#D1FADF]' : 'bg-amber-50 border-amber-200'} rounded-full flex items-center justify-center mb-6 shadow-sm border-[6px]`}>
-                    <Sparkles size={40} className={isAutoVerified ? 'text-[#027A48]' : 'text-amber-600'} />
+            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-4 text-center pb-24">
+                {/* Glowing Animated Icon */}
+                <div className="relative mb-6 mt-4">
+                    <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-2xl animate-pulse" />
+                    <div className="w-24 h-24 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-full flex items-center justify-center shadow-xl shadow-emerald-500/30 border-4 border-white relative z-10">
+                        <CheckCircle2 size={48} className="text-white drop-shadow-md" />
+                    </div>
                 </div>
-                <h2 className="text-2xl font-extrabold text-[#101828] mb-2">
-                    {isAutoVerified ? 'Payment Auto-Verified! 🎉' : 'Payment Submitted'}
+
+                <h2 className="text-2xl font-black text-gray-900 mb-1 tracking-tight">
+                    ৳{amount} BDT Added! 🎉
                 </h2>
-                <p className="text-[#475467] text-sm mb-8 leading-relaxed max-w-[280px]">
-                    {isAutoVerified 
-                        ? 'Your payment was automatically verified via SMS! Admin has received the dispatch alert to send your asset.' 
-                        : 'Your payment is being verified. We’ll process your order once verification is complete.'}
+                <p className="text-gray-500 text-xs mb-6 max-w-[280px] leading-relaxed">
+                    আপনার পেমেন্ট SMS দ্বারা সাথে সাথে অটো-ভেরিফাই হয়েছে এবং ব্যালেন্সে যোগ হয়েছে।
                 </p>
-                <div className="bg-white border border-[#E4E7EC] rounded-2xl p-5 w-full max-w-[300px] mb-8 shadow-sm">
-                    <p className="text-xs text-[#98A2B3] font-bold uppercase tracking-wider mb-1">Transaction ID</p>
-                    <p className="text-lg font-bold text-[#101828] mb-3 font-mono">{trxId}</p>
-                    {isAutoVerified ? (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold border border-emerald-200">
-                            <CheckCircle2 size={12} />
-                            Auto-Verified (Ready)
+
+                {/* Fintech Receipt Card */}
+                <div className="bg-white border border-gray-100 rounded-3xl p-5 w-full max-w-[340px] mb-6 shadow-xl shadow-gray-100/60 relative overflow-hidden">
+                    <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
+                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status</span>
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black border border-emerald-200/60">
+                            <Sparkles size={12} /> Auto-Verified
                         </div>
-                    ) : (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-200">
-                            <Clock size={12} />
-                            Verification Pending (Waiting SMS)
-                        </div>
-                    )}
-                </div>
-                <button onClick={() => { setStep(1); setAmount(''); setTrxId(''); setReceiveAddress(''); setOrderResult(null); }} className="w-full bg-[#F8FAFC] text-[#475467] font-bold border border-[#E4E7EC] rounded-2xl p-4 transition-all active:scale-95 shadow-sm">
-                    BACK TO HOME
-                </button>
-            </div>
-        );
-    }
-
-    if (step === 2) {
-        return (
-            <div className="flex flex-col h-full animate-in slide-in-from-right duration-300 pb-24">
-                <div className="flex items-center gap-3 mb-6">
-                    <button onClick={() => { setStep(1); window.scrollTo({top:0, behavior:'smooth'}); }} className="p-2 -ml-2 bg-white rounded-full shadow-sm text-[#101828]"><ArrowDown size={20} className="rotate-90" /></button>
-                    <div>
-                        <h2 className="text-xl font-extrabold text-[#101828] tracking-tight">Payment Verification</h2>
-                        <p className="text-[#475467] text-xs mt-0.5">Submit your payment details</p>
                     </div>
-                </div>
-
-                <div className="flex items-center gap-2 mb-6 px-2">
-                    <div className="h-1.5 flex-1 bg-[#00A878] rounded-full"></div>
-                    <div className="h-1.5 flex-1 bg-[#00A878] rounded-full relative">
-                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#00A878] rounded-full ring-4 ring-[#ECFDF3]"></div>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-3xl p-5 mb-5 border border-[#E4E7EC] shadow-sm">
-                    <h3 className="text-sm font-bold text-[#101828] mb-4">Complete Payment</h3>
-                    <div className="bg-[#F8FAFC] rounded-2xl p-4 space-y-3 mb-4">
+                    
+                    <div className="space-y-2.5 text-left text-xs">
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#475467]">Send exactly</span>
-                            <span className="text-sm font-extrabold text-[#00A878]">৳{amount} BDT</span>
+                            <span className="text-gray-400 font-medium">Transaction ID</span>
+                            <span className="font-mono font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">{trxId}</span>
                         </div>
-                        <div className="h-px bg-[#E4E7EC] w-full"></div>
                         <div className="flex justify-between items-center">
-                            <span className="text-xs font-bold text-[#475467]">To {paymentMethod} Number</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-[#101828] bg-white px-2 py-1 rounded-md shadow-sm border border-[#E4E7EC]">{adminNumber}</span>
-                                <button onClick={handleCopy} className={"p-1.5 rounded-md transition-colors shadow-sm " + (copied ? "bg-[#00A878] text-white" : "bg-white text-[#475467] border border-[#E4E7EC] hover:bg-gray-50")}>
-                                    {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-                                </button>
-                            </div>
+                            <span className="text-gray-400 font-medium">Payment Method</span>
+                            <span className="font-bold text-gray-900">{paymentMethod}</span>
                         </div>
-                    </div>
-
-                    <h3 className="text-sm font-bold text-[#101828] mb-4 mt-6">Payment Details</h3>
-                    <div className="space-y-4">
-                        
-                        <div>
-                            <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Transaction ID</label>
-                            <div className="relative">
-    <input type="text" value={trxId} onChange={e => setTrxId(e.target.value)} placeholder="8ABC123XYZ" className="w-full bg-[#F8FAFC] rounded-2xl p-4 pr-12 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
-    <button onClick={async () => { try { const text = await navigator.clipboard.readText(); setTrxId(text); } catch(e){} }} className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white text-[#98A2B3] hover:text-[#00A878] hover:bg-[#ECFDF3] rounded-lg transition-all shadow-sm border border-[#E4E7EC]">
-        <ClipboardPaste size={16} />
-    </button>
-</div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-400 font-medium">Amount Deposited</span>
+                            <span className="font-extrabold text-emerald-600 text-sm">৳{amount} BDT</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-gray-400 font-medium">Account Name</span>
+                            <span className="font-bold text-gray-900">{user?.first_name || 'User'}</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-[#ECFDF3] border border-[#00A878]/20 rounded-2xl p-4 flex gap-3 mb-6 shadow-sm">
-                    <Info size={20} className="text-[#027A48] shrink-0 mt-0.5" />
-                    <p className="text-[#027A48] text-xs font-medium leading-relaxed">Your payment will be verified before the {asset} is sent to your wallet.</p>
-                </div>
-
-                <div className="mt-auto">
-                    <button onPointerDown={(e) => { if (e && e.preventDefault) e.preventDefault(); handleSubmit(); }} disabled={!isValidStep2 || loading} className="w-full bg-[#00A878] disabled:bg-[#E4E7EC] disabled:text-[#98A2B3] text-white font-extrabold rounded-2xl p-[18px] shadow-lg shadow-[#00A878]/20 active:scale-95 transition-all flex justify-center items-center gap-2">
-                        {loading ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> VERIFYING...</> : 'SUBMIT FOR VERIFICATION'}
+                {/* Action Buttons */}
+                <div className="w-full max-w-[340px] space-y-2.5">
+                    <button 
+                        onClick={onGoToBuyCrypto} 
+                        className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm tracking-wide"
+                    >
+                        <Coins size={18} />
+                        BUY CRYPTO NOW
+                    </button>
+                    <button 
+                        onClick={() => {
+                            setStep(1);
+                            setAmount('');
+                            setTrxId('');
+                            setErrorMessage('');
+                            onDone();
+                        }} 
+                        className="w-full bg-white text-gray-700 font-bold py-3.5 rounded-2xl border border-gray-200 active:scale-95 transition-all text-sm"
+                    >
+                        BACK TO HOME
                     </button>
                 </div>
             </div>
         );
     }
 
+    // STEP 2: SEND MONEY & SUBMIT TRXID (STRICT: NO PENDING)
+    if (step === 2) {
+        return (
+            <div className="flex flex-col h-full animate-in slide-in-from-right duration-300 pb-24">
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-5">
+                    <button 
+                        onClick={() => { setStep(1); setErrorMessage(''); }} 
+                        className="p-2.5 bg-white rounded-full shadow-sm text-gray-700 border border-gray-100 active:scale-95 transition-transform"
+                    >
+                        <ArrowDown size={18} className="rotate-90" />
+                    </button>
+                    <div>
+                        <h2 className="text-xl font-black text-gray-900 tracking-tight">Send Money Verification</h2>
+                        <p className="text-gray-500 text-xs mt-0.5">টাকা পাঠিয়ে TrxID সাবমিট করুন</p>
+                    </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="flex items-center gap-2 mb-6 px-1">
+                    <div className="h-1.5 flex-1 bg-emerald-500 rounded-full" />
+                    <div className="h-1.5 flex-1 bg-emerald-500 rounded-full relative">
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-emerald-500 rounded-full ring-4 ring-emerald-100" />
+                    </div>
+                </div>
+
+                {/* Instructions Card */}
+                <div className="bg-white rounded-3xl p-5 mb-4 border border-gray-100 shadow-sm space-y-4">
+                    <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+                        <div className="flex items-center gap-2.5">
+                            <img 
+                                src={paymentMethod === 'bKash' ? 'https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png' : 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ1M8VPPADiai-0lEgQMNXBEir230b0dAn61cgVHRVQat7qn3-H0L4m1Zg&s=10'} 
+                                className="w-7 h-7 object-contain" 
+                                alt={paymentMethod} 
+                            />
+                            <div>
+                                <span className="font-extrabold text-gray-900 text-sm block">{paymentMethod} Personal</span>
+                                <span className="text-[10px] text-gray-400 font-medium">Send Money Only</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] text-gray-400 font-medium block">Send exactly</span>
+                            <span className="text-base font-black text-emerald-600">৳{amount} BDT</span>
+                        </div>
+                    </div>
+
+                    {/* Admin Number with Copy */}
+                    <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                        <div className="flex justify-between items-center mb-1.5">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Admin {paymentMethod} Number</span>
+                            <span className="text-[10px] text-emerald-600 font-bold">Personal</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-lg font-black text-gray-900 font-mono tracking-wider">{adminNumber}</span>
+                            <button 
+                                onClick={handleCopy} 
+                                className={"flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs shadow-sm transition-all active:scale-95 " + (copied ? "bg-emerald-600 text-white" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50")}
+                            >
+                                {copied ? <><CheckCircle2 size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Bangla Guidance */}
+                    <div className="bg-emerald-50/60 rounded-2xl p-3.5 border border-emerald-100 text-xs text-emerald-900 space-y-1.5">
+                        <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">কিভাবে টাকা পাঠাবেন:</p>
+                        <p>১. আপনার <b>{paymentMethod}</b> অ্যাপ থেকে <b>Send Money</b> অপশনে যান।</p>
+                        <p>২. উপরে দেওয়া নাম্বারে সঠিক <b>৳{amount} টাকা</b> পাঠান।</p>
+                        <p>৩. এসএমএস থেকে পাওয়া <b>Transaction ID (TrxID)</b> নিচে লিখে সাবমিট করুন।</p>
+                    </div>
+                </div>
+
+                {/* TrxID Input Card */}
+                <div className="bg-white rounded-3xl p-5 mb-4 border border-gray-100 shadow-sm space-y-3">
+                    <label className="text-[11px] font-black text-gray-500 block uppercase tracking-widest">
+                        Transaction ID (TrxID)
+                    </label>
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            value={trxId} 
+                            onChange={e => setTrxId(e.target.value.toUpperCase())} 
+                            placeholder="e.g. 9J26XYZ789" 
+                            className="w-full bg-gray-50 rounded-2xl p-4 pr-12 text-base font-mono font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none" 
+                        />
+                        <button 
+                            onClick={async () => { 
+                                try { 
+                                    const text = await navigator.clipboard.readText(); 
+                                    if (text) setTrxId(text.trim().toUpperCase()); 
+                                } catch(e){} 
+                            }} 
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white text-gray-400 hover:text-emerald-600 rounded-xl transition-all shadow-sm border border-gray-200"
+                            title="Paste from clipboard"
+                        >
+                            <ClipboardPaste size={18} />
+                        </button>
+                    </div>
+
+                    {/* Prominent Realtime Error Alert */}
+                    {errorMessage && (
+                        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <AlertCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
+                            <div className="text-xs">
+                                <p className="font-bold text-red-700 mb-0.5">ভুল বা অমিল TrxID!</p>
+                                <p className="text-red-600 leading-relaxed">{errorMessage}</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Submit Button */}
+                <div className="mt-auto">
+                    <button 
+                        onClick={handleSubmit} 
+                        disabled={!trxId.trim() || loading} 
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-2xl p-4 shadow-lg shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-sm tracking-wide"
+                    >
+                        {loading ? (
+                            <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> VERIFYING SMS...</>
+                        ) : (
+                            <><CheckCircle2 size={18} /> VERIFY & ADD MONEY</>
+                        )}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // STEP 1: AMOUNT & PAYMENT METHOD (NO WALLET ADDRESS HERE)
     return (
         <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
+            {/* Header */}
             <div className="flex items-center gap-3 mb-5">
-                <div className="w-10 h-10 bg-[#ECFDF3] rounded-full flex items-center justify-center text-[#00A878] border border-[#00A878]/20 shadow-sm">
-                    <ArrowDown size={18} strokeWidth={2.5} />
+                <div className="w-11 h-11 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm">
+                    <PlusCircle size={22} strokeWidth={2.5} />
                 </div>
                 <div>
-                    <h2 className="text-xl font-extrabold text-[#101828] tracking-tight">Buy {asset}</h2>
-                    <p className="text-[#475467] text-xs mt-0.5">Enter your order details to continue</p>
+                    <h2 className="text-xl font-black text-gray-900 tracking-tight">Add Money</h2>
+                    <p className="text-gray-500 text-xs mt-0.5">টাকা জমা করুন আপনার একাউন্ট ব্যালেন্সে</p>
                 </div>
             </div>
 
-            <div className="flex items-center gap-2 mb-6 px-2">
-                <div className="h-1.5 flex-1 bg-[#00A878] rounded-full relative">
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-[#00A878] rounded-full ring-4 ring-[#ECFDF3]"></div>
+            {/* Progress Bar */}
+            <div className="flex items-center gap-2 mb-6 px-1">
+                <div className="h-1.5 flex-1 bg-emerald-500 rounded-full relative">
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-emerald-500 rounded-full ring-4 ring-emerald-100" />
                 </div>
-                <div className="h-1.5 flex-1 bg-[#E4E7EC] rounded-full"></div>
+                <div className="h-1.5 flex-1 bg-gray-200 rounded-full" />
             </div>
 
             <div className="space-y-4">
-                <div className="bg-white rounded-3xl p-5 border border-[#E4E7EC] shadow-sm space-y-4">
-    <div>
-        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Select Asset</label>
-        
-    <div className="relative z-50">
-        <button onClick={() => setShowAssetModal(!showAssetModal)} className="w-full bg-[#F8FAFC] rounded-2xl p-4 flex items-center justify-between border border-[#E4E7EC] active:bg-gray-100 transition-colors">
-            <div className="flex items-center gap-2.5">
-                {asset === 'TON' ? <img src="https://cryptologos.cc/logos/toncoin-ton-logo.svg?v=035" className="w-5 h-5" alt="TON" /> : <img src="https://cryptologos.cc/logos/tether-usdt-logo.svg?v=035" className="w-5 h-5" alt="USDT" />}
-                <span className="font-bold text-[#101828] text-sm">{asset}</span>
-            </div>
-            <ChevronDown size={18} className={"text-[#98A2B3] transition-transform " + (showAssetModal ? "rotate-180" : "")} />
-        </button>
-        {showAssetModal && (
-            
-    <div className="absolute top-full left-0 w-full mt-1 bg-white rounded-xl shadow-xl border border-[#E4E7EC] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-        <button onClick={() => { setAsset('TON'); setShowAssetModal(false); }} className={"w-full flex items-center gap-2.5 p-4 border-b border-[#E4E7EC] hover:bg-gray-50 transition-colors " + (asset === 'TON' ? "bg-[#ECFDF3]" : "")}>
-            <img src="https://cryptologos.cc/logos/toncoin-ton-logo.svg?v=035" className="w-5 h-5" alt="TON" />
-            <span className={"font-bold text-sm " + (asset === 'TON' ? 'text-[#027A48]' : 'text-[#101828]')}>TON</span>
-        </button>
-        <button onClick={() => { setAsset('USDT'); setShowAssetModal(false); }} className={"w-full flex items-center gap-2.5 p-4 hover:bg-gray-50 transition-colors " + (asset === 'USDT' ? "bg-[#ECFDF3]" : "")}>
-            <img src="https://cryptologos.cc/logos/tether-usdt-logo.svg?v=035" className="w-5 h-5" alt="USDT" />
-            <span className={"font-bold text-sm " + (asset === 'USDT' ? 'text-[#027A48]' : 'text-[#101828]')}>USDT</span>
-        </button>
-    </div>
-
-        )}
-    </div>
-
-    </div>
-    <div>
-        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Amount to Pay (BDT)</label>
-        <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-sm text-[#101828]">৳</span>
-            <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className="w-full bg-[#F8FAFC] rounded-2xl p-4 pl-10 pr-14 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-sm text-[#98A2B3]">BDT</span>
-        </div>
-        {amount && (
-            <div className="mt-3 bg-[#ECFDF3] rounded-xl p-3 flex justify-between items-center border border-[#00A878]/10">
-                <span className="text-xs font-bold text-[#027A48]">You will receive</span>
-                <span className="text-sm font-extrabold text-[#027A48]">{totalCrypto} {asset}</span>
-            </div>
-        )}
-    </div>
-</div>
-
-                <div className="bg-white rounded-3xl p-5 border border-[#E4E7EC] shadow-sm space-y-4">
+                {/* Amount Card */}
+                <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-4">
                     <div>
-                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Payment Method</label>
-                        
-    
-    
-    
-    <div className="relative z-40">
-        <button onClick={() => setShowMethodModal(!showMethodModal)} className="w-full bg-[#F8FAFC] rounded-2xl p-4 flex items-center justify-between border border-[#E4E7EC] active:bg-gray-100 transition-colors">
-            <div className="flex items-center gap-2.5">
-                {paymentMethod === 'bKash' ? <img src="https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png" className="w-5 h-5 object-contain" alt="bKash" /> : <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ1M8VPPADiai-0lEgQMNXBEir230b0dAn61cgVHRVQat7qn3-H0L4m1Zg&s=10" className="w-5 h-5 object-contain" alt="Nagad" />}
-                <span className="font-bold text-[#101828] text-sm">{paymentMethod}</span>
-            </div>
-            <ChevronDown size={18} className={"text-[#98A2B3] transition-transform " + (showMethodModal ? "rotate-180" : "")} />
-        </button>
-        {showMethodModal && (
-            
-    <div className="absolute top-full left-0 w-full mt-1 bg-white rounded-xl shadow-xl border border-[#E4E7EC] overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-40">
-        <button onClick={() => { setPaymentMethod('bKash'); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 border-b border-[#E4E7EC] hover:bg-gray-50 transition-colors " + (paymentMethod === 'bKash' ? "bg-[#ECFDF3]" : "")}>
-            <div className="flex items-center gap-2.5">
-                <img src="https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png" className="w-5 h-5 object-contain" alt="bKash" />
-                <span className={"font-bold text-sm " + (paymentMethod === 'bKash' ? 'text-[#027A48]' : 'text-[#101828]')}>bKash</span>
-            </div>
-            {paymentMethod === 'bKash' && <Sparkles size={14} className="text-[#00A878]"/>}
-        </button>
-        <button onClick={() => { setPaymentMethod('Nagad'); setShowMethodModal(false); }} className={"w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors " + (paymentMethod === 'Nagad' ? "bg-[#ECFDF3]" : "")}>
-            <div className="flex items-center gap-2.5">
-                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ1M8VPPADiai-0lEgQMNXBEir230b0dAn61cgVHRVQat7qn3-H0L4m1Zg&s=10" className="w-5 h-5 object-contain" alt="Nagad" />
-                <span className={"font-bold text-sm " + (paymentMethod === 'Nagad' ? 'text-[#027A48]' : 'text-[#101828]')}>Nagad</span>
-            </div>
-            {paymentMethod === 'Nagad' && <Sparkles size={14} className="text-[#00A878]"/>}
-        </button>
-    </div>
-
-        )}
-    </div>
-
-    </div>
-                    <div>
-                        <label className="text-[10px] font-extrabold text-[#98A2B3] block tracking-widest uppercase mb-1.5 ml-1">Receive Address ({asset})</label>
-                        <input type="text" value={receiveAddress} onChange={e => setReceiveAddress(e.target.value)} placeholder={"Paste your " + asset + " address"} className="w-full bg-[#F8FAFC] rounded-2xl p-4 text-sm font-bold text-[#101828] border border-[#E4E7EC] focus:border-[#00A878] focus:ring-4 focus:ring-[#00A878]/10 transition-all outline-none" />
+                        <label className="text-[11px] font-black text-gray-400 block tracking-widest uppercase mb-2 ml-1">
+                            Deposit Amount (BDT)
+                        </label>
+                        <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-lg text-gray-700">৳</span>
+                            <input 
+                                type="number" 
+                                value={amount} 
+                                onChange={e => setAmount(e.target.value)} 
+                                placeholder="0.00" 
+                                className="w-full bg-gray-50 rounded-2xl p-4 pl-9 pr-16 text-xl font-black text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none" 
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-xs text-gray-400">BDT</span>
+                        </div>
                     </div>
+
+                    {/* Quick Amount Chips */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                        {quickAmounts.map(val => (
+                            <button
+                                key={val}
+                                type="button"
+                                onClick={() => setAmount(val.toString())}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+                                    amount === val.toString() 
+                                        ? 'bg-emerald-600 text-white shadow-sm' 
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                ৳{val}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Payment Method Selection */}
+                <div className="bg-white rounded-3xl p-5 border border-gray-100 shadow-sm space-y-3">
+                    <label className="text-[11px] font-black text-gray-400 block tracking-widest uppercase mb-1 ml-1">
+                        Select Payment Method
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        {/* bKash */}
+                        <div 
+                            onClick={() => setPaymentMethod('bKash')}
+                            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-2 ${
+                                paymentMethod === 'bKash' 
+                                    ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
+                                    : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'
+                            }`}
+                        >
+                            <img 
+                                src="https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png" 
+                                className="w-10 h-10 object-contain" 
+                                alt="bKash" 
+                            />
+                            <div>
+                                <span className="font-extrabold text-sm text-gray-900 block">bKash</span>
+                                <span className="text-[10px] text-gray-400 font-medium">Personal</span>
+                            </div>
+                            {paymentMethod === 'bKash' && (
+                                <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white mt-1">
+                                    <Check size={12} strokeWidth={3} />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Nagad */}
+                        <div 
+                            onClick={() => setPaymentMethod('Nagad')}
+                            className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col items-center text-center gap-2 ${
+                                paymentMethod === 'Nagad' 
+                                    ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
+                                    : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'
+                            }`}
+                        >
+                            <img 
+                                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ1M8VPPADiai-0lEgQMNXBEir230b0dAn61cgVHRVQat7qn3-H0L4m1Zg&s=10" 
+                                className="w-10 h-10 object-contain" 
+                                alt="Nagad" 
+                            />
+                            <div>
+                                <span className="font-extrabold text-sm text-gray-900 block">Nagad</span>
+                                <span className="text-[10px] text-gray-400 font-medium">Personal</span>
+                            </div>
+                            {paymentMethod === 'Nagad' && (
+                                <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white mt-1">
+                                    <Check size={12} strokeWidth={3} />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Instant Credit Note */}
+                <div className="bg-emerald-50/60 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
+                    <Sparkles size={20} className="text-emerald-600 shrink-0" />
+                    <p className="text-emerald-800 text-xs font-medium leading-relaxed">
+                        টাকা পাঠানোর সাথে সাথে আপনার TrxID অটো-ভেরিফাই হবে এবং ইন-অ্যাপ ব্যালেন্সে যুক্ত হবে।
+                    </p>
                 </div>
             </div>
 
+            {/* Next Button */}
             <div className="mt-6">
-                <button onPointerDown={handleContinue} disabled={!isValidStep1} className="w-full bg-[#101828] disabled:bg-[#101828]/50 disabled:cursor-not-allowed text-white font-extrabold rounded-2xl p-4 shadow-lg shadow-black/20 active:scale-95 transition-all text-sm tracking-wide">
-        PAYMENT
-    </button>
+                <button 
+                    onClick={handleContinue} 
+                    disabled={!amount || parseFloat(amount) < 20} 
+                    className="w-full bg-gray-900 hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-2xl p-4 shadow-lg shadow-black/10 active:scale-95 transition-all text-sm tracking-wide"
+                >
+                    CONTINUE TO PAYMENT
+                </button>
             </div>
+        </div>
+    );
+}
 
-             
+// REALTIME BUY CRYPTO MODAL (Live On-Chain Payout from User BDT Balance)
+function BuyCryptoModal({ isOpen, onClose, user, balance, reloadData, onGoToAddMoney }) {
+    const userTonAddress = useTonAddress();
+    const [selectedAsset, setSelectedAsset] = useState('TON'); // 'TON' or 'GRAM'
+    const [bdtAmount, setBdtAmount] = useState('');
+    const [receiveAddress, setReceiveAddress] = useState('');
+    const [stage, setStage] = useState('idle'); // 'idle' | 'processing' | 'success' | 'error'
+    const [processStep, setProcessStep] = useState(1);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [txResult, setTxResult] = useState(null);
 
-             
+    // Auto-fill connected TonConnect wallet if address empty
+    useEffect(() => {
+        if (userTonAddress && !receiveAddress) {
+            setReceiveAddress(userTonAddress);
+        }
+    }, [userTonAddress]);
+
+    if (!isOpen) return null;
+
+    // Rates: 1 TON ≈ 228 BDT (1.9 USDT * 120 BDT), 1 GRAM ≈ 120 BDT
+    const cryptoRate = selectedAsset === 'GRAM' ? 120 : 228;
+    const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
+        ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
+        : '0.0000';
+
+    const numBdt = parseFloat(bdtAmount) || 0;
+    const hasInsufficientBalance = numBdt > balance;
+
+    const handleConfirmBuy = async () => {
+        if (!numBdt || numBdt < 20) {
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("নূন্যতম ক্রিপ্টো ক্রয় ২০ টাকা") : alert("Minimum buy is 20 BDT");
+        }
+        if (hasInsufficientBalance) return;
+        if (!receiveAddress || receiveAddress.trim().length < 24) {
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("সঠিক TON Receive Address দিন") : alert("Enter valid TON address");
+        }
+
+        setStage('processing');
+        setProcessStep(1); // Stage 1: Checking balance & reserves
+        setErrorMessage('');
+
+        try {
+            await new Promise(r => setTimeout(r, 600));
+            setProcessStep(2); // Stage 2: Broadcasting on-chain transaction
+
+            const res = await submitBuyCrypto({
+                userId: user?.id || 123456789,
+                asset: selectedAsset,
+                cryptoAmount: parseFloat(calculatedCrypto),
+                bdtAmount: numBdt,
+                receiveAddress: receiveAddress.trim()
+            });
+
+            if (res.success) {
+                setProcessStep(3); // Stage 3: Awaiting on-chain confirmation
+                await new Promise(r => setTimeout(r, 600));
+                setTxResult(res);
+                setStage('success');
+                if (reloadData) reloadData();
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+            } else {
+                throw new Error(res.error || 'Failed to send crypto');
+            }
+        } catch (e) {
+            setErrorMessage(e.message || 'ক্রিপ্টো পাঠানো ব্যর্থ হয়েছে। আপনার ব্যালেন্স অক্ষত আছে বা রিফান্ড করা হয়েছে।');
+            setStage('error');
+            if (reloadData) reloadData();
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            }
+        }
+    };
+
+    const handleResetAndClose = () => {
+        setStage('idle');
+        setProcessStep(1);
+        setBdtAmount('');
+        setErrorMessage('');
+        setTxResult(null);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="w-full max-w-md bg-white rounded-t-[32px] sm:rounded-[32px] p-6 max-h-[92vh] overflow-y-auto border border-gray-100 shadow-2xl animate-in slide-in-from-bottom duration-300">
+                
+                {/* Header */}
+                <div className="flex justify-between items-center mb-5 pb-3 border-b border-gray-100">
+                    <div>
+                        <h3 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                            <Coins size={22} className="text-emerald-600" />
+                            Buy Crypto
+                        </h3>
+                        <p className="text-gray-400 text-xs">আপনার ব্যালেন্স থেকে সরাসরি ওয়ালেটে পাঠানো হবে</p>
+                    </div>
+                    <button 
+                        onClick={handleResetAndClose} 
+                        className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-full transition-colors active:scale-95"
+                    >
+                        <X size={18} strokeWidth={2.5} />
+                    </button>
+                </div>
+
+                {/* SUCCESS STAGE */}
+                {stage === 'success' ? (
+                    <div className="py-6 text-center animate-in zoom-in-95 duration-400">
+                        <div className="relative mb-5 inline-block">
+                            <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl animate-pulse" />
+                            <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-xl shadow-emerald-500/30 relative z-10 border-4 border-white">
+                                <CheckCircle2 size={40} />
+                            </div>
+                        </div>
+
+                        <h4 className="text-xl font-black text-gray-900 mb-1">
+                            Payment Sent Successfully! 🎉
+                        </h4>
+                        <p className="text-gray-500 text-xs mb-6 max-w-[280px] mx-auto leading-relaxed">
+                            আপনার ওয়ালেটে <b>{calculatedCrypto} {selectedAsset}</b> সফলভাবে পাঠানো হয়েছে।
+                        </p>
+
+                        <div className="bg-gray-50 rounded-2xl p-4 text-left text-xs space-y-2 border border-gray-100 mb-6">
+                            <div className="flex justify-between">
+                                <span className="text-gray-400 font-medium">Crypto Sent:</span>
+                                <span className="font-black text-emerald-600">{calculatedCrypto} {selectedAsset}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-400 font-medium">BDT Deducted:</span>
+                                <span className="font-bold text-gray-900">৳{bdtAmount} TK</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-400 font-medium">Wallet:</span>
+                                <span className="font-mono font-bold text-gray-700 truncate max-w-[170px]">{receiveAddress}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-400 font-medium">Network:</span>
+                                <span className="font-bold text-emerald-600">TON Blockchain</span>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleResetAndClose} 
+                            className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all text-sm"
+                        >
+                            DONE / সম্পন্ন
+                        </button>
+                    </div>
+                ) : stage === 'error' ? (
+                    /* ERROR STAGE */
+                    <div className="py-6 text-center animate-in zoom-in-95 duration-400">
+                        <div className="w-18 h-18 bg-red-100 rounded-full flex items-center justify-center text-red-600 mx-auto mb-4 border-4 border-white shadow-lg">
+                            <AlertCircle size={36} />
+                        </div>
+                        <h4 className="text-lg font-black text-gray-900 mb-1">ট্রানজেকশন ব্যর্থ হয়েছে</h4>
+                        <p className="text-red-600 text-xs mb-6 leading-relaxed bg-red-50 p-3 rounded-xl border border-red-100 max-w-[320px] mx-auto">
+                            {errorMessage}
+                        </p>
+                        <button 
+                            onClick={() => setStage('idle')} 
+                            className="w-full bg-gray-900 text-white font-bold py-3.5 rounded-2xl active:scale-95 transition-all text-sm"
+                        >
+                            TRY AGAIN
+                        </button>
+                    </div>
+                ) : stage === 'processing' ? (
+                    /* LIVE REALTIME PROCESSING STAGE */
+                    <div className="py-8 text-center animate-in fade-in duration-300 space-y-6">
+                        <div className="relative inline-block">
+                            <div className="w-20 h-20 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                            <div className="absolute inset-0 flex items-center justify-center text-emerald-600">
+                                <Coins size={28} className="animate-pulse" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 className="text-lg font-black text-gray-900 mb-1">
+                                {processStep === 1 && 'Checking Balance & Rate...'}
+                                {processStep === 2 && 'Sending on TON Blockchain...'}
+                                {processStep === 3 && 'Awaiting Confirmation...'}
+                            </h4>
+                            <p className="text-gray-400 text-xs">
+                                {processStep === 1 && 'আপনার ব্যালেন্স এবং এক্সচেঞ্জ রেট চেক করা হচ্ছে'}
+                                {processStep === 2 && 'বট সরাসরি আপনার ওয়ালেটে ক্রিপ্টো পাঠাচ্ছে'}
+                                {processStep === 3 && 'ব্লকচেইন কনফার্মেশন চূড়ান্ত হচ্ছে'}
+                            </p>
+                        </div>
+
+                        {/* Multi-step indicator */}
+                        <div className="flex items-center justify-center gap-2 max-w-[260px] mx-auto">
+                            <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${processStep >= 1 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                            <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${processStep >= 2 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                            <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${processStep >= 3 ? 'bg-emerald-500' : 'bg-gray-200'}`} />
+                        </div>
+                    </div>
+                ) : (
+                    /* IDLE / INPUT STAGE */
+                    <div className="space-y-4">
+                        {/* Current User Balance Banner */}
+                        <div className="bg-gray-50 border border-gray-100 rounded-2xl p-3.5 flex justify-between items-center">
+                            <div>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Available Balance</span>
+                                <span className="text-lg font-black text-gray-900">{balance} <span className="text-emerald-600 text-sm">TK</span></span>
+                            </div>
+                            <button 
+                                onClick={onGoToAddMoney} 
+                                className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-emerald-200/60 transition-colors"
+                            >
+                                <PlusCircle size={14} /> Add Money
+                            </button>
+                        </div>
+
+                        {/* Select Asset: TON vs GRAM */}
+                        <div>
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1.5">
+                                Select Crypto Asset
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedAsset('TON')}
+                                    className={`p-3 rounded-2xl border-2 flex items-center gap-2.5 transition-all ${
+                                        selectedAsset === 'TON' 
+                                            ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
+                                            : 'border-gray-100 bg-gray-50 hover:bg-gray-100/60'
+                                    }`}
+                                >
+                                    <img src="https://cryptologos.cc/logos/toncoin-ton-logo.svg?v=035" className="w-6 h-6" alt="TON" />
+                                    <div className="text-left">
+                                        <span className="font-extrabold text-xs text-gray-900 block">TON Coin</span>
+                                        <span className="text-[10px] text-gray-400 font-medium">≈ ৳228 TK</span>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedAsset('GRAM')}
+                                    className={`p-3 rounded-2xl border-2 flex items-center gap-2.5 transition-all ${
+                                        selectedAsset === 'GRAM' 
+                                            ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
+                                            : 'border-gray-100 bg-gray-50 hover:bg-gray-100/60'
+                                    }`}
+                                >
+                                    <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-[10px] font-black">G</div>
+                                    <div className="text-left">
+                                        <span className="font-extrabold text-xs text-gray-900 block">GRAM</span>
+                                        <span className="text-[10px] text-gray-400 font-medium">≈ ৳120 TK</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Top Field: BDT Amount Input */}
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                    BDT Amount to Spend (টাকার পরিমাণ)
+                                </label>
+                                <span className="text-[10px] text-gray-400">Min ৳20</span>
+                            </div>
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-gray-700">৳</span>
+                                <input 
+                                    type="number" 
+                                    value={bdtAmount} 
+                                    onChange={e => setBdtAmount(e.target.value)} 
+                                    placeholder="0.00" 
+                                    className="w-full bg-gray-50 rounded-2xl p-4 pl-9 pr-14 text-base font-black text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none" 
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-xs text-gray-400">BDT</span>
+                            </div>
+
+                            {/* Quick Presets */}
+                            <div className="flex gap-2 mt-2">
+                                {[100, 500, 1000].map(val => (
+                                    <button 
+                                        key={val} 
+                                        type="button" 
+                                        onClick={() => setBdtAmount(val.toString())} 
+                                        className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-xl text-xs font-bold text-gray-700 transition-colors"
+                                    >
+                                        ৳{val}
+                                    </button>
+                                ))}
+                                <button 
+                                    type="button" 
+                                    onClick={() => setBdtAmount(Math.floor(balance).toString())} 
+                                    className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold transition-colors ml-auto border border-emerald-200/50"
+                                >
+                                    MAX (৳{Math.floor(balance)})
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Middle: Calculated Crypto Output */}
+                        <div className="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-4 flex justify-between items-center">
+                            <div>
+                                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">You Will Receive (আপনি পাবেন)</span>
+                                <span className="text-xs text-emerald-600 font-medium">Rate: 1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-xl font-black text-emerald-700">{calculatedCrypto}</span>
+                                <span className="text-xs font-bold text-emerald-800 ml-1">{selectedAsset}</span>
+                            </div>
+                        </div>
+
+                        {/* Bottom Field: Receive Address */}
+                        <div>
+                            <div className="flex justify-between items-center mb-1.5">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                    Receive Address (TON Wallet)
+                                </label>
+                                {userTonAddress && (
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setReceiveAddress(userTonAddress)} 
+                                        className="text-[10px] text-emerald-600 font-bold hover:underline"
+                                    >
+                                        Use Connected Wallet
+                                    </button>
+                                )}
+                            </div>
+                            <div className="relative">
+                                <input 
+                                    type="text" 
+                                    value={receiveAddress} 
+                                    onChange={e => setReceiveAddress(e.target.value)} 
+                                    placeholder="UQ... or EQ..." 
+                                    className="w-full bg-gray-50 rounded-2xl p-4 pr-12 text-xs font-mono font-bold text-gray-900 border border-gray-200 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all outline-none" 
+                                />
+                                <button 
+                                    type="button"
+                                    onClick={async () => {
+                                        try {
+                                            const text = await navigator.clipboard.readText();
+                                            if (text) setReceiveAddress(text.trim());
+                                        } catch (e) {}
+                                    }}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white text-gray-400 hover:text-emerald-600 rounded-xl transition-all shadow-sm border border-gray-200"
+                                    title="Paste"
+                                >
+                                    <ClipboardPaste size={16} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Balance Warning if Insufficient */}
+                        {hasInsufficientBalance && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-2.5 animate-in fade-in duration-200">
+                                <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                                <div className="text-xs text-amber-800">
+                                    <p className="font-bold">অপর্যাপ্ত ব্যালেন্স!</p>
+                                    <p className="mt-0.5">আপনার অ্যাকাউন্টে আছে ৳{balance} TK। দয়া করে প্রথমে Add Money করুন।</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Submit Button */}
+                        <div className="pt-2">
+                            {hasInsufficientBalance ? (
+                                <button 
+                                    onClick={onGoToAddMoney} 
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                                >
+                                    <PlusCircle size={18} />
+                                    ADD MONEY TO WALLET
+                                </button>
+                            ) : (
+                                <button 
+                                    onClick={handleConfirmBuy} 
+                                    disabled={!numBdt || !receiveAddress || numBdt < 20} 
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                                >
+                                    <Coins size={18} />
+                                    CONFIRM & BUY {selectedAsset}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

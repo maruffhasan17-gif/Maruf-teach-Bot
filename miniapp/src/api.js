@@ -69,5 +69,24 @@ export const submitBuyOrder = async (payload) => {
     } catch (e) {
         throw new Error(e.response?.data?.error || e.message || 'Unknown error');
     }
-}
+};
+
+export const submitAddMoney = async (payload) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/add-money`, payload);
+        return res.data;
+    } catch (e) {
+        throw new Error(e.response?.data?.error || e.message || 'Failed to add money');
+    }
+};
+
+export const submitBuyCrypto = async (payload) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/buy-crypto`, payload);
+        return res.data;
+    } catch (e) {
+        throw new Error(e.response?.data?.error || e.message || 'Failed to purchase crypto');
+    }
+};
+
 
