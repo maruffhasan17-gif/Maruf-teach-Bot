@@ -573,8 +573,8 @@ let cachedMarketRates = {
         GRAM: 226  // (1.80 * 120) + 10
     },
     sellRates: {
-        USDT: 120,
-        GRAM: 216
+        USDT: 115, // 120 - 5
+        GRAM: 211  // (1.80 * 120) - 5
     },
     lastUpdated: 0
 };
@@ -618,11 +618,17 @@ async function updateMarketRates() {
         const realGramUsdt = Number(tonUsdt.toFixed(4));
         const realGramBdt = Number((realGramUsdt * realUsdtBdt).toFixed(2));
 
-        // Buyer Price Rule:
+        // Buyer Price Rule (+10 TK):
         // USDT: realUsdtBdt + 10 TK (e.g. 120 + 10 = 130 TK)
         // GRAM: (realGramUsdt in BDT) + 10 TK (e.g. 1.80 * 120 = 216 + 10 = 226 TK)
         const buyUsdt = Math.round(realUsdtBdt + 10);
         const buyGram = Math.round(realGramBdt + 10);
+
+        // Seller Price Rule (-5 TK):
+        // USDT: realUsdtBdt - 5 TK (e.g. 130 - 5 = 125 TK or 120 - 5 = 115 TK)
+        // GRAM: (realGramUsdt in BDT) - 5 TK (e.g. 216 - 5 = 211 TK)
+        const sellUsdt = Math.max(1, Math.round(realUsdtBdt - 5));
+        const sellGram = Math.max(1, Math.round(realGramBdt - 5));
 
         cachedMarketRates = {
             realUsdtBdt,
@@ -633,12 +639,12 @@ async function updateMarketRates() {
                 GRAM: buyGram
             },
             sellRates: {
-                USDT: Math.round(realUsdtBdt),
-                GRAM: Math.round(realGramBdt)
+                USDT: sellUsdt,
+                GRAM: sellGram
             },
             lastUpdated: Date.now()
         };
-        console.log(`[RATES UPDATED] Real USDT: ৳${realUsdtBdt}, Real TON: $${realGramUsdt} (৳${realGramBdt}) => Buy USDT: ৳${buyUsdt}, Buy GRAM: ৳${buyGram}`);
+        console.log(`[RATES UPDATED] Real USDT: ৳${realUsdtBdt}, Real TON: $${realGramUsdt} (৳${realGramBdt}) => Buy: USDT ৳${buyUsdt}, GRAM ৳${buyGram} | Sell: USDT ৳${sellUsdt}, GRAM ৳${sellGram}`);
     } catch(err) {
         console.error("Rates update error:", err.message);
     }

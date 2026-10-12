@@ -1743,7 +1743,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 }
             }
         } catch(e) {}
-        return { GRAM: 216, USDT: 120 };
+        return { GRAM: 211, USDT: 115 };
     });
 
     // Fetch live market rates
@@ -1769,7 +1769,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
     }, []);
 
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
-    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 120) : (liveRates?.GRAM || 216);
+    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 115) : (liveRates?.GRAM || 211);
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
 
