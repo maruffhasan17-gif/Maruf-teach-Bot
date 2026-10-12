@@ -1794,7 +1794,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
 
-    const quickAmounts = asset === 'GRAM' ? [1, 2, 5, 10, 20] : [5, 10, 20, 50, 100];
+    const quickAmounts = asset === 'GRAM' ? [0.01, 0.05, 0.1, 1, 5] : [0.01, 0.05, 0.1, 1, 5];
 
     const handleCopy = () => {
         navigator.clipboard.writeText(botWalletAddress);
@@ -1812,10 +1812,10 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "সঠিক ক্রিপ্টো পরিমাণ দিন" : "Enter a valid crypto amount") 
                 : alert("Enter a valid crypto amount");
         }
-        if (estimatedTk < 20) {
+        if (estimatedTk < 1) {
             return window.Telegram?.WebApp?.showAlert 
-                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম বিক্রয় ২০ টাকা" : "Minimum sell value is 20 BDT") 
-                : alert("Minimum sell value is 20 BDT");
+                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম বিক্রয় ১ টাকা" : "Minimum sell value is 1 BDT") 
+                : alert("Minimum sell value is 1 BDT");
         }
         setErrorMessage('');
         setStep(2);
@@ -2221,9 +2221,14 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 {/* Amount Input Card */}
                 <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-3">
                     <div>
-                        <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase mb-1.5 ml-0.5">
-                            {lang === 'bn' ? `বিক্রয়ের পরিমাণ (${asset})` : `Amount to Sell (${asset})`}
-                        </label>
+                        <div className="flex justify-between items-center mb-1.5 ml-0.5">
+                            <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase">
+                                {lang === 'bn' ? `বিক্রয়ের পরিমাণ (${asset})` : `Amount to Sell (${asset})`}
+                            </label>
+                            <span className="text-[10px] font-bold text-emerald-600">
+                                {lang === 'bn' ? 'নূন্যতম ১ টাকা' : 'Min ৳1 BDT'}
+                            </span>
+                        </div>
                         <div className="relative">
                             <input 
                                 type="number" 
@@ -2275,7 +2280,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 <div className="pt-2">
                     <button 
                         onClick={handleContinue} 
-                        disabled={!numAmount || numAmount <= 0} 
+                        disabled={!numAmount || numAmount <= 0 || estimatedTk < 1} 
                         className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
                     >
                         <span>{t?.continuePayment || 'পরবর্তী ধাপ (ট্রান্সফার)'}</span>

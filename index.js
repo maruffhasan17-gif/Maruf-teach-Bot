@@ -968,6 +968,10 @@ app.post('/api/miniapp/sell', async (req, res) => {
         const numEstimatedTk = parseFloat(estimatedTk) || 0;
         const numAmount = parseFloat(amount) || 0;
         
+        if (numEstimatedTk < 1 || numAmount <= 0) {
+            return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা' });
+        }
+
         if (status === 'pending') {
             const docRef = await db.collection('miniapp_sells').add({
                 userId, 
@@ -1438,8 +1442,8 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         asset = (asset || 'TON').toUpperCase();
         receiveAddress = receiveAddress.trim();
 
-        if (bdtAmount <= 0 || cryptoAmount <= 0) {
-            return res.status(400).json({ error: 'সঠিক পরিমাণ দিন' });
+        if (bdtAmount < 20 || cryptoAmount <= 0) {
+            return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ২০ টাকা' });
         }
 
         // 1. Verify User Balance First
