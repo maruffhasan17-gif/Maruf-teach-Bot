@@ -1966,12 +1966,32 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 </div>
             </div>
 
-            {/* Progress Bar */}
-            <div className="flex items-center gap-2 mb-4 px-1">
-                <div className="h-1 flex-1 bg-emerald-500 rounded-full relative">
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-emerald-100" />
+            {/* Connected Wallet Bar */}
+            <div className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                    <div className={`w-3 h-3 rounded-full shrink-0 ${userTonAddress ? 'bg-emerald-500 ring-4 ring-emerald-100 animate-pulse' : 'bg-amber-400 ring-4 ring-amber-100'}`} />
+                    <div>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                            {lang === 'bn' ? 'কানেক্টেড ওয়ালেট (Tonkeeper)' : 'Connected Wallet'}
+                        </span>
+                        <span className="font-mono text-[12px] font-bold text-gray-800">
+                            {userTonAddress ? `${userTonAddress.slice(0, 6)}...${userTonAddress.slice(-4)}` : (lang === 'bn' ? 'ওয়ালেট যুক্ত নেই' : 'No wallet connected')}
+                        </span>
+                    </div>
                 </div>
-                <div className="h-1 flex-1 bg-gray-200 rounded-full" />
+                {!userTonAddress ? (
+                    <button 
+                        type="button"
+                        onClick={() => tonConnectUI.openModal()}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center gap-1"
+                    >
+                        <Wallet size={13} /> {lang === 'bn' ? 'কানেক্ট করুন' : 'Connect'}
+                    </button>
+                ) : (
+                    <div className="flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-[11px] font-bold border border-emerald-100">
+                        <CheckCircle2 size={12} /> Connected
+                    </div>
+                )}
             </div>
 
             <div className="space-y-3">
@@ -2082,16 +2102,45 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                     </div>
                 </div>
 
-                {/* Continue Button */}
+                {/* Error Banner */}
+                {errorMessage && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2 animate-in fade-in">
+                        <AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-700 font-medium leading-tight">{errorMessage}</p>
+                    </div>
+                )}
+
+                {/* Direct Sell via Tonkeeper Button */}
                 <div className="pt-2">
-                    <button 
-                        onClick={handleContinue} 
-                        disabled={!numAmount || numAmount <= 0 || estimatedTk < 1} 
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
-                    >
-                        <span>{t?.continuePayment || 'পরবর্তী ধাপ (ট্রান্সফার)'}</span>
-                        <ChevronRight size={16} />
-                    </button>
+                    {!userTonAddress ? (
+                        <button 
+                            type="button"
+                            onClick={() => tonConnectUI.openModal()} 
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-[48px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
+                        >
+                            <Wallet size={18} />
+                            <span>{lang === 'bn' ? 'ওয়ালেট কানেক্ট করুন (Tonkeeper)' : 'Connect Wallet to Sell'}</span>
+                        </button>
+                    ) : (
+                        <button 
+                            type="button"
+                            onClick={handleDirectSell} 
+                            disabled={!numAmount || numAmount <= 0 || estimatedTk < 1 || isTonSending} 
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[48px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
+                        >
+                            {isTonSending ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>{lang === 'bn' ? 'টোনকিপারে কনফার্ম করুন...' : 'Confirming in Tonkeeper...'}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <ArrowRightLeft size={18} />
+                                    <span>{lang === 'bn' ? `কনফার্ম ও বিক্রি করুন (৳${estimatedTk} BDT)` : `Confirm & Sell for ৳${estimatedTk} BDT`}</span>
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
