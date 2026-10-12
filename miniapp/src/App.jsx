@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -210,6 +210,39 @@ const translations = {
   }
 };
 
+function HeaderWalletButton() {
+  const userTonAddress = useTonAddress();
+  const [tonConnectUI] = useTonConnectUI();
+
+  if (userTonAddress) {
+    return (
+      <button 
+        type="button"
+        onClick={() => tonConnectUI.openModal()}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm active:scale-95 transition-all"
+        title={userTonAddress}
+      >
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+        <span className="text-[12px] font-extrabold tracking-tight">Connected</span>
+      </button>
+    );
+  }
+
+  return (
+    <button 
+      type="button"
+      onClick={() => tonConnectUI.openModal()}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0098ea] hover:bg-[#0088d1] text-white shadow-sm shadow-[#0098ea]/20 active:scale-95 transition-all"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
+        <path d="M12 2L3 7L12 12L21 7L12 2Z" fill="currentColor"/>
+        <path d="M3 17L12 22L21 17L12 12L3 17Z" fill="currentColor" fillOpacity="0.8"/>
+      </svg>
+      <span className="text-[12px] font-extrabold tracking-tight">Connect</span>
+    </button>
+  );
+}
+
 export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('app_lang') || 'bn');
   const t = translations[lang] || translations.bn;
@@ -324,9 +357,9 @@ export default function App() {
                     <p className="text-[10px] font-medium text-[var(--color-brand)] uppercase tracking-[0.15em]">{t.welcome}</p>
                  </div>
              </div>
-             {/* Styling the TonConnect button is limited, but we wrap it to constrain it */}
-             <div className="scale-90 origin-right">
-                <TonConnectButton />
+             {/* Header Wallet Button (Shows Connected when connected, Connect when disconnected) */}
+             <div className="origin-right">
+                <HeaderWalletButton />
              </div>
           </div>
 
@@ -2150,6 +2183,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
 function HistoryPage({ user, lang = 'bn', t, onBack }) {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState('all'); // 'all', 'in', 'out'
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -2160,10 +2194,10 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
                 const res = await fetch(`${API_URL}/api/miniapp/history/${userId}`);
                 const data = await res.json();
                 if(data.success) {
-                    setHistory(data.history);
+                    setHistory(data.history || []);
                 }
             } catch(e) {
-                console.error(e);
+                console.error("Fetch history error:", e);
             } finally {
                 setLoading(false);
             }
@@ -2171,71 +2205,220 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
         fetchHistory();
     }, [user]);
 
+    // Helpers to calculate BDT amounts and direction
+    const getItemDetails = (tx) => {
+        const type = tx.type;
+        const status = (tx.status || 'pending').toLowerCase();
+        const isRejected = status === 'rejected';
+
+        // Money In (Credit) vs Money Out (Debit)
+        let isCredit = false;
+        let bdtAmount = 0;
+        let title = '';
+        let subtitle = '';
+
+        if (type === 'add_money') {
+            isCredit = true;
+            bdtAmount = parseFloat(tx.amount || tx.totalBdt) || 0;
+            title = lang === 'bn' ? 'টাকা যোগ (Add Money)' : 'Add Money';
+            subtitle = `${tx.paymentMethod || 'bKash/Nagad'}${tx.trxId ? ` • TrxID: ${tx.trxId}` : ''}`;
+        } else if (type === 'sell') {
+            isCredit = true;
+            bdtAmount = parseFloat(tx.estimatedTk || tx.amount) || 0;
+            title = lang === 'bn' ? `ক্রিপ্টো বিক্রয় (${tx.asset || 'TON'})` : `Sell ${tx.asset || 'TON'}`;
+            subtitle = `${lang === 'bn' ? 'বিক্রি:' : 'Sold:'} ${tx.amount} ${tx.asset || 'TON'}`;
+        } else if (type === 'buy') {
+            bdtAmount = parseFloat(tx.totalBdt || tx.amount) || 0;
+            if (isRejected) {
+                isCredit = true;
+                title = lang === 'bn' ? `ক্রয় বাতিল ও রিফান্ড` : `Buy Rejected & Refunded`;
+                subtitle = `${lang === 'bn' ? 'ব্যালেন্সে ফেরত যুক্ত' : 'Refunded to balance'}${tx.rejectReason ? ` • ${tx.rejectReason}` : ''}`;
+            } else {
+                isCredit = false;
+                title = lang === 'bn' ? `ক্রিপ্টো ক্রয় (${tx.asset || 'TON'})` : `Buy ${tx.asset || 'TON'}`;
+                subtitle = `${lang === 'bn' ? 'পেয়েছেন:' : 'Received:'} ${tx.amount} ${tx.asset || 'TON'}${tx.receiveAddress ? ` • ${tx.receiveAddress.slice(0, 4)}...${tx.receiveAddress.slice(-4)}` : ''}`;
+            }
+        } else if (type === 'withdraw') {
+            bdtAmount = parseFloat(tx.amount) || 0;
+            if (isRejected) {
+                isCredit = true;
+                title = lang === 'bn' ? 'উইথড্র বাতিল ও রিফান্ড' : 'Withdrawal Refunded';
+                subtitle = `${lang === 'bn' ? 'ব্যালেন্সে ফেরত এসেছে' : 'Refunded to balance'}${tx.rejectReason ? ` • কারণ: ${tx.rejectReason}` : ''}`;
+            } else {
+                isCredit = false;
+                title = lang === 'bn' ? `টাকা উত্তোলন (${tx.method || 'উইথড্র'})` : `Withdraw (${tx.method || 'BDT'})`;
+                subtitle = `${tx.number ? `${tx.number} • ` : ''}${lang === 'bn' ? 'পাবেন ৳' : 'Receive ৳'}${tx.receiveAmount || bdtAmount}`;
+            }
+        } else {
+            bdtAmount = parseFloat(tx.amount) || 0;
+            title = tx.type || 'Transaction';
+            subtitle = tx.asset || 'BDT';
+        }
+
+        return { isCredit, bdtAmount, title, subtitle, status };
+    };
+
+    // Filter items
+    const filteredHistory = history.filter(tx => {
+        const { isCredit } = getItemDetails(tx);
+        if (filter === 'in') return isCredit;
+        if (filter === 'out') return !isCredit;
+        return true;
+    });
+
+    // Calculate totals
+    const totalIn = history.reduce((acc, tx) => {
+        const { isCredit, bdtAmount } = getItemDetails(tx);
+        return isCredit ? acc + bdtAmount : acc;
+    }, 0);
+
+    const totalOut = history.reduce((acc, tx) => {
+        const { isCredit, bdtAmount } = getItemDetails(tx);
+        return !isCredit ? acc + bdtAmount : acc;
+    }, 0);
+
     return (
         <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-20 max-w-md mx-auto">
-            <div className="flex items-center gap-3 mb-4">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-2">
                 <button onClick={onBack} className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 active:scale-95 transition-transform text-gray-600">
                     <ChevronRight size={18} className="rotate-180" />
                 </button>
-                <h2 className="text-[15px] font-extrabold text-gray-900 leading-tight">
-                    {t?.transactionHistory || 'Transaction History'}
-                </h2>
+                <div>
+                    <h2 className="text-[15px] font-extrabold text-gray-900 leading-tight">
+                        {t?.transactionHistory || 'Transaction History'}
+                    </h2>
+                    <p className="text-[11px] text-gray-400 font-medium">
+                        {lang === 'bn' ? 'আপনার সকল আয় ও ব্যয়ের হিসাব' : 'Your complete inflow & outflow ledger'}
+                    </p>
+                </div>
+            </div>
+
+            {/* Inflow vs Outflow Mini Summary Card */}
+            <div className="bg-white p-3.5 rounded-2xl border border-gray-100 shadow-sm grid grid-cols-2 gap-2">
+                <div className="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100/80">
+                    <div className="flex items-center gap-1.5 text-emerald-700 text-[11px] font-bold mb-0.5">
+                        <ArrowDownLeft size={13} strokeWidth={2.5} />
+                        <span>{lang === 'bn' ? 'মোট যোগ / জমা (+)' : 'Total Inflow (+)'}</span>
+                    </div>
+                    <p className="text-base font-black text-emerald-600">+৳{totalIn.toFixed(2)} <span className="text-[10px] font-bold">BDT</span></p>
+                </div>
+                <div className="bg-rose-50/60 p-2.5 rounded-xl border border-rose-100/80">
+                    <div className="flex items-center gap-1.5 text-rose-700 text-[11px] font-bold mb-0.5">
+                        <ArrowUpRight size={13} strokeWidth={2.5} />
+                        <span>{lang === 'bn' ? 'মোট খরচ / বিয়োগ (-)' : 'Total Outflow (-)'}</span>
+                    </div>
+                    <p className="text-base font-black text-rose-600">-৳{totalOut.toFixed(2)} <span className="text-[10px] font-bold">BDT</span></p>
+                </div>
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex bg-gray-100/80 p-1 rounded-xl gap-1 border border-gray-200/60 text-[12px] font-bold">
+                <button
+                    type="button"
+                    onClick={() => setFilter('all')}
+                    className={`flex-1 py-1.5 rounded-lg transition-all ${filter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                >
+                    {lang === 'bn' ? 'সবগুলো' : 'All'} ({history.length})
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setFilter('in')}
+                    className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${filter === 'in' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:text-emerald-800'}`}
+                >
+                    <ArrowDownLeft size={12} strokeWidth={2.5} />
+                    <span>{lang === 'bn' ? 'জমা (+)' : 'In (+)'}</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setFilter('out')}
+                    className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1 ${filter === 'out' ? 'bg-rose-600 text-white shadow-sm' : 'text-rose-700 hover:text-rose-800'}`}
+                >
+                    <ArrowUpRight size={12} strokeWidth={2.5} />
+                    <span>{lang === 'bn' ? 'খরচ (-)' : 'Out (-)'}</span>
+                </button>
             </div>
             
             {loading ? (
                 <div className="flex justify-center py-10">
                     <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                 </div>
-            ) : history.length === 0 ? (
-                <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100 flex flex-col items-center">
+            ) : filteredHistory.length === 0 ? (
+                <div className="bg-white p-8 rounded-2xl text-center shadow-sm border border-gray-100 flex flex-col items-center">
                     <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-3">
                         <Clock size={20} />
                     </div>
                     <p className="font-bold text-gray-900 text-[13px] mb-0.5">
-                        {lang === 'bn' ? 'এখনও কোনো লেনদেন হয়নি' : 'No Transactions Yet'}
+                        {lang === 'bn' ? 'কোনো লেনদেন পাওয়া যায়নি' : 'No Transactions Found'}
                     </p>
                     <p className="text-[12px] text-gray-500">
-                        {lang === 'bn' ? 'আপনার সকল ক্রয়, বিক্রয় ও উত্তোলনের বিবরণ এখানে দেখতে পাবেন।' : 'Your buying, selling and withdrawal history will appear here.'}
+                        {lang === 'bn' ? 'আপনার নির্বাচিত ক্যাটাগরিতে কোনো রেকর্ড নেই।' : 'No records match your selected filter.'}
                     </p>
                 </div>
             ) : (
                 <div className="space-y-2.5">
-                    {history.map((tx, idx) => {
-                        const isWithdraw = tx.type === 'withdraw';
-                        const isBuy = tx.type === 'buy';
-                        const isSell = tx.type === 'sell';
+                    {filteredHistory.map((tx, idx) => {
+                        const { isCredit, bdtAmount, title, subtitle, status } = getItemDetails(tx);
                         const ts = tx.timestamp?._seconds ? tx.timestamp._seconds * 1000 : (typeof tx.timestamp === 'number' ? tx.timestamp : (tx.timestamp ? new Date(tx.timestamp).getTime() : Date.now()));
-                        const formattedDate = new Date(ts).toLocaleDateString() + ' ' + new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const formattedDate = new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' • ' + new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                         return (
-                            <div key={idx} className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                                        isWithdraw ? 'bg-orange-50 text-orange-600' :
-                                        isBuy ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'
+                            <div key={idx} className="bg-white p-3.5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:border-gray-200 transition-all">
+                                <div className="flex items-center gap-3 min-w-0 pr-2">
+                                    {/* Icon */}
+                                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
+                                        isCredit 
+                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
+                                            : 'bg-rose-50 text-rose-600 border-rose-100'
                                     }`}>
-                                        {isWithdraw ? <Wallet size={16} /> : isBuy ? <ArrowDown size={16} /> : <ArrowUp size={16} />}
+                                        {isCredit ? (
+                                            <ArrowDownLeft size={18} strokeWidth={2.5} />
+                                        ) : (
+                                            <ArrowUpRight size={18} strokeWidth={2.5} />
+                                        )}
                                     </div>
-                                    <div>
-                                        <p className="font-bold text-gray-900 text-[13px] leading-tight capitalize">
-                                            {isWithdraw ? `Withdraw (${tx.method || 'BDT'})` : `${tx.type} ${tx.asset || 'Crypto'}`}
+                                    {/* Title and Subtitle */}
+                                    <div className="min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="font-extrabold text-gray-900 text-[13px] leading-tight truncate">
+                                                {title}
+                                            </p>
+                                        </div>
+                                        <p className="text-[11px] font-medium text-gray-400 mt-0.5 truncate">
+                                            {subtitle}
                                         </p>
-                                        <p className="text-[11px] font-medium text-gray-400 mt-0.5">
-                                            {formattedDate} {tx.number ? `• ${tx.number}` : ''}
+                                        <p className="text-[10px] text-gray-400 mt-0.5">
+                                            {formattedDate}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="font-extrabold text-gray-900 text-[13px]">
-                                        {isWithdraw ? `-৳${tx.amount} TK` : isBuy ? `+${tx.amount} ${tx.asset || 'TON'}` : `-${tx.amount} ${tx.asset || 'TON'}`}
-                                    </p>
-                                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mt-0.5 uppercase tracking-wider ${
-                                        tx.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
-                                        tx.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                                        'bg-amber-50 text-amber-600'
+
+                                {/* Right Side: Amount and Status Badge */}
+                                <div className="text-right shrink-0">
+                                    <p className={`font-black text-[14px] leading-tight ${
+                                        isCredit ? 'text-emerald-600' : 'text-rose-600'
                                     }`}>
-                                        {tx.status || 'PENDING'}
-                                    </span>
+                                        {isCredit ? `+৳${bdtAmount.toFixed(2)}` : `-৳${bdtAmount.toFixed(2)}`} <span className="text-[10px] font-bold">BDT</span>
+                                    </p>
+                                    <div className="mt-1">
+                                        {status === 'completed' ? (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                ✓ {lang === 'bn' ? 'সফল' : 'Completed'}
+                                            </span>
+                                        ) : status === 'rejected' ? (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                                ✕ {lang === 'bn' ? 'বাতিল ও রিফান্ডেড' : 'Refunded'}
+                                            </span>
+                                        ) : status === 'verified' ? (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200">
+                                                ⚡ {lang === 'bn' ? 'ভেরিফাইড' : 'Verified'}
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                                ⏳ {lang === 'bn' ? 'পেন্ডিং' : 'Pending'}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         );

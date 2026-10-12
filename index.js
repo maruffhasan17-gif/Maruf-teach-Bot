@@ -55,28 +55,28 @@ const userStates = {};
 
 const t = {
     en: {
-        welcome: '🌟 **Welcome to the Official Rewards Platform!**\n\nTo access your wallet, complete tasks, and withdraw funds, please join our official Telegram channel first.\n\n👇 Click below to join and verify your account:',
-        joinBtn: '📢 Join Channel',
-        verifyBtn: '✅ Verify',
-        notJoined: '❌ You have not joined the channel yet!',
-        langPrompt: '✅ **Verification Successful!**\n\nPlease select your language:',
-        profileMsg: '👤 **Your Profile**\n\nID: {id}',
-        bkashMsg: '🚀 **bKash Payment**',
-        cryptoMsg: '💎 **Crypto Payment**',
+        welcome: `💎 <b>Crypto Buy Sell — Official Platform</b> 💎\n\nWelcome! Buy & Sell <b>USDT, TON & GRAM</b> instantly in Bangladesh via bKash & Nagad.\n\n⚡ <b>Key Features:</b>\n• Live Instant Crypto Buy & Sell\n• Automated bKash & Nagad Verification\n• Sell Crypto starting from just 1 BDT\n• Instant Payouts & Zero Hassle\n\n📢 Please join our official Telegram channel first to access the platform:\n\n👇 <b>Click below to join and verify:</b>`,
+        joinBtn: '📢 Join Official Channel',
+        verifyBtn: '✅ Verify & Open App',
+        notJoined: '❌ You have not joined the channel yet! Please join first.',
+        langPrompt: '✅ <b>Verification Successful!</b>\n\nPlease select your language:',
+        profileMsg: '👤 <b>Your Profile</b>\n\nID: {id}',
+        bkashMsg: '🚀 <b>bKash Payment</b>',
+        cryptoMsg: '💎 <b>Crypto Payment</b>',
         menu: { free: '🎁 Free', profile: '👤 Profile' },
-        mainMenuMsg: "🎉 **Verification Successful!**\n\nWelcome to our platform.\n👇 **Click the button below to open the app:**"
+        mainMenuMsg: "🎉 <b>Verification Successful!</b>\n\nWelcome to Crypto Buy Sell.\n👇 <b>Click the button below to open the app:</b>"
     },
     bn: {
-        welcome: '🌟 **অফিসিয়াল রিওয়ার্ডস প্ল্যাটফর্মে আপনাকে স্বাগতম!**\n\nআপনার ওয়ালেট অ্যাক্সেস করতে, টাস্ক কমপ্লিট করতে এবং পেমেন্ট তুলতে, অনুগ্রহ করে প্রথমে আমাদের অফিসিয়াল টেলিগ্রাম চ্যানেলে যুক্ত হোন।\n\n👇 জয়েন করে আপনার অ্যাকাউন্ট ভেরিফাই করুন:',
-        joinBtn: '📢 চ্যানেল জয়েন করুন',
-        verifyBtn: '✅ ভেরিফাই করুন',
-        notJoined: '❌ আপনি এখনও চ্যানেলে জয়েন করেননি!',
-        langPrompt: '✅ **ভেরিফিকেশন সফল হয়েছে!**\n\nআপনার ভাষা নির্বাচন করুন:',
-        profileMsg: '👤 **আপনার প্রোফাইল**\n\nআইডি: {id}',
-        bkashMsg: '🚀 **বিকাশ পেমেন্ট**',
-        cryptoMsg: '💎 **ক্রিপ্টো পেমেন্ট**',
+        welcome: `💎 <b>Crypto Buy Sell — ক্রিপ্টো বাই সেল প্ল্যাটফর্ম</b> 💎\n\nস্বাগতম! বাংলাদেশ থেকে সবচেয়ে দ্রুত ও নিরাপদে <b>USDT, TON ও GRAM</b> ক্রয়-বিক্রয় করুন বিকাশ ও নগদের মাধ্যমে।\n\n⚡ <b>আমাদের সুবিধাসমূহ:</b>\n• ইনস্ট্যান্ট ক্রিপ্টো ক্রয় ও বিক্রয় (লাইভ রেট)\n• বিকাশ ও নগদ অটো-ভেরিফিকেশন\n• মাত্র ১ টাকা থেকেও ক্রিপ্টো বিক্রি\n• দ্রুত ও নিরাপদ পেমেন্ট উইথড্র\n\n📢 প্ল্যাটফর্ম ব্যবহার করতে প্রথমে আমাদের অফিসিয়াল চ্যানেলে যুক্ত হোন:\n\n👇 <b>নিচে জয়েন করে ভেরিফাই করুন:</b>`,
+        joinBtn: '📢 অফিসিয়াল চ্যানেল জয়েন করুন',
+        verifyBtn: '✅ ভেরিফাই ও অ্যাপ ওপেন করুন',
+        notJoined: '❌ আপনি এখনও চ্যানেলে জয়েন করেননি! দয়া করে চ্যানেলে জয়েন করে আবার চেষ্টা করুন।',
+        langPrompt: '✅ <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nআপনার ভাষা নির্বাচন করুন:',
+        profileMsg: '👤 <b>আপনার প্রোফাইল</b>\n\nআইডি: {id}',
+        bkashMsg: '🚀 <b>বিকাশ পেমেন্ট</b>',
+        cryptoMsg: '💎 <b>ক্রিপ্টো পেমেন্ট</b>',
         menu: { free: '🎁 ফ্রি (Free)', profile: '👤 আমার প্রোফাইল' },
-        mainMenuMsg: "🎉 **ভেরিফিকেশন সফল হয়েছে!**\n\nআপনাকে আমাদের প্ল্যাটফর্মে স্বাগতম।\n👇 **নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:**"
+        mainMenuMsg: "🎉 <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nআপনাকে Crypto Buy Sell প্ল্যাটফর্মে স্বাগতম।\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:</b>"
     }
 };
 
@@ -308,39 +308,77 @@ function getMenu(lang) {
     };
 }
 
+const processedStartIds = new Set();
+
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
+    const msgId = msg.message_id;
+    const lockKey = `${chatId}_${msgId}`;
+
+    // 1. In-memory deduplication check
+    if (processedStartIds.has(lockKey)) return;
+    processedStartIds.add(lockKey);
+    if (processedStartIds.size > 2000) processedStartIds.clear();
+
+    // 2. Multi-instance lock in Firestore to prevent double messages between Render and local PM2
+    try {
+        const lockRef = db.collection('bot_start_locks').doc(lockKey);
+        const lockDoc = await lockRef.get();
+        if (lockDoc.exists) return; // Handled by another instance
+        await lockRef.set({ timestamp: FieldValue.serverTimestamp(), chatId });
+    } catch(e) {}
+
     const username = msg.from.username || "Unknown";
-    const firstName = msg.from.first_name || "";
+    const firstName = msg.from.first_name || "User";
     
     // Save user to Firebase
-    await db.collection('users').doc(chatId.toString()).set({
-        chatId: chatId,
-        username: username,
-        firstName: firstName,
-        joinedAt: new Date(),
-        status: 'pending_verification',
-        totalPayouts: 0
-    }, { merge: true });
+    const userRef = db.collection('users').doc(chatId.toString());
+    const existingUserDoc = await userRef.get().catch(() => null);
 
-    userStates[chatId] = { step: 'start', failedAttempts: 0, lang: 'en' };
+    if (!existingUserDoc || !existingUserDoc.exists) {
+        await userRef.set({
+            chatId: chatId,
+            username: username,
+            firstName: firstName,
+            joinedAt: new Date(),
+            status: 'pending_verification',
+            totalPayouts: 0
+        }, { merge: true });
+    }
+
+    userStates[chatId] = { step: 'start', failedAttempts: 0, lang: 'bn' };
     
+    const isAlreadyVerified = existingUserDoc && existingUserDoc.exists && existingUserDoc.data().status === 'verified';
+
+    if (isAlreadyVerified) {
+        const welcomeBackMsg = `💎 <b>Crypto Buy Sell — ক্রিপ্টো বাই সেল</b> 💎\n\nস্বাগতম <b>${firstName}</b>!\nআপনার অ্যাকাউন্ট ভেরিফাইড রয়েছে।\n\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপ ওপেন করুন:</b>`;
+        return bot.sendMessage(chatId, welcomeBackMsg, {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: 'https://maruf-teach-bot.onrender.com/app/' } } ]
+                ]
+            }
+        }).catch(e => console.error(e.message));
+    }
+
     const opts = {
+        parse_mode: 'HTML',
         reply_markup: {
             inline_keyboard: [
-                [{ text: t.en.joinBtn, url: `https://t.me/${channelUsername.replace('@', '')}` }],
-                [{ text: t.en.verifyBtn, callback_data: 'verify_join' }]
+                [{ text: t.bn.joinBtn, url: `https://t.me/${channelUsername.replace('@', '')}` }],
+                [{ text: t.bn.verifyBtn, callback_data: 'verify_join' }]
             ]
         }
     };
-    bot.sendMessage(chatId, t.en.welcome, opts).catch(e => console.error(e.message));
+    bot.sendMessage(chatId, t.bn.welcome, opts).catch(e => console.error(e.message));
 });
 
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const userId = query.from.id;
-    if (!userStates[chatId]) userStates[chatId] = { step: 'menu', failedAttempts: 0, lang: 'en' };
-    const lang = userStates[chatId].lang;
+    if (!userStates[chatId]) userStates[chatId] = { step: 'menu', failedAttempts: 0, lang: 'bn' };
+    const lang = userStates[chatId].lang || 'bn';
 
     if (query.data === 'retry_free_payout') {
         userStates[chatId] = { step: 'awaiting_ton_address_free' };
@@ -353,7 +391,7 @@ bot.on('callback_query', async (query) => {
             const chatMember = await bot.getChatMember(channelUsername, userId);
             if (chatMember.status === 'member' || chatMember.status === 'administrator' || chatMember.status === 'creator') {
                 
-                await db.collection('users').doc(chatId.toString()).update({ status: 'verified', language: 'bn' }); // Default to BN
+                await db.collection('users').doc(chatId.toString()).update({ status: 'verified', language: 'bn' });
                 if (userStates[chatId]) userStates[chatId].lang = 'bn';
                 
                 // 1. Remove the old inline keyboard from the /start message
@@ -361,13 +399,15 @@ bot.on('callback_query', async (query) => {
 
                 // 2. Clear old persistent keyboard with a silent fast-deleting message
                 bot.sendMessage(chatId, "...", { reply_markup: { remove_keyboard: true } }).catch(e => console.error(e.message)).then(delMsg => {
-                    setTimeout(() => bot.deleteMessage(chatId, delMsg.message_id).catch(()=>{}), 100);
+                    if (delMsg && delMsg.message_id) {
+                        setTimeout(() => bot.deleteMessage(chatId, delMsg.message_id).catch(()=>{}), 100);
+                    }
                 }).catch(()=>{});
 
-                // 3. Send ONE combined nice welcome message with the Open App button attached
-                const msgText = "🎉 **ভেরিফিকেশন সফল হয়েছে!**\n\nআপনাকে আমাদের প্ল্যাটফর্মে স্বাগতম।\n👇 **নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:**";
+                // 3. Send ONE clean welcome message with the Open App button
+                const msgText = `🎉 <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nCrypto Buy Sell প্ল্যাটফর্মে আপনাকে স্বাগতম। আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই সম্পন্ন হয়েছে।\n\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপ ওপেন করুন:</b>`;
                 bot.sendMessage(chatId, msgText, {
-                    parse_mode: 'Markdown',
+                    parse_mode: 'HTML',
                     reply_markup: {
                         inline_keyboard: [
                             [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: 'https://maruf-teach-bot.onrender.com/app/' } } ]
@@ -376,10 +416,10 @@ bot.on('callback_query', async (query) => {
                 }).catch(e => console.error(e.message));
                 
             } else {
-                bot.answerCallbackQuery(query.id, { text: t.en.notJoined, show_alert: true });
+                bot.answerCallbackQuery(query.id, { text: t.bn.notJoined, show_alert: true });
             }
         } catch (error) {
-            bot.answerCallbackQuery(query.id, { text: t.en.notJoined, show_alert: true });
+            bot.answerCallbackQuery(query.id, { text: t.bn.notJoined, show_alert: true });
         }
     }
     
@@ -554,10 +594,27 @@ bot.on('message', async (msg) => {
                     if (idMatch && idMatch[1]) {
                         const targetUserId = idMatch[1];
                         
-                        if (['done', 'ok'].includes(replyText)) {
+                        if (['done', 'ok', 'paid', 'accept', 'approve'].includes(replyText)) {
                             const uRef = db.collection('users').doc(targetUserId);
                             const uDoc = await uRef.get();
                             if (uDoc.exists && uDoc.data().fiatWithdrawPending) {
+                                const pend = uDoc.data().fiatWithdrawPending;
+                                if (pend.id) {
+                                    await db.collection('fiat_withdrawals').doc(pend.id).update({
+                                        status: 'completed',
+                                        completedAt: Date.now()
+                                    }).catch(()=>{});
+                                }
+                                // Also update any pending withdrawals in fiat_withdrawals for this user
+                                try {
+                                    const pendSnaps = await db.collection('fiat_withdrawals')
+                                        .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
+                                        .where('status', '==', 'pending').get();
+                                    for (const doc of pendSnaps.docs) {
+                                        await doc.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
+                                    }
+                                } catch(e) {}
+
                                 await uRef.update({
                                     'fiatWithdrawPending.status': 'completed',
                                     'fiatWithdrawPending.completedAt': Date.now()
@@ -577,12 +634,22 @@ bot.on('message', async (msg) => {
                                 const pend = userDoc.data().fiatWithdrawPending;
                                 const amountToRefund = pend.amount;
                                 if (pend.id) {
-                                    db.collection('fiat_withdrawals').doc(pend.id).update({
+                                    await db.collection('fiat_withdrawals').doc(pend.id).update({
                                         status: 'rejected',
                                         rejectReason: reason,
                                         rejectedAt: Date.now()
                                     }).catch(()=>{});
                                 }
+                                // Also update any pending withdrawals in fiat_withdrawals for this user
+                                try {
+                                    const pendSnaps = await db.collection('fiat_withdrawals')
+                                        .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
+                                        .where('status', '==', 'pending').get();
+                                    for (const doc of pendSnaps.docs) {
+                                        await doc.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
+                                    }
+                                } catch(e) {}
+
                                 await userRef.update({
                                     balance: (userDoc.data().balance || 0) + amountToRefund,
                                     'fiatWithdrawPending.status': 'rejected',
@@ -1963,27 +2030,42 @@ app.post('/api/admin/approve-withdraw', async (req, res) => {
     try {
         const { userId, id, withdrawId } = req.body;
         const targetId = withdrawId || id;
+        let targetUser = userId;
         
         // Update in fiat_withdrawals if id provided
         if (targetId) {
             try {
-                await db.collection('fiat_withdrawals').doc(targetId).update({
-                    status: 'completed',
-                    completedAt: Date.now()
-                });
+                const fwRef = db.collection('fiat_withdrawals').doc(targetId);
+                const fwDoc = await fwRef.get();
+                if (fwDoc.exists) {
+                    if (!targetUser) targetUser = fwDoc.data().userId;
+                    await fwRef.update({
+                        status: 'completed',
+                        completedAt: Date.now()
+                    });
+                }
             } catch(e) {}
         }
 
-        if (userId) {
-            const userRef = db.collection('users').doc(userId.toString());
+        if (targetUser) {
+            const userRef = db.collection('users').doc(targetUser.toString());
             const doc = await userRef.get();
             if(doc.exists) {
                 await userRef.update({
                     'fiatWithdrawPending.status': 'completed',
                     'fiatWithdrawPending.completedAt': Date.now()
                 });
-                bot.sendMessage(userId, '✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!', { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                bot.sendMessage(targetUser, '✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!', { parse_mode: 'HTML' }).catch(e => console.error(e.message));
             }
+
+            try {
+                const pendSnaps = await db.collection('fiat_withdrawals')
+                    .where('userId', 'in', [parseInt(targetUser), targetUser.toString()].filter(Boolean))
+                    .where('status', '==', 'pending').get();
+                for (const d of pendSnaps.docs) {
+                    await d.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
+                }
+            } catch(e) {}
         }
         res.json({ success: true });
     } catch(e) {
@@ -2033,6 +2115,15 @@ app.post('/api/admin/reject-withdraw', async (req, res) => {
                 });
                 bot.sendMessage(targetUser, `❌ <b>Withdrawal Request Rejected</b>\n\nReason: ${reason || 'Incorrect account details'}\n\n💰 <b>৳${refundAmt} TK has been refunded back to your account balance!</b>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
             }
+
+            try {
+                const pendSnaps = await db.collection('fiat_withdrawals')
+                    .where('userId', 'in', [parseInt(targetUser), targetUser.toString()].filter(Boolean))
+                    .where('status', '==', 'pending').get();
+                for (const d of pendSnaps.docs) {
+                    await d.ref.update({ status: 'rejected', rejectReason: reason || 'Rejected by admin', rejectedAt: Date.now() }).catch(()=>{});
+                }
+            } catch(e) {}
         }
         
         res.json({ success: true, message: `Withdrawal rejected and ৳${refundAmt} refunded to user.` });
@@ -2143,17 +2234,62 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
         const rawUserId = req.params.userId;
         const numUserId = parseInt(rawUserId);
         const strUserId = rawUserId.toString();
-        
-        const buysSnapshot = await db.collection('miniapp_buys').where('userId', '==', numUserId).get();
-        const sellsSnapshot = await db.collection('miniapp_sells').where('userId', '==', numUserId).get();
+        const userIds = [numUserId, strUserId].filter(Boolean);
         
         const history = [];
-        buysSnapshot.forEach(doc => history.push({ id: doc.id, type: 'buy', ...doc.data() }));
-        sellsSnapshot.forEach(doc => history.push({ id: doc.id, type: 'sell', ...doc.data() }));
 
-        // 1. Also fetch from fiat_withdrawals collection
+        // 1. Miniapp Buys & Add Money
         try {
-            const withSnapshot = await db.collection('fiat_withdrawals').where('userId', 'in', [numUserId, strUserId]).get();
+            const buysSnapshot = await db.collection('miniapp_buys').where('userId', 'in', userIds).get();
+            buysSnapshot.forEach(doc => {
+                const data = doc.data();
+                history.push({ 
+                    id: doc.id, 
+                    type: data.type || 'buy', 
+                    ...data 
+                });
+            });
+        } catch(e) {
+            console.error("History fetch miniapp_buys error:", e);
+        }
+
+        // 2. Miniapp Sells
+        try {
+            const sellsSnapshot = await db.collection('miniapp_sells').where('userId', 'in', userIds).get();
+            sellsSnapshot.forEach(doc => {
+                const data = doc.data();
+                history.push({ 
+                    id: doc.id, 
+                    type: 'sell', 
+                    ...data 
+                });
+            });
+        } catch(e) {
+            console.error("History fetch miniapp_sells error:", e);
+        }
+
+        // 3. Deposits collection (if not already captured)
+        try {
+            const depSnapshot = await db.collection('deposits').where('userId', 'in', userIds).get();
+            depSnapshot.forEach(doc => {
+                if (!history.some(h => h.id === doc.id || h.trxId === doc.id)) {
+                    const data = doc.data();
+                    history.push({
+                        id: doc.id,
+                        type: 'add_money',
+                        amount: data.amount,
+                        paymentMethod: data.paymentMethod,
+                        trxId: data.trxId || doc.id,
+                        status: data.status || 'completed',
+                        timestamp: data.timestamp || Date.now()
+                    });
+                }
+            });
+        } catch(e) {}
+
+        // 4. Fiat Withdrawals collection
+        try {
+            const withSnapshot = await db.collection('fiat_withdrawals').where('userId', 'in', userIds).get();
             withSnapshot.forEach(doc => {
                 const data = doc.data();
                 history.push({
@@ -2166,6 +2302,7 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
                     method: data.method,
                     number: data.number,
                     status: data.status || 'pending',
+                    rejectReason: data.rejectReason || '',
                     timestamp: data.timestamp || data.createdAt || Date.now()
                 });
             });
@@ -2173,13 +2310,24 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
             console.error("History fetch fiat_withdrawals error:", e);
         }
 
-        // 2. Also check if user has legacy fiatWithdrawPending
+        // 5. Check and sync user's fiatWithdrawPending (Self-healing!)
         try {
             const userDoc = await db.collection('users').doc(strUserId).get();
             if (userDoc.exists && userDoc.data().fiatWithdrawPending) {
                 const p = userDoc.data().fiatWithdrawPending;
-                const exists = history.some(h => h.type === 'withdraw' && (h.id === p.id || h.serial === p.serial));
-                if (!exists) {
+                const existing = history.find(h => h.type === 'withdraw' && (h.id === p.id || (p.serial && h.serial === p.serial)));
+                if (existing) {
+                    if (p.status && p.status !== 'pending') {
+                        existing.status = p.status;
+                        if (p.rejectReason) existing.rejectReason = p.rejectReason;
+                        if (p.id) {
+                            db.collection('fiat_withdrawals').doc(p.id).update({
+                                status: p.status,
+                                ...(p.rejectReason ? { rejectReason: p.rejectReason } : {})
+                            }).catch(()=>{});
+                        }
+                    }
+                } else {
                     history.push({
                         id: p.id || 'legacy_withdraw',
                         type: 'withdraw',
@@ -2190,7 +2338,24 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
                         method: p.method,
                         number: p.number,
                         status: p.status || 'pending',
+                        rejectReason: p.rejectReason || '',
                         timestamp: p.timestamp || Date.now()
+                    });
+                }
+
+                // If userDoc says completed or rejected, heal any leftover 'pending' in history
+                if (p.status === 'completed' || p.status === 'rejected') {
+                    history.forEach(h => {
+                        if (h.type === 'withdraw' && h.status === 'pending') {
+                            h.status = p.status;
+                            if (p.rejectReason) h.rejectReason = p.rejectReason;
+                            if (h.id) {
+                                db.collection('fiat_withdrawals').doc(h.id).update({
+                                    status: p.status,
+                                    ...(p.rejectReason ? { rejectReason: p.rejectReason } : {})
+                                }).catch(()=>{});
+                            }
+                        }
                     });
                 }
             }
