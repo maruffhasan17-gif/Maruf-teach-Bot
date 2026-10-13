@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3 } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3 } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -190,6 +190,37 @@ const calculateSendMoneyFee = (amt) => {
   return 5;
 };
 
+const BloomingFlowerGraphic = ({ className = 'w-24 h-24' }) => (
+  <div className="relative w-28 h-28 mx-auto mb-3 flex items-center justify-center">
+    {/* Ambient Glowing Halo */}
+    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-400/25 to-pink-400/20 blur-xl animate-pulse" />
+    
+    {/* Rotating Blooming Flower SVG */}
+    <svg 
+      className={`${className} text-indigo-600 flower-bloom-anim flower-petal-pulse drop-shadow-[0_4px_16px_rgba(79,70,229,0.4)]`} 
+      viewBox="0 0 100 100" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="50" cy="50" r="12" fill="#4F46E5" />
+      <circle cx="50" cy="50" r="6" fill="#A5B4FC" />
+      
+      {/* Symmetrical blooming petals with gradients */}
+      <g stroke="#6366F1" strokeWidth="2" fill="rgba(99, 102, 241, 0.18)">
+        <path d="M50 38 C42 22, 58 22, 50 38 Z" />
+        <path d="M50 62 C42 78, 58 78, 50 62 Z" />
+        <path d="M38 50 C22 42, 22 58, 38 50 Z" />
+        <path d="M62 50 C78 42, 78 58, 62 50 Z" />
+        <path d="M41 41 C28 30, 40 18, 41 41 Z" />
+        <path d="M59 59 C72 70, 60 82, 59 59 Z" />
+        <path d="M41 59 C28 70, 40 82, 41 59 Z" />
+        <path d="M59 41 C72 30, 60 18, 59 41 Z" />
+      </g>
+      <circle cx="50" cy="50" r="2.5" fill="#FFFFFF" />
+    </svg>
+  </div>
+);
+
 const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn' }) => {
   if (!isOpen) return null;
 
@@ -204,34 +235,7 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn' }) => {
         <FloralWatermark />
         
         {/* Blooming Flower Graphic */}
-        <div className="relative w-28 h-28 mx-auto mb-4 flex items-center justify-center">
-          {/* Ambient Glowing Halo */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-400/25 to-pink-400/20 blur-xl animate-pulse" />
-          
-          {/* Rotating Blooming Flower SVG */}
-          <svg 
-            className="w-24 h-24 text-indigo-600 flower-bloom-anim flower-petal-pulse drop-shadow-[0_4px_16px_rgba(79,70,229,0.4)]" 
-            viewBox="0 0 100 100" 
-            fill="none" 
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <circle cx="50" cy="50" r="12" fill="#4F46E5" />
-            <circle cx="50" cy="50" r="6" fill="#A5B4FC" />
-            
-            {/* Symmetrical blooming petals with gradients */}
-            <g stroke="#6366F1" strokeWidth="2" fill="rgba(99, 102, 241, 0.18)">
-              <path d="M50 38 C42 22, 58 22, 50 38 Z" />
-              <path d="M50 62 C42 78, 58 78, 50 62 Z" />
-              <path d="M38 50 C22 42, 22 58, 38 50 Z" />
-              <path d="M62 50 C78 42, 78 58, 62 50 Z" />
-              <path d="M41 41 C28 30, 40 18, 41 41 Z" />
-              <path d="M59 59 C72 70, 60 82, 59 59 Z" />
-              <path d="M41 59 C28 70, 40 82, 41 59 Z" />
-              <path d="M59 41 C72 30, 60 18, 59 41 Z" />
-            </g>
-            <circle cx="50" cy="50" r="2.5" fill="#FFFFFF" />
-          </svg>
-        </div>
+        <BloomingFlowerGraphic />
 
         {/* Title & Badge */}
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-black uppercase tracking-wider mb-2">
@@ -899,12 +903,16 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
       <div className="grid grid-cols-2 gap-2.5">
          <button 
              onClick={onOpenBuyCrypto} 
-             className="flex items-center gap-2.5 bg-gradient-to-br from-indigo-600 via-indigo-700 to-blue-700 text-white p-3 rounded-2xl shadow-md shadow-indigo-600/20 active:scale-[0.97] transition-all text-left group"
+             className="relative overflow-hidden flex items-center gap-2.5 bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 text-white p-3 shadow-md shadow-indigo-600/20 active:scale-[0.97] transition-all text-left group"
+             style={{
+               clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px)',
+             }}
          >
-             <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform">
+             <FloralWatermark className="opacity-[0.08]" />
+             <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform relative z-10">
                  <Coins size={18} />
              </div>
-             <div>
+             <div className="relative z-10">
                  <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider leading-none">{t?.buyCryptoSub || 'Instant Send'}</p>
                  <p className="text-[15px] font-bold text-white leading-tight mt-1 tracking-tight">{t?.buyCrypto || 'Buy Crypto'}</p>
              </div>
@@ -912,12 +920,16 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
          
          <button 
              onClick={onGoToSell} 
-             className="flex items-center gap-2.5 bg-white text-slate-900 p-3 rounded-2xl shadow-sm border border-slate-200 active:scale-[0.97] transition-all text-left group hover:border-slate-300"
+             className="relative overflow-hidden flex items-center gap-2.5 bg-white text-slate-900 p-3 shadow-sm border border-slate-200 active:scale-[0.97] transition-all text-left group hover:border-slate-300"
+             style={{
+               clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px)',
+             }}
          >
-             <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 group-hover:scale-105 transition-transform border border-indigo-100">
+             <FloralWatermark className="opacity-[0.05]" />
+             <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 group-hover:scale-105 transition-transform border border-indigo-100 relative z-10">
                  <ArrowRightLeft size={18} />
              </div>
-             <div>
+             <div className="relative z-10">
                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none">{t?.sellCryptoSub || 'Instant Swap'}</p>
                  <p className="text-[15px] font-bold text-slate-900 leading-tight mt-1 tracking-tight">{t?.sellCrypto || 'Sell Crypto'}</p>
              </div>
@@ -925,21 +937,21 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
       </div>
 
       {/* Live Chart Card */}
-      <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)]">
+      <CutCornerCard className="p-3.5">
          <div className="flex justify-between items-start mb-3">
-            <div className="flex items-center gap-2 text-[var(--color-text-primary)]">
-                <TrendingUp size={15} className="text-[var(--color-text-secondary)]" />
+            <div className="flex items-center gap-2 text-slate-900">
+                <TrendingUp size={15} className="text-slate-500" />
                 <h3 className="text-[15px] font-bold">{t?.chartTitle || 'USDT/TK Live Chart'}</h3>
             </div>
-            <div className="flex items-center gap-1 bg-[var(--color-success)]/10 px-2 py-0.5 rounded-full border border-[var(--color-success)]/20">
-                <div className="w-1.5 h-1.5 bg-[var(--color-success)] rounded-full animate-pulse" />
-                <span className="text-[9px] font-bold text-[var(--color-success)] tracking-wide">LIVE</span>
+            <div className="flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="text-[9px] font-bold text-emerald-700 tracking-wide">LIVE</span>
             </div>
          </div>
          
          <div className="flex items-baseline gap-1.5 mb-3">
-            <span className="text-xl font-bold text-[var(--color-text-primary)]">{graphData[graphData.length-1].price.toFixed(2)}</span>
-            <span className="text-[12px] font-medium text-[var(--color-text-secondary)]">TK/USDT</span>
+            <span className="text-xl font-bold text-slate-900">{graphData[graphData.length-1].price.toFixed(2)}</span>
+            <span className="text-[12px] font-medium text-slate-500">TK/USDT</span>
          </div>
 
          <div className="h-28 w-full ml-[-15px]">
@@ -947,58 +959,58 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
                <AreaChart data={graphData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
                  <defs>
                    <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                     <stop offset="5%" stopColor="var(--color-brand)" stopOpacity={0.15}/>
-                     <stop offset="95%" stopColor="var(--color-brand)" stopOpacity={0}/>
+                     <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.15}/>
+                     <stop offset="95%" stopColor="#4F46E5" stopOpacity={0}/>
                    </linearGradient>
                  </defs>
                  <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} hide />
                  <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                 <Area type="monotone" dataKey="price" stroke="var(--color-brand)" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" isAnimationActive={true} animationDuration={300} />
+                 <Area type="monotone" dataKey="price" stroke="#4F46E5" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" isAnimationActive={true} animationDuration={300} />
                </AreaChart>
             </ResponsiveContainer>
          </div>
          <div className="flex justify-between mt-2 px-2">
-            <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">1H</span>
-            <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">1D</span>
-            <span className="text-[10px] text-[var(--color-brand)] font-bold">LIVE</span>
-            <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">1W</span>
-            <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">1M</span>
+            <span className="text-[10px] text-slate-400 font-medium">1H</span>
+            <span className="text-[10px] text-slate-400 font-medium">1D</span>
+            <span className="text-[10px] text-indigo-600 font-bold">LIVE</span>
+            <span className="text-[10px] text-slate-400 font-medium">1W</span>
+            <span className="text-[10px] text-slate-400 font-medium">1M</span>
          </div>
-      </div>
+      </CutCornerCard>
 
       {/* Instructions Card */}
-      <div className="bg-white p-5 rounded-[24px] premium-shadow border border-[var(--color-border)] mb-4">
-         <h3 className="text-[14px] font-bold text-[var(--color-text-primary)] mb-3 flex items-center gap-2">
-            <Info size={16} className="text-[var(--color-brand)]" />
+      <CutCornerCard className="p-4 mb-4">
+         <h3 className="text-[14px] font-bold text-slate-900 mb-3 flex items-center gap-2">
+            <Info size={16} className="text-indigo-600" />
             How to use this bot
          </h3>
          <ul className="space-y-3">
             <li className="flex items-start gap-2.5">
-               <div className="w-5 h-5 rounded-full bg-[var(--color-brand)]/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[10px] font-bold text-[var(--color-brand)]">1</span>
+               <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">
+                  <span className="text-[10px] font-bold text-indigo-600">1</span>
                </div>
-               <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
-                  <strong className="text-[var(--color-text-primary)]">Earn TK:</strong> Start the bot and keep it active to accumulate TK points.
+               <p className="text-[11px] text-slate-500 leading-relaxed">
+                  <strong className="text-slate-800">Earn TK:</strong> Start the bot and keep it active to accumulate TK points.
                </p>
             </li>
             <li className="flex items-start gap-2.5">
-               <div className="w-5 h-5 rounded-full bg-[var(--color-brand)]/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[10px] font-bold text-[var(--color-brand)]">2</span>
+               <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">
+                  <span className="text-[10px] font-bold text-indigo-600">2</span>
                </div>
-               <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
-                  <strong className="text-[var(--color-text-primary)]">Connect Wallet:</strong> Link your TON wallet securely to enable withdrawals.
+               <p className="text-[11px] text-slate-500 leading-relaxed">
+                  <strong className="text-slate-800">Connect Wallet:</strong> Link your TON wallet securely to enable withdrawals.
                </p>
             </li>
             <li className="flex items-start gap-2.5">
-               <div className="w-5 h-5 rounded-full bg-[var(--color-brand)]/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[10px] font-bold text-[var(--color-brand)]">3</span>
+               <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">
+                  <span className="text-[10px] font-bold text-indigo-600">3</span>
                </div>
-               <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
-                  <strong className="text-[var(--color-text-primary)]">Withdraw:</strong> Convert your earned TK balance to USDT directly to your wallet.
+               <p className="text-[11px] text-slate-500 leading-relaxed">
+                  <strong className="text-slate-800">Withdraw:</strong> Convert your earned TK balance to USDT directly to your wallet.
                </p>
             </li>
          </ul>
-      </div>
+      </CutCornerCard>
     </div>
   );
 }
@@ -1242,76 +1254,75 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
         }
     };
 
-    // STEP 3: LUXURY FINTECH SUCCESS RECEIPT
+    // STEP 3: LUXURY FINTECH SUCCESS RECEIPT WITH BLOOMING FLOWER
     if (step === 3) {
         return (
-            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-4 text-center pb-24">
-                {/* Glowing Animated Icon */}
-                <div className="relative mb-6 mt-4">
-                    <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-2xl animate-pulse" />
-                    <div className="w-24 h-24 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-full flex items-center justify-center shadow-xl shadow-emerald-500/30 border-4 border-white relative z-10">
-                        <CheckCircle2 size={48} className="text-white drop-shadow-md" />
-                    </div>
-                </div>
+            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-2 text-center pb-24 max-w-sm mx-auto">
+                <CutCornerCard className="p-6 text-center space-y-4">
+                    {/* Blooming Flower Graphic */}
+                    <BloomingFlowerGraphic />
 
-                <h2 className="text-2xl font-black text-gray-900 mb-1 tracking-tight">
-                    ৳{amount} BDT Added! 🎉
-                </h2>
-                <p className="text-gray-500 text-xs mb-6 max-w-[280px] leading-relaxed">
-                    আপনার পেমেন্ট SMS দ্বারা সাথে সাথে অটো-ভেরিফাই হয়েছে এবং ব্যালেন্সে যোগ হয়েছে।
-                </p>
-
-                {/* Fintech Receipt Card */}
-                <div className="bg-white border border-gray-100 rounded-3xl p-5 w-full max-w-[340px] mb-6 shadow-xl shadow-gray-100/60 relative overflow-hidden">
-                    <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
-                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status</span>
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black border border-emerald-200/60">
-                            <Sparkles size={12} /> Auto-Verified
-                        </div>
+                    {/* Status Badge */}
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-black uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        <Sparkles size={12} />
+                        {lang === 'bn' ? 'অটো-ভেরিফাইড সফল' : 'AUTO-VERIFIED'}
                     </div>
-                    
-                    <div className="space-y-2.5 text-left text-xs">
+
+                    <div>
+                        <h2 className="text-xl font-black text-slate-900 tracking-tight mb-1">
+                            ৳{amount} BDT Added! 🎉
+                        </h2>
+                        <p className="text-slate-500 text-xs max-w-[280px] mx-auto leading-relaxed">
+                            {lang === 'bn' 
+                                ? 'আপনার পেমেন্ট SMS দ্বারা সাথে সাথে অটো-ভেরিফাই হয়েছে এবং ব্যালেন্সে যোগ হয়েছে।' 
+                                : 'Your payment has been auto-verified via SMS and credited to your balance.'}
+                        </p>
+                    </div>
+
+                    {/* Fintech Receipt Card Details */}
+                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-200/80 text-left space-y-2 text-xs">
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-400 font-medium">Transaction ID</span>
-                            <span className="font-mono font-bold text-gray-900 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">{trxId}</span>
+                            <span className="text-slate-500 font-medium">Transaction ID</span>
+                            <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">{trxId}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-400 font-medium">Payment Method</span>
-                            <span className="font-bold text-gray-900">{paymentMethod}</span>
+                            <span className="text-slate-500 font-medium">Payment Method</span>
+                            <span className="font-bold text-slate-900">{paymentMethod}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-400 font-medium">Amount Deposited</span>
+                            <span className="text-slate-500 font-medium">Amount Deposited</span>
                             <span className="font-extrabold text-emerald-600 text-sm">৳{amount} BDT</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-400 font-medium">Account Name</span>
-                            <span className="font-bold text-gray-900">{user?.first_name || 'User'}</span>
+                            <span className="text-slate-500 font-medium">Account Name</span>
+                            <span className="font-bold text-slate-900">{user?.first_name || 'User'}</span>
                         </div>
                     </div>
-                </div>
 
-                {/* Action Buttons */}
-                <div className="w-full max-w-[340px] space-y-2.5">
-                    <button 
-                        onClick={onGoToBuyCrypto} 
-                        className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm tracking-wide"
-                    >
-                        <Coins size={18} />
-                        {t?.buyCrypto || 'BUY CRYPTO NOW'}
-                    </button>
-                    <button 
-                        onClick={() => {
-                            setStep(1);
-                            setAmount('');
-                            setTrxId('');
-                            setErrorMessage('');
-                            onDone();
-                        }} 
-                        className="w-full bg-white text-gray-700 font-bold py-3.5 rounded-2xl border border-gray-200 active:scale-95 transition-all text-sm"
-                    >
-                        {lang === 'bn' ? 'হোমে ফিরে যান' : 'BACK TO HOME'}
-                    </button>
-                </div>
+                    {/* Action Buttons */}
+                    <div className="space-y-2.5 pt-2">
+                        <CutCornerButton 
+                            onClick={onGoToBuyCrypto} 
+                            icon={Coins}
+                        >
+                            {t?.buyCrypto || (lang === 'bn' ? 'ক্রিপ্টো কিনুন' : 'BUY CRYPTO NOW')}
+                        </CutCornerButton>
+                        <CutCornerButton 
+                            onClick={() => {
+                                setStep(1);
+                                setAmount('');
+                                setTrxId('');
+                                setErrorMessage('');
+                                onDone();
+                            }} 
+                            variant="secondary"
+                            icon={ArrowRight}
+                        >
+                            {lang === 'bn' ? 'হোমে ফিরে যান' : 'BACK TO HOME'}
+                        </CutCornerButton>
+                    </div>
+                </CutCornerCard>
             </div>
         );
     }
@@ -1745,45 +1756,49 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
 
             <CutCornerCard className="p-3.5 space-y-3">
 
-                {/* SUCCESS STAGE */}
+                {/* SUCCESS STAGE WITH BLOOMING FLOWER */}
                 {stage === 'success' ? (
                     <div className="py-2 text-center animate-in zoom-in-95 duration-400 my-auto">
-                        <div className="relative mb-2 inline-block">
-                            <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 relative z-10 border-2 border-white mx-auto">
-                                <CheckCircle2 size={24} />
-                            </div>
+                        {/* Blooming Flower Graphic */}
+                        <BloomingFlowerGraphic />
+
+                        {/* Status Badge */}
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-black uppercase tracking-wider mb-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                            <Sparkles size={12} />
+                            {lang === 'bn' ? 'ক্রয় সফল হয়েছে' : 'PURCHASE COMPLETED'}
                         </div>
 
-                        <h4 className="text-[14px] font-black text-slate-900 mb-0.5">
+                        <h4 className="text-[17px] font-black text-slate-900 mb-0.5">
                             {lang === 'bn' ? 'ক্রিপ্টো সফলভাবে পাঠানো হয়েছে! 🎉' : 'Crypto Sent Successfully! 🎉'}
                         </h4>
-                        <p className="text-slate-500 text-[11px] mb-3 max-w-[280px] mx-auto leading-tight">
+                        <p className="text-slate-500 text-[11px] mb-3 max-w-[280px] mx-auto leading-tight font-medium">
                             {lang === 'bn' 
                                 ? <>আপনার ওয়ালেটে <b>{calculatedCrypto} {selectedAsset}</b> ট্রান্সফার সম্পন্ন।</>
                                 : <>Successfully sent <b>{calculatedCrypto} {selectedAsset}</b> to your wallet.</>}
                         </p>
 
-                        <div className="bg-slate-50 rounded-xl p-2.5 text-left text-[11px] space-y-1 border border-slate-200 mb-3">
-                            <div className="flex justify-between">
-                                <span className="text-slate-400 font-medium">Crypto Sent:</span>
+                        <div className="bg-slate-50/80 rounded-xl p-3 text-left text-[11px] space-y-1.5 border border-slate-200/80 mb-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">Crypto Sent:</span>
                                 <span className="font-bold text-indigo-600">{calculatedCrypto} {selectedAsset}</span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-slate-400 font-medium">BDT Deducted:</span>
+                            <div className="flex justify-between items-center">
+                                <span className="text-slate-500 font-medium">BDT Deducted:</span>
                                 <span className="font-bold text-slate-900">৳{bdtAmount} TK</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-slate-400 font-medium">Wallet:</span>
+                            <div className="flex justify-between items-center pt-1 border-t border-slate-200/50">
+                                <span className="text-slate-500 font-medium">Wallet:</span>
                                 <span className="font-mono font-bold text-slate-700 truncate max-w-[170px]">{receiveAddress}</span>
                             </div>
                         </div>
 
-                        <button 
+                        <CutCornerButton 
                             onClick={handleResetAndClose} 
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl shadow-md shadow-indigo-600/20 active:scale-95 transition-all text-[12px]"
+                            icon={CheckCircle2}
                         >
-                            {lang === 'bn' ? 'সম্পন্ন / DONE' : 'DONE'}
-                        </button>
+                            {lang === 'bn' ? 'সম্পন্ন (ঠিক আছে)' : 'DONE'}
+                        </CutCornerButton>
                     </div>
                 ) : stage === 'error' ? (
                     /* ERROR STAGE */
@@ -1797,12 +1812,12 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                         <p className="text-red-600 text-[11px] mb-3 leading-snug bg-red-50 p-2.5 rounded-xl border border-red-100 max-w-[300px] mx-auto">
                             {errorMessage}
                         </p>
-                        <button 
+                        <CutCornerButton 
                             onClick={() => setStage('idle')} 
-                            className="w-full bg-slate-900 text-white font-bold py-2.5 rounded-xl active:scale-95 transition-all text-[12px]"
+                            variant="secondary"
                         >
                             {lang === 'bn' ? 'আবার চেষ্টা করুন (TRY AGAIN)' : 'TRY AGAIN'}
-                        </button>
+                        </CutCornerButton>
                     </div>
                 ) : stage === 'processing' ? (
                     /* LIVE REALTIME PROCESSING STAGE */
@@ -1991,22 +2006,20 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                         {/* 6. Submit Button */}
                         <div className="shrink-0 pt-1">
                             {hasInsufficientBalance ? (
-                                <button 
+                                <CutCornerButton 
                                     onClick={onGoToAddMoney} 
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl shadow-md shadow-indigo-600/20 active:scale-95 transition-all text-[12px] flex items-center justify-center gap-1.5"
+                                    icon={PlusCircle}
                                 >
-                                    <PlusCircle size={15} />
                                     {t?.addMoney || 'ADD MONEY'} {lang === 'bn' ? 'করুন' : 'TO WALLET'}
-                                </button>
+                                </CutCornerButton>
                             ) : (
-                                <button 
+                                <CutCornerButton 
                                     onClick={handleConfirmBuy} 
                                     disabled={!numBdt || !receiveAddress || numBdt < 20} 
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-2.5 rounded-xl shadow-md shadow-indigo-600/20 active:scale-95 transition-all text-[12px] flex items-center justify-center gap-1.5"
+                                    icon={Coins}
                                 >
-                                    <Coins size={15} />
                                     {t?.confirmBuy || 'CONFIRM & BUY'} {selectedAsset}
-                                </button>
+                                </CutCornerButton>
                             )}
                         </div>
                     </div>
@@ -2151,75 +2164,75 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
         }
     };
 
-    // LUXURY FINTECH SUCCESS RECEIPT
+    // LUXURY FINTECH SUCCESS RECEIPT WITH BLOOMING FLOWER
     if (step === 2) {
         return (
-            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-4 text-center pb-24">
-                <div className="relative mb-6 mt-4">
-                    <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-2xl animate-pulse" />
-                    <div className="w-24 h-24 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-full flex items-center justify-center shadow-xl shadow-emerald-500/30 border-4 border-white relative z-10">
-                        <CheckCircle2 size={48} className="text-white drop-shadow-md" />
-                    </div>
-                </div>
+            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-2 text-center pb-24 max-w-sm mx-auto">
+                <CutCornerCard className="p-6 text-center space-y-4">
+                    {/* Blooming Flower Graphic */}
+                    <BloomingFlowerGraphic />
 
-                <h2 className="text-2xl font-black text-gray-900 mb-1 tracking-tight">
-                    ৳{estimatedTk} BDT Added! 🎉
-                </h2>
-                <p className="text-gray-500 text-xs mb-6 max-w-[280px] leading-relaxed">
-                    {lang === 'bn' 
-                        ? 'আপনার ক্রিপ্টো বিক্রয় সফল হয়েছে এবং ব্যালেন্সে টাকা যুক্ত করা হয়েছে।' 
-                        : 'Your crypto sale was successful and BDT balance has been credited.'}
-                </p>
-
-                <div className="bg-white border border-gray-100 rounded-3xl p-5 w-full max-w-[340px] mb-6 shadow-xl shadow-gray-100/60 relative overflow-hidden">
-                    <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-3">
-                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Status</span>
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black border border-emerald-200/60">
-                            <Sparkles size={12} /> Auto-Completed
-                        </div>
+                    {/* Status Badge */}
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-black uppercase tracking-wider">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        <Sparkles size={12} />
+                        {lang === 'bn' ? 'বিক্রয় সফল হয়েছে' : 'SALE COMPLETED'}
                     </div>
-                    
-                    <div className="space-y-2.5 text-left text-xs">
+
+                    <div>
+                        <h2 className="text-xl font-black text-slate-900 tracking-tight mb-1">
+                            ৳{estimatedTk} BDT Added! 🎉
+                        </h2>
+                        <p className="text-slate-500 text-xs max-w-[280px] mx-auto leading-relaxed">
+                            {lang === 'bn' 
+                                ? 'আপনার ক্রিপ্টো বিক্রয় সফল হয়েছে এবং ব্যালেন্সে টাকা যুক্ত করা হয়েছে।' 
+                                : 'Your crypto sale was successful and BDT balance has been credited.'}
+                        </p>
+                    </div>
+
+                    {/* Breakdown Details */}
+                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-200/80 text-left space-y-2 text-xs">
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-400 font-medium">Crypto Sold</span>
-                            <span className="font-bold text-gray-900">{numAmount} {asset}</span>
+                            <span className="text-slate-500 font-medium">Crypto Sold</span>
+                            <span className="font-bold text-slate-900">{numAmount} {asset}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-400 font-medium">Rate</span>
-                            <span className="font-bold text-gray-900">1 {asset} ≈ ৳{currentRate} TK</span>
+                            <span className="text-slate-500 font-medium">Rate</span>
+                            <span className="font-bold text-slate-900">1 {asset} ≈ ৳{currentRate} TK</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-400 font-medium">Amount Credited</span>
+                            <span className="text-slate-500 font-medium">Amount Credited</span>
                             <span className="font-extrabold text-emerald-600 text-sm">৳{estimatedTk} BDT</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-gray-400 font-medium">Destination</span>
-                            <span className="font-bold text-gray-900">In-App Balance</span>
+                            <span className="text-slate-500 font-medium">Destination</span>
+                            <span className="font-bold text-slate-900">{lang === 'bn' ? 'ইন-অ্যাপ ব্যালেন্স' : 'In-App Balance'}</span>
                         </div>
                     </div>
-                </div>
 
-                <div className="w-full max-w-[340px] space-y-2.5">
-                    <button 
-                        onClick={onGoToWithdraw} 
-                        className="w-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg shadow-emerald-500/25 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm tracking-wide"
-                    >
-                        <Wallet size={18} />
-                        {t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন (WITHDRAW)' : 'WITHDRAW FUNDS')}
-                    </button>
-                    <button 
-                        onClick={() => {
-                            setStep(1);
-                            setCryptoAmount('');
-                            setTrxId('');
-                            setErrorMessage('');
-                            onDone();
-                        }} 
-                        className="w-full bg-white text-gray-700 font-bold py-3.5 rounded-2xl border border-gray-200 active:scale-95 transition-all text-sm"
-                    >
-                        {lang === 'bn' ? 'হোমে ফিরে যান' : 'BACK TO HOME'}
-                    </button>
-                </div>
+                    {/* Action Buttons */}
+                    <div className="space-y-2.5 pt-2">
+                        <CutCornerButton 
+                            onClick={onGoToWithdraw} 
+                            icon={Wallet}
+                        >
+                            {t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS')}
+                        </CutCornerButton>
+                        <CutCornerButton 
+                            onClick={() => {
+                                setStep(1);
+                                setCryptoAmount('');
+                                setTrxId('');
+                                setErrorMessage('');
+                                onDone();
+                            }} 
+                            variant="secondary"
+                            icon={ArrowRight}
+                        >
+                            {lang === 'bn' ? 'হোমে ফিরে যান' : 'BACK TO HOME'}
+                        </CutCornerButton>
+                    </div>
+                </CutCornerCard>
             </div>
         );
     }
@@ -2364,33 +2377,21 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                     {/* 4. Action Button */}
                     <div className="shrink-0 pt-1">
                         {!userTonAddress ? (
-                            <button 
-                                type="button"
+                            <CutCornerButton 
                                 onClick={() => tonConnectUI.openModal()} 
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl py-2.5 shadow-md shadow-indigo-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[12px]"
+                                icon={Wallet}
                             >
-                                <Wallet size={16} />
-                                <span>{lang === 'bn' ? 'ওয়ালেট কানেক্ট করুন (Tonkeeper)' : 'Connect Wallet to Sell'}</span>
-                            </button>
+                                {lang === 'bn' ? 'ওয়ালেট কানেক্ট করুন (Tonkeeper)' : 'Connect Wallet to Sell'}
+                            </CutCornerButton>
                         ) : (
-                            <button 
-                                type="button"
+                            <CutCornerButton 
                                 onClick={handleDirectSell} 
                                 disabled={!numAmount || numAmount <= 0 || estimatedTk < 1 || isTonSending} 
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl py-2.5 shadow-md shadow-indigo-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[12px]"
+                                isSubmitting={isTonSending}
+                                icon={ArrowRightLeft}
                             >
-                                {isTonSending ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        <span>{lang === 'bn' ? 'টোনকিপারে কনফার্ম করুন...' : 'Confirming in Tonkeeper...'}</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <ArrowRightLeft size={16} />
-                                        <span>{lang === 'bn' ? `কনফার্ম ও বিক্রি করুন (৳${estimatedTk} BDT)` : `Confirm & Sell for ৳${estimatedTk} BDT`}</span>
-                                    </>
-                                )}
-                            </button>
+                                {lang === 'bn' ? `কনফার্ম ও বিক্রি করুন (৳${estimatedTk} BDT)` : `Confirm & Sell for ৳${estimatedTk} BDT`}
+                            </CutCornerButton>
                         )}
                     </div>
                 </div>
@@ -2858,15 +2859,13 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
          </div>
 
          {/* Primary Withdraw Action Button */}
-         <button 
-            type="button"
+         <CutCornerButton 
             onClick={handleWithdrawClick} 
             disabled={withdrawing} 
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-[44px] rounded-xl shadow-md shadow-indigo-600/20 active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2 text-[13px] tracking-wide"
+            icon={Wallet}
          >
-            <Wallet size={16} />
-            <span>{t?.withdrawBalance || 'WITHDRAW BALANCE'}</span>
-         </button>
+            {t?.withdrawBalance || 'WITHDRAW BALANCE'}
+         </CutCornerButton>
       </CutCornerCard>
 
       {/* 3. HISTORY & SUPPORT SERVICES MASTER CARD */}
@@ -2919,9 +2918,15 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
 
       {/* Support Message Modal */}
       {showSupportModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="bg-white rounded-[28px] p-5 w-full max-w-[340px] shadow-2xl border border-gray-100 animate-in zoom-in-95">
-                  <div className="flex justify-between items-center mb-3">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <div 
+                  className="relative bg-white w-full max-w-[340px] p-5 shadow-2xl border border-indigo-100/60 animate-in zoom-in-95"
+                  style={{
+                      clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
+                  }}
+              >
+                  <FloralWatermark />
+                  <div className="flex justify-between items-center mb-3 relative z-10">
                       <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
                               <Headphones size={16} />
@@ -3047,10 +3052,16 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
       )}
       {/* Wallet Setup Modal */}
       {showWalletModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className="bg-white rounded-[28px] p-6 w-full max-w-[320px] premium-shadow border border-[var(--color-border)] animate-in zoom-in-95 slide-in-from-bottom-4">
-                  <div className="flex justify-between items-center mb-5">
-                      <h3 className="text-xl font-extrabold text-[var(--color-text-primary)]">Wallet Setup</h3>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+              <div 
+                  className="relative bg-white w-full max-w-[320px] p-6 shadow-2xl border border-indigo-100/60 animate-in zoom-in-95 slide-in-from-bottom-4"
+                  style={{
+                      clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
+                  }}
+              >
+                  <FloralWatermark />
+                  <div className="flex justify-between items-center mb-5 relative z-10">
+                      <h3 className="text-xl font-extrabold text-slate-900">Wallet Setup</h3>
                       <button onClick={() => setShowWalletModal(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:text-gray-800">
                           <X size={16} strokeWidth={3} />
                       </button>
@@ -3099,33 +3110,47 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
                       </div>
                   </div>
 
-                  <button onClick={handleSaveWallet} disabled={!walletNumber || !walletName || isSaving} className="w-full h-[52px] mt-6 bg-[var(--color-text-primary)] text-white rounded-[16px] font-bold text-[14px] flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50">
-                      {isSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
-                      SAVE WALLET
-                  </button>
+                  <div className="mt-6">
+                      <CutCornerButton 
+                          onClick={handleSaveWallet} 
+                          disabled={!walletNumber || !walletName || isSaving} 
+                          isSubmitting={isSaving}
+                          icon={Save}
+                      >
+                          {lang === 'bn' ? 'ওয়ালেট সেভ করুন' : 'SAVE WALLET'}
+                      </CutCornerButton>
+                  </div>
               </div>
           </div>
       )}
 
       {txStatus && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
-           <div className="bg-white rounded-[28px] p-6 w-full max-w-[300px] flex flex-col items-center text-center premium-shadow animate-in zoom-in-95 slide-in-from-bottom-4">
-              {txStatus === 'success' ? (
-                 <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                 </div>
-              ) : (
-                 <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-                 </div>
-              )}
-              <h3 className={`text-xl font-extrabold mb-2 ${txStatus === 'success' ? 'text-emerald-500' : 'text-red-500'}`}>
-                 {txStatus === 'success' ? 'Success!' : 'Error'}
-              </h3>
-              <p className="text-[13px] font-semibold text-[var(--color-text-secondary)] mb-6">{txMessage}</p>
-              <button onClick={() => setTxStatus(null)} className="w-full h-[48px] bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-2xl transition-colors">
-                 Close
-              </button>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+           <div 
+               className="relative bg-white w-full max-w-[300px] p-6 flex flex-col items-center text-center shadow-2xl border border-indigo-100/60 animate-in zoom-in-95 slide-in-from-bottom-4"
+               style={{
+                   clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
+               }}
+           >
+              <FloralWatermark />
+              <div className="relative z-10 w-full flex flex-col items-center">
+                  {txStatus === 'success' ? (
+                     <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                        <CheckCircle2 size={32} className="text-emerald-600" />
+                     </div>
+                  ) : (
+                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                        <AlertCircle size={32} className="text-red-600" />
+                     </div>
+                  )}
+                  <h3 className={`text-xl font-extrabold mb-2 ${txStatus === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>
+                     {txStatus === 'success' ? (lang === 'bn' ? 'সফল হয়েছে!' : 'Success!') : (lang === 'bn' ? 'ব্যর্থ হয়েছে' : 'Error')}
+                  </h3>
+                  <p className="text-[13px] font-semibold text-slate-500 mb-6">{txMessage}</p>
+                  <CutCornerButton onClick={() => setTxStatus(null)} variant="secondary">
+                     {lang === 'bn' ? 'ঠিক আছে' : 'Close'}
+                  </CutCornerButton>
+              </div>
            </div>
         </div>
       )}
@@ -3318,21 +3343,21 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
 
             {/* Live Fee Breakdown */}
             {amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 && (
-                <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#E4E7EC] shadow-sm space-y-1.5 text-[12px]">
+                <CutCornerCard className="p-3 space-y-1.5 text-[12px]">
                     <div className="flex justify-between items-center">
-                        <span className="text-[#475467] font-medium">{lang === 'bn' ? 'উত্তোলনের পরিমাণ' : 'Withdraw Amount'}</span>
-                        <span className="font-bold text-[#101828]">৳ {parseFloat(amount).toFixed(2)}</span>
+                        <span className="text-slate-600 font-medium">{lang === 'bn' ? 'উত্তোলনের পরিমাণ' : 'Withdraw Amount'}</span>
+                        <span className="font-bold text-slate-900">৳ {parseFloat(amount).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                         <span className="text-red-500 font-medium">{lang === 'bn' ? 'সেন্ড মানি ফি' : 'Send Money Fee'}</span>
                         <span className="font-bold text-red-500">- ৳ {currentFee.toFixed(2)}</span>
                     </div>
-                    <div className="h-px bg-[#E4E7EC] my-1 w-full" />
+                    <div className="h-px bg-slate-200 my-1 w-full" />
                     <div className="flex justify-between items-center text-[12px]">
-                        <span className="text-[#00A878] font-bold">{t?.youReceive || (lang === 'bn' ? 'আপনি পাবেন' : 'You will receive')}</span>
-                        <span className="font-black text-[#00A878] text-[13px]">৳ {currentReceive.toFixed(2)}</span>
+                        <span className="text-emerald-700 font-bold">{t?.youReceive || (lang === 'bn' ? 'আপনি পাবেন' : 'You will receive')}</span>
+                        <span className="font-black text-emerald-700 text-[13px]">৳ {currentReceive.toFixed(2)}</span>
                     </div>
-                </div>
+                </CutCornerCard>
             )}
 
             {/* Saved Wallet Info with Edit Icon Aligned Right and Floral Underneath */}
@@ -3396,9 +3421,15 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             {/* Edit Wallet Modal */}
             {showEditWalletModal && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-[28px] p-6 w-full max-w-[320px] premium-shadow border border-[var(--color-border)] animate-in zoom-in-95">
-                        <div className="flex justify-between items-center mb-5">
-                            <h3 className="text-xl font-extrabold text-[var(--color-text-primary)]">
+                    <div 
+                        className="relative bg-white w-full max-w-[320px] p-6 shadow-2xl border border-indigo-100/60 animate-in zoom-in-95"
+                        style={{
+                            clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
+                        }}
+                    >
+                        <FloralWatermark />
+                        <div className="flex justify-between items-center mb-5 relative z-10">
+                            <h3 className="text-xl font-extrabold text-slate-900">
                                 {lang === 'bn' ? 'ওয়ালেট পরিবর্তন' : 'Edit Wallet'}
                             </h3>
                             <button onClick={() => setShowEditWalletModal(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:text-gray-800">
