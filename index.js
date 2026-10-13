@@ -699,13 +699,17 @@ bot.on('message', async (msg) => {
             return;
         }
 
-        const isConfiguredAdmin = [
+        const configuredAdminGroupIds = [
             botConfig.adminGroupId,
             botConfig.dataGroupId,
             botConfig.supportGroupId,
             botConfig.withdrawGroupId,
             botConfig.payoutGroupId
-        ].filter(Boolean).map(String).includes(chatId.toString());
+        ].filter(Boolean).map(String);
+
+        const isConfiguredAdmin = configuredAdminGroupIds.includes(chatId.toString()) ||
+                                  msg.chat.type === 'group' ||
+                                  msg.chat.type === 'supergroup';
 
         // Handle Admin Replies
         if (isConfiguredAdmin && msg.reply_to_message && text) {
@@ -814,114 +818,201 @@ bot.on('message', async (msg) => {
 
             // --- C) FIAT WITHDRAWAL LOGIC ---
             if (caption.includes("New Fiat Withdrawal") || caption.includes("নতুন উইথড্র রিকোয়েস্ট") || caption.includes("Withdraw Request")) {
-                const idMatch = caption.match(/ID:\s*(?:<code>)?(\d+)(?:<\/code>)?/i);
-                if (idMatch && idMatch[1]) {
-                    const targetUserId = idMatch[1];
-                    
-                    if (['done', 'ok', 'paid', 'accept', 'approve'].includes(replyText)) {
-                        const uRef = db.collection('users').doc(targetUserId);
-                        const uDoc = await uRef.get();
-                        let pend = null;
-                        if (uDoc.exists && uDoc.data().fiatWithdrawPending) {
-                            pend = uDoc.data().fiatWithdrawPending;
-                            if (pend.id) {
-                                await db.collection('fiat_withdrawals').doc(pend.id).update({
-                                    status: 'completed',
-                                    completedAt: Date.now()
-                                }).catch(()=>{});
+                let targetUserId = null;
+                const idMatch = caption.match(/\((\d{6,})\)/) ||
+                                caption.match(/(?:User\s*ID|ID|ইউজার|User):\s*(?:<code>)?(\d+)(?:<\/code>)?/i) ||
+                                caption.match(/tg:\/\/user\?id=(\d+)/i) ||
+                                caption.match(/<code>(\d{6,})<\/code>/i);
+                
+                if (idMatch && (idMatch[1] || idMatch[2])) {
+                    targetUserId = (idMatch[1] || idMatch[2]).toString();
+                }
+
+                // Fallback: If targetUserId not found directly, look up by serial number
+                if (!targetUserId) {
+                    const serialMatch = caption.match(/(?:সিরিয়াল নং|Serial|#):\s*#?(\d+)/i);
+                    if (serialMatch && serialMatch[1]) {
+                        try {
+                            const wDocs = await db.collection('fiat_withdrawals').where('serial', '==', parseInt(serialMatch[1])).get();
+                            if (!wDocs.empty) {
+                                targetUserId = wDocs.docs[0].data().userId.toString();
                             }
-                            try {
-                                const pendSnaps = await db.collection('fiat_withdrawals')
-                                    .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
-                                    .where('status', '==', 'pending').get();
-                                for (const doc of pendSnaps.docs) {
-                                    await doc.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
-                                }
-                            } catch(e) {}
-
-                            await uRef.update({
-                                'fiatWithdrawPending.status': 'completed',
-                                'fiatWithdrawPending.completedAt': Date.now()
-                            });
-                        }
-
-                        const amtVal = pend?.amount || 0;
-                        const feeVal = pend?.fee !== undefined ? pend.fee : 0;
-                        const recVal = pend?.receiveAmount || amtVal;
-                        const methodVal = pend?.method || 'bKash';
-                        const numVal = pend?.number || '';
-
-                        // Redesigned Quote DM to User (Image 3 quality)
-                        const userSuccessMsg = `<blockquote><b>✅ ক্যাশআউট সম্পন্ন হয়েছে (Withdrawal Successful)!</b>\n\n` +
-                            `💰 <b>উত্তোলনের পরিমাণ:</b> ৳${amtVal} BDT\n` +
-                            `📉 <b>সেন্ড মানি ফি:</b> ৳${typeof feeVal === 'number' ? feeVal.toFixed(2) : feeVal} BDT\n` +
-                            `💵 <b>প্রদান করা হয়েছে:</b> ৳${typeof recVal === 'number' ? recVal.toFixed(2) : recVal} BDT\n` +
-                            `🏦 <b>মাধ্যম:</b> ${methodVal} (<code>${numVal}</code>)\n\n` +
-                            `আপনার অ্যাকাউন্টে টাকা সফলভাবে পাঠিয়ে দেওয়া হয়েছে। ধন্যবাদ আমাদের সাথে থাকার জন্য!</blockquote>`;
-                        bot.sendMessage(targetUserId, userSuccessMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-
-                        // Confirm in Withdraw Request Group
-                        bot.sendMessage(chatId, `✅ <code>${targetUserId}</code> এর উইথড্র সফলভাবে PAID মার্ক করা হয়েছে।`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
-
-                        // Post Live Payout Proof to Public Payout Group / Channel (Image 2 format)
-                        await notifyPayoutGroup({
-                            type: 'fiat',
-                            userId: targetUserId,
-                            name: pend?.name || uDoc.data()?.first_name || 'User',
-                            amount: amtVal,
-                            receiveAmount: recVal,
-                            method: methodVal,
-                            number: numVal
-                        });
-                        return;
-                    } 
-                    else if (replyText === 'wt' || replyText === 'wait') {
-                        await bot.sendMessage(chatId, `⏱ Reply to THIS message with the time format.\n\nMinutes: <code>10:00</code>\nHours: <code>1:30:50</code>\n\nUser ID: ${targetUserId}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                        return;
-                    }
-                    else if (replyText.startsWith('reject')) {
-                        const reason = text.substring(6).trim() || 'No reason provided';
-                        const userRef = db.collection('users').doc(targetUserId);
-                        const userDoc = await userRef.get();
-                        if (userDoc.exists && userDoc.data().fiatWithdrawPending) {
-                            const pend = userDoc.data().fiatWithdrawPending;
-                            const amountToRefund = pend.amount;
-                            if (pend.id) {
-                                await db.collection('fiat_withdrawals').doc(pend.id).update({
-                                    status: 'rejected',
-                                    rejectReason: reason,
-                                    rejectedAt: Date.now()
-                                }).catch(()=>{});
-                            }
-                            try {
-                                const pendSnaps = await db.collection('fiat_withdrawals')
-                                    .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
-                                    .where('status', '==', 'pending').get();
-                                for (const doc of pendSnaps.docs) {
-                                    await doc.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
-                                }
-                            } catch(e) {}
-
-                            await userRef.update({
-                                balance: (userDoc.data().balance || 0) + amountToRefund,
-                                'fiatWithdrawPending.status': 'rejected',
-                                'fiatWithdrawPending.rejectReason': reason,
-                                'fiatWithdrawPending.rejectedAt': Date.now()
-                            });
-
-                            bot.sendMessage(chatId, `❌ Rejected withdrawal for <code>${targetUserId}</code> and refunded ৳${amountToRefund} BDT.\nReason: ${reason}`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
-                            
-                            // Redesigned Quote DM to User (Image 3 quality)
-                            const userRejectMsg = `<blockquote><b>❌ উইথড্র বাতিল ও রিফান্ড (Withdrawal Rejected)!</b>\n\n` +
-                                `💰 <b>রিফান্ড পরিমাণ:</b> ৳${amountToRefund} BDT\n` +
-                                `📝 <b>কারণ:</b> <i>${reason}</i>\n\n` +
-                                `টাকাটি আপনার অ্যাপ ব্যালেন্সে পুনরায় যোগ করে দেওয়া হয়েছে। তথ্য যাচাই করে আবার চেষ্টা করুন।</blockquote>`;
-                            bot.sendMessage(targetUserId, userRejectMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                        }
-                        return;
+                        } catch(e) {}
                     }
                 }
-                return;
+
+                if (!targetUserId) {
+                    await bot.sendMessage(chatId, `⚠️ ইউজার আইডি শনাক্ত করা যায়নি! দয়া করে ইউজার আইডি উল্লেখ করে রিপ্লাই দিন।`, { reply_to_message_id: msg.message_id }).catch(()=>{});
+                    return;
+                }
+
+                // Auto-sync this chat as withdrawGroupId if not set
+                if (!botConfig.withdrawGroupId || botConfig.withdrawGroupId !== chatId.toString()) {
+                    botConfig.withdrawGroupId = chatId.toString();
+                    saveConfig({ withdrawGroupId: chatId.toString() }).catch(()=>{});
+                }
+
+                // 1. APPROVE / PAID
+                if (['done', 'ok', 'paid', 'accept', 'approve'].includes(replyText) || replyText.startsWith('ok ') || replyText.startsWith('paid ')) {
+                    const uRef = db.collection('users').doc(targetUserId);
+                    const uDoc = await uRef.get();
+                    let pend = null;
+                    if (uDoc.exists && uDoc.data().fiatWithdrawPending) {
+                        pend = uDoc.data().fiatWithdrawPending;
+                        if (pend.id) {
+                            await db.collection('fiat_withdrawals').doc(pend.id).update({
+                                status: 'completed',
+                                completedAt: Date.now()
+                            }).catch(()=>{});
+                        }
+                    }
+
+                    // Also check fiat_withdrawals collection in case it was missing in user doc
+                    try {
+                        const pendSnaps = await db.collection('fiat_withdrawals')
+                            .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
+                            .where('status', '==', 'pending').get();
+                        for (const doc of pendSnaps.docs) {
+                            if (!pend) pend = doc.data();
+                            await doc.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
+                        }
+                    } catch(e) {}
+
+                    await uRef.update({
+                        'fiatWithdrawPending.status': 'completed',
+                        'fiatWithdrawPending.completedAt': Date.now()
+                    }).catch(()=>{});
+
+                    const amtVal = pend?.amount || 0;
+                    const feeVal = pend?.fee !== undefined ? pend.fee : 0;
+                    const recVal = pend?.receiveAmount || (amtVal > feeVal ? amtVal - feeVal : amtVal);
+                    const methodVal = pend?.method || 'bKash';
+                    const numVal = pend?.number || '';
+
+                    // DM to User
+                    const userSuccessMsg = `<blockquote><b>✅ ক্যাশআউট সম্পন্ন হয়েছে (Withdrawal Successful)!</b>\n\n` +
+                        `💰 <b>উত্তোলনের পরিমাণ:</b> ৳${amtVal} BDT\n` +
+                        `📉 <b>সেন্ড মানি ফি:</b> ৳${typeof feeVal === 'number' ? feeVal.toFixed(2) : feeVal} BDT\n` +
+                        `💵 <b>প্রদান করা হয়েছে:</b> ৳${typeof recVal === 'number' ? recVal.toFixed(2) : recVal} BDT\n` +
+                        `🏦 <b>মাধ্যম:</b> ${methodVal} (<code>${numVal}</code>)\n\n` +
+                        `আপনার অ্যাকাউন্টে টাকা সফলভাবে পাঠিয়ে দেওয়া হয়েছে। ধন্যবাদ আমাদের সাথে থাকার জন্য!</blockquote>`;
+                    await bot.sendMessage(targetUserId, userSuccessMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+
+                    // Confirm in Withdraw Request Group
+                    await bot.sendMessage(chatId, `✅ <code>${targetUserId}</code> এর উইথড্র সফলভাবে <b>PAID</b> কনফার্ম করা হয়েছে।`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
+
+                    // Post Live Payout Proof to Public Payout Group / Channel (Image 2 format)
+                    await notifyPayoutGroup({
+                        type: 'fiat',
+                        userId: targetUserId,
+                        name: pend?.name || uDoc.data()?.first_name || 'User',
+                        amount: amtVal,
+                        receiveAmount: recVal,
+                        method: methodVal,
+                        number: numVal
+                    });
+                    return;
+                }
+
+                // 2. REJECT & REFUND
+                else if (replyText.startsWith('reject') || replyText.startsWith('cancel') || replyText === 'no') {
+                    let reason = text.trim();
+                    if (reason.toLowerCase().startsWith('reject')) {
+                        reason = reason.substring(6).trim();
+                    } else if (reason.toLowerCase().startsWith('cancel')) {
+                        reason = reason.substring(6).trim();
+                    }
+                    if (!reason) reason = 'অ্যাডমিন কর্তৃক বাতিল করা হয়েছে (Rejected by admin)';
+
+                    const userRef = db.collection('users').doc(targetUserId);
+                    const userDoc = await userRef.get();
+                    let pend = userDoc.exists ? userDoc.data().fiatWithdrawPending : null;
+                    
+                    if (!pend) {
+                        try {
+                            const pendSnaps = await db.collection('fiat_withdrawals')
+                                .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
+                                .where('status', '==', 'pending').get();
+                            if (!pendSnaps.empty) pend = pendSnaps.docs[0].data();
+                        } catch(e) {}
+                    }
+
+                    const amountToRefund = pend?.amount || 0;
+
+                    if (pend?.id) {
+                        await db.collection('fiat_withdrawals').doc(pend.id).update({
+                            status: 'rejected',
+                            rejectReason: reason,
+                            rejectedAt: Date.now()
+                        }).catch(()=>{});
+                    }
+                    try {
+                        const pendSnaps = await db.collection('fiat_withdrawals')
+                            .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
+                            .where('status', '==', 'pending').get();
+                        for (const doc of pendSnaps.docs) {
+                            await doc.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
+                        }
+                    } catch(e) {}
+
+                    if (amountToRefund > 0) {
+                        await userRef.update({
+                            balance: FieldValue.increment(amountToRefund),
+                            'fiatWithdrawPending.status': 'rejected',
+                            'fiatWithdrawPending.rejectReason': reason,
+                            'fiatWithdrawPending.rejectedAt': Date.now()
+                        });
+                    } else {
+                        await userRef.update({
+                            'fiatWithdrawPending.status': 'rejected',
+                            'fiatWithdrawPending.rejectReason': reason,
+                            'fiatWithdrawPending.rejectedAt': Date.now()
+                        }).catch(()=>{});
+                    }
+
+                    await bot.sendMessage(chatId, `❌ উইথড্র বাতিল করা হয়েছে! ইউজার <code>${targetUserId}</code> এর একাউন্টে <b>৳${amountToRefund} BDT</b> রিফান্ড করা হয়েছে।\n📝 <b>কারণ:</b> <i>${reason}</i>`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
+
+                    // DM to User
+                    const userRejectMsg = `<blockquote><b>❌ উইথড্র বাতিল ও রিফান্ড (Withdrawal Rejected)!</b>\n\n` +
+                        `💰 <b>রিফান্ড পরিমাণ:</b> ৳${amountToRefund} BDT\n` +
+                        `📝 <b>কারণ:</b> <i>${reason}</i>\n\n` +
+                        `টাকাটি আপনার অ্যাপ ব্যালেন্সে পুনরায় যোগ করে দেওয়া হয়েছে। তথ্য যাচাই করে আবার চেষ্টা করুন।</blockquote>`;
+                    await bot.sendMessage(targetUserId, userRejectMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                    return;
+                }
+
+                // 3. WAIT TIMER
+                else if (replyText.startsWith('wt') || replyText.startsWith('wait') || /^\d{1,2}:\d{2}(?::\d{2})?$/.test(replyText)) {
+                    const timeMatch = text.match(/(\d{1,2}:\d{2}(?::\d{2})?)/);
+                    if (timeMatch && timeMatch[1]) {
+                        const parts = timeMatch[1].split(':');
+                        let totalSeconds = 0;
+                        if (parts.length === 2) {
+                            totalSeconds = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+                        } else if (parts.length === 3) {
+                            totalSeconds = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+                        }
+
+                        if (totalSeconds > 0) {
+                            const endTime = Date.now() + (totalSeconds * 1000);
+                            await db.collection('users').doc(targetUserId).update({
+                                'fiatWithdrawPending.status': 'waiting',
+                                'fiatWithdrawPending.endTime': endTime
+                            });
+                            await bot.sendMessage(chatId, `⏳ ইউজার <code>${targetUserId}</code> এর জন্য প্রসেসিং টাইমার (${timeMatch[1]}) সেট করা হয়েছে।`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
+                            return;
+                        }
+                    }
+
+                    await bot.sendMessage(chatId, `⏱ Reply to THIS message with the time format.\n\nMinutes: <code>10:00</code>\nHours: <code>1:30:50</code>\n\nUser ID: ${targetUserId}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                    return;
+                }
+
+                // 4. Fallback for unrecognized reply text
+                else {
+                    await bot.sendMessage(chatId, `⚙️ <b>উইথড্র কমান্ড নির্দেশনা:</b>\n\n• <code>Ok</code> — পেমেন্ট কনফার্ম করতে (Payout গ্রুপে প্রুফ যাবে)\n• <code>Reject [কারণ]</code> — বাতিল করে ব্যালেন্স রিফান্ড করতে\n• <code>wt 10:00</code> — প্রসেসিং টাইমার সেট করতে`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
+                    return;
+                }
             }
 
                 
