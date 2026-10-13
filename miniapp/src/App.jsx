@@ -3,7 +3,7 @@ import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, 
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates } from './api';
+import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership } from './api';
 
 const initialGraphData = [
   { time: '10:00', price: 118.5 },
@@ -350,7 +350,7 @@ function TonConnectStyles() {
 
 const translations = {
   bn: {
-    appName: 'Crypto Buy Sell',
+    appName: 'Trust Pay',
     welcome: 'স্বাগতম',
     totalBalance: 'মোট ব্যালেন্স',
     balanceSub: 'উইথড্র ও ক্রিপ্টো কেনায় ব্যবহারযোগ্য',
@@ -395,7 +395,7 @@ const translations = {
     loading: 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...'
   },
   en: {
-    appName: 'Crypto Buy Sell',
+    appName: 'Trust Pay',
     welcome: 'Welcome back',
     totalBalance: 'Total Balance',
     balanceSub: 'Available for withdrawal & crypto purchase',
@@ -526,13 +526,86 @@ export default function App() {
   const [user, setUser] = useState({ id: 0, first_name: 'User', username: '' });
   const [balance, setBalance] = useState(0);
 
+  // Community Join Verification Modal State
+  const [showCommunityModal, setShowCommunityModal] = useState(false);
+  const [communityStatus, setCommunityStatus] = useState({ inChannel: true, inGroup: true, allJoined: true });
+  const [isVerifyingCommunity, setIsVerifyingCommunity] = useState(false);
+  const [communityError, setCommunityError] = useState('');
+  const [communitySuccess, setCommunitySuccess] = useState(false);
+
   window.reloadGlobalData = () => loadData(user.id || 123456789);
   const loadData = async (userId) => {
-    const data = await fetchUserData(userId);
-    setBalance(data.balance);
-    setFiatWallet(data.fiatWallet || null);
-    setFiatWithdrawPending(data.fiatWithdrawPending || null);
-    setMbsId(data.mbsId);
+    try {
+      const data = await fetchUserData(userId);
+      if (data) {
+        if (data.balance !== undefined) setBalance(data.balance);
+        setFiatWallet(data.fiatWallet || null);
+        setFiatWithdrawPending(data.fiatWithdrawPending || null);
+        if (data.mbsId) setMbsId(data.mbsId);
+      }
+    } catch (e) {
+      console.warn("loadData error:", e);
+    }
+  };
+
+  const checkCommunityJoinStatus = async (userId) => {
+    try {
+      if (!userId || userId === 123456789) return;
+      const cached = localStorage.getItem('trustpay_verified_' + userId);
+      if (cached === 'true') {
+        setShowCommunityModal(false);
+        return;
+      }
+      const res = await checkCommunityMembership(userId);
+      if (res && res.allJoined === false) {
+        setCommunityStatus(res);
+        setShowCommunityModal(true);
+      } else if (res && res.allJoined === true) {
+        localStorage.setItem('trustpay_verified_' + userId, 'true');
+        setShowCommunityModal(false);
+      }
+    } catch (e) {
+      console.warn("Community check error:", e);
+    }
+  };
+
+  const handleVerifyCommunity = async () => {
+    setIsVerifyingCommunity(true);
+    setCommunityError('');
+    try {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+      }
+      const res = await verifyCommunityMembership(user.id);
+      if (res && res.allJoined) {
+        setCommunitySuccess(true);
+        localStorage.setItem('trustpay_verified_' + user.id, 'true');
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        }
+        setTimeout(() => {
+          setShowCommunityModal(false);
+          setCommunitySuccess(false);
+        }, 1200);
+      } else {
+        if (!res.inChannel && !res.inGroup) {
+          setCommunityError(lang === 'bn' ? '❌ আপনি চ্যানেল ও গ্রুপ দুটিতেই এখনও যুক্ত হননি!' : '❌ You have not joined the channel and group yet!');
+        } else if (!res.inChannel) {
+          setCommunityError(lang === 'bn' ? '❌ আপনি এখনও Maruf Teach চ্যানেল (@maruf_teach)-এ জয়েন করেননি!' : '❌ You have not joined @maruf_teach channel yet!');
+        } else if (!res.inGroup) {
+          setCommunityError(lang === 'bn' ? '❌ আপনি এখনও TrustPay Payout গ্রুপ (@bd_trustpay_payout)-এ জয়েন করেননি!' : '❌ You have not joined @bd_trustpay_payout group yet!');
+        } else {
+          setCommunityError(lang === 'bn' ? '❌ অনুগ্রহ করে দুটিতেই জয়েন করে আবার ভেরিফাই চাপুন।' : '❌ Please join both communities and retry.');
+        }
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+        }
+      }
+    } catch (e) {
+      setCommunityError(lang === 'bn' ? 'ভেরিফাই করতে সমস্যা হয়েছে, পুনরায় চেষ্টা করুন।' : 'Verification failed, please try again.');
+    } finally {
+      setIsVerifyingCommunity(false);
+    }
   };
 
   useEffect(() => {
@@ -540,8 +613,10 @@ export default function App() {
       const GUEST_ID = 123456789;
       const tgWebApp = window.Telegram?.WebApp;
       if (tgWebApp?.initDataUnsafe?.user) {
-        setUser(tgWebApp.initDataUnsafe.user);
-        loadData(tgWebApp.initDataUnsafe.user.id);
+        const u = tgWebApp.initDataUnsafe.user;
+        setUser(u);
+        loadData(u.id);
+        checkCommunityJoinStatus(u.id);
       } else {
         setUser({ id: GUEST_ID, first_name: "Guest", last_name: "Account" });
         loadData(GUEST_ID);
@@ -557,15 +632,15 @@ export default function App() {
     return (
       <div className="fixed inset-0 bg-[#f8fafc] z-[99999] flex flex-col items-center justify-center font-sans select-none">
         <div className="w-24 h-24 rounded-3xl bg-white flex items-center justify-center shadow-xl shadow-slate-200/60 border border-slate-100 p-2 animate-bounce">
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Crypto Buy Sell" className="w-full h-full object-contain drop-shadow" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Trust Pay" className="w-full h-full object-contain drop-shadow" />
         </div>
-        <h2 className="text-[#0f172a] font-black text-lg mt-4 tracking-tight">Crypto Buy Sell</h2>
+        <h2 className="text-[#0f172a] font-black text-lg mt-4 tracking-tight">Trust Pay</h2>
         <p className="text-[#64748b] text-xs mt-1.5 font-semibold flex items-center gap-2">
-          <Loader2 size={13} className="animate-spin text-emerald-500" />
+          <Loader2 size={13} className="animate-spin text-indigo-600" />
           {lang === 'bn' ? 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Loading, please wait...'}
         </p>
         <div className="w-28 h-1 bg-[#e2e8f0] rounded-full mt-4 overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-pulse" />
+          <div className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 rounded-full animate-pulse" />
         </div>
       </div>
     );
@@ -582,7 +657,7 @@ export default function App() {
           <div id="main-app-header" className="flex justify-between items-center mb-6 pt-2 transition-all duration-300">
              <div className="flex items-center gap-3">
                  <div className="w-[42px] h-[42px] bg-white rounded-full flex items-center justify-center font-bold text-[var(--color-text-primary)] premium-shadow border border-[var(--color-border)] p-1 overflow-hidden">
-                    <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Crypto Buy Sell" className="w-full h-full object-contain" />
+                    <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Trust Pay" className="w-full h-full object-contain" />
                  </div>
                  <div>
                     <h1 className="text-base font-semibold text-[var(--color-text-primary)] leading-tight">{t.appName}</h1>
@@ -771,6 +846,125 @@ export default function App() {
             );
         })()}
         </div>
+
+        {/* MANDATORY COMMUNITY JOIN MODAL */}
+        {showCommunityModal && (
+          <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-200">
+            <div 
+              className="relative p-[1.5px] bg-gradient-to-br from-indigo-300 via-indigo-100 to-indigo-300 w-full max-w-[340px] shadow-2xl animate-in zoom-in-95"
+              style={{
+                clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
+              }}
+            >
+              <div 
+                className="relative bg-white w-full h-full p-6 text-center overflow-hidden"
+                style={{
+                  clipPath: 'polygon(15px 0, calc(100% - 15px) 0, 100% 15px, 100% calc(100% - 15px), calc(100% - 15px) 100%, 15px 100%, 0 calc(100% - 15px), 0 15px)',
+                }}
+              >
+                <FloralWatermark className="opacity-[0.08]" />
+                
+                {/* Brand Logo with Glow */}
+                <div className="relative z-10 flex flex-col items-center justify-center mb-3">
+                  <div className="w-16 h-16 rounded-2xl bg-indigo-50/80 border border-indigo-100 p-2 flex items-center justify-center shadow-lg shadow-indigo-100/50 mb-2">
+                    <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Trust Pay" className="w-full h-full object-contain drop-shadow" />
+                  </div>
+                  <span className="inline-block px-2.5 py-0.5 rounded-full bg-indigo-100/80 text-indigo-700 text-[10px] font-black uppercase tracking-wider mb-1">
+                    বাধ্যতামূলক ভেরিফিকেশন
+                  </span>
+                  <h3 className="text-lg font-black text-slate-900 leading-tight">
+                    {lang === 'bn' ? 'কমিউনিটিতে যোগ দিন' : 'Join Our Communities'}
+                  </h3>
+                  <p className="text-[11.5px] font-medium text-slate-500 mt-1 leading-snug">
+                    {lang === 'bn' 
+                      ? 'Trust Pay ব্যবহার করতে নিচের চ্যানেল এবং গ্রুপে জয়েন থাকা বাধ্যতামূলক।' 
+                      : 'You must join both our official channel and group to use Trust Pay.'}
+                  </p>
+                </div>
+
+                {/* 2 Community Items */}
+                <div className="relative z-10 space-y-2.5 mb-5 text-left">
+                  {/* Channel 1 */}
+                  <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl flex items-center justify-between gap-2.5 hover:bg-slate-100/70 transition-all">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-sm shrink-0">
+                        📢
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[12px] font-bold text-slate-900 truncate">১. Maruf Teach</div>
+                        <div className="text-[10px] font-semibold text-indigo-600 truncate">@maruf_teach</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.Telegram?.WebApp?.openTelegramLink) {
+                          window.Telegram.WebApp.openTelegramLink('https://t.me/maruf_teach');
+                        } else {
+                          window.open('https://t.me/maruf_teach', '_blank');
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] rounded-lg shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer"
+                    >
+                      Go
+                    </button>
+                  </div>
+
+                  {/* Group 2 */}
+                  <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl flex items-center justify-between gap-2.5 hover:bg-slate-100/70 transition-all">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-sm shrink-0">
+                        👥
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[12px] font-bold text-slate-900 truncate">২. TrustPay Payout</div>
+                        <div className="text-[10px] font-semibold text-emerald-600 truncate">@bd_trustpay_payout</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.Telegram?.WebApp?.openTelegramLink) {
+                          window.Telegram.WebApp.openTelegramLink('https://t.me/bd_trustpay_payout');
+                        } else {
+                          window.open('https://t.me/bd_trustpay_payout', '_blank');
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-lg shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer"
+                    >
+                      Go
+                    </button>
+                  </div>
+                </div>
+
+                {/* Feedback / Error Message */}
+                {communityError && (
+                  <div className="relative z-10 mb-3 p-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-[11px] font-bold">
+                    {communityError}
+                  </div>
+                )}
+                {communitySuccess && (
+                  <div className="relative z-10 mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 text-[11px] font-bold flex items-center justify-center gap-1.5">
+                    <CheckCircle2 size={14} />
+                    ভেরিফিকেশন সফল হয়েছে!
+                  </div>
+                )}
+
+                {/* Verification CutCornerButton */}
+                <div className="relative z-10">
+                  <CutCornerButton
+                    onClick={handleVerifyCommunity}
+                    disabled={isVerifyingCommunity || communitySuccess}
+                    isSubmitting={isVerifyingCommunity}
+                    icon={CheckCircle2}
+                  >
+                    {isVerifyingCommunity ? 'যাচাই করা হচ্ছে...' : 'ভেরিফাই করুন (VERIFY)'}
+                  </CutCornerButton>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </TonConnectUIProvider>
   );
 }

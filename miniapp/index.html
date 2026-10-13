@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Crypto Buy Sell</title>
+    <title>Trust Pay</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
@@ -14,9 +14,9 @@
         background-color: #f8fafc;
         overflow-x: hidden;
       }
-      @keyframes pulseCoin {
-        0%, 100% { transform: scale(1); filter: drop-shadow(0 6px 16px rgba(16,185,129,0.25)); }
-        50% { transform: scale(1.06); filter: drop-shadow(0 10px 24px rgba(16,185,129,0.45)); }
+      @keyframes pulseLogo {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 8px 24px rgba(79,70,229,0.35)); }
+        50% { transform: scale(1.06); filter: drop-shadow(0 14px 32px rgba(99,102,241,0.55)); }
       }
       @keyframes progBar {
         0% { transform: translateX(-100%); }
@@ -27,15 +27,31 @@
   </head>
   <body>
     <div id="root">
-      <div id="splash-loader" style="position:fixed;inset:0;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;z-index:99999;">
-        <img src="./logo.png" style="width:84px;height:84px;object-fit:contain;animation:pulseCoin 2s infinite ease-in-out;" alt="Crypto Buy Sell" />
-        <div style="margin-top:18px;font-size:20px;font-weight:900;color:#0f172a;letter-spacing:-0.02em;">Crypto Buy Sell</div>
-        <div style="margin-top:5px;font-size:12px;font-weight:600;color:#64748b;letter-spacing:0.01em;">লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</div>
-        <div style="width:130px;height:4px;background:#e2e8f0;border-radius:99px;margin-top:20px;overflow:hidden;position:relative;">
-          <div style="position:absolute;inset:0;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px;animation:progBar 1.4s infinite ease-in-out;"></div>
+      <div id="splash-loader" style="position:fixed;inset:0;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;z-index:99999;padding:20px;box-sizing:border-box;text-align:center;">
+        <div style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;position:relative;">
+          <img src="/app/trustpaylogo.png" onerror="this.onerror=null;this.src='./trustpaylogo.png';" style="width:96px;height:96px;object-fit:contain;animation:pulseLogo 2.2s infinite ease-in-out;" alt="Trust Pay" />
+        </div>
+        <div style="margin-top:16px;font-size:22px;font-weight:900;color:#0f172a;letter-spacing:-0.02em;">Trust Pay</div>
+        <div style="margin-top:6px;font-size:12px;font-weight:600;color:#64748b;letter-spacing:0.01em;">লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</div>
+        <div style="width:140px;height:4px;background:#e2e8f0;border-radius:99px;margin-top:20px;overflow:hidden;position:relative;">
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg,#4f46e5,#6366f1);border-radius:99px;animation:progBar 1.4s infinite ease-in-out;"></div>
         </div>
       </div>
     </div>
+    <script>
+      // Fallback: If React does not mount within 4.5 seconds (e.g. Render spin-up or network lag), provide a reload button
+      setTimeout(function() {
+        var loader = document.getElementById('splash-loader');
+        if (loader && !document.getElementById('retry-btn')) {
+          var btn = document.createElement('button');
+          btn.id = 'retry-btn';
+          btn.innerText = '🔄 রিলোড করুন (Reload)';
+          btn.style.cssText = 'margin-top:22px;padding:9px 20px;border-radius:12px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;font-weight:bold;font-size:13px;cursor:pointer;box-shadow:0 6px 18px rgba(79,70,229,0.35);transition:all 0.2s;';
+          btn.onclick = function() { window.location.reload(true); };
+          loader.appendChild(btn);
+        }
+      }, 4500);
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

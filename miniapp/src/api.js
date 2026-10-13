@@ -108,6 +108,31 @@ export const fetchMarketRates = async () => {
     }
 };
 
+export const checkCommunityMembership = async (userId) => {
+    try {
+        const res = await axios.get(`${API_URL}/api/miniapp/check-membership`, {
+            params: { userId },
+            timeout: 6000
+        });
+        return res.data;
+    } catch (e) {
+        console.warn("checkCommunityMembership error:", e);
+        return { allJoined: true, inChannel: true, inGroup: true };
+    }
+};
+
+export const verifyCommunityMembership = async (userId) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/verify-membership`, { userId }, {
+            timeout: 8000
+        });
+        return res.data;
+    } catch (e) {
+        console.warn("verifyCommunityMembership error:", e);
+        return { success: true, allJoined: true };
+    }
+};
+
 
 
 

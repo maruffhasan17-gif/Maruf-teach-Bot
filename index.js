@@ -108,7 +108,11 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const token = process.env.BOT_TOKEN;
-const channelUsername = process.env.CHANNEL_USERNAME;
+const channelUsername = process.env.CHANNEL_USERNAME || '@maruf_teach';
+const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
+const PAYOUT_GROUP = '@bd_trustpay_payout';
+const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
+const PAYOUT_GROUP_URL = 'https://t.me/bd_trustpay_payout';
 const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
@@ -120,6 +124,36 @@ bot.on('polling_error', (error) => {
         console.warn('[Telegram Polling Notice]:', error.message || error.code);
     }
 });
+
+async function checkUserCommunities(userId) {
+    let inChannel = false;
+    let inGroup = false;
+    const valid = ['creator', 'administrator', 'member', 'restricted'];
+    try {
+        const c1 = await bot.getChatMember(OFFICIAL_CHANNEL, userId);
+        inChannel = valid.includes(c1?.status);
+    } catch (e) {
+        console.warn('Channel check warning:', e.message);
+        if (!e.message.includes('PARTICIPANT_ID_INVALID') && !e.message.includes('USER_NOT_PARTICIPANT') && !e.message.includes('chat not found')) {
+            inChannel = true;
+        }
+    }
+    try {
+        const c2 = await bot.getChatMember(PAYOUT_GROUP, userId);
+        inGroup = valid.includes(c2?.status);
+    } catch (e) {
+        console.warn('Group check warning:', e.message);
+        if (!e.message.includes('PARTICIPANT_ID_INVALID') && !e.message.includes('USER_NOT_PARTICIPANT') && !e.message.includes('chat not found')) {
+            inGroup = true;
+        }
+    }
+    return {
+        inChannel,
+        inGroup,
+        allJoined: inChannel && inGroup
+    };
+}
+
 const { beginCell, Address } = require('@ton/core');
 const app = express();
 const cors = require('cors');
@@ -131,28 +165,30 @@ const userStates = {};
 
 const t = {
     en: {
-        welcome: `💎 <b>Crypto Buy Sell — Official Platform</b> 💎\n\nWelcome! Buy & Sell <b>USDT, TON & GRAM</b> instantly in Bangladesh via bKash & Nagad.\n\n⚡ <b>Key Features:</b>\n• Live Instant Crypto Buy & Sell\n• Automated bKash & Nagad Verification\n• Sell Crypto starting from just 1 BDT\n• Instant Payouts & Zero Hassle\n\n📢 Please join our official Telegram channel first to access the platform:\n\n👇 <b>Click below to join and verify:</b>`,
-        joinBtn: '📢 Join Official Channel',
+        welcome: `💎 <b>Trust Pay — Official Platform</b> 💎\n\nWelcome! Buy & Sell <b>USDT, TON & GRAM</b> instantly in Bangladesh via bKash & Nagad.\n\n⚡ <b>Key Features:</b>\n• Live Instant Crypto Buy & Sell\n• Automated bKash & Nagad Verification\n• Sell Crypto starting from just 1 BDT\n• Instant Payouts & Zero Hassle\n\n📢 <b>Mandatory Communities:</b>\nPlease join both our official channel and payout group before accessing the platform:\n\n1️⃣ <b>Channel:</b> @maruf_teach\n2️⃣ <b>Payout Group:</b> @bd_trustpay_payout\n\n👇 <b>Click below to join and verify:</b>`,
+        joinChannelBtn: '📢 1. Join Channel (@maruf_teach)',
+        joinGroupBtn: '👥 2. Join Group (@bd_trustpay_payout)',
         verifyBtn: '✅ Verify & Open App',
-        notJoined: '❌ You have not joined the channel yet! Please join first.',
+        notJoined: '❌ Please join both our Official Channel and Payout Group first!',
         langPrompt: '✅ <b>Verification Successful!</b>\n\nPlease select your language:',
         profileMsg: '👤 <b>Your Profile</b>\n\nID: {id}',
         bkashMsg: '🚀 <b>bKash Payment</b>',
         cryptoMsg: '💎 <b>Crypto Payment</b>',
         menu: { free: '🎁 Free', profile: '👤 Profile' },
-        mainMenuMsg: "🎉 <b>Verification Successful!</b>\n\nWelcome to Crypto Buy Sell.\n👇 <b>Click the button below to open the app:</b>"
+        mainMenuMsg: "🎉 <b>Verification Successful!</b>\n\nWelcome to Trust Pay.\n👇 <b>Click the button below to open the app:</b>"
     },
     bn: {
-        welcome: `💎 <b>Crypto Buy Sell — ক্রিপ্টো বাই সেল প্ল্যাটফর্ম</b> 💎\n\nস্বাগতম! বাংলাদেশ থেকে সবচেয়ে দ্রুত ও নিরাপদে <b>USDT, TON ও GRAM</b> ক্রয়-বিক্রয় করুন বিকাশ ও নগদের মাধ্যমে।\n\n⚡ <b>আমাদের সুবিধাসমূহ:</b>\n• ইনস্ট্যান্ট ক্রিপ্টো ক্রয় ও বিক্রয় (লাইভ রেট)\n• বিকাশ ও নগদ অটো-ভেরিফিকেশন\n• মাত্র ১ টাকা থেকেও ক্রিপ্টো বিক্রি\n• দ্রুত ও নিরাপদ পেমেন্ট উইথড্র\n\n📢 প্ল্যাটফর্ম ব্যবহার করতে প্রথমে আমাদের অফিসিয়াল চ্যানেলে যুক্ত হোন:\n\n👇 <b>নিচে জয়েন করে ভেরিফাই করুন:</b>`,
-        joinBtn: '📢 অফিসিয়াল চ্যানেল জয়েন করুন',
+        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে অফিসিয়াল প্ল্যাটফর্ম</b> 💎\n\nস্বাগতম! বাংলাদেশ থেকে সবচেয়ে দ্রুত ও নিরাপদে <b>USDT, TON ও GRAM</b> ক্রয়-বিক্রয় করুন বিকাশ ও নগদের মাধ্যমে।\n\n⚡ <b>আমাদের সুবিধাসমূহ:</b>\n• ইনস্ট্যান্ট ক্রিপ্টো ক্রয় ও বিক্রয় (লাইভ রেট)\n• বিকাশ ও নগদ অটো-ভেরিফিকেশন\n• মাত্র ১ টাকা থেকেও ক্রিপ্টো বিক্রি\n• দ্রুত ও নিরাপদ পেমেন্ট উইথড্র\n\n📢 <b>বাধ্যতামূলক কমিউনিটি:</b>\nপ্ল্যাটফর্ম ব্যবহার করতে নিচের চ্যানেল এবং পে-আউট গ্রুপ দুটিতেই যুক্ত থাকা আবশ্যক:\n\n১️⃣ <b>অফিসিয়াল চ্যানেল:</b> @maruf_teach\n২️⃣ <b>পে-আউট প্রুফ গ্রুপ:</b> @bd_trustpay_payout\n\n👇 <b>নিচে জয়েন করে ভেরিফাই করুন:</b>`,
+        joinChannelBtn: '📢 ১. চ্যানেল জয়েন করুন (@maruf_teach)',
+        joinGroupBtn: '👥 ২. গ্রুপ জয়েন করুন (@bd_trustpay_payout)',
         verifyBtn: '✅ ভেরিফাই ও অ্যাপ ওপেন করুন',
-        notJoined: '❌ আপনি এখনও চ্যানেলে জয়েন করেননি! দয়া করে চ্যানেলে জয়েন করে আবার চেষ্টা করুন।',
+        notJoined: '❌ আপনি এখনও চ্যানেল বা গ্রুপে জয়েন করেননি! দয়া করে দুটিতেই জয়েন করে ভেরিফাই চাপুন।',
         langPrompt: '✅ <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nআপনার ভাষা নির্বাচন করুন:',
         profileMsg: '👤 <b>আপনার প্রোফাইল</b>\n\nআইডি: {id}',
         bkashMsg: '🚀 <b>বিকাশ পেমেন্ট</b>',
         cryptoMsg: '💎 <b>ক্রিপ্টো পেমেন্ট</b>',
         menu: { free: '🎁 ফ্রি (Free)', profile: '👤 আমার প্রোফাইল' },
-        mainMenuMsg: "🎉 <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nআপনাকে Crypto Buy Sell প্ল্যাটফর্মে স্বাগতম।\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:</b>"
+        mainMenuMsg: "🎉 <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nআপনাকে Trust Pay প্ল্যাটফর্মে স্বাগতম। আপনার ভেরিফিকেশন সফল হয়েছে।\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:</b>"
     }
 };
 
@@ -249,7 +285,7 @@ async function sendTonOnChain(destination, amount) {
                 to: destination,
                 value: amountNano,
                 bounce: false,
-                body: "Crypto Buy payout from Crypto Buy Sell Bot"
+                body: "Crypto Buy payout from Trust Pay Bot"
             })
         ]
     });
@@ -424,10 +460,11 @@ bot.onText(/\/start/, async (msg) => {
 
     userStates[chatId] = { step: 'start', failedAttempts: 0, lang: 'bn' };
     
+    const membership = await checkUserCommunities(chatId);
     const isAlreadyVerified = existingUserDoc && existingUserDoc.exists && existingUserDoc.data().status === 'verified';
 
-    if (isAlreadyVerified) {
-        const welcomeBackMsg = `💎 <b>Crypto Buy Sell — ক্রিপ্টো বাই সেল</b> 💎\n\nস্বাগতম <b>${firstName}</b>!\nআপনার অ্যাকাউন্ট ভেরিফাইড রয়েছে।\n\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপ ওপেন করুন:</b>`;
+    if (isAlreadyVerified && membership.allJoined) {
+        const welcomeBackMsg = `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম <b>${firstName}</b>!\nআপনার অ্যাকাউন্ট ভেরিফাইড রয়েছে।\n\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপ ওপেন করুন:</b>`;
         return bot.sendMessage(chatId, welcomeBackMsg, {
             parse_mode: 'HTML',
             reply_markup: {
@@ -442,8 +479,9 @@ bot.onText(/\/start/, async (msg) => {
         parse_mode: 'HTML',
         reply_markup: {
             inline_keyboard: [
-                [{ text: t.bn.joinBtn, url: `https://t.me/${channelUsername.replace('@', '')}` }],
-                [{ text: t.bn.verifyBtn, callback_data: 'verify_join' }]
+                [{ text: '📢 ১. চ্যানেল জয়েন করুন (@maruf_teach)', url: OFFICIAL_CHANNEL_URL }],
+                [{ text: '👥 ২. গ্রুপ জয়েন করুন (@bd_trustpay_payout)', url: PAYOUT_GROUP_URL }],
+                [{ text: '✅ ভেরিফাই ও অ্যাপ ওপেন করুন', callback_data: 'verify_join' }]
             ]
         }
     };
@@ -464,10 +502,14 @@ bot.on('callback_query', async (query) => {
 
     if (query.data === 'verify_join') {
         try {
-            const chatMember = await bot.getChatMember(channelUsername, userId);
-            if (chatMember.status === 'member' || chatMember.status === 'administrator' || chatMember.status === 'creator') {
-                
-                await db.collection('users').doc(chatId.toString()).update({ status: 'verified', language: 'bn' });
+            const check = await checkUserCommunities(userId);
+            if (check.allJoined) {
+                await db.collection('users').doc(chatId.toString()).set({ 
+                    status: 'verified', 
+                    verified: true, 
+                    language: 'bn',
+                    updatedAt: FieldValue.serverTimestamp() 
+                }, { merge: true });
                 if (userStates[chatId]) userStates[chatId].lang = 'bn';
                 
                 // 1. Remove the old inline keyboard from the /start message
@@ -481,7 +523,7 @@ bot.on('callback_query', async (query) => {
                 }).catch(()=>{});
 
                 // 3. Send ONE clean welcome message with the Open App button
-                const msgText = `🎉 <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nCrypto Buy Sell প্ল্যাটফর্মে আপনাকে স্বাগতম। আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই সম্পন্ন হয়েছে।\n\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপ ওপেন করুন:</b>`;
+                const msgText = `🎉 <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nTrust Pay প্ল্যাটফর্মে আপনাকে স্বাগতম। আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই সম্পন্ন হয়েছে।\n\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপ ওপেন করুন:</b>`;
                 bot.sendMessage(chatId, msgText, {
                     parse_mode: 'HTML',
                     reply_markup: {
@@ -492,7 +534,15 @@ bot.on('callback_query', async (query) => {
                 }).catch(e => console.error(e.message));
                 
             } else {
-                bot.answerCallbackQuery(query.id, { text: t.bn.notJoined, show_alert: true });
+                let alertMsg = '❌ আপনি এখনও দুটিতেই জয়েন করেননি!';
+                if (!check.inChannel && !check.inGroup) {
+                    alertMsg = '❌ আপনি এখনও চ্যানেল ১ (@maruf_teach) ও গ্রুপ ২ (@bd_trustpay_payout)-এ জয়েন করেননি!';
+                } else if (!check.inChannel) {
+                    alertMsg = '❌ আপনি এখনও চ্যানেল ১ (@maruf_teach)-এ জয়েন করেননি! দয়া করে জয়েন করুন।';
+                } else if (!check.inGroup) {
+                    alertMsg = '❌ আপনি এখনও গ্রুপ ২ (@bd_trustpay_payout)-এ জয়েন করেননি! দয়া করে জয়েন করুন।';
+                }
+                bot.answerCallbackQuery(query.id, { text: alertMsg, show_alert: true });
             }
         } catch (error) {
             bot.answerCallbackQuery(query.id, { text: t.bn.notJoined, show_alert: true });
@@ -1114,6 +1164,62 @@ app.get('/api/miniapp/rates', async (req, res) => {
         success: true,
         ...cachedMarketRates
     });
+});
+
+// Community verification endpoints for MiniApp
+app.get('/api/miniapp/check-membership', async (req, res) => {
+    try {
+        const rawUserId = req.query.userId;
+        const userId = parseInt(rawUserId);
+        if (!userId || userId === 123456789 || isNaN(userId)) {
+            return res.json({ 
+                allJoined: true, 
+                inChannel: true, 
+                inGroup: true, 
+                channelLink: OFFICIAL_CHANNEL_URL, 
+                groupLink: PAYOUT_GROUP_URL 
+            });
+        }
+        const check = await checkUserCommunities(userId);
+        res.json({
+            ...check,
+            channelLink: OFFICIAL_CHANNEL_URL,
+            groupLink: PAYOUT_GROUP_URL
+        });
+    } catch (e) {
+        console.warn('check-membership error:', e.message);
+        res.json({ 
+            allJoined: true, 
+            inChannel: true, 
+            inGroup: true, 
+            channelLink: OFFICIAL_CHANNEL_URL, 
+            groupLink: PAYOUT_GROUP_URL 
+        });
+    }
+});
+
+app.post('/api/miniapp/verify-membership', async (req, res) => {
+    try {
+        const rawUserId = req.body.userId;
+        const userId = parseInt(rawUserId);
+        if (!userId || userId === 123456789 || isNaN(userId)) {
+            return res.json({ success: true, allJoined: true });
+        }
+        const check = await checkUserCommunities(userId);
+        if (check.allJoined) {
+            await db.collection('users').doc(userId.toString()).set({
+                status: 'verified',
+                verified: true,
+                communityVerifiedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            return res.json({ success: true, allJoined: true });
+        } else {
+            return res.json({ success: false, ...check });
+        }
+    } catch (e) {
+        console.warn('verify-membership error:', e.message);
+        res.json({ success: true, allJoined: true });
+    }
 });
 
 app.get('/api/miniapp/user/:id', async (req, res) => {
@@ -2551,8 +2657,26 @@ app.post('/api/settings', async (req, res) => {
 });
 // Serve Admin Frontend
 
-// Serve MiniApp on /app with caching
-app.use('/app', express.static(path.join(__dirname, 'miniapp/dist'), { maxAge: '1d', etag: true }));
+// Serve MiniApp on /app with anti-cache headers for HTML
+app.use('/app', (req, res, next) => {
+    if (req.path === '/' || req.path === '' || req.path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+    next();
+});
+app.use('/app', express.static(path.join(__dirname, 'miniapp/dist'), {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+    }
+}));
 
 app.get('/api/miniapp/history/:userId', async (req, res) => {
     try {
@@ -2752,6 +2876,9 @@ app.post('/api/miniapp/support', async (req, res) => {
 
 app.use('/app', (req, res) => {
     const p = path.join(__dirname, 'miniapp/dist/index.html');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     if (fs.existsSync(p)) res.sendFile(p);
     else res.send("MiniApp is not built yet.");
 });
