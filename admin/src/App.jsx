@@ -646,8 +646,13 @@ function BotWallet() {
             </div>
             
             <div className="flex flex-col mb-6">
-              <div className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.tonUsdtBalance || '0.00'}</div>
-              <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-emerald-400 mt-1">USDT (TON Network)</div>
+              <div className="flex items-baseline gap-3">
+                <span className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.tonUsdtBalance || '0.00'}</span>
+                <span className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-emerald-400">USDT</span>
+              </div>
+              <div className="mt-2.5 text-xs text-teal-300/80 font-bold">
+                TON Jetton Network
+              </div>
             </div>
             
             <div className="flex items-center gap-3 mb-8 w-max">
@@ -682,10 +687,13 @@ function BotWallet() {
             </div>
             
             <div className="flex flex-col mb-6">
-              <div className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.gramBalance || '0.00'}</div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">GRAM</span>
-                <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-bold">
+              <div className="flex items-baseline gap-3">
+                <span className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.gramBalance || '0.00'}</span>
+                <span className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">GRAM</span>
+              </div>
+              <div className="mt-2.5">
+                <span className="px-3 py-1 rounded-xl bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-bold inline-flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   TON Gas: {data.tonNativeBalance || data.tonBalance || '0.00'} TON
                 </span>
               </div>

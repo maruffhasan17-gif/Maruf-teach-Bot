@@ -2277,10 +2277,18 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
         
         const history = [];
 
+        // Parallelize all 5 Firestore queries for high-speed mobile data loading
+        const [buysRes, sellsRes, depRes, withRes, userDocRes] = await Promise.allSettled([
+            db.collection('miniapp_buys').where('userId', 'in', userIds).get(),
+            db.collection('miniapp_sells').where('userId', 'in', userIds).get(),
+            db.collection('deposits').where('userId', 'in', userIds).get(),
+            db.collection('fiat_withdrawals').where('userId', 'in', userIds).get(),
+            db.collection('users').doc(strUserId).get()
+        ]);
+
         // 1. Miniapp Buys & Add Money
-        try {
-            const buysSnapshot = await db.collection('miniapp_buys').where('userId', 'in', userIds).get();
-            buysSnapshot.forEach(doc => {
+        if (buysRes.status === 'fulfilled' && buysRes.value) {
+            buysRes.value.forEach(doc => {
                 const data = doc.data();
                 history.push({ 
                     id: doc.id, 
@@ -2288,14 +2296,11 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
                     ...data 
                 });
             });
-        } catch(e) {
-            console.error("History fetch miniapp_buys error:", e);
         }
 
         // 2. Miniapp Sells
-        try {
-            const sellsSnapshot = await db.collection('miniapp_sells').where('userId', 'in', userIds).get();
-            sellsSnapshot.forEach(doc => {
+        if (sellsRes.status === 'fulfilled' && sellsRes.value) {
+            sellsRes.value.forEach(doc => {
                 const data = doc.data();
                 history.push({ 
                     id: doc.id, 
@@ -2303,14 +2308,11 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
                     ...data 
                 });
             });
-        } catch(e) {
-            console.error("History fetch miniapp_sells error:", e);
         }
 
         // 3. Deposits collection (if not already captured)
-        try {
-            const depSnapshot = await db.collection('deposits').where('userId', 'in', userIds).get();
-            depSnapshot.forEach(doc => {
+        if (depRes.status === 'fulfilled' && depRes.value) {
+            depRes.value.forEach(doc => {
                 if (!history.some(h => h.id === doc.id || h.trxId === doc.id)) {
                     const data = doc.data();
                     history.push({
@@ -2324,12 +2326,11 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
                     });
                 }
             });
-        } catch(e) {}
+        }
 
         // 4. Fiat Withdrawals collection
-        try {
-            const withSnapshot = await db.collection('fiat_withdrawals').where('userId', 'in', userIds).get();
-            withSnapshot.forEach(doc => {
+        if (withRes.status === 'fulfilled' && withRes.value) {
+            withRes.value.forEach(doc => {
                 const data = doc.data();
                 history.push({
                     id: doc.id,
@@ -2345,14 +2346,12 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
                     timestamp: data.timestamp || data.createdAt || Date.now()
                 });
             });
-        } catch(e) {
-            console.error("History fetch fiat_withdrawals error:", e);
         }
 
         // 5. Check and sync user's fiatWithdrawPending (Self-healing!)
-        try {
-            const userDoc = await db.collection('users').doc(strUserId).get();
-            if (userDoc.exists && userDoc.data().fiatWithdrawPending) {
+        if (userDocRes.status === 'fulfilled' && userDocRes.value && userDocRes.value.exists) {
+            const userDoc = userDocRes.value;
+            if (userDoc.data().fiatWithdrawPending) {
                 const p = userDoc.data().fiatWithdrawPending;
                 const existing = history.find(h => h.type === 'withdraw' && (h.id === p.id || (p.serial && h.serial === p.serial)));
                 if (existing) {
@@ -2398,8 +2397,6 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
                     });
                 }
             }
-        } catch(e) {
-            console.error("History fetch legacy withdraw error:", e);
         }
         
         history.sort((a, b) => {
