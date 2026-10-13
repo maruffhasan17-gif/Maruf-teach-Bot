@@ -22,7 +22,69 @@ let botConfig = {
     gramAmount: '0.07',
     usdtAmount: '0.05',
     freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328',
-    adminGroupId: ''
+    adminGroupId: '',
+    dataGroupId: '',
+    supportGroupId: '',
+    withdrawGroupId: '',
+    payoutGroupId: ''
+};
+
+// Helper: Post live payout confirmation to public Payout Group / Channel (Matches Image 2)
+const notifyPayoutGroup = async (payoutData) => {
+    try {
+        const payoutChatId = botConfig.payoutGroupId;
+        if (!payoutChatId || !bot) return;
+
+        const maskId = (id) => {
+            const s = String(id || '');
+            if (s.length <= 4) return s;
+            return s.slice(0, 3) + '***' + s.slice(-2);
+        };
+
+        const maskNumber = (num) => {
+            const s = String(num || '');
+            if (s.length <= 6) return s;
+            return s.slice(0, 4) + '***' + s.slice(-3);
+        };
+
+        let msg = '';
+        if (payoutData.type === 'fiat') {
+            const amt = parseFloat(payoutData.amount || 0).toFixed(2);
+            const rec = parseFloat(payoutData.receiveAmount || payoutData.amount || 0).toFixed(2);
+            msg = `<blockquote><b>🎉 New Withdrawal Processed!</b>
+
+` +
+                  `👤 <b>User:</b> ${payoutData.name || 'User'} (<code>${maskId(payoutData.userId)}</code>)
+` +
+                  `💰 <b>Amount:</b> ৳ ${amt} BDT
+` +
+                  `📦 <b>Send (after fee):</b> ৳ ${rec} BDT
+` +
+                  `🏦 <b>To:</b> ${payoutData.method || 'bKash'} (<code>${maskNumber(payoutData.number)}</code>)
+
+` +
+                  `✅ <b>Paid successfully</b></blockquote>`;
+        } else {
+            msg = `<blockquote><b>🎉 New Withdrawal Processed!</b>
+
+` +
+                  `👤 <b>User:</b> ${payoutData.name || 'User'} (<code>${maskId(payoutData.userId)}</code>)
+` +
+                  `💰 <b>Amount:</b> ${payoutData.amount} ${payoutData.asset || 'TON'}
+` +
+                  `📦 <b>Sent:</b> ${payoutData.receiveAmount || payoutData.amount} ${payoutData.asset || 'TON'}
+` +
+                  `🏛 <b>To:</b> <code>${payoutData.destination || ''}</code>
+
+` +
+                  `✅ <b>Paid on-chain • view transaction</b></blockquote>`;
+        }
+
+        await bot.sendMessage(payoutChatId, msg, { parse_mode: 'HTML', disable_web_page_preview: true });
+        console.log("Posted public payout proof to", payoutChatId);
+    } catch(err) {
+        console.error("Failed to post to payoutGroupId:", err.message);
+    }
 };
 async function loadConfig() {
     try {
@@ -507,6 +569,16 @@ bot.on('callback_query', async (query) => {
     }
 });
 
+
+bot.on('channel_post', async (msg) => {
+    const text = msg.text ? msg.text.trim() : '';
+    const chatId = msg.chat.id;
+    if (text === '/setpayout' || text === '/setgroup') {
+        await saveConfig({ payoutGroupId: chatId.toString() });
+        bot.sendMessage(chatId, `<blockquote><b>✅ Payout Channel সফলভাবে কনফিগার করা হয়েছে!</b>\n\n🆔 <b>Channel ID:</b> <code>${chatId}</code>\n📌 সফল উইথড্রর লাইভ পাবলিক প্রুফ এখানে পোস্ট হবে।</blockquote>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+    }
+});
+
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text ? msg.text.trim() : '';
@@ -515,169 +587,293 @@ bot.on('message', async (msg) => {
 
     
     if (msg.chat.type === 'group' || msg.chat.type === 'supergroup') {
-        if (text === '/setgroup') {
-            const config = botConfig;
-            await saveConfig({ adminGroupId: chatId.toString() });
-            bot.sendMessage(chatId, '✅ Admin group set successfully!').catch(e => console.error(e.message));
+        const titleLower = (msg.chat.title || '').toLowerCase();
+
+        // 1. Group Setup Commands
+        if (text === '/setdata' || (text === '/setgroup' && titleLower.includes('data'))) {
+            await saveConfig({ dataGroupId: chatId.toString() });
+            const resp = `<blockquote><b>✅ Data Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                `📌 <b>রোল:</b> সকল Buy, Sell, Add Money এবং কম টাকার নোটিফিকেশন এখানে আসবে।</blockquote>`;
+            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
             return;
         }
 
-        const config = botConfig;
-        
-// Handle Admin Manual Verification Reply
-        if (config.adminGroupId === chatId.toString() && msg.reply_to_message && text) {
+        if (text === '/setsupport' || (text === '/setgroup' && titleLower.includes('support'))) {
+            await saveConfig({ supportGroupId: chatId.toString() });
+            const resp = `<blockquote><b>✅ Support Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                `📌 <b>রোল:</b> ইউজারদের সাপোর্ট মেসেজ এখানে আসবে। মেসেজে সরাসরি রিপ্লাই দিলে ইউজারের কাছে উত্তর পৌঁছে যাবে।</blockquote>`;
+            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            return;
+        }
+
+        if (text === '/setwithdraw' || (text === '/setgroup' && (titleLower.includes('withdraw') || titleLower.includes('উইথড্র')))) {
+            await saveConfig({ withdrawGroupId: chatId.toString() });
+            const resp = `<blockquote><b>✅ Withdraw Request Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                `📌 <b>রোল:</b> সকল উইথড্র রিকোয়েস্ট এখানে আসবে। <code>Ok</code> রিপ্লাই দিলে টাকা পেইড হবে ও Payout গ্রুপে লাইভ প্রুফ যাবে; <code>Reject [কারণ]</code> দিলে রিফান্ড হবে।</blockquote>`;
+            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            return;
+        }
+
+        if (text === '/setpayout' || (text === '/setgroup' && titleLower.includes('payout'))) {
+            await saveConfig({ payoutGroupId: chatId.toString() });
+            const resp = `<blockquote><b>✅ Payout Group / Channel সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                `🆔 <b>ID:</b> <code>${chatId}</code>\n` +
+                `📌 <b>রোল:</b> সফল উইথড্রর লাইভ পাবলিক প্রুফ (পেমেন্ট প্রুফ) স্বয়ংক্রিয়ভাবে এখানে পোস্ট হবে।</blockquote>`;
+            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            return;
+        }
+
+        if (text === '/setgroup') {
+            await saveConfig({ adminGroupId: chatId.toString() });
+            const resp = `<blockquote><b>✅ Admin Group সেট করা হয়েছে!</b>\n\n` +
+                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n\n` +
+                `💡 <i>নির্দিষ্ট গ্রুপ কনফিগার করতে নিচের কমান্ড ব্যবহার করুন:</i>\n` +
+                `• <code>/setdata</code> — Data Group এর জন্য\n` +
+                `• <code>/setsupport</code> — Support Group এর জন্য\n` +
+                `• <code>/setwithdraw</code> — Withdraw Request Group এর জন্য\n` +
+                `• <code>/setpayout</code> — Payout Group / Channel এর জন্য</blockquote>`;
+            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            return;
+        }
+
+        if (text === '/groups' || text === '/status' || text === '/groupstatus') {
+            const resp = `<blockquote><b>📊 গ্রুপ নোটিফিকেশন সিস্টেম স্ট্যাটাস</b>\n\n` +
+                `1️⃣ <b>Data Group:</b> <code>${botConfig.dataGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
+                `2️⃣ <b>Support Group:</b> <code>${botConfig.supportGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
+                `3️⃣ <b>Withdraw Request:</b> <code>${botConfig.withdrawGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
+                `4️⃣ <b>Payout Group / Channel:</b> <code>${botConfig.payoutGroupId || 'Not set'}</code></blockquote>`;
+            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            return;
+        }
+
+        const isConfiguredAdmin = [
+            botConfig.adminGroupId,
+            botConfig.dataGroupId,
+            botConfig.supportGroupId,
+            botConfig.withdrawGroupId,
+            botConfig.payoutGroupId
+        ].filter(Boolean).map(String).includes(chatId.toString());
+
+        // Handle Admin Replies
+        if (isConfiguredAdmin && msg.reply_to_message && text) {
             const replyText = text.toLowerCase().trim();
             const caption = msg.reply_to_message.caption || msg.reply_to_message.text || '';
-                // --- BUY ORDER REPLY LOGIC ---
-                if (caption.includes("Buy Order") || caption.includes("TrxID:")) {
-                    const trxMatch = caption.match(/TrxID:\s*(?:<code>|`)?([A-Za-z0-9]+)(?:<\/code>|`)?/i);
-                    if (trxMatch && trxMatch[1]) {
-                        const targetTrxId = trxMatch[1].toUpperCase();
-                        const buyRef = db.collection('miniapp_buys').doc(targetTrxId);
-                        const buyDoc = await buyRef.get();
-                        
-                        if (buyDoc.exists) {
-                            const order = buyDoc.data();
-                            
-                            if (['ok', 'accept', 'done', 'approve'].includes(replyText)) {
-                                if (order.status === 'completed') {
-                                    bot.sendMessage(chatId, `⚠️ Order <code>${targetTrxId}</code> is already completed!`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                                    return;
-                                }
-                                
-                                bot.sendMessage(chatId, `⏳ Sending <b>${order.amount} ${order.asset}</b> on-chain to <code>${order.receiveAddress}</code>...`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                                
-                                try {
-                                    let txResult = null;
-                                    if (order.asset === 'TON' || order.asset === 'GRAM') {
-                                        txResult = await sendTonOnChain(order.receiveAddress, order.amount);
-                                    } else if (order.asset === 'USDT') {
-                                        txResult = await sendJettonUsdtOnChain(order.receiveAddress, order.amount);
-                                    }
-                                    
-                                    await buyRef.update({
-                                        status: 'completed',
-                                        completedAt: FieldValue.serverTimestamp(),
-                                        txResult: txResult || null
-                                    });
-                                    
-                                    bot.sendMessage(chatId, `✅ <b>Buy Order Completed!</b>\nSuccessfully sent <b>${order.amount} ${order.asset}</b> to <code>${order.receiveAddress}</code>\nTrxID: <code>${targetTrxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                                    bot.sendMessage(order.userId, `🎉 <b>Payment Approved & Sent!</b>\n\n<b>${order.amount} ${order.asset}</b> has been transferred to your wallet on-chain!\n\n🏷 <b>Wallet:</b> <code>${order.receiveAddress}</code>\n#️⃣ <b>TrxID:</b> <code>${targetTrxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                                } catch(err) {
-                                    console.error("Group on-chain send error:", err);
-                                    bot.sendMessage(chatId, `❌ <b>Transfer Failed!</b>\nError: ${err.message}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                                }
-                                return;
-                            } else if (replyText.startsWith('reject') || replyText === 'wrong' || replyText === 'cancel') {
-                                if (order.status === 'completed') {
-                                    bot.sendMessage(chatId, `⚠️ Cannot reject an already completed order!`).catch(e => console.error(e.message));
-                                    return;
-                                }
-                                if (order.status === 'rejected') {
-                                    bot.sendMessage(chatId, `⚠️ Order <code>${targetTrxId}</code> is already rejected!`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                                    return;
-                                }
-                                
-                                const reason = replyText.startsWith('reject ') ? text.substring(7).trim() : 'Rejected by admin';
-                                const refundBdt = parseFloat(order.totalBdt) || 0;
-                                
-                                await buyRef.update({
-                                    status: 'rejected',
-                                    rejectReason: reason,
-                                    rejectedAt: FieldValue.serverTimestamp(),
-                                    refundedBdt: refundBdt
-                                });
-                                
-                                if (refundBdt > 0 && order.userId) {
-                                    await db.collection('users').doc(order.userId.toString()).set({
-                                        balance: FieldValue.increment(refundBdt)
-                                    }, { merge: true });
-                                }
-                                
-                                bot.sendMessage(chatId, `❌ <b>Buy Order Rejected!</b>\nRefunded <b>৳${refundBdt} BDT</b> to user <code>${order.userId}</code>'s in-app balance.\nTrxID: <code>${targetTrxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                                bot.sendMessage(order.userId, `❌ <b>Buy Order Rejected</b>\n\nYour order for ${order.amount} ${order.asset} (TrxID: <code>${targetTrxId}</code>) was rejected.\n\n💰 <b>৳${refundBdt} BDT has been refunded to your in-app balance!</b>\nYou can check your balance in the app.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                                return;
-                            }
-                        }
-                    }
-                }
 
-                // --- FIAT WITHDRAWAL LOGIC ---
-                if (caption.includes("New Fiat Withdrawal")) {
-                    const idMatch = caption.match(/ID: (\d+)/);
-                    if (idMatch && idMatch[1]) {
-                        const targetUserId = idMatch[1];
-                        
-                        if (['done', 'ok', 'paid', 'accept', 'approve'].includes(replyText)) {
-                            const uRef = db.collection('users').doc(targetUserId);
-                            const uDoc = await uRef.get();
-                            if (uDoc.exists && uDoc.data().fiatWithdrawPending) {
-                                const pend = uDoc.data().fiatWithdrawPending;
-                                if (pend.id) {
-                                    await db.collection('fiat_withdrawals').doc(pend.id).update({
-                                        status: 'completed',
-                                        completedAt: Date.now()
-                                    }).catch(()=>{});
-                                }
-                                // Also update any pending withdrawals in fiat_withdrawals for this user
-                                try {
-                                    const pendSnaps = await db.collection('fiat_withdrawals')
-                                        .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
-                                        .where('status', '==', 'pending').get();
-                                    for (const doc of pendSnaps.docs) {
-                                        await doc.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
-                                    }
-                                } catch(e) {}
-
-                                await uRef.update({
-                                    'fiatWithdrawPending.status': 'completed',
-                                    'fiatWithdrawPending.completedAt': Date.now()
-                                });
-                            }
-                            bot.sendMessage(chatId, `✅ Marked withdrawal for ${targetUserId} as PAID.`).catch(e => console.error(e.message));
-                            bot.sendMessage(targetUserId, `✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                        } 
-                        else if (replyText === 'wt' || replyText === 'wait') {
-                            await bot.sendMessage(chatId, `⏱ Reply to THIS message with the time format.\n\nMinutes: <code>10:00</code>\nHours: <code>1:30:50</code>\n\nUser ID: ${targetUserId}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                        }
-                        else if (replyText.startsWith('reject')) {
-                            const reason = text.substring(6).trim() || 'No reason provided';
-                            const userRef = db.collection('users').doc(targetUserId);
-                            const userDoc = await userRef.get();
-                            if (userDoc.exists && userDoc.data().fiatWithdrawPending) {
-                                const pend = userDoc.data().fiatWithdrawPending;
-                                const amountToRefund = pend.amount;
-                                if (pend.id) {
-                                    await db.collection('fiat_withdrawals').doc(pend.id).update({
-                                        status: 'rejected',
-                                        rejectReason: reason,
-                                        rejectedAt: Date.now()
-                                    }).catch(()=>{});
-                                }
-                                // Also update any pending withdrawals in fiat_withdrawals for this user
-                                try {
-                                    const pendSnaps = await db.collection('fiat_withdrawals')
-                                        .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
-                                        .where('status', '==', 'pending').get();
-                                    for (const doc of pendSnaps.docs) {
-                                        await doc.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
-                                    }
-                                } catch(e) {}
-
-                                await userRef.update({
-                                    balance: (userDoc.data().balance || 0) + amountToRefund,
-                                    'fiatWithdrawPending.status': 'rejected',
-                                    'fiatWithdrawPending.rejectReason': reason,
-                                    'fiatWithdrawPending.rejectedAt': Date.now()
-                                });
-                                bot.sendMessage(chatId, `❌ Rejected withdrawal for ${targetUserId} and refunded ${amountToRefund} BDT.\nReason: ${reason}`).catch(e => console.error(e.message));
-                                bot.sendMessage(targetUserId, `❌ <b>Withdrawal Rejected</b>\nYour ${amountToRefund} BDT has been refunded to your balance.\nReason: ${reason}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                            }
-                        }
-                    }
+            // --- A) CUSTOMER SUPPORT REPLY ---
+            if (caption.includes("Customer Support") || caption.includes("কাস্টমার সাপোর্ট") || caption.includes("Ticket ID:")) {
+                const idMatch = caption.match(/User ID:\s*(?:<code>)?(\d+)(?:<\/code>)?/i) || caption.match(/ID:\s*(?:<code>)?(\d+)(?:<\/code>)?/i);
+                if (idMatch && idMatch[1]) {
+                    const targetUserId = idMatch[1];
+                    const safeReply = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const userSupportMsg = `<blockquote><b>🎧 কাস্টমার সাপোর্ট থেকে বার্তা</b>\n\n${safeReply}</blockquote>`;
+                    await bot.sendMessage(targetUserId, userSupportMsg, { parse_mode: 'HTML' }).catch(e => console.error("Support reply to user error:", e.message));
+                    await bot.sendMessage(chatId, `✅ ইউজার <code>${targetUserId}</code> এর কাছে সাপোর্ট উত্তর সফলভাবে পাঠানো হয়েছে।`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
                     return;
                 }
-                
+            }
+
+            // --- B) BUY ORDER REPLY LOGIC ---
+            if (caption.includes("Buy Order") || caption.includes("TrxID:")) {
+                const trxMatch = caption.match(/TrxID:\s*(?:<code>|`)?([A-Za-z0-9]+)(?:<\/code>|`)?/i);
+                if (trxMatch && trxMatch[1]) {
+                    const targetTrxId = trxMatch[1].toUpperCase();
+                    const buyRef = db.collection('miniapp_buys').doc(targetTrxId);
+                    const buyDoc = await buyRef.get();
+                    
+                    if (buyDoc.exists) {
+                        const order = buyDoc.data();
+                        
+                        if (['ok', 'accept', 'done', 'approve'].includes(replyText)) {
+                            if (order.status === 'completed') {
+                                bot.sendMessage(chatId, `⚠️ Order <code>${targetTrxId}</code> is already completed!`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                return;
+                            }
+                            
+                            bot.sendMessage(chatId, `⏳ Sending <b>${order.amount} ${order.asset}</b> on-chain to <code>${order.receiveAddress}</code>...`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                            
+                            try {
+                                let txResult = null;
+                                if (order.asset === 'TON' || order.asset === 'GRAM') {
+                                    txResult = await sendTonOnChain(order.receiveAddress, order.amount);
+                                } else if (order.asset === 'USDT') {
+                                    txResult = await sendJettonUsdtOnChain(order.receiveAddress, order.amount);
+                                }
+                                
+                                await buyRef.update({
+                                    status: 'completed',
+                                    completedAt: FieldValue.serverTimestamp(),
+                                    txResult: txResult || null
+                                });
+                                
+                                bot.sendMessage(chatId, `✅ <b>Buy Order Completed!</b>\nSuccessfully sent <b>${order.amount} ${order.asset}</b> to <code>${order.receiveAddress}</code>\nTrxID: <code>${targetTrxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                
+                                const userBuyApproved = `<blockquote><b>⚡ ক্রিপ্টো ক্রয় অর্ডার সফল হয়েছে!</b>\n\n` +
+                                    `💎 <b>প্রাপ্ত ক্রিপ্টো:</b> <b>${order.amount} ${order.asset}</b>\n` +
+                                    `🏷 <b>ওয়ালেট:</b> <code>${order.receiveAddress}</code>\n` +
+                                    `#️⃣ <b>TrxID:</b> <code>${targetTrxId}</code>\n\n` +
+                                    `<i>ক্রিপ্টো অন-চেইনে আপনার ওয়ালেটে সফলভাবে ট্রান্সফার করা হয়েছে।</i></blockquote>`;
+                                bot.sendMessage(order.userId, userBuyApproved, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                            } catch(err) {
+                                console.error("Group on-chain send error:", err);
+                                bot.sendMessage(chatId, `❌ <b>Transfer Failed!</b>\nError: ${err.message}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                            }
+                            return;
+                        } else if (replyText.startsWith('reject') || replyText === 'wrong' || replyText === 'cancel') {
+                            if (order.status === 'completed') {
+                                bot.sendMessage(chatId, `⚠️ Cannot reject an already completed order!`).catch(e => console.error(e.message));
+                                return;
+                            }
+                            if (order.status === 'rejected') {
+                                bot.sendMessage(chatId, `⚠️ Order <code>${targetTrxId}</code> is already rejected!`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                                return;
+                            }
+                            
+                            const reason = replyText.startsWith('reject ') ? text.substring(7).trim() : 'Rejected by admin';
+                            const refundBdt = parseFloat(order.totalBdt) || 0;
+                            
+                            await buyRef.update({
+                                status: 'rejected',
+                                rejectReason: reason,
+                                rejectedAt: FieldValue.serverTimestamp(),
+                                refundedBdt: refundBdt
+                            });
+                            
+                            if (refundBdt > 0 && order.userId) {
+                                await db.collection('users').doc(order.userId.toString()).set({
+                                    balance: FieldValue.increment(refundBdt)
+                                }, { merge: true });
+                            }
+                            
+                            bot.sendMessage(chatId, `❌ <b>Buy Order Rejected!</b>\nRefunded <b>৳${refundBdt} BDT</b> to user <code>${order.userId}</code>'s in-app balance.\nTrxID: <code>${targetTrxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                            
+                            const userBuyRejected = `<blockquote><b>❌ ক্রয় অর্ডার বাতিল ও রিফান্ড!</b>\n\n` +
+                                `💎 <b>অর্ডার:</b> ${order.amount} ${order.asset}\n` +
+                                `#️⃣ <b>TrxID:</b> <code>${targetTrxId}</code>\n` +
+                                `💰 <b>রিফান্ড পরিমাণ:</b> <b>৳${refundBdt} BDT</b>\n` +
+                                `📝 <b>কারণ:</b> <i>${reason}</i>\n\n` +
+                                `<i>উক্ত টাকা আপনার ইন-অ্যাপ ব্যালেন্সে রিফান্ড করা হয়েছে।</i></blockquote>`;
+                            bot.sendMessage(order.userId, userBuyRejected, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // --- C) FIAT WITHDRAWAL LOGIC ---
+            if (caption.includes("New Fiat Withdrawal") || caption.includes("নতুন উইথড্র রিকোয়েস্ট") || caption.includes("Withdraw Request")) {
+                const idMatch = caption.match(/ID:\s*(?:<code>)?(\d+)(?:<\/code>)?/i);
+                if (idMatch && idMatch[1]) {
+                    const targetUserId = idMatch[1];
+                    
+                    if (['done', 'ok', 'paid', 'accept', 'approve'].includes(replyText)) {
+                        const uRef = db.collection('users').doc(targetUserId);
+                        const uDoc = await uRef.get();
+                        let pend = null;
+                        if (uDoc.exists && uDoc.data().fiatWithdrawPending) {
+                            pend = uDoc.data().fiatWithdrawPending;
+                            if (pend.id) {
+                                await db.collection('fiat_withdrawals').doc(pend.id).update({
+                                    status: 'completed',
+                                    completedAt: Date.now()
+                                }).catch(()=>{});
+                            }
+                            try {
+                                const pendSnaps = await db.collection('fiat_withdrawals')
+                                    .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
+                                    .where('status', '==', 'pending').get();
+                                for (const doc of pendSnaps.docs) {
+                                    await doc.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
+                                }
+                            } catch(e) {}
+
+                            await uRef.update({
+                                'fiatWithdrawPending.status': 'completed',
+                                'fiatWithdrawPending.completedAt': Date.now()
+                            });
+                        }
+
+                        const amtVal = pend?.amount || 0;
+                        const feeVal = pend?.fee !== undefined ? pend.fee : 0;
+                        const recVal = pend?.receiveAmount || amtVal;
+                        const methodVal = pend?.method || 'bKash';
+                        const numVal = pend?.number || '';
+
+                        // Redesigned Quote DM to User (Image 3 quality)
+                        const userSuccessMsg = `<blockquote><b>✅ ক্যাশআউট সম্পন্ন হয়েছে (Withdrawal Successful)!</b>\n\n` +
+                            `💰 <b>উত্তোলনের পরিমাণ:</b> ৳${amtVal} BDT\n` +
+                            `📉 <b>সেন্ড মানি ফি:</b> ৳${typeof feeVal === 'number' ? feeVal.toFixed(2) : feeVal} BDT\n` +
+                            `💵 <b>প্রদান করা হয়েছে:</b> ৳${typeof recVal === 'number' ? recVal.toFixed(2) : recVal} BDT\n` +
+                            `🏦 <b>মাধ্যম:</b> ${methodVal} (<code>${numVal}</code>)\n\n` +
+                            `আপনার অ্যাকাউন্টে টাকা সফলভাবে পাঠিয়ে দেওয়া হয়েছে। ধন্যবাদ আমাদের সাথে থাকার জন্য!</blockquote>`;
+                        bot.sendMessage(targetUserId, userSuccessMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+
+                        // Confirm in Withdraw Request Group
+                        bot.sendMessage(chatId, `✅ <code>${targetUserId}</code> এর উইথড্র সফলভাবে PAID মার্ক করা হয়েছে।`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
+
+                        // Post Live Payout Proof to Public Payout Group / Channel (Image 2 format)
+                        await notifyPayoutGroup({
+                            type: 'fiat',
+                            userId: targetUserId,
+                            name: pend?.name || uDoc.data()?.first_name || 'User',
+                            amount: amtVal,
+                            receiveAmount: recVal,
+                            method: methodVal,
+                            number: numVal
+                        });
+                        return;
+                    } 
+                    else if (replyText === 'wt' || replyText === 'wait') {
+                        await bot.sendMessage(chatId, `⏱ Reply to THIS message with the time format.\n\nMinutes: <code>10:00</code>\nHours: <code>1:30:50</code>\n\nUser ID: ${targetUserId}`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                        return;
+                    }
+                    else if (replyText.startsWith('reject')) {
+                        const reason = text.substring(6).trim() || 'No reason provided';
+                        const userRef = db.collection('users').doc(targetUserId);
+                        const userDoc = await userRef.get();
+                        if (userDoc.exists && userDoc.data().fiatWithdrawPending) {
+                            const pend = userDoc.data().fiatWithdrawPending;
+                            const amountToRefund = pend.amount;
+                            if (pend.id) {
+                                await db.collection('fiat_withdrawals').doc(pend.id).update({
+                                    status: 'rejected',
+                                    rejectReason: reason,
+                                    rejectedAt: Date.now()
+                                }).catch(()=>{});
+                            }
+                            try {
+                                const pendSnaps = await db.collection('fiat_withdrawals')
+                                    .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
+                                    .where('status', '==', 'pending').get();
+                                for (const doc of pendSnaps.docs) {
+                                    await doc.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
+                                }
+                            } catch(e) {}
+
+                            await userRef.update({
+                                balance: (userDoc.data().balance || 0) + amountToRefund,
+                                'fiatWithdrawPending.status': 'rejected',
+                                'fiatWithdrawPending.rejectReason': reason,
+                                'fiatWithdrawPending.rejectedAt': Date.now()
+                            });
+
+                            bot.sendMessage(chatId, `❌ Rejected withdrawal for <code>${targetUserId}</code> and refunded ৳${amountToRefund} BDT.\nReason: ${reason}`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
+                            
+                            // Redesigned Quote DM to User (Image 3 quality)
+                            const userRejectMsg = `<blockquote><b>❌ উইথড্র বাতিল ও রিফান্ড (Withdrawal Rejected)!</b>\n\n` +
+                                `💰 <b>রিফান্ড পরিমাণ:</b> ৳${amountToRefund} BDT\n` +
+                                `📝 <b>কারণ:</b> <i>${reason}</i>\n\n` +
+                                `টাকাটি আপনার অ্যাপ ব্যালেন্সে পুনরায় যোগ করে দেওয়া হয়েছে। তথ্য যাচাই করে আবার চেষ্টা করুন।</blockquote>`;
+                            bot.sendMessage(targetUserId, userRejectMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                        }
+                        return;
+                    }
+                }
+                return;
+            }
+
                 
                 // --- FIAT WAIT TIMER LOGIC ---
                 if (caption.includes("Reply to THIS message with the time format")) {
@@ -1119,22 +1315,28 @@ app.post('/api/miniapp/sell', async (req, res) => {
         const updatedDoc = await userRef.get();
         const newBalance = updatedDoc.data()?.balance || numEstimatedTk;
 
-        // Notify Admin Group
+        // Notify Data Group
         const config = botConfig || {};
-        const adminGroupId = config.adminGroupId || 8799135330;
-        if (adminGroupId && bot) {
-            const msg = `<blockquote><b>🔄 ক্রিপ্টো বিক্রয় সম্পন্ন (Crypto Sold)!</b></blockquote>\n\n` +
-                `👤 User: <code>${userId}</code>\n` +
-                `💎 Sold: <b>${numAmount} ${asset || 'TON'}</b>\n` +
-                `💵 ব্যালেন্সে যুক্ত: <b>৳${numEstimatedTk} BDT</b>\n` +
-                `🏦 Wallet/Trx: <code>${wallet || 'Direct'}</code>\n` +
-                `🆔 Order ID: <code>${savedOrderId}</code>`;
-            bot.sendMessage(adminGroupId, msg, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
+        const dataGroup = config.dataGroupId || config.adminGroupId;
+        if (dataGroup && bot) {
+            const msg = `<blockquote><b>⚡ নতুন ক্রিপ্টো বিক্রয় (Crypto Sold)!</b>\n\n` +
+                `👤 <b>User:</b> <code>${userId}</code>\n` +
+                `💎 <b>বিক্রয়:</b> <b>${numAmount} ${asset || 'TON'}</b>\n` +
+                `💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳${numEstimatedTk} BDT</b>\n` +
+                `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
+                `🏦 <b>Wallet/Trx:</b> <code>${wallet || 'Direct'}</code>\n` +
+                `🆔 <b>Order ID:</b> <code>${savedOrderId}</code></blockquote>`;
+            bot.sendMessage(dataGroup, msg, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
         }
 
-        // Send confirmation to User in Telegram
+        // Send confirmation to User in Telegram with Quote block (Matches Image 3)
         if (bot && userId) {
-            bot.sendMessage(userId, `🎉 <b>ক্রিপ্টো বিক্রয় সফল হয়েছে!</b>\n\nআপনার <b>${numAmount} ${asset}</b> বিক্রয়ের বিনিময়ে <b>৳${numEstimatedTk} BDT</b> আপনার ব্যালেন্সে যোগ হয়েছে।\n💰 বর্তমান ব্যালেন্স: <b>৳${newBalance} BDT</b>`, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
+            const userSellMsg = `<blockquote><b>🎉 ক্রিপ্টো বিক্রয় সফল হয়েছে!</b>\n\n` +
+                `💎 <b>বিক্রয়:</b> <b>${numAmount} ${asset}</b>\n` +
+                `💵 <b>প্রাপ্ত টাকা:</b> <b>৳${numEstimatedTk} BDT</b>\n` +
+                `💰 <b>বর্তমান ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n\n` +
+                `<i>টাকাটি আপনার ব্যালেন্সে সফলভাবে যোগ করা হয়েছে।</i></blockquote>`;
+            bot.sendMessage(userId, userSellMsg, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
         }
 
         res.json({ success: true, orderId: savedOrderId, newBalance });
@@ -1341,11 +1543,23 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             }
         });
         
-        // Notify Admin Group
-        const config = require('./config.json');
-        if (config.adminGroupId) {
-            const msg = `<blockquote><b>💳 New Fiat Withdrawal</b></blockquote>\n\n👤 User: <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a>\n🆔 ID: ${userId}\n\n#️⃣ <b>Serial No: ${serialNum}</b>\n💰 Total Amount: <b>৳ ${amount} BDT</b>\n📉 Send Money Fee: <b>৳ ${calcFee.toFixed(2)} BDT</b>\n✅ Send Exactly: <b>৳ ${calcReceive.toFixed(2)} BDT</b>\n\n🏦 Method: ${userData.fiatWallet.method}\n📞 Number: <code>${userData.fiatWallet.number}</code>\n📛 Name: ${userData.fiatWallet.name || 'User'}\n\n⚙️ <b>Actions (Reply to this):</b>\n- <code>Ok</code> to mark paid\n- <code>Reject [reason]</code> to refund`;
-            await bot.sendMessage(config.adminGroupId, msg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        // Notify Withdraw Request Group
+        const withdrawGroup = botConfig.withdrawGroupId || botConfig.adminGroupId;
+        if (withdrawGroup && bot) {
+            const msg = `<blockquote><b>💳 নতুন উইথড্র রিকোয়েস্ট (Withdraw Request)</b>\n\n` +
+                `#️⃣ <b>সিরিয়াল নং:</b> <b>#${serialNum}</b>\n` +
+                `👤 <b>ইউজার:</b> <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a> (<code>${userId}</code>)\n` +
+                `💰 <b>উত্তোলনের পরিমাণ:</b> <b>৳ ${amount} BDT</b>\n` +
+                `📉 <b>সেন্ড মানি ফি:</b> <b>৳ ${calcFee.toFixed(2)} BDT</b>\n` +
+                `✅ <b>পাঠাতে হবে (Send Exactly):</b> <b>৳ ${calcReceive.toFixed(2)} BDT</b>\n\n` +
+                `🏦 <b>মাধ্যম:</b> <b>${userData.fiatWallet.method}</b>\n` +
+                `📞 <b>নম্বর:</b> <code>${userData.fiatWallet.number}</code>\n` +
+                `📛 <b>অ্যাকাউন্ট নাম:</b> <b>${userData.fiatWallet.name || 'User'}</b></blockquote>\n\n` +
+                `⚙️ <b>অ্যাকশন (এই মেসেজে রিপ্লাই দিন):</b>\n` +
+                `• <code>Ok</code> — পেমেন্ট কনফার্ম করুন (Payout গ্রুপে লাইভ প্রুফ যাবে)\n` +
+                `• <code>Reject [কারণ]</code> — বাতিল করে ব্যালেন্স রিফান্ড করুন\n` +
+                `• <code>wt 10:00</code> — প্রসেসিং টাইমার সেট করুন`;
+            await bot.sendMessage(withdrawGroup, msg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
         
         res.json({ success: true, serial: serialNum, withdrawId: withdrawRef.id });
@@ -1545,12 +1759,25 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         const updatedDoc = await userRef.get();
         const newBalance = updatedDoc.data()?.balance || amount;
 
-        // Telegram alerts
-        bot.sendMessage(userId, `🎉 <b>টাকা যুক্ত সফল হয়েছে!</b>\n\nআপনার অ্যাকাউন্টে <b>৳${amount} BDT</b> যোগ করা হয়েছে।\n💰 বর্তমান ব্যালেন্স: <b>৳${newBalance} BDT</b>\n#️⃣ TrxID: <code>${trxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        // Send confirmation to User in Telegram with Quote block (Matches Image 3)
+        const userAddMoneyMsg = `<blockquote><b>🎉 টাকা যুক্ত সফল হয়েছে!</b>\n\n` +
+            `💵 <b>যোগ করা হয়েছে:</b> <b>৳${amount} BDT</b> (${paymentMethod})\n` +
+            `💰 <b>বর্তমান ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
+            `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n\n` +
+            `<i>টাকাটি আপনার অ্যাকাউন্টে স্বয়ংক্রিয়ভাবে যুক্ত হয়েছে।</i></blockquote>`;
+        bot.sendMessage(userId, userAddMoneyMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
 
+        // Notify Data Group
         const config = botConfig || {};
-        if (config.adminGroupId) {
-            bot.sendMessage(config.adminGroupId, `💰 <b>নতুন টাকা যুক্ত (Add Money)!</b>\n👤 User: <code>${userId}</code>\n💵 Amount: <b>৳${amount} BDT</b> (${paymentMethod})\n#️⃣ TrxID: <code>${trxId}</code>\n✅ ব্যালেন্সে অটো যোগ হয়েছে।`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        const dataGroup = config.dataGroupId || config.adminGroupId;
+        if (dataGroup && bot) {
+            const dataAddMoneyMsg = `<blockquote><b>💰 নতুন টাকা যুক্ত (Add Money)!</b>\n\n` +
+                `👤 <b>User:</b> <code>${userId}</code>\n` +
+                `💵 <b>পরিমাণ:</b> <b>৳${amount} BDT</b> (${paymentMethod})\n` +
+                `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
+                `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
+                `✅ <b>স্ট্যাটাস:</b> ব্যালেন্সে অটো যোগ হয়েছে</blockquote>`;
+            bot.sendMessage(dataGroup, dataAddMoneyMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
 
         res.json({
@@ -1699,11 +1926,24 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         const newBalance = currentBalance - bdtAmount;
 
-        // 6. TELEGRAM CONFIRMATIONS
-        bot.sendMessage(userId, `🎉 <b>ক্রিপ্টো কেনা সফল হয়েছে!</b>\n\n<b>${cryptoAmount} ${asset}</b> সফলভাবে আপনার ওয়ালেটে পাঠানো হয়েছে!\n\n🏷 <b>Wallet:</b> <code>${receiveAddress}</code>\n💵 পরিশোধ: <b>৳${bdtAmount} BDT</b>\n💰 বর্তমান ব্যালেন্স: <b>৳${newBalance} BDT</b>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        // 6. TELEGRAM CONFIRMATIONS with Quote block
+        const userBuyInstantMsg = `<blockquote><b>💎 ক্রিপ্টো ক্রয় সফল হয়েছে!</b>\n\n` +
+            `💎 <b>প্রাপ্ত ক্রিপ্টো:</b> <b>${cryptoAmount} ${asset}</b>\n` +
+            `💵 <b>পরিশোধ:</b> <b>৳${bdtAmount} BDT</b>\n` +
+            `💰 <b>বর্তমান ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
+            `🏷 <b>ওয়ালেট:</b> <code>${receiveAddress}</code>\n\n` +
+            `<i>ক্রিপ্টো আপনার ওয়ালেটে অন-চেইনে সফলভাবে পাঠানো হয়েছে।</i></blockquote>`;
+        bot.sendMessage(userId, userBuyInstantMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
 
-        if (adminGroupId) {
-            bot.sendMessage(adminGroupId, `💎 <b>নতুন ক্রিপ্টো ক্রয় সম্পন্ন (Live Instant)!</b>\n👤 User: <code>${userId}</code>\n💎 ক্রিপ্টো: <b>${cryptoAmount} ${asset}</b>\n💵 ব্যালেন্স থেকে কাটা: <b>৳${bdtAmount} BDT</b>\n🏷 Wallet: <code>${receiveAddress}</code>\n✅ অন-চেইনে সফলভাবে সেন্ট হয়েছে।`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        const dataGroup = config.dataGroupId || adminGroupId;
+        if (dataGroup) {
+            const dataBuyMsg = `<blockquote><b>💎 নতুন ক্রিপ্টো ক্রয় সম্পন্ন (Live Instant)!</b>\n\n` +
+                `👤 <b>User:</b> <code>${userId}</code>\n` +
+                `💎 <b>ক্রিপ্টো:</b> <b>${cryptoAmount} ${asset}</b>\n` +
+                `💵 <b>ব্যালেন্স থেকে কাটা:</b> <b>৳${bdtAmount} BDT</b>\n` +
+                `🏷 <b>Wallet:</b> <code>${receiveAddress}</code>\n` +
+                `✅ <b>স্ট্যাটাস:</b> অন-চেইনে সফলভাবে সেন্ট হয়েছে</blockquote>`;
+            bot.sendMessage(dataGroup, dataBuyMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
 
         res.json({
@@ -1841,8 +2081,15 @@ app.post('/api/macrodroid/webhook', async (req, res) => {
         const order = doc.data();
         if (order.status === 'pending') {
             if (msgAmount && Math.abs(msgAmount - order.totalBdt) > 1) {
-                if (adminGroupId) {
-                    bot.sendMessage(adminGroupId, `⚠️ <b>Amount Mismatch Warning!</b>\nUser: <code>${order.userId}</code>\nExpected: ৳${order.totalBdt} BDT\nSMS Received: ৳${msgAmount} BDT\nTrxID: <code>${trxId}</code>`, { parse_mode: 'HTML' }).catch(e=>console.error(e));
+                const dataGroup = botConfig.dataGroupId || adminGroupId;
+                if (dataGroup) {
+                    const mismatchAlert = `<blockquote><b>⚠️ টাকার পরিমাণ কম/অসামঞ্জস্য (Amount Mismatch Warning)!</b>\n\n` +
+                        `👤 <b>User:</b> <code>${order.userId}</code>\n` +
+                        `💵 <b>প্রত্যাশিত (Expected):</b> <b>৳${order.totalBdt} BDT</b>\n` +
+                        `📩 <b>SMS প্রাপ্ত:</b> <b>৳${msgAmount} BDT</b>\n` +
+                        `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
+                        `⚠️ <b>স্ট্যাটাস:</b> পেমেন্ট অসম্পূর্ণ থাকায় ভেরিফিকেশন স্থগিত।</blockquote>`;
+                    bot.sendMessage(dataGroup, mismatchAlert, { parse_mode: 'HTML' }).catch(e=>console.error(e));
                 }
                 return res.json({ success: true, message: "Amount mismatch, left as pending" });
             }
@@ -2054,7 +2301,10 @@ app.post('/api/admin/bonus', async (req, res) => {
         const newBalance = (doc.data().balance || 0) + parseFloat(amount);
         await doc.ref.update({ balance: newBalance });
         
-        bot.sendMessage(doc.id, `🎉 <b>Bonus Received!</b>\nAdmin has credited your account with ${amount} BDT.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        const bonusMsg = `<blockquote><b>🎉 বোনাস প্রাপ্তি (Bonus Received)!</b>\n\n` +
+            `💰 <b>পরিমাণ:</b> <b>৳${amount} BDT</b>\n\n` +
+            `<i>অ্যাডমিন আপনার অ্যাকাউন্টে বোনাস ব্যালেন্স যোগ করেছেন।</i></blockquote>`;
+        bot.sendMessage(doc.id, bonusMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         res.json({ success: true, newBalance });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -2105,11 +2355,28 @@ app.post('/api/admin/approve-withdraw', async (req, res) => {
             const userRef = db.collection('users').doc(targetUser.toString());
             const doc = await userRef.get();
             if(doc.exists) {
+                const pend = doc.data()?.fiatWithdrawPending;
                 await userRef.update({
                     'fiatWithdrawPending.status': 'completed',
                     'fiatWithdrawPending.completedAt': Date.now()
                 });
-                bot.sendMessage(targetUser, '✅ <b>Withdrawal Successful!</b>\nYour payment has been sent to your wallet. Thank you!', { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                const userMsg = `<blockquote><b>✅ ক্যাশআউট সম্পন্ন হয়েছে (Withdrawal Successful)!</b>\n\n` +
+                    `💰 <b>উত্তোলনের পরিমাণ:</b> ৳${pend?.amount || 0} BDT\n` +
+                    `📉 <b>সেন্ড মানি ফি:</b> ৳${pend?.fee || 0} BDT\n` +
+                    `💵 <b>প্রদান করা হয়েছে:</b> ৳${pend?.receiveAmount || pend?.amount || 0} BDT\n` +
+                    `🏦 <b>মাধ্যম:</b> ${pend?.method || 'bKash'} (<code>${pend?.number || ''}</code>)\n\n` +
+                    `আপনার অ্যাকাউন্টে টাকা সফলভাবে পাঠিয়ে দেওয়া হয়েছে। ধন্যবাদ আমাদের সাথে থাকার জন্য!</blockquote>`;
+                bot.sendMessage(targetUser, userMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                
+                await notifyPayoutGroup({
+                    type: 'fiat',
+                    userId: targetUser,
+                    name: pend?.name || doc.data()?.first_name || 'User',
+                    amount: pend?.amount || 0,
+                    receiveAmount: pend?.receiveAmount || pend?.amount || 0,
+                    method: pend?.method || 'bKash',
+                    number: pend?.number || ''
+                });
             }
 
             try {
@@ -2167,7 +2434,11 @@ app.post('/api/admin/reject-withdraw', async (req, res) => {
                     'fiatWithdrawPending.rejectedAt': Date.now(),
                     balance: FieldValue.increment(refundAmt)
                 });
-                bot.sendMessage(targetUser, `❌ <b>Withdrawal Request Rejected</b>\n\nReason: ${reason || 'Incorrect account details'}\n\n💰 <b>৳${refundAmt} TK has been refunded back to your account balance!</b>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                const userRejectMsg = `<blockquote><b>❌ উইথড্র বাতিল ও রিফান্ড (Withdrawal Rejected)!</b>\n\n` +
+                    `💰 <b>রিফান্ড পরিমাণ:</b> ৳${refundAmt} BDT\n` +
+                    `📝 <b>কারণ:</b> <i>${reason || 'অ্যাকাউন্ট তথ্যে ভুল'}</i>\n\n` +
+                    `টাকাটি আপনার অ্যাপ ব্যালেন্সে পুনরায় যোগ করে দেওয়া হয়েছে। তথ্য যাচাই করে আবার চেষ্টা করুন।</blockquote>`;
+                bot.sendMessage(targetUser, userRejectMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
             }
 
             try {
@@ -2451,18 +2722,19 @@ app.post('/api/miniapp/support', async (req, res) => {
         });
 
         const config = botConfig || {};
-        const adminChatId = config.adminGroupId || 8799135330;
+        const supportGroup = config.supportGroupId || config.adminGroupId || 8799135330;
 
         const safeMsg = trimmedMsg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const adminAlert = `🎧 <b>নতুন কাস্টমার সাপোর্ট মেসেজ (Customer Support)!</b>\n\n` +
-            `👤 ইউজার: <b>${name || 'User'}</b> ${username ? '(@' + username + ')' : ''}\n` +
-            `🆔 User ID: <code>${userId || 'N/A'}</code>\n` +
-            `🎫 Ticket ID: <code>${ticketRef.id}</code>\n\n` +
-            `💬 <b>মেসেজ / সমস্যা:</b>\n<blockquote>${safeMsg}</blockquote>\n\n` +
-            `<i>সরাসরি উত্তর দিতে ইউজারের সাথে যোগাযোগ করুন।</i>`;
+        const adminAlert = `<blockquote><b>🎧 নতুন কাস্টমার সাপোর্ট মেসেজ (Customer Support)</b>\n\n` +
+            `👤 <b>ইউজার:</b> <b>${name || 'User'}</b> ${username ? '(@' + username + ')' : ''}\n` +
+            `🆔 <b>User ID:</b> <code>${userId || 'N/A'}</code>\n` +
+            `🎫 <b>Ticket ID:</b> <code>${ticketRef.id}</code>\n\n` +
+            `💬 <b>মেসেজ / সমস্যা:</b>\n` +
+            `${safeMsg}</blockquote>\n\n` +
+            `<i>👉 ইউজারের কাছে উত্তর পাঠাতে সরাসরি এই মেসেজে রিপ্লাই (Reply) দিন।</i>`;
 
         if (bot) {
-            bot.sendMessage(adminChatId, adminAlert, { parse_mode: 'HTML' }).catch(err => {
+            bot.sendMessage(supportGroup, adminAlert, { parse_mode: 'HTML' }).catch(err => {
                 console.error("Support Telegram alert error:", err.message);
             });
         }
