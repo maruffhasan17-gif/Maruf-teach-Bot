@@ -4,6 +4,7 @@ import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI 
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership } from './api';
+import brandLogo from './assets/trustpaylogo.png';
 
 const initialGraphData = [
   { time: '10:00', price: 118.5 },
@@ -57,7 +58,8 @@ const PremiumGiftBox = () => (
   </svg>
 );
 
-const FloralWatermark = ({ className = "opacity-[0.055]" }) => (
+// 1. HOME: Sacred Royal Lotus Pattern
+const HomeLotusPattern = ({ className = "opacity-[0.06]" }) => (
   <svg 
     className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-indigo-900 ${className}`} 
     width="140" 
@@ -66,54 +68,244 @@ const FloralWatermark = ({ className = "opacity-[0.055]" }) => (
     fill="none" 
     xmlns="http://www.w3.org/2000/svg"
   >
-    <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
     <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
     <path d="M50 85 C15 90, 0 75, 10 50 C25 65, 40 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
     <path d="M50 85 C85 90, 100 75, 90 50 C75 65, 60 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
-    <path d="M50 40 Q45 25, 50 10 Q55 25, 50 40" stroke="currentColor" strokeWidth="1" />
-    <circle cx="50" cy="10" r="1.5" fill="currentColor" />
-    <path d="M42 45 Q32 30, 35 18" stroke="currentColor" strokeWidth="0.8" />
-    <circle cx="35" cy="18" r="1.2" fill="currentColor" />
-    <path d="M58 45 Q68 30, 65 18" stroke="currentColor" strokeWidth="0.8" />
-    <circle cx="65" cy="18" r="1.2" fill="currentColor" />
+    <circle cx="50" cy="15" r="2" fill="currentColor" />
+    <circle cx="25" cy="35" r="1.5" fill="currentColor" />
+    <circle cx="75" cy="35" r="1.5" fill="currentColor" />
   </svg>
 );
 
-const PageBackgroundFlowers = () => (
+// 2. ADD MONEY: Cascading Prosperity Orchid & Jasmine Blooms
+const AddMoneyFloraPattern = ({ className = "opacity-[0.06]" }) => (
+  <svg 
+    className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-emerald-900 ${className}`} 
+    width="145" 
+    height="145" 
+    viewBox="0 0 100 100" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M10 90 Q40 85, 60 55 T90 20" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    <g transform="translate(60, 55)">
+      {[0, 72, 144, 216, 288].map((rot, idx) => (
+        <path key={idx} d="M0 0 C-4 -12, 4 -12, 0 0" stroke="currentColor" strokeWidth="0.9" transform={`rotate(${rot})`} fill="currentColor" fillOpacity="0.08" />
+      ))}
+      <circle cx="0" cy="0" r="1.8" fill="currentColor" />
+    </g>
+    <g transform="translate(85, 25)">
+      {[0, 72, 144, 216, 288].map((rot, idx) => (
+        <path key={idx} d="M0 0 C-3 -9, 3 -9, 0 0" stroke="currentColor" strokeWidth="0.8" transform={`rotate(${rot})`} fill="currentColor" fillOpacity="0.08" />
+      ))}
+      <circle cx="0" cy="0" r="1.5" fill="currentColor" />
+    </g>
+    <path d="M40 70 C30 65, 25 50, 35 48 C42 55, 40 65, 40 70 Z" stroke="currentColor" strokeWidth="0.9" fill="currentColor" fillOpacity="0.05" />
+    <path d="M70 42 C78 38, 85 45, 80 50 C74 48, 72 44, 70 42 Z" stroke="currentColor" strokeWidth="0.8" />
+  </svg>
+);
+
+// 3. SELL CRYPTO: Sacred Geometric Swap Mandala Blossom
+const SellCryptoMandalaPattern = ({ className = "opacity-[0.06]" }) => (
+  <svg 
+    className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-indigo-950 ${className}`} 
+    width="140" 
+    height="140" 
+    viewBox="0 0 100 100" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <circle cx="50" cy="50" r="32" stroke="currentColor" strokeWidth="0.8" strokeDasharray="3 3" />
+    <circle cx="50" cy="50" r="14" stroke="currentColor" strokeWidth="1" />
+    {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+      <g key={i} transform={`rotate(${angle} 50 50)`}>
+        <path d="M50 14 C44 26, 44 38, 50 50 C56 38, 56 26, 50 14 Z" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.04" />
+        <circle cx="50" cy="14" r="1.5" fill="currentColor" />
+      </g>
+    ))}
+    <circle cx="50" cy="50" r="3" fill="currentColor" />
+  </svg>
+);
+
+// 4. PROFILE: Imperial Laurel Botanical Wreath
+const ProfileImperialFloraPattern = ({ className = "opacity-[0.06]" }) => (
+  <svg 
+    className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-blue-950 ${className}`} 
+    width="140" 
+    height="140" 
+    viewBox="0 0 100 100" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M25 80 C20 50, 35 25, 50 20 C65 25, 80 50, 75 80" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    <path d="M30 65 C22 60, 24 50, 32 55" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.05" />
+    <path d="M70 65 C78 60, 76 50, 68 55" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.05" />
+    <path d="M35 48 C28 42, 32 34, 40 40" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.05" />
+    <path d="M65 48 C72 42, 68 34, 60 40" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.05" />
+    <circle cx="50" cy="18" r="2.5" fill="currentColor" />
+    <path d="M50 14 Q46 6, 50 2 Q54 6, 50 14" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.1" />
+  </svg>
+);
+
+// 5. WITHDRAW: Harvest Golden Lily & Upward Tulip Bloom
+const WithdrawLilyPattern = ({ className = "opacity-[0.06]" }) => (
+  <svg 
+    className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-amber-950 ${className}`} 
+    width="140" 
+    height="140" 
+    viewBox="0 0 100 100" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M50 90 Q50 65, 50 45" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    <path d="M50 60 C35 55, 18 40, 24 20 C35 32, 45 42, 50 55" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.06" />
+    <path d="M50 60 C65 55, 82 40, 76 20 C65 32, 55 42, 50 55" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.06" />
+    <path d="M50 50 C44 35, 42 20, 50 10 C58 20, 56 35, 50 50" stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.08" />
+    <circle cx="50" cy="8" r="2" fill="currentColor" />
+    <circle cx="23" cy="18" r="1.5" fill="currentColor" />
+    <circle cx="77" cy="18" r="1.5" fill="currentColor" />
+  </svg>
+);
+
+// Backward-compatibility alias
+const FloralWatermark = HomeLotusPattern;
+
+const PageBackgroundFlowers = ({ page = 'home' }) => (
   <div className="fixed inset-0 pointer-events-none select-none z-0 overflow-hidden">
-    {/* Top-right delicate aesthetic floral watermark */}
-    <svg 
-      className="absolute -top-10 -right-10 w-72 h-72 text-indigo-900 opacity-[0.035] transform rotate-12" 
-      viewBox="0 0 100 100" 
-      fill="none" 
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-      <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-      <path d="M50 85 C15 90, 0 75, 10 50 C25 65, 40 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
-      <path d="M50 85 C85 90, 100 75, 90 50 C75 65, 60 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
-      <circle cx="50" cy="10" r="2" fill="currentColor" />
-    </svg>
-    {/* Bottom-left delicate aesthetic floral watermark */}
-    <svg 
-      className="absolute bottom-16 -left-12 w-80 h-80 text-indigo-900 opacity-[0.03] transform -rotate-45" 
-      viewBox="0 0 100 100" 
-      fill="none" 
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-      <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-      <path d="M50 85 C15 90, 0 75, 10 50 C25 65, 40 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
-      <path d="M50 85 C85 90, 100 75, 90 50 C75 65, 60 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
-      <circle cx="50" cy="10" r="2" fill="currentColor" />
-    </svg>
+    {page === 'home' && (
+      <>
+        <div className="absolute -top-12 -right-12 w-80 h-80 text-indigo-900 opacity-[0.04] transform rotate-12">
+          <HomeLotusPattern className="w-full h-full" />
+        </div>
+        <div className="absolute bottom-12 -left-12 w-80 h-80 text-indigo-900 opacity-[0.035] transform -rotate-45">
+          <HomeLotusPattern className="w-full h-full" />
+        </div>
+      </>
+    )}
+    {page === 'add-money' && (
+      <>
+        <div className="absolute -top-10 -right-10 w-80 h-80 text-emerald-800 opacity-[0.05] transform rotate-6">
+          <AddMoneyFloraPattern className="w-full h-full" />
+        </div>
+        <div className="absolute bottom-16 -left-10 w-80 h-80 text-emerald-800 opacity-[0.04] transform -rotate-30">
+          <AddMoneyFloraPattern className="w-full h-full" />
+        </div>
+      </>
+    )}
+    {page === 'sell' && (
+      <>
+        <div className="absolute -top-12 -right-12 w-84 h-84 text-indigo-950 opacity-[0.045] transform rotate-45">
+          <SellCryptoMandalaPattern className="w-full h-full" />
+        </div>
+        <div className="absolute bottom-14 -left-14 w-84 h-84 text-indigo-950 opacity-[0.035] transform -rotate-12">
+          <SellCryptoMandalaPattern className="w-full h-full" />
+        </div>
+      </>
+    )}
+    {page === 'profile' && (
+      <>
+        <div className="absolute -top-10 -right-10 w-80 h-80 text-blue-950 opacity-[0.045] transform rotate-12">
+          <ProfileImperialFloraPattern className="w-full h-full" />
+        </div>
+        <div className="absolute bottom-16 -left-10 w-80 h-80 text-blue-950 opacity-[0.035] transform -rotate-45">
+          <ProfileImperialFloraPattern className="w-full h-full" />
+        </div>
+      </>
+    )}
+    {page === 'withdraw' && (
+      <>
+        <div className="absolute -top-10 -right-10 w-80 h-80 text-amber-950 opacity-[0.05] transform rotate-15">
+          <WithdrawLilyPattern className="w-full h-full" />
+        </div>
+        <div className="absolute bottom-16 -left-10 w-80 h-80 text-amber-950 opacity-[0.04] transform -rotate-30">
+          <WithdrawLilyPattern className="w-full h-full" />
+        </div>
+      </>
+    )}
+    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'profile' && page !== 'withdraw' && (
+      <div className="absolute -top-12 -right-12 w-80 h-80 text-indigo-900 opacity-[0.035]">
+        <HomeLotusPattern className="w-full h-full" />
+      </div>
+    )}
   </div>
 );
 
-const CutCornerCard = ({ children, className = '', containerClassName = '', onClick }) => (
+const BloomingFlowerLoader = ({ lang = 'bn' }) => (
+  <div className="fixed inset-0 bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#eef2ff] z-[99999] flex flex-col items-center justify-center font-sans select-none p-4">
+    {/* Blooming Flower Animation Container */}
+    <div className="relative w-44 h-44 flex items-center justify-center">
+      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-500/15 to-transparent blur-2xl animate-pulse" />
+      
+      {/* Outer Rotating Sacred Lotus Mandala */}
+      <svg 
+        className="absolute inset-0 w-full h-full text-indigo-600/40 animate-[spin_18s_linear_infinite]"
+        viewBox="0 0 200 200" 
+        fill="none" 
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+          <g key={i} transform={`rotate(${angle} 100 100)`}>
+            <path 
+              d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" 
+              fill="rgba(99,102,241,0.18)" 
+              stroke="rgba(99,102,241,0.6)" 
+              strokeWidth="1.2"
+            />
+            <circle cx="100" cy="18" r="2.5" fill="#6366f1" />
+          </g>
+        ))}
+      </svg>
+
+      {/* Counter-rotating delicate floral ring */}
+      <svg 
+        className="absolute w-32 h-32 text-purple-500/50 animate-[spin_12s_linear_infinite_reverse]"
+        viewBox="0 0 100 100" 
+        fill="none" 
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {[0, 60, 120, 180, 240, 300].map((angle, i) => (
+          <g key={i} transform={`rotate(${angle} 50 50)`}>
+            <path 
+              d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
+              fill="rgba(168,85,247,0.2)" 
+              stroke="rgba(147,51,234,0.6)" 
+              strokeWidth="1"
+            />
+          </g>
+        ))}
+      </svg>
+
+      {/* Center Heart: Brand Transparent Logo Floating Elegantly */}
+      <div className="relative z-10 w-24 h-24 flex items-center justify-center animate-[pulse_2.5s_ease-in-out_infinite]">
+        <img 
+          src={brandLogo} 
+          alt="Trust Pay" 
+          className="w-full h-full object-contain drop-shadow-[0_8px_20px_rgba(79,70,229,0.45)]" 
+        />
+      </div>
+    </div>
+
+    {/* Typography */}
+    <h2 className="text-[#0f172a] font-black text-2xl mt-5 tracking-tight flex items-center gap-1.5">
+      Trust Pay
+    </h2>
+    <div className="flex items-center gap-2 mt-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100/80">
+      <div className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+      <span className="text-[12px] font-bold text-indigo-700">
+        {lang === 'bn' ? 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Loading, please wait...'}
+      </span>
+    </div>
+
+    {/* Shimmer Progress Line */}
+    <div className="w-36 h-1 bg-slate-200/80 rounded-full mt-4 overflow-hidden relative">
+      <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 rounded-full animate-pulse" />
+    </div>
+  </div>
+);
+
+const CutCornerCard = ({ children, className = '', containerClassName = '', onClick, flower = null }) => (
   <div 
     onClick={onClick}
     className={`relative p-[1.5px] bg-gradient-to-br from-slate-200 via-slate-100 to-indigo-100/70 shadow-[0_4px_16px_rgba(15,23,42,0.04)] transition-all ${containerClassName}`}
@@ -127,7 +319,7 @@ const CutCornerCard = ({ children, className = '', containerClassName = '', onCl
         clipPath: 'polygon(11px 0, calc(100% - 11px) 0, 100% 11px, 100% calc(100% - 11px), calc(100% - 11px) 100%, 11px 100%, 0 calc(100% - 11px), 0 11px)',
       }}
     >
-      <FloralWatermark />
+      {flower || <HomeLotusPattern />}
       <div className="relative z-10 w-full">{children}</div>
     </div>
   </div>
@@ -629,35 +821,21 @@ export default function App() {
   const manifestUrl = 'https://maruf-teach-bot.onrender.com/tonconnect-manifest.json';
 
   if (appLoading) {
-    return (
-      <div className="fixed inset-0 bg-[#f8fafc] z-[99999] flex flex-col items-center justify-center font-sans select-none">
-        <div className="w-24 h-24 rounded-3xl bg-white flex items-center justify-center shadow-xl shadow-slate-200/60 border border-slate-100 p-2 animate-bounce">
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Trust Pay" className="w-full h-full object-contain drop-shadow" />
-        </div>
-        <h2 className="text-[#0f172a] font-black text-lg mt-4 tracking-tight">Trust Pay</h2>
-        <p className="text-[#64748b] text-xs mt-1.5 font-semibold flex items-center gap-2">
-          <Loader2 size={13} className="animate-spin text-indigo-600" />
-          {lang === 'bn' ? 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Loading, please wait...'}
-        </p>
-        <div className="w-28 h-1 bg-[#e2e8f0] rounded-full mt-4 overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-indigo-600 to-indigo-400 rounded-full animate-pulse" />
-        </div>
-      </div>
-    );
+    return <BloomingFlowerLoader lang={lang} />;
   }
 
   return (
     <TonConnectUIProvider manifestUrl={manifestUrl}>
       <TonConnectStyles />
       <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] pb-28 relative overflow-x-hidden font-sans selection:bg-[var(--color-brand)]/20">
-        <PageBackgroundFlowers />
+        <PageBackgroundFlowers page={activeTab} />
         
         <div className="relative z-10 p-4 max-w-md mx-auto">
           {/* Header */}
           <div id="main-app-header" className="flex justify-between items-center mb-6 pt-2 transition-all duration-300">
              <div className="flex items-center gap-3">
-                 <div className="w-[42px] h-[42px] bg-white rounded-full flex items-center justify-center font-bold text-[var(--color-text-primary)] premium-shadow border border-[var(--color-border)] p-1 overflow-hidden">
-                    <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Trust Pay" className="w-full h-full object-contain" />
+                 <div className="w-[44px] h-[44px] flex items-center justify-center shrink-0">
+                    <img src={brandLogo} alt="Trust Pay" className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(79,70,229,0.35)]" />
                  </div>
                  <div>
                     <h1 className="text-base font-semibold text-[var(--color-text-primary)] leading-tight">{t.appName}</h1>
@@ -862,12 +1040,12 @@ export default function App() {
                   clipPath: 'polygon(15px 0, calc(100% - 15px) 0, 100% 15px, 100% calc(100% - 15px), calc(100% - 15px) 100%, 15px 100%, 0 calc(100% - 15px), 0 15px)',
                 }}
               >
-                <FloralWatermark className="opacity-[0.08]" />
+                <HomeLotusPattern className="opacity-[0.08]" />
                 
                 {/* Brand Logo with Glow */}
                 <div className="relative z-10 flex flex-col items-center justify-center mb-3">
-                  <div className="w-16 h-16 rounded-2xl bg-indigo-50/80 border border-indigo-100 p-2 flex items-center justify-center shadow-lg shadow-indigo-100/50 mb-2">
-                    <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Trust Pay" className="w-full h-full object-contain drop-shadow" />
+                  <div className="w-16 h-16 flex items-center justify-center mb-2">
+                    <img src={brandLogo} alt="Trust Pay" className="w-full h-full object-contain drop-shadow-[0_4px_16px_rgba(79,70,229,0.35)]" />
                   </div>
                   <span className="inline-block px-2.5 py-0.5 rounded-full bg-indigo-100/80 text-indigo-700 text-[10px] font-black uppercase tracking-wider mb-1">
                     বাধ্যতামূলক ভেরিফিকেশন
@@ -1095,39 +1273,55 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
 
       {/* Quick Action Buttons: Buy Crypto & Sell Crypto */}
       <div className="grid grid-cols-2 gap-2.5">
-         <button 
+         {/* Buy Crypto Button */}
+         <div 
              onClick={onOpenBuyCrypto} 
-             className="relative overflow-hidden flex items-center gap-2.5 bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 text-white p-3 shadow-md shadow-indigo-600/20 active:scale-[0.97] transition-all text-left group"
+             className="relative p-[1.5px] bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-800 shadow-sm active:scale-[0.97] transition-all cursor-pointer"
              style={{
                clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px)',
              }}
          >
-             <FloralWatermark className="opacity-[0.08]" />
-             <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 group-hover:scale-105 transition-transform relative z-10">
-                 <Coins size={18} />
+             <div 
+                 className="relative w-full h-[60px] flex items-center gap-2.5 px-3 bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 text-white overflow-hidden"
+                 style={{
+                   clipPath: 'polygon(11px 0, calc(100% - 11px) 0, 100% 11px, 100% calc(100% - 11px), calc(100% - 11px) 100%, 11px 100%, 0 calc(100% - 11px), 0 11px)',
+                 }}
+             >
+                 <HomeLotusPattern className="opacity-[0.08]" />
+                 <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white shrink-0 relative z-10">
+                     <Coins size={18} />
+                 </div>
+                 <div className="relative z-10 min-w-0">
+                     <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider leading-none truncate">{t?.buyCryptoSub || 'Instant Send'}</p>
+                     <p className="text-[14px] font-bold text-white leading-tight mt-1 tracking-tight truncate">{t?.buyCrypto || 'Buy Crypto'}</p>
+                 </div>
              </div>
-             <div className="relative z-10">
-                 <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-wider leading-none">{t?.buyCryptoSub || 'Instant Send'}</p>
-                 <p className="text-[15px] font-bold text-white leading-tight mt-1 tracking-tight">{t?.buyCrypto || 'Buy Crypto'}</p>
-             </div>
-         </button>
+         </div>
          
-         <button 
+         {/* Sell Crypto Button */}
+         <div 
              onClick={onGoToSell} 
-             className="relative overflow-hidden flex items-center gap-2.5 bg-white text-slate-900 p-3 shadow-sm border border-slate-200 active:scale-[0.97] transition-all text-left group hover:border-slate-300"
+             className="relative p-[1.5px] bg-gradient-to-br from-slate-200 via-slate-300 to-indigo-200 shadow-sm active:scale-[0.97] transition-all cursor-pointer"
              style={{
                clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px)',
              }}
          >
-             <FloralWatermark className="opacity-[0.05]" />
-             <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 group-hover:scale-105 transition-transform border border-indigo-100 relative z-10">
-                 <ArrowRightLeft size={18} />
+             <div 
+                 className="relative w-full h-[60px] flex items-center gap-2.5 px-3 bg-white text-slate-900 overflow-hidden"
+                 style={{
+                   clipPath: 'polygon(11px 0, calc(100% - 11px) 0, 100% 11px, 100% calc(100% - 11px), calc(100% - 11px) 100%, 11px 100%, 0 calc(100% - 11px), 0 11px)',
+                 }}
+             >
+                 <HomeLotusPattern className="opacity-[0.05]" />
+                 <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-100 relative z-10">
+                     <ArrowRightLeft size={18} />
+                 </div>
+                 <div className="relative z-10 min-w-0">
+                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none truncate">{t?.sellCryptoSub || 'Instant Swap'}</p>
+                     <p className="text-[14px] font-bold text-slate-900 leading-tight mt-1 tracking-tight truncate">{t?.sellCrypto || 'Sell Crypto'}</p>
+                 </div>
              </div>
-             <div className="relative z-10">
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-none">{t?.sellCryptoSub || 'Instant Swap'}</p>
-                 <p className="text-[15px] font-bold text-slate-900 leading-tight mt-1 tracking-tight">{t?.sellCrypto || 'Sell Crypto'}</p>
-             </div>
-         </button>
+         </div>
       </div>
 
       {/* Live Chart Card */}
@@ -1452,7 +1646,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
     if (step === 3) {
         return (
             <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-2 text-center pb-24 max-w-sm mx-auto">
-                <CutCornerCard className="p-6 text-center space-y-4">
+                <CutCornerCard className="p-6 text-center space-y-4" flower={<AddMoneyFloraPattern />}>
                     {/* Blooming Flower Graphic */}
                     <BloomingFlowerGraphic />
 
@@ -1552,7 +1746,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                 </div>
 
                 {/* Instructions Card */}
-                <CutCornerCard className="p-3.5 mb-3 space-y-3">
+                <CutCornerCard className="p-3.5 mb-3 space-y-3" flower={<AddMoneyFloraPattern />}>
                     <div className="flex justify-between items-center pb-2.5 border-b border-gray-100">
                         <div className="flex items-center gap-2">
                             <img 
@@ -1609,7 +1803,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                 </CutCornerCard>
 
                 {/* TrxID Input Card */}
-                <CutCornerCard className="p-3.5 mb-3 space-y-2.5">
+                <CutCornerCard className="p-3.5 mb-3 space-y-2.5" flower={<AddMoneyFloraPattern />}>
                     <label className="text-[11px] font-bold text-gray-500 block uppercase tracking-wider">
                         Transaction ID (TrxID)
                     </label>
@@ -1690,7 +1884,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
 
             <div className="space-y-3">
                 {/* Amount Card */}
-                <CutCornerCard className="p-3.5 space-y-3">
+                <CutCornerCard className="p-3.5 space-y-3" flower={<AddMoneyFloraPattern />}>
                     <div>
                         <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase mb-1.5 ml-0.5">
                             {t?.depositAmount || 'Deposit Amount (BDT)'}
@@ -1728,7 +1922,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                 </CutCornerCard>
 
                 {/* Payment Method Selection */}
-                <CutCornerCard className="p-3.5 space-y-2.5">
+                <CutCornerCard className="p-3.5 space-y-2.5" flower={<AddMoneyFloraPattern />}>
                     <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase ml-0.5">
                         {t?.selectMethod || 'Select Payment Method'}
                     </label>
@@ -2362,7 +2556,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
     if (step === 2) {
         return (
             <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-2 text-center pb-24 max-w-sm mx-auto">
-                <CutCornerCard className="p-6 text-center space-y-4">
+                <CutCornerCard className="p-6 text-center space-y-4" flower={<SellCryptoMandalaPattern />}>
                     {/* Blooming Flower Graphic */}
                     <BloomingFlowerGraphic />
 
@@ -2464,7 +2658,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 )}
             </div>
 
-            <CutCornerCard className="p-3.5 space-y-3">
+            <CutCornerCard className="p-3.5 space-y-3" flower={<SellCryptoMandalaPattern />}>
                 <div className="space-y-2.5">
                     {/* 1. Asset Selection */}
                     <div className="shrink-0">
@@ -2926,7 +3120,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
   return (
     <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
       {/* 1. IDENTITY & LANGUAGE MASTER CARD */}
-      <CutCornerCard className="p-4">
+      <CutCornerCard className="p-4" flower={<ProfileImperialFloraPattern />}>
          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
                <div className="w-12 h-12 bg-indigo-50 border-2 border-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-black text-lg shrink-0 shadow-xs">
@@ -2977,7 +3171,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
       </CutCornerCard>
 
       {/* 2. WEALTH & PAYOUT MASTER CARD */}
-      <CutCornerCard className="p-4 space-y-3.5">
+      <CutCornerCard className="p-4 space-y-3.5" flower={<ProfileImperialFloraPattern />}>
          <div className="flex justify-between items-start">
             <div>
                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
@@ -3063,7 +3257,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
       </CutCornerCard>
 
       {/* 3. HISTORY & SUPPORT SERVICES MASTER CARD */}
-      <CutCornerCard className="p-2 space-y-1">
+      <CutCornerCard className="p-2 space-y-1" flower={<ProfileImperialFloraPattern />}>
          {/* History Row */}
          <div 
             onClick={onGoToHistory} 
@@ -3513,7 +3707,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             )}
 
             {/* Amount Input Card */}
-            <CutCornerCard className="p-3.5 space-y-2.5">
+            <CutCornerCard className="p-3.5 space-y-2.5" flower={<WithdrawLilyPattern />}>
                 <label className="flex justify-between items-center mb-2">
                     <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">
                         {lang === 'bn' ? 'উত্তোলনের পরিমাণ (BDT)' : 'Amount (BDT)'}
@@ -3537,7 +3731,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
 
             {/* Live Fee Breakdown */}
             {amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 && (
-                <CutCornerCard className="p-3 space-y-1.5 text-[12px]">
+                <CutCornerCard className="p-3 space-y-1.5 text-[12px]" flower={<WithdrawLilyPattern />}>
                     <div className="flex justify-between items-center">
                         <span className="text-slate-600 font-medium">{lang === 'bn' ? 'উত্তোলনের পরিমাণ' : 'Withdraw Amount'}</span>
                         <span className="font-bold text-slate-900">৳ {parseFloat(amount).toFixed(2)}</span>
@@ -3555,7 +3749,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             )}
 
             {/* Saved Wallet Info with Edit Icon Aligned Right and Floral Underneath */}
-            <CutCornerCard className="p-3.5">
+            <CutCornerCard className="p-3.5" flower={<WithdrawLilyPattern />}>
                 <div className="flex items-center justify-between gap-3 w-full">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                         <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">

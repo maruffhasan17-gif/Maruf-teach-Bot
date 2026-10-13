@@ -4,6 +4,8 @@ import App from './App.jsx';
 import './index.css';
 import WebApp from '@twa-dev/sdk';
 
+import brandLogo from './assets/trustpaylogo.png';
+
 try {
     if (WebApp && WebApp.ready) {
         WebApp.ready();
@@ -28,8 +30,8 @@ class RootErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'sans-serif', textAlign: 'center', backgroundColor: '#f8fafc' }}>
-          <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(0,0,0,0.06)', marginBottom: '16px' }}>
-            <img src="/app/logo.png" onError={(e)=>{e.target.src='./logo.png'}} style={{ width: '60px', height: '60px', objectFit: 'contain' }} alt="Trust Pay" />
+          <div style={{ width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+            <img src={brandLogo} style={{ width: '60px', height: '60px', objectFit: 'contain' }} alt="Trust Pay" />
           </div>
           <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 8px' }}>সাময়িক সমস্যা দেখা দিয়েছে</h2>
           <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 20px', maxWidth: '280px' }}>

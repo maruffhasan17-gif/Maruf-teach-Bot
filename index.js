@@ -165,30 +165,30 @@ const userStates = {};
 
 const t = {
     en: {
-        welcome: `💎 <b>Trust Pay — Official Platform</b> 💎\n\nWelcome! Buy & Sell <b>USDT, TON & GRAM</b> instantly in Bangladesh via bKash & Nagad.\n\n⚡ <b>Key Features:</b>\n• Live Instant Crypto Buy & Sell\n• Automated bKash & Nagad Verification\n• Sell Crypto starting from just 1 BDT\n• Instant Payouts & Zero Hassle\n\n📢 <b>Mandatory Communities:</b>\nPlease join both our official channel and payout group before accessing the platform:\n\n1️⃣ <b>Channel:</b> @maruf_teach\n2️⃣ <b>Payout Group:</b> @bd_trustpay_payout\n\n👇 <b>Click below to join and verify:</b>`,
+        welcome: `💎 <b>Trust Pay</b> 💎\n\nWelcome! Instant & secure Crypto Buy/Sell via bKash & Nagad.\n\n📢 <b>Required Communities:</b>\n1. Channel: @maruf_teach\n2. Payout Group: @bd_trustpay_payout\n\n👇 <i>Join both and tap Verify below:</i>`,
         joinChannelBtn: '📢 1. Join Channel (@maruf_teach)',
         joinGroupBtn: '👥 2. Join Group (@bd_trustpay_payout)',
         verifyBtn: '✅ Verify & Open App',
-        notJoined: '❌ Please join both our Official Channel and Payout Group first!',
+        notJoined: '❌ Please join both our Channel and Group first!',
         langPrompt: '✅ <b>Verification Successful!</b>\n\nPlease select your language:',
-        profileMsg: '👤 <b>Your Profile</b>\n\nID: {id}',
+        profileMsg: '👤 <b>Profile</b>\n\nID: {id}',
         bkashMsg: '🚀 <b>bKash Payment</b>',
         cryptoMsg: '💎 <b>Crypto Payment</b>',
         menu: { free: '🎁 Free', profile: '👤 Profile' },
-        mainMenuMsg: "🎉 <b>Verification Successful!</b>\n\nWelcome to Trust Pay.\n👇 <b>Click the button below to open the app:</b>"
+        mainMenuMsg: "🎉 <b>Verification Successful!</b>\n\n👇 <b>Tap below to open the app:</b>"
     },
     bn: {
-        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে অফিসিয়াল প্ল্যাটফর্ম</b> 💎\n\nস্বাগতম! বাংলাদেশ থেকে সবচেয়ে দ্রুত ও নিরাপদে <b>USDT, TON ও GRAM</b> ক্রয়-বিক্রয় করুন বিকাশ ও নগদের মাধ্যমে।\n\n⚡ <b>আমাদের সুবিধাসমূহ:</b>\n• ইনস্ট্যান্ট ক্রিপ্টো ক্রয় ও বিক্রয় (লাইভ রেট)\n• বিকাশ ও নগদ অটো-ভেরিফিকেশন\n• মাত্র ১ টাকা থেকেও ক্রিপ্টো বিক্রি\n• দ্রুত ও নিরাপদ পেমেন্ট উইথড্র\n\n📢 <b>বাধ্যতামূলক কমিউনিটি:</b>\nপ্ল্যাটফর্ম ব্যবহার করতে নিচের চ্যানেল এবং পে-আউট গ্রুপ দুটিতেই যুক্ত থাকা আবশ্যক:\n\n১️⃣ <b>অফিসিয়াল চ্যানেল:</b> @maruf_teach\n২️⃣ <b>পে-আউট প্রুফ গ্রুপ:</b> @bd_trustpay_payout\n\n👇 <b>নিচে জয়েন করে ভেরিফাই করুন:</b>`,
-        joinChannelBtn: '📢 ১. চ্যানেল জয়েন করুন (@maruf_teach)',
-        joinGroupBtn: '👥 ২. গ্রুপ জয়েন করুন (@bd_trustpay_payout)',
-        verifyBtn: '✅ ভেরিফাই ও অ্যাপ ওপেন করুন',
-        notJoined: '❌ আপনি এখনও চ্যানেল বা গ্রুপে জয়েন করেননি! দয়া করে দুটিতেই জয়েন করে ভেরিফাই চাপুন।',
-        langPrompt: '✅ <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nআপনার ভাষা নির্বাচন করুন:',
-        profileMsg: '👤 <b>আপনার প্রোফাইল</b>\n\nআইডি: {id}',
+        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম! বিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল।\n\n📢 <b>কমিউনিটিতে যুক্ত হোন:</b>\n১. চ্যানেল: @maruf_teach\n২. পে-আউট গ্রুপ: @bd_trustpay_payout\n\n👇 <i>জয়েন করে নিচের বোতামে চাপ দিন:</i>`,
+        joinChannelBtn: '📢 ১. চ্যানেল জয়েন (@maruf_teach)',
+        joinGroupBtn: '👥 ২. গ্রুপ জয়েন (@bd_trustpay_payout)',
+        verifyBtn: '✅ ভেরিফাই ও অ্যাপ ওপেন',
+        notJoined: '❌ অনুগ্রহ করে চ্যানেল ও গ্রুপ দুটিতেই যুক্ত হোন!',
+        langPrompt: '✅ <b>ভেরিফিকেশন সফল!</b>\n\nভাষা নির্বাচন করুন:',
+        profileMsg: '👤 <b>প্রোফাইল</b>\n\nID: {id}',
         bkashMsg: '🚀 <b>বিকাশ পেমেন্ট</b>',
         cryptoMsg: '💎 <b>ক্রিপ্টো পেমেন্ট</b>',
-        menu: { free: '🎁 ফ্রি (Free)', profile: '👤 আমার প্রোফাইল' },
-        mainMenuMsg: "🎉 <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nআপনাকে Trust Pay প্ল্যাটফর্মে স্বাগতম। আপনার ভেরিফিকেশন সফল হয়েছে।\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:</b>"
+        menu: { free: '🎁 ফ্রি', profile: '👤 প্রোফাইল' },
+        mainMenuMsg: "🎉 <b>ভেরিফিকেশন সফল!</b>\n\n👇 <b>নিচের বোতামে চাপ দিয়ে অ্যাপ ওপেন করুন:</b>"
     }
 };
 
@@ -464,7 +464,7 @@ bot.onText(/\/start/, async (msg) => {
     const isAlreadyVerified = existingUserDoc && existingUserDoc.exists && existingUserDoc.data().status === 'verified';
 
     if (isAlreadyVerified && membership.allJoined) {
-        const welcomeBackMsg = `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম <b>${firstName}</b>!\nআপনার অ্যাকাউন্ট ভেরিফাইড রয়েছে।\n\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপ ওপেন করুন:</b>`;
+        const welcomeBackMsg = `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম <b>${firstName}</b>!\nআপনার অ্যাকাউন্ট ভেরিফাইড রয়েছে।\n\n👇 <b>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</b>`;
         return bot.sendMessage(chatId, welcomeBackMsg, {
             parse_mode: 'HTML',
             reply_markup: {
@@ -479,9 +479,9 @@ bot.onText(/\/start/, async (msg) => {
         parse_mode: 'HTML',
         reply_markup: {
             inline_keyboard: [
-                [{ text: '📢 ১. চ্যানেল জয়েন করুন (@maruf_teach)', url: OFFICIAL_CHANNEL_URL }],
-                [{ text: '👥 ২. গ্রুপ জয়েন করুন (@bd_trustpay_payout)', url: PAYOUT_GROUP_URL }],
-                [{ text: '✅ ভেরিফাই ও অ্যাপ ওপেন করুন', callback_data: 'verify_join' }]
+                [{ text: '📢 ১. চ্যানেল জয়েন (@maruf_teach)', url: OFFICIAL_CHANNEL_URL }],
+                [{ text: '👥 ২. গ্রুপ জয়েন (@bd_trustpay_payout)', url: PAYOUT_GROUP_URL }],
+                [{ text: '✅ ভেরিফাই ও অ্যাপ ওপেন', callback_data: 'verify_join' }]
             ]
         }
     };
@@ -522,8 +522,8 @@ bot.on('callback_query', async (query) => {
                     }
                 }).catch(()=>{});
 
-                // 3. Send ONE clean welcome message with the Open App button
-                const msgText = `🎉 <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\nTrust Pay প্ল্যাটফর্মে আপনাকে স্বাগতম। আপনার অ্যাকাউন্ট সফলভাবে ভেরিফাই সম্পন্ন হয়েছে।\n\n👇 <b>নিচের বোতামে ক্লিক করে অ্যাপ ওপেন করুন:</b>`;
+                // 3. Send clean welcome message with the Open App button
+                const msgText = `🎉 <b>ভেরিফিকেশন সফল!</b>\n\nTrust Pay-তে স্বাগতম <b>${query.from.first_name || ''}</b>। আপনার অ্যাকাউন্ট সম্পূর্ণ প্রস্তুত।\n\n👇 <b>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</b>`;
                 bot.sendMessage(chatId, msgText, {
                     parse_mode: 'HTML',
                     reply_markup: {
