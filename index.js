@@ -1220,9 +1220,15 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
-// Serve static manifest for TON Connect
-app.use('/tonconnect-manifest.json', express.static('tonconnect-manifest.json'));
-app.use('/log✅png', express.static('log✅png'));
+// Serve static manifest and logo for TON Connect with CORS
+app.get('/tonconnect-manifest.json', (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.sendFile(path.join(__dirname, 'tonconnect-manifest.json'));
+});
+app.get('/logo.png', (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.sendFile(path.join(__dirname, 'logo.png'));
+});
 
 const { mnemonicToPrivateKey } = require('@ton/crypto');
 const { WalletContractV4, internal, TonClient } = require('@ton/ton');
@@ -1296,7 +1302,16 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         // Increment daily count
         await countRef.set({ withdrawals: todayCount + 1 }, { merge: true });
 
-        const calcFee = fee || (amount * 0.05);
+        const calculateSendMoneyFee = (amt) => {
+            const a = parseFloat(amt) || 0;
+            if (a <= 0) return 0;
+            if (a >= 1500) return 30;
+            if (a > 1000) return 20;
+            if (a > 500) return 10;
+            if (a > 100) return 7;
+            return 5;
+        };
+        const calcFee = (fee !== undefined && fee !== null) ? parseFloat(fee) : calculateSendMoneyFee(amount);
         const calcReceive = receiveAmount || (amount - calcFee);
 
         // Record withdrawal in dedicated fiat_withdrawals collection
@@ -1329,7 +1344,7 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         // Notify Admin Group
         const config = require('./config.json');
         if (config.adminGroupId) {
-            const msg = `<blockquote><b>💳 New Fiat Withdrawal</b></blockquote>\n\n👤 User: <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a>\n🆔 ID: ${userId}\n\n#️⃣ <b>Serial No: ${serialNum}</b>\n💰 Total Amount: <b>৳ ${amount} BDT</b>\n📉 Fee (5%): <b>৳ ${calcFee.toFixed(2)} BDT</b>\n✅ Send Exactly: <b>৳ ${calcReceive.toFixed(2)} BDT</b>\n\n🏦 Method: ${userData.fiatWallet.method}\n📞 Number: <code>${userData.fiatWallet.number}</code>\n📛 Name: ${userData.fiatWallet.name || 'User'}\n\n⚙️ <b>Actions (Reply to this):</b>\n- <code>Ok</code> to mark paid\n- <code>Reject [reason]</code> to refund`;
+            const msg = `<blockquote><b>💳 New Fiat Withdrawal</b></blockquote>\n\n👤 User: <a href="tg://user?id=${userId}">${userData.first_name || 'User'}</a>\n🆔 ID: ${userId}\n\n#️⃣ <b>Serial No: ${serialNum}</b>\n💰 Total Amount: <b>৳ ${amount} BDT</b>\n📉 Send Money Fee: <b>৳ ${calcFee.toFixed(2)} BDT</b>\n✅ Send Exactly: <b>৳ ${calcReceive.toFixed(2)} BDT</b>\n\n🏦 Method: ${userData.fiatWallet.method}\n📞 Number: <code>${userData.fiatWallet.number}</code>\n📛 Name: ${userData.fiatWallet.name || 'User'}\n\n⚙️ <b>Actions (Reply to this):</b>\n- <code>Ok</code> to mark paid\n- <code>Reject [reason]</code> to refund`;
             await bot.sendMessage(config.adminGroupId, msg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
         
@@ -1604,7 +1619,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 }
 
                 return res.status(400).json({
-                    error: `এডমিন ওয়ালেটে বর্তমানে পর্যাপ্ত ${asset} বা গ্যাস ফি নেই (এডমিন ব্যালেন্স: ${treasury.ton} TON, প্রয়োজন: ${requiredTon.toFixed(4)} TON)। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন বা এডমিনকে জানান। আপনার ব্যালেন্স অক্ষত আছে।`
+                    error: 'সার্ভার বা ব্লকচেইন নেটওয়ার্কে সাময়িক ট্রাফিকের কারণে ক্রিপ্টো ট্রান্সফার সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।'
                 });
             }
         } else if (asset === 'USDT') {
@@ -1620,7 +1635,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 }
 
                 return res.status(400).json({
-                    error: `এডমিন ওয়ালেটে বর্তমানে পর্যাপ্ত USDT স্টক নেই (এডমিন ব্যালেন্স: ${treasury.usdt} USDT, প্রয়োজন: ${cryptoAmount} USDT)। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন বা এডমিনকে জানান। আপনার ব্যালেন্স অক্ষত আছে।`
+                    error: 'সার্ভার বা ব্লকচেইন নেটওয়ার্কে সাময়িক ট্রাফিকের কারণে ক্রিপ্টো ট্রান্সফার সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।'
                 });
             }
 
@@ -1635,7 +1650,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 }
 
                 return res.status(400).json({
-                    error: `এডমিন ওয়ালেটে ট্রানজেকশনের জন্য প্রয়োজনীয় TON গ্যাস ফি নেই (বর্তমান: ${treasury.ton} TON, প্রয়োজন: 0.05 TON)। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন। আপনার ব্যালেন্স অক্ষত আছে।`
+                    error: 'সার্ভার বা ব্লকচেইন নেটওয়ার্কে সাময়িক ট্রাফিকের কারণে ক্রিপ্টো ট্রান্সফার সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।'
                 });
             }
         }

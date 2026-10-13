@@ -524,69 +524,102 @@ export default function App() {
           )}
         </div>
 
-        {/* PREMIUM EXECUTIVE BOTTOM NAVIGATION */}
-        {!isKeyboardVisible && !isModalOpen && activeTab !== 'buy' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && (
+        {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
+        {!isKeyboardVisible && !isModalOpen && activeTab !== 'buy' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && (() => {
+            const navTabs = ['home', 'add-money', 'sell', 'profile'];
+            const activeIndex = navTabs.indexOf(activeTab);
+            return (
             <div className="fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none">
-                <div className="w-full max-w-[380px] bg-white/95 backdrop-blur-2xl rounded-[28px] flex justify-between items-center p-1.5 shadow-[0_12px_36px_rgba(15,23,42,0.08)] border border-slate-200/80 pointer-events-auto">
+                <div className="w-full max-w-[380px] bg-white/95 backdrop-blur-2xl rounded-[28px] relative flex justify-between items-center p-1.5 shadow-[0_12px_36px_rgba(15,23,42,0.08)] border border-slate-200/80 pointer-events-auto overflow-hidden">
                     
+                    {/* Delicate floral line art in navigation bar corner */}
+                    <svg 
+                      className="absolute -right-2 -top-2 w-14 h-14 text-indigo-900/10 pointer-events-none select-none" 
+                      viewBox="0 0 100 100" 
+                      fill="none" 
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.5" />
+                      <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1.2" />
+                      <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1.2" />
+                      <circle cx="50" cy="15" r="2" fill="currentColor" />
+                    </svg>
+
+                    {/* SMOOTH SLIDING ACTIVE PILL */}
+                    {activeIndex !== -1 && (
+                      <div 
+                        className="absolute top-1.5 bottom-1.5 rounded-[20px] bg-indigo-50 border border-indigo-100/90 shadow-xs transition-all duration-300 ease-out pointer-events-none"
+                        style={{
+                          width: 'calc(25% - 4px)',
+                          left: `calc(${activeIndex * 25}% + 2px)`,
+                        }}
+                      >
+                        {/* Micro floral line art in active pill */}
+                        <svg 
+                          className="absolute -right-1 -bottom-1 w-8 h-8 text-indigo-900/15 pointer-events-none select-none" 
+                          viewBox="0 0 100 100" 
+                          fill="none" 
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="2" />
+                          <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1.5" />
+                        </svg>
+                        <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-3.5 h-1 bg-indigo-600 rounded-full" />
+                      </div>
+                    )}
+
                     {/* HOME */}
                     <button 
                         type="button"
                         onClick={() => setActiveTab('home')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95"
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10"
                     >
-                        <div className={`absolute inset-0 rounded-[20px] transition-all duration-300 ${activeTab === 'home' ? 'bg-indigo-50 border border-indigo-100/90 shadow-xs opacity-100 scale-100' : 'opacity-0 scale-90'}`} />
-                        <div className="relative z-10 flex flex-col items-center justify-center">
+                        <div className="flex flex-col items-center justify-center">
                             <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'home' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
                             <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'home' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.home}</span>
                         </div>
-                        <div className={`absolute -bottom-0.5 w-3 h-1 bg-indigo-600 rounded-full transition-all duration-300 ${activeTab === 'home' ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`} />
                     </button>
   
                     {/* ADD MONEY */}
                     <button 
                         type="button"
                         onClick={() => setActiveTab('add-money')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95"
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10"
                     >
-                        <div className={`absolute inset-0 rounded-[20px] transition-all duration-300 ${activeTab === 'add-money' ? 'bg-indigo-50 border border-indigo-100/90 shadow-xs opacity-100 scale-100' : 'opacity-0 scale-90'}`} />
-                        <div className="relative z-10 flex flex-col items-center justify-center">
+                        <div className="flex flex-col items-center justify-center">
                             <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'add-money' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
                             <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'add-money' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.addMoney}</span>
                         </div>
-                        <div className={`absolute -bottom-0.5 w-3 h-1 bg-indigo-600 rounded-full transition-all duration-300 ${activeTab === 'add-money' ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`} />
                     </button>
   
                     {/* SELL */}
                     <button 
                         type="button"
                         onClick={() => setActiveTab('sell')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95"
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10"
                     >
-                        <div className={`absolute inset-0 rounded-[20px] transition-all duration-300 ${activeTab === 'sell' ? 'bg-indigo-50 border border-indigo-100/90 shadow-xs opacity-100 scale-100' : 'opacity-0 scale-90'}`} />
-                        <div className="relative z-10 flex flex-col items-center justify-center">
+                        <div className="flex flex-col items-center justify-center">
                             <ArrowUp size={20} strokeWidth={activeTab === 'sell' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'sell' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
                             <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'sell' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.sell}</span>
                         </div>
-                        <div className={`absolute -bottom-0.5 w-3 h-1 bg-indigo-600 rounded-full transition-all duration-300 ${activeTab === 'sell' ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`} />
                     </button>
   
                     {/* PROFILE */}
                     <button 
                         type="button"
                         onClick={() => setActiveTab('profile')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95"
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10"
                     >
-                        <div className={`absolute inset-0 rounded-[20px] transition-all duration-300 ${activeTab === 'profile' ? 'bg-indigo-50 border border-indigo-100/90 shadow-xs opacity-100 scale-100' : 'opacity-0 scale-90'}`} />
-                        <div className="relative z-10 flex flex-col items-center justify-center">
+                        <div className="flex flex-col items-center justify-center">
                             <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
                             <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'profile' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.profile}</span>
                         </div>
-                        <div className={`absolute -bottom-0.5 w-3 h-1 bg-indigo-600 rounded-full transition-all duration-300 ${activeTab === 'profile' ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}`} />
                     </button>
                 </div>
             </div>
-        )}
+            );
+        })()}
         </div>
       </TonConnectUIProvider>
   );
@@ -1168,7 +1201,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                 </div>
 
                 {/* Instructions Card */}
-                <div className="bg-white rounded-2xl p-3.5 mb-3 border border-gray-100 shadow-sm space-y-3">
+                <CutCornerCard className="p-3.5 mb-3 space-y-3">
                     <div className="flex justify-between items-center pb-2.5 border-b border-gray-100">
                         <div className="flex items-center gap-2">
                             <img 
@@ -1222,10 +1255,10 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                             <p>3. Enter the <b>Transaction ID (TrxID)</b> from SMS below and submit.</p>
                         </div>
                     )}
-                </div>
+                </CutCornerCard>
 
                 {/* TrxID Input Card */}
-                <div className="bg-white rounded-2xl p-3.5 mb-3 border border-gray-100 shadow-sm space-y-2.5">
+                <CutCornerCard className="p-3.5 mb-3 space-y-2.5">
                     <label className="text-[11px] font-bold text-gray-500 block uppercase tracking-wider">
                         Transaction ID (TrxID)
                     </label>
@@ -1261,21 +1294,18 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                             </div>
                         </div>
                     )}
-                </div>
+                </CutCornerCard>
 
                 {/* Submit Button */}
                 <div className="mt-auto">
-                    <button 
+                    <CutCornerButton 
                         onClick={handleSubmit} 
-                        disabled={!trxId.trim() || loading} 
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px] tracking-wide"
+                        disabled={!trxId.trim() || loading}
+                        isSubmitting={loading}
+                        icon={CheckCircle2}
                     >
-                        {loading ? (
-                            <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {lang === 'bn' ? 'যাচাই করা হচ্ছে...' : 'VERIFYING SMS...'}</>
-                        ) : (
-                            <><CheckCircle2 size={16} /> {t?.verifyAddMoney || 'VERIFY & ADD MONEY'}</>
-                        )}
-                    </button>
+                        {t?.verifyAddMoney || 'VERIFY & ADD MONEY'}
+                    </CutCornerButton>
                 </div>
             </div>
         );
@@ -1309,7 +1339,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
 
             <div className="space-y-3">
                 {/* Amount Card */}
-                <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-3">
+                <CutCornerCard className="p-3.5 space-y-3">
                     <div>
                         <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase mb-1.5 ml-0.5">
                             {t?.depositAmount || 'Deposit Amount (BDT)'}
@@ -1344,10 +1374,10 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                             </button>
                         ))}
                     </div>
-                </div>
+                </CutCornerCard>
 
                 {/* Payment Method Selection */}
-                <div className="bg-white rounded-2xl p-3.5 border border-gray-100 shadow-sm space-y-2.5">
+                <CutCornerCard className="p-3.5 space-y-2.5">
                     <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase ml-0.5">
                         {t?.selectMethod || 'Select Payment Method'}
                     </label>
@@ -1403,7 +1433,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                             </div>
                         </div>
                     </div>
-                </div>
+                </CutCornerCard>
 
                 {/* Instant Credit Note */}
                 <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 flex items-center gap-2.5">
@@ -1416,14 +1446,13 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
 
             {/* Next Button */}
             <div className="mt-4">
-                <button 
+                <CutCornerButton 
                     onClick={handleContinue} 
-                    disabled={!amount || parseFloat(amount) < 20} 
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold rounded-xl h-[46px] shadow-md shadow-emerald-600/20 active:scale-95 transition-all flex justify-center items-center gap-2 text-[14px]"
+                    disabled={!amount || parseFloat(amount) < 20}
+                    icon={ArrowDown}
                 >
-                    <span>{t?.continuePayment || 'CONTINUE TO PAYMENT'}</span>
-                    <ArrowDown size={15} className="-rotate-90" />
-                </button>
+                    {t?.continuePayment || 'CONTINUE TO PAYMENT'}
+                </CutCornerButton>
             </div>
         </div>
     );
@@ -3091,7 +3120,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             )}
 
             {/* Amount Input Card */}
-            <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)]">
+            <CutCornerCard className="p-3.5 space-y-2.5">
                 <label className="flex justify-between items-center mb-2">
                     <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">
                         {lang === 'bn' ? 'উত্তোলনের পরিমাণ (BDT)' : 'Amount (BDT)'}
@@ -3111,7 +3140,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                     />
                     <button onClick={handleMax} className="absolute right-2.5 px-2.5 py-1 bg-[var(--color-brand)]/10 text-[var(--color-brand)] font-bold text-[11px] rounded-lg active:scale-95 transition-transform">MAX</button>
                 </div>
-            </div>
+            </CutCornerCard>
 
             {/* Live Fee Breakdown */}
             {amount && !isNaN(amount) && parseFloat(amount) > 0 && (
@@ -3133,7 +3162,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             )}
 
             {/* Saved Wallet Info with Edit Icon */}
-            <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex items-center justify-between gap-3">
+            <CutCornerCard className="p-3.5 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
                         <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
@@ -3158,7 +3187,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                     <Edit3 size={15} />
                     <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
                 </button>
-            </div>
+            </CutCornerCard>
 
             {/* Warning Note */}
             <div className="bg-blue-50/60 border border-blue-100/70 p-3 rounded-xl flex items-center gap-2.5">

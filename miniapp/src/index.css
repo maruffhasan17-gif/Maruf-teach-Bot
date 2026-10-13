@@ -103,3 +103,32 @@ body {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: .8; transform: scale(1.02); }
 }
+
+/* Blooming Flower & Petal Animations */
+@keyframes bloomRotate {
+  0% { transform: scale(0.4) rotate(-90deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(15deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes petalPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.35)); }
+  50% { transform: scale(1.06); filter: drop-shadow(0 0 28px rgba(79, 70, 229, 0.7)); }
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.flower-bloom-anim {
+  animation: bloomRotate 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.flower-petal-pulse {
+  animation: petalPulse 3s ease-in-out infinite;
+}
+
+.flower-spin-slow {
+  animation: spinSlow 20s linear infinite;
+}
