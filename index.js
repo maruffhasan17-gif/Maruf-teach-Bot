@@ -1910,10 +1910,23 @@ app.post('/api/miniapp/add-money', async (req, res) => {
             });
         }
 
-        // If amount mismatch, REJECT!
+        // If amount mismatch, REJECT without leaking actual SMS amount to the user!
         if (verifiedData.amount && Math.abs(verifiedData.amount - amount) > 1) {
+            // Secretly notify Data Group (Admin only)
+            const config = botConfig || {};
+            const dataGroup = config.dataGroupId || config.adminGroupId;
+            if (dataGroup && bot) {
+                const mismatchAlert = `<blockquote><b>⚠️ টাকার পরিমাণে অমিল সতর্কবার্তা (Add Money Mismatch)!</b>\n\n` +
+                    `👤 <b>User:</b> <code>${userId}</code>\n` +
+                    `💰 <b>ইউজার ইনপুট (Selected):</b> <b>৳${amount} BDT</b>\n` +
+                    `💵 <b>প্রকৃত এসএমএস (Actual SMS):</b> <b>৳${verifiedData.amount} BDT</b>\n` +
+                    `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
+                    `🔒 <b>স্ট্যাটাস:</b> ট্রানজেকশন ক্লেইম ব্লক করা হয়েছে (Protected)</blockquote>`;
+                bot.sendMessage(dataGroup, mismatchAlert, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            }
+
             return res.status(400).json({ 
-                error: `টাকার পরিমাণ মেলেনি! এসএমএস-এ পাওয়া গেছে ৳${verifiedData.amount} BDT, কিন্তু আপনি দিয়েছেন ৳${amount} BDT` 
+                error: 'টাকার পরিমাণে অমিল রয়েছে! অনুগ্রহ করে আপনার প্রেরিত সঠিক টাকার পরিমাণ ও TrxID পুনরায় যাচাই করে চেষ্টা করুন।' 
             });
         }
 
@@ -2189,8 +2202,21 @@ app.post('/api/miniapp/buy', async (req, res) => {
 
         const amountDiff = verifiedData.amount ? Math.abs(verifiedData.amount - totalBdt) : 0;
         if (amountDiff > 1) {
+            // Secretly notify Data Group (Admin only)
+            const config = botConfig || {};
+            const dataGroup = config.dataGroupId || config.adminGroupId;
+            if (dataGroup && bot) {
+                const mismatchAlert = `<blockquote><b>⚠️ টাকার পরিমাণে অমিল সতর্কবার্তা (Buy Order Mismatch)!</b>\n\n` +
+                    `👤 <b>User:</b> <code>${userId}</code>\n` +
+                    `💰 <b>ইউজার ইনপুট (Selected):</b> <b>৳${totalBdt} BDT</b>\n` +
+                    `💵 <b>প্রকৃত এসএমএস (Actual SMS):</b> <b>৳${verifiedData.amount} BDT</b>\n` +
+                    `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
+                    `🔒 <b>স্ট্যাটাস:</b> ট্রানজেকশন ক্লেইম ব্লক করা হয়েছে (Protected)</blockquote>`;
+                bot.sendMessage(dataGroup, mismatchAlert, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            }
+
             return res.status(400).json({ 
-                error: `টাকার পরিমাণ মেলেনি! এসএমএস-এ পাওয়া গেছে ৳${verifiedData.amount} BDT, কিন্তু আপনি দিয়েছেন ৳${totalBdt} BDT` 
+                error: 'টাকার পরিমাণে অমিল রয়েছে! অনুগ্রহ করে আপনার প্রেরিত সঠিক টাকার পরিমাণ ও TrxID পুনরায় যাচাই করে চেষ্টা করুন।' 
             });
         }
 
