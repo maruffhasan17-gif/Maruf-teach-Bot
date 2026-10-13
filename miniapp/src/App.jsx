@@ -232,15 +232,58 @@ const PageBackgroundFlowers = ({ page = 'home' }) => (
   </div>
 );
 
-const BloomingFlowerLoader = ({ lang = 'bn' }) => (
-  <div className="fixed inset-0 bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#eef2ff] z-[99999] flex flex-col items-center justify-center font-sans select-none p-4">
-    {/* Blooming Flower Animation Container */}
-    <div className="relative w-44 h-44 flex items-center justify-center">
-      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-500/15 to-transparent blur-2xl animate-pulse" />
-      
+const BloomingFlowerGraphic = ({ size = 145 }) => {
+  const outerSize = size;
+  const innerSize = Math.round(size * (125 / 170)); // proportional inner petals (~106px)
+  const logoSize = Math.round(size * (90 / 170));   // proportional 3D logo (~76px)
+
+  return (
+    <div 
+      className="relative mx-auto my-1 flex items-center justify-center select-none"
+      style={{ width: `${outerSize}px`, height: `${outerSize}px` }}
+    >
+      <style>{`
+        @keyframes tpFlowerSpin {
+          0% { transform: rotate(0deg) scale(0.96); }
+          50% { transform: rotate(180deg) scale(1.04); }
+          100% { transform: rotate(360deg) scale(0.96); }
+        }
+        @keyframes tpFlowerSpinReverse {
+          0% { transform: rotate(360deg) scale(1.04); }
+          50% { transform: rotate(180deg) scale(0.96); }
+          100% { transform: rotate(0deg) scale(1.04); }
+        }
+        @keyframes tpGlowPulse {
+          0%, 100% { transform: scale(0.92); opacity: 0.6; }
+          50% { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes tpPulseLogo {
+          0%, 100% { transform: scale(0.96); filter: drop-shadow(0 8px 24px rgba(79, 70, 229, 0.4)); }
+          50% { transform: scale(1.04); filter: drop-shadow(0 14px 34px rgba(147, 51, 234, 0.6)); }
+        }
+      `}</style>
+
+      {/* Ambient Radial Glowing Aura */}
+      <div 
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '9999px',
+          background: 'radial-gradient(circle, rgba(99,102,241,0.25) 0%, rgba(168,85,247,0.15) 50%, transparent 75%)',
+          filter: 'blur(16px)',
+          animation: 'tpGlowPulse 2.8s infinite ease-in-out'
+        }} 
+      />
+
       {/* Outer Rotating Sacred Lotus Mandala */}
       <svg 
-        className="absolute inset-0 w-full h-full text-indigo-600/40 animate-[spin_18s_linear_infinite]"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          animation: 'tpFlowerSpin 20s linear infinite'
+        }} 
         viewBox="0 0 200 200" 
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
@@ -258,9 +301,14 @@ const BloomingFlowerLoader = ({ lang = 'bn' }) => (
         ))}
       </svg>
 
-      {/* Counter-rotating delicate floral ring */}
+      {/* Middle Counter-rotating Petal Layer */}
       <svg 
-        className="absolute w-32 h-32 text-purple-500/50 animate-[spin_12s_linear_infinite_reverse]"
+        style={{
+          position: 'absolute',
+          width: `${innerSize}px`,
+          height: `${innerSize}px`,
+          animation: 'tpFlowerSpinReverse 13s linear infinite'
+        }} 
         viewBox="0 0 100 100" 
         fill="none" 
         xmlns="http://www.w3.org/2000/svg"
@@ -269,7 +317,7 @@ const BloomingFlowerLoader = ({ lang = 'bn' }) => (
           <g key={i} transform={`rotate(${angle} 50 50)`}>
             <path 
               d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
-              fill="rgba(168,85,247,0.2)" 
+              fill="rgba(168,85,247,0.22)" 
               stroke="rgba(147,51,234,0.6)" 
               strokeWidth="1"
             />
@@ -277,15 +325,36 @@ const BloomingFlowerLoader = ({ lang = 'bn' }) => (
         ))}
       </svg>
 
-      {/* Center Heart: Brand Transparent Logo Floating Elegantly */}
-      <div className="relative z-10 w-24 h-24 flex items-center justify-center animate-[pulse_2.5s_ease-in-out_infinite]">
+      {/* Center Heart: 3D Transparent Trust Pay Logo */}
+      <div 
+        style={{
+          position: 'relative',
+          zIndex: 10,
+          width: `${logoSize}px`,
+          height: `${logoSize}px`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          animation: 'tpPulseLogo 2.5s infinite ease-in-out'
+        }}
+      >
         <img 
           src={brandLogo} 
           alt="Trust Pay" 
-          className="w-full h-full object-contain drop-shadow-[0_8px_20px_rgba(79,70,229,0.45)]" 
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain'
+          }} 
         />
       </div>
     </div>
+  );
+};
+
+const BloomingFlowerLoader = ({ lang = 'bn' }) => (
+  <div className="fixed inset-0 bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#eef2ff] z-[99999] flex flex-col items-center justify-center font-sans select-none p-4">
+    <BloomingFlowerGraphic size={170} />
 
     {/* Typography */}
     <h2 className="text-[#0f172a] font-black text-2xl mt-5 tracking-tight flex items-center gap-1.5">
@@ -382,60 +451,6 @@ const calculateSendMoneyFee = (amt) => {
   return 5;
 };
 
-const BloomingFlowerGraphic = () => (
-  <div className="relative w-36 h-36 mx-auto mb-2.5 flex items-center justify-center select-none">
-    {/* Ambient Glowing Aura */}
-    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-500/15 to-transparent blur-xl animate-pulse" />
-    
-    {/* Outer Rotating Sacred Lotus Mandala */}
-    <svg 
-      className="absolute inset-0 w-full h-full text-indigo-600/40 animate-[spin_18s_linear_infinite]"
-      viewBox="0 0 200 200" 
-      fill="none" 
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
-        <g key={i} transform={`rotate(${angle} 100 100)`}>
-          <path 
-            d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" 
-            fill="rgba(99,102,241,0.18)" 
-            stroke="rgba(99,102,241,0.6)" 
-            strokeWidth="1.2"
-          />
-          <circle cx="100" cy="18" r="2.5" fill="#6366f1" />
-        </g>
-      ))}
-    </svg>
-
-    {/* Counter-rotating delicate floral ring */}
-    <svg 
-      className="absolute w-26 h-26 text-purple-500/50 animate-[spin_12s_linear_infinite_reverse]"
-      viewBox="0 0 100 100" 
-      fill="none" 
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {[0, 60, 120, 180, 240, 300].map((angle, i) => (
-        <g key={i} transform={`rotate(${angle} 50 50)`}>
-          <path 
-            d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
-            fill="rgba(168,85,247,0.2)" 
-            stroke="rgba(147,51,234,0.6)" 
-            strokeWidth="1"
-          />
-        </g>
-      ))}
-    </svg>
-
-    {/* Center Heart: Brand Transparent Logo Floating Elegantly */}
-    <div className="relative z-10 w-20 h-20 flex items-center justify-center animate-[pulse_2.5s_ease-in-out_infinite]">
-      <img 
-        src={brandLogo} 
-        alt="Trust Pay" 
-        className="w-full h-full object-contain drop-shadow-[0_8px_20px_rgba(79,70,229,0.45)]" 
-      />
-    </div>
-  </div>
-);
 
 const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn' }) => {
   if (!isOpen) return null;

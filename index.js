@@ -113,11 +113,20 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trustpay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trustpay_payout';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v4';
 const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
 
 const bot = new TelegramBot(token, { polling: true });
+bot.setChatMenuButton({
+    menu_button: {
+        type: 'web_app',
+        text: 'Trust Pay',
+        web_app: { url: WEB_APP_URL }
+    }
+}).catch(err => console.warn('[MenuButton]:', err.message));
+
 bot.on('polling_error', (error) => {
     // Ignore transient Telegram network polling resets
     if (error.code !== 'ETELEGRAM' && !error.message?.includes('EFATAL')) {
@@ -469,7 +478,7 @@ bot.onText(/\/start/, async (msg) => {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
-                    [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: 'https://maruf-teach-bot.onrender.com/app/' } } ]
+                    [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } } ]
                 ]
             }
         }).catch(e => console.error(e.message));
@@ -528,7 +537,7 @@ bot.on('callback_query', async (query) => {
                     parse_mode: 'HTML',
                     reply_markup: {
                         inline_keyboard: [
-                            [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: 'https://maruf-teach-bot.onrender.com/app/' } } ]
+                            [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } } ]
                         ]
                     }
                 }).catch(e => console.error(e.message));
