@@ -235,7 +235,7 @@ async function sendJettonUsdtOnChain(destination, amount) {
         }
     } catch(e) {}
     if (!adminJettonWallet) {
-        adminJettonWallet = 'EQDE4Uycx9ZudIjjmaqmLx3MFTGjURx2FCU6nlH1bzFWCjh3';
+        adminJettonWallet = 'EQDE4Uycx9ZudIjjmaqmLx3MFTHjURx2FCU6nlH1bzFWCvZA';
     }
 
     let seqno = 0;
@@ -1140,24 +1140,28 @@ app.get('/api/stats', async (req, res) => {
             failedScreenshots.push(data);
         });
 
-        console.log("Fetching TON balance...");
+        console.log("Fetching TON balances (USDT, TON, GRAM)...");
         let tonBalance = "0.00";
+        let tonNativeBalance = "0.00";
+        let tonUsdtBalance = "0.00";
+        let gramBalance = "0.00";
         try {
             if (process.env.BOT_TON_ADDRESS) {
-                // Fetch Jettons (GRAM)
-                const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}/jettons?_t=${Date.now()}`, { timeout: 3000 });
-                if (jettonRes.data && jettonRes.data.balances) {
-                    const gramJetton = jettonRes.data.balances.find(j => j.jetton.symbol === 'GRAM');
-                    if (gramJetton) {
-                        tonBalance = (parseFloat(gramJetton.balance) / Math.pow(10, gramJetton.jetton.decimals)).toFixed(2);
-                    } else {
-                        // Fallback to native TON
-                        const tonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}?_t=${Date.now()}`, { timeout: 3000 });
-                        if (tonRes.data && tonRes.data.balance) {
-                            tonBalance = (parseInt(tonRes.data.balance) / 1e9).toFixed(2);
+                const treasury = await getAdminTreasuryBalances();
+                tonNativeBalance = treasury.ton.toFixed(2);
+                tonUsdtBalance = treasury.usdt.toFixed(2);
+                tonBalance = tonNativeBalance;
+
+                // Also check GRAM jetton
+                try {
+                    const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}/jettons?_t=${Date.now()}`, { timeout: 3000 });
+                    if (jettonRes.data && Array.isArray(jettonRes.data.balances)) {
+                        const gramJetton = jettonRes.data.balances.find(j => j.jetton?.symbol === 'GRAM');
+                        if (gramJetton) {
+                            gramBalance = (parseFloat(gramJetton.balance) / Math.pow(10, gramJetton.jetton.decimals || 9)).toFixed(2);
                         }
                     }
-                }
+                } catch(e) {}
             }
         } catch(e) {
             console.error("TON Error:", e.message);
@@ -1181,6 +1185,9 @@ app.get('/api/stats', async (req, res) => {
             users: users,
             failedScreenshots: failedScreenshots,
             tonBalance: tonBalance,
+            tonNativeBalance: tonNativeBalance,
+            tonUsdtBalance: tonUsdtBalance,
+            gramBalance: gramBalance,
             evmBalance: evmBalance,
             evmAddress: process.env.BOT_EVM_ADDRESS,
             tonAddress: process.env.BOT_TON_ADDRESS
@@ -1311,9 +1318,18 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
 
 app.post('/api/withdraw', async (req, res) => {
     try {
-        const { amount, destination, network } = req.body;
+        const { amount, destination, network, asset } = req.body;
         
         if (network === 'TON') {
+            if (asset === 'USDT') {
+                const txRes = await sendJettonUsdtOnChain(destination, amount);
+                return res.json({ 
+                    success: true, 
+                    message: `Successfully transferred ${amount} USDT on-chain to ${destination}`,
+                    tx: txRes 
+                });
+            }
+
             const { WalletContractV4, internal, beginCell, external, storeMessage } = require('@ton/ton');
             const { mnemonicToPrivateKey } = require('@ton/crypto');
             const { ethers } = require('ethers');

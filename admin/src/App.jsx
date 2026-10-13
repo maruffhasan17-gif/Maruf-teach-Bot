@@ -339,7 +339,16 @@ function CreateTrxModal({ isOpen, onClose }) {
 
 // Global data fetching hook
 function useBotData() {
-    const [data, setData] = useState({ users: [], tonBalance: "0.00", evmBalance: "0.00", evmAddress: "Loading...", tonAddress: "Loading..." });
+    const [data, setData] = useState({ 
+        users: [], 
+        tonBalance: "0.00", 
+        tonNativeBalance: "0.00",
+        tonUsdtBalance: "0.00",
+        gramBalance: "0.00",
+        evmBalance: "0.00", 
+        evmAddress: "Loading...", 
+        tonAddress: "Loading..." 
+    });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -370,6 +379,7 @@ function BotWallet() {
   const [tonConnectUI] = useTonConnectUI();
   
   const [withdrawModal, setWithdrawModal] = useState({ isOpen: false, network: '' });
+  const [withdrawAsset, setWithdrawAsset] = useState('USDT');
   const [depositModal, setDepositModal] = useState({ isOpen: false, network: '' });
   const [statusModal, setStatusModal] = useState({ isOpen: false, type: 'success', title: '', message: '' });
   const [amount, setAmount] = useState('');
@@ -441,6 +451,8 @@ function BotWallet() {
           showStatus('error', 'Wallet Not Connected', 'Please connect your Telegram Wallet first (button on sidebar)!');
           return;
       }
+      setAmount('');
+      setWithdrawAsset('USDT');
       setWithdrawModal({ isOpen: true, network });
   };
 
@@ -453,6 +465,7 @@ function BotWallet() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                   network: withdrawModal.network,
+                  asset: withdrawModal.network === 'TON' ? withdrawAsset : 'USDT',
                   amount: parseFloat(amount),
                   destination: withdrawModal.network === 'TON' ? userTonAddress : 'EVM_ADDRESS'
               })
@@ -490,18 +503,51 @@ function BotWallet() {
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50"></div>
                   
                   <h3 className="text-3xl font-black mb-6 text-white flex items-center gap-3">
-                    <span className="text-cyan-400">Withdraw</span> {withdrawModal.network}
+                    <span className="text-cyan-400">Withdraw</span> {withdrawModal.network} {withdrawModal.network === 'TON' ? `(${withdrawAsset})` : ''}
                   </h3>
+
+                  {withdrawModal.network === 'TON' && (
+                    <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-cyan-900/40">
+                      <button
+                        type="button"
+                        onClick={() => { setWithdrawAsset('USDT'); setAmount(''); }}
+                        className={`flex-1 py-2.5 rounded-xl font-black text-xs transition-all ${
+                          withdrawAsset === 'USDT'
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        USDT ({data.tonUsdtBalance || '0.00'})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setWithdrawAsset('TON'); setAmount(''); }}
+                        className={`flex-1 py-2.5 rounded-xl font-black text-xs transition-all ${
+                          withdrawAsset === 'TON'
+                            ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        TON Gas ({data.tonNativeBalance || data.tonBalance || '0.00'})
+                      </button>
+                    </div>
+                  )}
                   
                   <div className="mb-5 space-y-2">
                       <label className="text-cyan-200/70 font-bold uppercase tracking-widest text-xs">Amount to withdraw</label>
                       <div className="relative flex items-center">
                         <input type="text" inputMode="decimal" value={amount} onChange={e => { const v = e.target.value; if(v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setAmount(v); }} className="w-full bg-black/50 border border-cyan-900/50 p-4 pl-6 pr-24 rounded-2xl text-2xl font-black text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-mono tracking-wider" placeholder="0.00" />
                         <div className="absolute right-4 flex items-center gap-2">
-                          <button onClick={() => setAmount(withdrawModal.network === 'TON' ? data.tonBalance : data.evmBalance)} className="px-2 py-1 bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/40 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors">
+                          <button onClick={() => {
+                            if (withdrawModal.network === 'TON') {
+                              setAmount(withdrawAsset === 'USDT' ? (data.tonUsdtBalance || '0') : (data.tonNativeBalance || data.tonBalance || '0'));
+                            } else {
+                              setAmount(data.evmBalance || '0');
+                            }
+                          }} className="px-2 py-1 bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/40 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors">
                             MAX
                           </button>
-                          <span className="text-cyan-500 font-bold">{withdrawModal.network}</span>
+                          <span className="text-cyan-500 font-bold">{withdrawModal.network === 'TON' ? withdrawAsset : 'USDT'}</span>
                         </div>
                       </div>
                   </div>
@@ -601,7 +647,7 @@ function BotWallet() {
             
             <div className="flex flex-col mb-6">
               <div className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.evmBalance}</div>
-              <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400 mt-1">BNB / USDT</div>
+              <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400 mt-1">BNB / USDT (BEP20 - BSC)</div>
             </div>
             
             <div className="flex items-center gap-3 mb-8 w-max">
@@ -636,8 +682,18 @@ function BotWallet() {
             </div>
             
             <div className="flex flex-col mb-6">
-              <div className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.tonBalance}</div>
-              <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400 mt-1">GRAM / TON</div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.tonUsdtBalance || '0.00'}</span>
+                <span className="text-2xl font-black text-emerald-400">USDT</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mt-2 text-xs font-bold">
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  TON Gas: {data.tonNativeBalance || data.tonBalance || '0.00'} TON
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-teal-500/10 text-teal-300 border border-teal-500/20">
+                  GRAM: {data.gramBalance || '0.00'} GRAM
+                </span>
+              </div>
             </div>
             
             <div className="flex items-center gap-3 mb-8 w-max">
