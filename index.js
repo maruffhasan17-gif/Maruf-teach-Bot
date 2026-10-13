@@ -37,6 +37,14 @@ async function saveConfig(newConf) {
 }
 
 
+// Global Crash Protection & Unhandled Rejection Resilience for high concurrent traffic
+process.on('uncaughtException', (err) => {
+    console.error('[CRITICAL UNCAUGHT EXCEPTION]:', err?.message || err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[CRITICAL UNHANDLED REJECTION]:', reason?.message || reason);
+});
+
 const token = process.env.BOT_TOKEN;
 const channelUsername = process.env.CHANNEL_USERNAME;
 const bkashNumber = process.env.BKASH_NUMBER;
@@ -44,6 +52,12 @@ const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
 
 const bot = new TelegramBot(token, { polling: true });
+bot.on('polling_error', (error) => {
+    // Ignore transient Telegram network polling resets
+    if (error.code !== 'ETELEGRAM' && !error.message?.includes('EFATAL')) {
+        console.warn('[Telegram Polling Notice]:', error.message || error.code);
+    }
+});
 const { beginCell, Address } = require('@ton/core');
 const app = express();
 const cors = require('cors');
@@ -853,13 +867,11 @@ async function updateMarketRates() {
         // USDT: realUsdtBdt + 10 TK (e.g. 120 + 10 = 130 TK)
         // GRAM: (realGramUsdt in BDT) + 10 TK (e.g. 1.80 * 120 = 216 + 10 = 226 TK)
         const buyUsdt = Math.round(realUsdtBdt + 10);
-        const buyGram = Math.round(realGramBdt + 10);
-
-        // Seller Price Rule (-5 TK):
+        // Seller Price Rule:
         // USDT: realUsdtBdt - 5 TK (e.g. 130 - 5 = 125 TK or 120 - 5 = 115 TK)
-        // GRAM: (realGramUsdt in BDT) - 5 TK (e.g. 216 - 5 = 211 TK)
+        // GRAM: Fixed at 200 BDT as requested by admin
         const sellUsdt = Math.max(1, Math.round(realUsdtBdt - 5));
-        const sellGram = Math.max(1, Math.round(realGramBdt - 5));
+        const sellGram = 200; // Fixed 200 BDT
 
         cachedMarketRates = {
             realUsdtBdt,
@@ -881,15 +893,26 @@ async function updateMarketRates() {
     }
 }
 
+let isUpdatingRates = false;
+async function safeUpdateMarketRates() {
+    if (isUpdatingRates) return;
+    isUpdatingRates = true;
+    try {
+        await updateMarketRates();
+    } finally {
+        isUpdatingRates = false;
+    }
+}
+
 // Initial fetch on server startup and hourly interval (every 60 minutes)
-updateMarketRates();
-setInterval(updateMarketRates, 60 * 60 * 1000);
+safeUpdateMarketRates();
+setInterval(safeUpdateMarketRates, 60 * 60 * 1000);
 
 // ==================== MINI APP APIs ====================
 app.get('/api/miniapp/rates', async (req, res) => {
-    // If cache older than 1 hour, refresh
+    // If cache older than 1 hour, refresh in background without blocking
     if (Date.now() - cachedMarketRates.lastUpdated > 60 * 60 * 1000) {
-        await updateMarketRates();
+        safeUpdateMarketRates().catch(e => console.error("Rate update error:", e.message));
     }
     res.json({
         success: true,
@@ -2242,8 +2265,8 @@ app.post('/api/settings', async (req, res) => {
 });
 // Serve Admin Frontend
 
-// Serve MiniApp on /app
-app.use('/app', express.static(path.join(__dirname, 'miniapp/dist')));
+// Serve MiniApp on /app with caching
+app.use('/app', express.static(path.join(__dirname, 'miniapp/dist'), { maxAge: '1d', etag: true }));
 
 app.get('/api/miniapp/history/:userId', async (req, res) => {
     try {
@@ -2449,8 +2472,8 @@ app.use('/app', (req, res) => {
     else res.send("MiniApp is not built yet.");
 });
 
-// Serve Admin on /
-app.use(express.static(path.join(__dirname, 'admin/dist')));
+// Serve Admin on / with caching
+app.use(express.static(path.join(__dirname, 'admin/dist'), { maxAge: '1d', etag: true }));
 app.use((req, res) => {
     const p = path.join(__dirname, 'admin/dist/index.html');
     if (fs.existsSync(p)) res.sendFile(p);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3 } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -283,7 +283,7 @@ export default function App() {
   }, []);
 
   const [activeTab, setActiveTab] = useState('home');
-  const [showBuyCryptoModal, setShowBuyCryptoModal] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -371,21 +371,29 @@ export default function App() {
                   t={t}
                   fiatWithdrawPending={fiatWithdrawPending} 
                   onGoToClaim={() => setActiveTab('claim')} 
-                  onOpenBuyCrypto={() => setShowBuyCryptoModal(true)}
+                  onOpenBuyCrypto={() => setActiveTab('buy')}
                   onGoToSell={() => setActiveTab('sell')}
                   onGoToAddMoney={() => setActiveTab('add-money')}
+              />
+          )}
+          {activeTab === 'buy' && (
+              <BuyCryptoPage 
+                  user={user} 
+                  balance={balance} 
+                  lang={lang} 
+                  t={t} 
+                  onBack={() => setActiveTab('home')}
+                  reloadData={() => loadData(user?.id || 123456789)} 
+                  onGoToAddMoney={() => setActiveTab('add-money')} 
               />
           )}
           {activeTab === 'add-money' && (
               <AddMoneyPage 
                   user={user} 
-                  lang={lang}
-                  t={t}
+                  lang={lang} 
+                  t={t} 
                   onDone={() => setActiveTab('home')}
-                  onGoToBuyCrypto={() => {
-                      setActiveTab('home');
-                      setShowBuyCryptoModal(true);
-                  }}
+                  onGoToBuyCrypto={() => setActiveTab('buy')}
                   reloadData={() => loadData(user?.id || 123456789)}
               />
           )}
@@ -413,6 +421,7 @@ export default function App() {
                   onGoToWithdraw={() => setActiveTab('withdraw')} 
                   onGoToHistory={() => setActiveTab('history')} 
                   setFiatWallet={setFiatWallet} 
+                  setIsModalOpen={setIsModalOpen}
                   reloadData={() => loadData(user?.id || 123456789)} 
               />
           )}
@@ -424,30 +433,17 @@ export default function App() {
                   lang={lang}
                   t={t}
                   fiatWallet={fiatWallet} 
+                  setFiatWallet={setFiatWallet}
                   fiatWithdrawPending={fiatWithdrawPending} 
+                  setIsModalOpen={setIsModalOpen}
                   onBack={() => setActiveTab('profile')} 
                   reloadData={() => loadData(user?.id || 123456789)} 
               />
           )}
         </div>
 
-        {/* Buy Crypto Modal (Realtime On-Chain Send) */}
-        <BuyCryptoModal 
-            isOpen={showBuyCryptoModal}
-            onClose={() => setShowBuyCryptoModal(false)}
-            user={user}
-            balance={balance}
-            lang={lang}
-            t={t}
-            reloadData={() => loadData(user?.id || 123456789)}
-            onGoToAddMoney={() => {
-                setShowBuyCryptoModal(false);
-                setActiveTab('add-money');
-            }}
-        />
-
-        {/* PREMIUM BOTTOM NAVIGATION */}
-        {!isKeyboardVisible && (
+        {/* PREMIUM BOTTOM NAVIGATION (Hidden during popups or when on Buy page) */}
+        {!isKeyboardVisible && !isModalOpen && activeTab !== 'buy' && (
             <div className="fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-5 mb-5 pointer-events-none">
                 <div className="w-full max-w-[380px] bg-white/90 backdrop-blur-2xl rounded-[32px] flex justify-between items-center px-2 py-2 shadow-[0_8px_32px_rgba(0,0,0,0.06)] border border-gray-100/50 pointer-events-auto">
                     
@@ -1339,8 +1335,8 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
     );
 }
 
-// REALTIME BUY CRYPTO MODAL (Live On-Chain Payout from User BDT Balance)
-function BuyCryptoModal({ isOpen, onClose, user, balance = 0, lang = 'bn', t, reloadData, onGoToAddMoney }) {
+// REALTIME FULL-PAGE BUY CRYPTO (Live On-Chain Payout from User BDT Balance)
+function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAddMoney, onBack }) {
     const userTonAddress = useTonAddress();
     const [selectedAsset, setSelectedAsset] = useState('GRAM'); // 'GRAM' or 'USDT'
     const [bdtAmount, setBdtAmount] = useState('');
@@ -1391,8 +1387,6 @@ function BuyCryptoModal({ isOpen, onClose, user, balance = 0, lang = 'bn', t, re
 
         return () => { isMounted = false; };
     }, []);
-
-    if (!isOpen) return null;
 
     const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 130) : (buyerRates?.GRAM || 226);
     const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
@@ -1455,31 +1449,32 @@ function BuyCryptoModal({ isOpen, onClose, user, balance = 0, lang = 'bn', t, re
         setBdtAmount('');
         setErrorMessage('');
         setTxResult(null);
-        onClose();
+        if (onBack) onBack();
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="w-full max-w-md bg-white rounded-t-[24px] sm:rounded-[24px] p-4 max-h-[92vh] overflow-y-auto border border-gray-100 shadow-2xl animate-in slide-in-from-bottom duration-300">
-                
-                {/* Header */}
-                <div className="flex justify-between items-center mb-3 pb-2.5 border-b border-gray-100">
-                    <div>
-                        <h3 className="text-[15px] font-bold text-gray-900 tracking-tight flex items-center gap-1.5">
-                            <Coins size={18} className="text-emerald-600" />
-                            {t?.buyCrypto || 'Buy Crypto'}
-                        </h3>
-                        <p className="text-gray-400 text-[11px]">
-                            {lang === 'bn' ? 'আপনার ব্যালেন্স থেকে সরাসরি ওয়ালেটে পাঠানো হবে' : 'Sent directly to your wallet from balance'}
-                        </p>
-                    </div>
-                    <button 
-                        onClick={handleResetAndClose} 
-                        className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-full transition-colors active:scale-95"
-                    >
-                        <X size={16} strokeWidth={2.5} />
-                    </button>
+        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-2">
+                <button 
+                    type="button" 
+                    onClick={onBack} 
+                    className="p-2 bg-white rounded-full premium-shadow text-[var(--color-text-primary)] active:scale-95 transition-transform border border-gray-100"
+                >
+                    <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
+                </button>
+                <div>
+                    <h2 className="text-[15px] font-extrabold text-[var(--color-text-primary)] leading-tight flex items-center gap-1.5">
+                        <Coins size={18} className="text-emerald-600" />
+                        {t?.buyCrypto || 'Buy Crypto'}
+                    </h2>
+                    <p className="text-[var(--color-text-secondary)] text-[12px] font-medium">
+                        {lang === 'bn' ? 'আপনার ব্যালেন্স থেকে সরাসরি ওয়ালেটে পাঠানো হবে' : 'Sent directly to your wallet from balance'}
+                    </p>
                 </div>
+            </div>
+
+            <div className="w-full bg-white rounded-[24px] p-4 border border-gray-100 shadow-xl space-y-3">
 
                 {/* SUCCESS STAGE */}
                 {stage === 'success' ? (
@@ -1797,7 +1792,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 }
             }
         } catch(e) {}
-        return { GRAM: 211, USDT: 115 };
+        return { GRAM: 200, USDT: 115 };
     });
 
     // Fetch live market rates
@@ -1805,9 +1800,9 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
         let isMounted = true;
         fetchMarketRates().then(data => {
             if (!isMounted || !data) return;
-            if (data.sellRates && data.sellRates.USDT && data.sellRates.GRAM) {
+            if (data.sellRates && data.sellRates.USDT) {
                 const newRates = {
-                    GRAM: data.sellRates.GRAM,
+                    GRAM: 200, // Fixed at 200 BDT as requested
                     USDT: data.sellRates.USDT
                 };
                 setLiveRates(newRates);
@@ -1823,7 +1818,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
     }, []);
 
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
-    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 115) : (liveRates?.GRAM || 211);
+    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 115) : 200;
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
 
@@ -2430,7 +2425,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
 }
 
 
-function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, setFiatWallet, reloadData }) {
+function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
 
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -2446,6 +2441,12 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
   const [supportMsg, setSupportMsg] = useState('');
   const [isSendingSupport, setIsSendingSupport] = useState(false);
   const [supportFeedback, setSupportFeedback] = useState(null);
+
+  useEffect(() => {
+    if (setIsModalOpen) {
+      setIsModalOpen(showWalletModal || showSupportModal || !!txStatus);
+    }
+  }, [showWalletModal, showSupportModal, txStatus, setIsModalOpen]);
   
   const handleWithdrawClick = () => {
       if (fiatWallet) {
@@ -2547,6 +2548,32 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
          </div>
       </div>
 
+      {/* Saved Wallet Card (If exists) with Edit button */}
+      {fiatWallet && (
+         <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+               <img src={fiatWallet.method === 'bKash' ? 'https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png' : 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPpmAeJ7t7z55yJVOQLeKQazhA8FjJvfKDSrobAhxljA&s=10'} alt={fiatWallet.method} className="w-9 h-9 rounded-full object-cover border border-gray-100 p-0.5" />
+               <div>
+                  <h4 className="text-[13px] font-bold text-[var(--color-text-primary)] leading-tight">{fiatWallet.method} Wallet</h4>
+                  <p className="text-[12px] font-mono font-bold text-[var(--color-text-secondary)]">{fiatWallet.number} {fiatWallet.name ? `• ${fiatWallet.name}` : ''}</p>
+               </div>
+            </div>
+            <button 
+               type="button" 
+               onClick={() => {
+                  setWalletMethod(fiatWallet.method || 'bKash');
+                  setWalletNumber(fiatWallet.number || '');
+                  setWalletName(fiatWallet.name || '');
+                  setShowWalletModal(true);
+               }}
+               className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-all active:scale-95 flex items-center gap-1 text-xs font-bold border border-emerald-100"
+            >
+               <Edit3 size={14} />
+               <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
+            </button>
+         </div>
+      )}
+
       {/* Withdraw Button */}
       <button onClick={handleWithdrawClick} disabled={withdrawing} className="w-full bg-gradient-to-r from-[var(--color-brand)] to-emerald-500 text-white font-bold h-[46px] rounded-xl shadow-md shadow-[var(--color-brand)]/20 active:scale-[0.98] transition-all disabled:opacity-70 flex items-center justify-center gap-2 text-[14px]">
          {withdrawing ? (
@@ -2597,7 +2624,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
 
       {/* Support Message Modal */}
       {showSupportModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
               <div className="bg-white rounded-[28px] p-5 w-full max-w-[340px] shadow-2xl border border-gray-100 animate-in zoom-in-95">
                   <div className="flex justify-between items-center mb-3">
                       <div className="flex items-center gap-2.5">
@@ -2725,7 +2752,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
       )}
       {/* Wallet Setup Modal */}
       {showWalletModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
               <div className="bg-white rounded-[28px] p-6 w-full max-w-[320px] premium-shadow border border-[var(--color-border)] animate-in zoom-in-95 slide-in-from-bottom-4">
                   <div className="flex justify-between items-center mb-5">
                       <h3 className="text-xl font-extrabold text-[var(--color-text-primary)]">Wallet Setup</h3>
@@ -2814,10 +2841,43 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
 
 
 
-function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, fiatWithdrawPending, onBack, reloadData }) {
+function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWallet, fiatWithdrawPending, setIsModalOpen, onBack, reloadData }) {
     const [amount, setAmount] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState('');
+    const [showEditWalletModal, setShowEditWalletModal] = useState(false);
+    const [editMethod, setEditMethod] = useState('bKash');
+    const [editNumber, setEditNumber] = useState('');
+    const [editName, setEditName] = useState('');
+    const [isSavingWallet, setIsSavingWallet] = useState(false);
+
+    useEffect(() => {
+        if (setIsModalOpen) {
+            setIsModalOpen(showEditWalletModal);
+        }
+    }, [showEditWalletModal, setIsModalOpen]);
+
+    const handleSaveEditedWallet = async () => {
+        if (!editNumber || !editName) return;
+        setIsSavingWallet(true);
+        try {
+            await saveFiatWallet({
+                userId: user?.id || 123456789,
+                method: editMethod,
+                number: editNumber,
+                name: editName
+            });
+            if (setFiatWallet) setFiatWallet({ method: editMethod, number: editNumber, name: editName });
+            setShowEditWalletModal(false);
+            if (setIsModalOpen) setIsModalOpen(false);
+            if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(lang === 'bn' ? "ওয়ালেট সফলভাবে আপডেট করা হয়েছে!" : "Wallet updated successfully!");
+        } catch (e) {
+            if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(e.message || "Failed to update wallet");
+            else alert(e.message || "Failed to update wallet");
+        } finally {
+            setIsSavingWallet(false);
+        }
+    };
 
     useEffect(() => {
         if (!fiatWithdrawPending || fiatWithdrawPending.status !== 'waiting' || !fiatWithdrawPending.endTime) return;
@@ -2949,14 +3009,30 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, fiatWithd
                 </div>
             )}
 
-            {/* Saved Wallet Info */}
-            <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex items-center gap-3">
-                <img src={getLogo()} alt={fiatWallet?.method} className="w-10 h-10 rounded-full object-cover border border-gray-100 p-0.5" />
-                <div className="flex-1">
-                    <h4 className="text-[13px] font-bold text-[var(--color-text-primary)] leading-tight">{fiatWallet?.method || 'bKash'} Wallet</h4>
-                    <p className="text-[12px] font-mono font-bold text-[var(--color-text-secondary)]">{fiatWallet?.number}</p>
-                    {fiatWallet?.name && <p className="text-[11px] text-gray-400">{fiatWallet?.name}</p>}
+            {/* Saved Wallet Info with Edit Icon */}
+            <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <img src={getLogo()} alt={fiatWallet?.method} className="w-10 h-10 rounded-full object-cover border border-gray-100 p-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                        <h4 className="text-[13px] font-bold text-[var(--color-text-primary)] leading-tight">{fiatWallet?.method || 'bKash'} Wallet</h4>
+                        <p className="text-[12px] font-mono font-bold text-[var(--color-text-secondary)] truncate">{fiatWallet?.number}</p>
+                        {fiatWallet?.name && <p className="text-[11px] text-gray-400 truncate">{fiatWallet?.name}</p>}
+                    </div>
                 </div>
+                <button 
+                    type="button"
+                    onClick={() => {
+                        setEditMethod(fiatWallet?.method || 'bKash');
+                        setEditNumber(fiatWallet?.number || '');
+                        setEditName(fiatWallet?.name || '');
+                        setShowEditWalletModal(true);
+                    }}
+                    className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-bold border border-emerald-100 shrink-0"
+                    title="Edit Wallet"
+                >
+                    <Edit3 size={15} />
+                    <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
+                </button>
             </div>
 
             {/* Warning Note */}
@@ -2975,6 +3051,76 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, fiatWithd
             >
                 {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (t?.withdrawFunds || "WITHDRAW FUNDS")}
             </button>
+
+            {/* Edit Wallet Modal */}
+            {showEditWalletModal && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-[28px] p-6 w-full max-w-[320px] premium-shadow border border-[var(--color-border)] animate-in zoom-in-95">
+                        <div className="flex justify-between items-center mb-5">
+                            <h3 className="text-xl font-extrabold text-[var(--color-text-primary)]">
+                                {lang === 'bn' ? 'ওয়ালেট পরিবর্তন' : 'Edit Wallet'}
+                            </h3>
+                            <button onClick={() => setShowEditWalletModal(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:text-gray-800">
+                                <X size={16} strokeWidth={3} />
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Select Method</label>
+                                <div className="flex gap-2">
+                                    {['bKash', 'Nagad'].map(method => (
+                                        <button
+                                            key={method}
+                                            type="button"
+                                            onClick={() => setEditMethod(method)}
+                                            className={`flex-1 py-2.5 px-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all ${
+                                                editMethod === method 
+                                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' 
+                                                    : 'border-gray-200 bg-gray-50 text-gray-600'
+                                            }`}
+                                        >
+                                            <img src={method === 'bKash' ? 'https://mohammadalinijhoom.com/wp-content/uploads/2024/07/bKash-Logo.png' : 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPpmAeJ7t7z55yJVOQLeKQazhA8FjJvfKDSrobAhxljA&s=10'} alt={method} className="w-5 h-5 rounded-full object-cover" />
+                                            {method}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Wallet Number</label>
+                                <input 
+                                    type="tel" 
+                                    placeholder="e.g. 017XXXXXXXX" 
+                                    value={editNumber} 
+                                    onChange={(e) => setEditNumber(e.target.value)} 
+                                    className="w-full h-[48px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 font-bold text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:bg-white transition-all text-sm" 
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Account Name</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Enter Full Name" 
+                                    value={editName} 
+                                    onChange={(e) => setEditName(e.target.value)} 
+                                    className="w-full h-[48px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 font-bold text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:bg-white transition-all text-sm" 
+                                />
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleSaveEditedWallet} 
+                            disabled={!editNumber || !editName || isSavingWallet} 
+                            className="w-full h-[48px] mt-6 bg-[var(--color-brand)] hover:bg-emerald-600 text-white rounded-[16px] font-bold text-[14px] flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 shadow-md shadow-emerald-500/20"
+                        >
+                            {isSavingWallet ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
+                            {lang === 'bn' ? 'আপডেট করুন' : 'UPDATE WALLET'}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

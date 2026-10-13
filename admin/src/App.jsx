@@ -446,13 +446,13 @@ function BotWallet() {
   const totalUsers = data.users.length;
   const verifiedUsers = data.users.filter(u => u.status === 'verified').length;
 
-  const handleWithdrawClick = (network) => {
+  const handleWithdrawClick = (network, asset = 'USDT') => {
       if (network === 'TON' && !userTonAddress) {
           showStatus('error', 'Wallet Not Connected', 'Please connect your Telegram Wallet first (button on sidebar)!');
           return;
       }
       setAmount('');
-      setWithdrawAsset('USDT');
+      setWithdrawAsset(asset);
       setWithdrawModal({ isOpen: true, network });
   };
 
@@ -630,43 +630,43 @@ function BotWallet() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
         
-        {/* BEP20 Wallet Card */}
-        <div className="relative group bg-[#081021] p-8 rounded-[2rem] border border-blue-900/50 shadow-[0_20px_50px_rgba(37,99,235,0.1)] overflow-hidden transition-all hover:border-blue-500/50 hover:shadow-[0_20px_50px_rgba(37,99,235,0.2)]">
+        {/* USDT Wallet Card (Left Card) */}
+        <div className="relative group bg-[#06181f] p-8 rounded-[2rem] border border-teal-900/50 shadow-[0_20px_50px_rgba(20,184,166,0.1)] overflow-hidden transition-all hover:border-teal-500/50 hover:shadow-[0_20px_50px_rgba(20,184,166,0.2)]">
           {/* Background Glow */}
-          <div className="absolute -right-20 -top-20 w-64 h-64 bg-blue-600/20 blur-[80px] rounded-full pointer-events-none group-hover:bg-blue-500/30 transition-all duration-700"></div>
+          <div className="absolute -right-20 -top-20 w-64 h-64 bg-teal-600/20 blur-[80px] rounded-full pointer-events-none group-hover:bg-teal-500/30 transition-all duration-700"></div>
           {/* 3D Coin Image */}
-          <img src="https://cryptologos.cc/logos/bnb-bnb-logo.png" className="absolute -right-6 top-12 w-40 opacity-80 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-700 pointer-events-none drop-shadow-[0_0_30px_rgba(59,130,246,0.6)]" alt="BNB" />
+          <img src="https://cryptologos.cc/logos/tether-usdt-logo.png" className="absolute -right-6 top-12 w-40 opacity-80 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-700 pointer-events-none drop-shadow-[0_0_30px_rgba(20,184,166,0.6)]" alt="USDT" />
           
           <div className="relative z-10">
-            <div className="text-blue-300/80 font-bold tracking-[0.2em] text-xs uppercase mb-6 flex items-center gap-3">
-              <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/20">
-                <Wallet size={18} className="text-blue-400" />
+            <div className="text-teal-300/80 font-bold tracking-[0.2em] text-xs uppercase mb-6 flex items-center gap-3">
+              <div className="p-2.5 bg-teal-500/10 rounded-xl border border-teal-500/20">
+                <Wallet size={18} className="text-teal-400" />
               </div>
-              Secret BEP20 Wallet
+              Secret USDT Wallet
             </div>
             
             <div className="flex flex-col mb-6">
-              <div className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.evmBalance}</div>
-              <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400 mt-1">BNB / USDT (BEP20 - BSC)</div>
+              <div className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.tonUsdtBalance || '0.00'}</div>
+              <div className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-emerald-400 mt-1">USDT (TON Network)</div>
             </div>
             
             <div className="flex items-center gap-3 mb-8 w-max">
-              <div className="text-gray-400 font-mono text-xs bg-[#0b1731] py-2.5 px-4 rounded-xl border border-blue-900/50 truncate max-w-[200px]">
-                {data.evmAddress}
+              <div className="text-teal-200/70 font-mono text-xs bg-[#09252a] py-2.5 px-4 rounded-xl border border-teal-900/50 truncate max-w-[200px]">
+                {data.tonAddress}
               </div>
-              <button onClick={() => copyToClipboard(data.evmAddress)} className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl hover:bg-blue-500/20 hover:text-white transition-all border border-blue-500/20 active:scale-90">
+              <button onClick={() => copyToClipboard(data.tonAddress)} className="p-2.5 bg-teal-500/10 text-teal-400 rounded-xl hover:bg-teal-500/20 hover:text-white transition-all border border-teal-500/20 active:scale-90">
                 <Copy size={16} />
               </button>
             </div>
             
-            <button onClick={() => handleWithdrawClick('EVM')} className="w-full relative overflow-hidden group/btn flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-2xl shadow-[0_10px_30px_rgba(37,99,235,0.3)] transition-all hover:shadow-[0_10px_40px_rgba(37,99,235,0.5)] hover:-translate-y-1">
+            <button onClick={() => handleWithdrawClick('TON', 'USDT')} className="w-full relative overflow-hidden group/btn flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-600 text-white font-bold py-4 rounded-2xl shadow-[0_10px_30px_rgba(20,184,166,0.3)] transition-all hover:shadow-[0_10px_40px_rgba(20,184,166,0.5)] hover:-translate-y-1">
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full duration-1000 transition-transform"></div>
-              <Send size={18} className="group-hover/btn:-translate-y-1 group-hover/btn:translate-x-1 transition-transform" /> WITHDRAW TO MAIN WALLET
+              <Send size={18} className="group-hover/btn:-translate-y-1 group-hover/btn:translate-x-1 transition-transform" /> WITHDRAW USDT TO MAIN WALLET
             </button>
           </div>
         </div>
 
-        {/* TON Wallet Card */}
+        {/* GRAM Wallet Card (Right Card) */}
         <div className="relative group bg-[#041a13] p-8 rounded-[2rem] border border-emerald-900/50 shadow-[0_20px_50px_rgba(16,185,129,0.1)] overflow-hidden transition-all hover:border-emerald-500/50 hover:shadow-[0_20px_50px_rgba(16,185,129,0.2)]">
           {/* Background Glow */}
           <div className="absolute -right-20 -top-20 w-64 h-64 bg-emerald-600/20 blur-[80px] rounded-full pointer-events-none group-hover:bg-emerald-500/30 transition-all duration-700"></div>
@@ -678,20 +678,15 @@ function BotWallet() {
               <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
                 <Wallet size={18} className="text-emerald-400" />
               </div>
-              Secret TON Wallet
+              Secret GRAM Wallet
             </div>
             
             <div className="flex flex-col mb-6">
-              <div className="flex items-baseline gap-2">
-                <span className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.tonUsdtBalance || '0.00'}</span>
-                <span className="text-2xl font-black text-emerald-400">USDT</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 mt-2 text-xs font-bold">
-                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+              <div className="text-5xl font-black text-white tracking-tight drop-shadow-lg">{data.gramBalance || '0.00'}</div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">GRAM</span>
+                <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-xs font-bold">
                   TON Gas: {data.tonNativeBalance || data.tonBalance || '0.00'} TON
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-teal-500/10 text-teal-300 border border-teal-500/20">
-                  GRAM: {data.gramBalance || '0.00'} GRAM
                 </span>
               </div>
             </div>
@@ -709,7 +704,7 @@ function BotWallet() {
               <button onClick={() => handleDepositClick('TON')} className="flex-1 relative overflow-hidden group/btn flex items-center justify-center gap-2 bg-gray-800 text-white font-bold py-4 rounded-2xl shadow-lg border border-gray-700 transition-all hover:bg-gray-700 hover:border-gray-600 hover:-translate-y-1">
                 <ArrowDownToLine size={18} className="text-emerald-400 group-hover/btn:translate-y-1 transition-transform" /> DEPOSIT
               </button>
-              <button onClick={() => handleWithdrawClick('TON')} className="flex-[1.5] relative overflow-hidden group/btn flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold py-4 rounded-2xl shadow-[0_10px_30px_rgba(16,185,129,0.3)] transition-all hover:shadow-[0_10px_40px_rgba(16,185,129,0.5)] hover:-translate-y-1">
+              <button onClick={() => handleWithdrawClick('TON', 'TON')} className="flex-[1.5] relative overflow-hidden group/btn flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold py-4 rounded-2xl shadow-[0_10px_30px_rgba(16,185,129,0.3)] transition-all hover:shadow-[0_10px_40px_rgba(16,185,129,0.5)] hover:-translate-y-1">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full duration-1000 transition-transform"></div>
                 <Send size={18} className="group-hover/btn:-translate-y-1 group-hover/btn:translate-x-1 transition-transform" /> WITHDRAW
               </button>
