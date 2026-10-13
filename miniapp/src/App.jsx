@@ -1608,7 +1608,7 @@ const FloralTreeLiveChart = ({ data = [], latestPrice = 120.0 }) => {
                 fontWeight="900" 
                 fontFamily="sans-serif"
               >
-                ৳{latestPrice.toFixed(2)}
+                ৳{Number(latestPrice || 120).toFixed(2)}
               </text>
             </g>
           </g>
@@ -1620,6 +1620,7 @@ const FloralTreeLiveChart = ({ data = [], latestPrice = 120.0 }) => {
 
 function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney, lang = 'bn', t = {} }) {
   const [graphData, setGraphData] = useState(initialGraphData);
+  const [timeframe, setTimeframe] = useState('LIVE');
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1779,7 +1780,7 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
          
          <div className="flex items-baseline gap-2 mb-1 px-1">
             <span className="text-2xl font-black text-slate-900 tracking-tight">
-              {graphData[graphData.length-1].price.toFixed(2)}
+              {Number(graphData?.[graphData.length - 1]?.price ?? 120.0).toFixed(2)}
             </span>
             <span className="text-[11px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
               TK / USDT
@@ -1787,7 +1788,10 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
          </div>
 
          {/* Majestic Wealth Tree & Blooming Petal Canopy Chart */}
-         <FloralTreeLiveChart data={graphData} latestPrice={graphData[graphData.length-1].price} />
+         <FloralTreeLiveChart 
+           data={graphData} 
+           latestPrice={Number(graphData?.[graphData.length - 1]?.price ?? 120.0)} 
+         />
 
          {/* Timeframe Selector */}
          <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100/80 px-1">

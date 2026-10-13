@@ -34,9 +34,14 @@ class RootErrorBoundary extends Component {
             <img src={brandLogo} style={{ width: '60px', height: '60px', objectFit: 'contain' }} alt="Trust Pay" />
           </div>
           <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0f172a', margin: '0 0 8px' }}>সাময়িক সমস্যা দেখা দিয়েছে</h2>
-          <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 20px', maxWidth: '280px' }}>
+          <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 16px', maxWidth: '280px' }}>
             দয়া করে অ্যাপটি পুনরায় রিলোড করুন।
           </p>
+          {this.state.error && (
+            <div style={{ fontSize: '11px', color: '#dc2626', background: '#fee2e2', padding: '6px 12px', borderRadius: '8px', maxWidth: '320px', wordBreak: 'break-word', marginBottom: '16px' }}>
+              {this.state.error.message || String(this.state.error)}
+            </div>
+          )}
           <button 
             onClick={() => window.location.reload(true)} 
             style={{ padding: '12px 24px', borderRadius: '12px', background: '#4f46e5', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(79,70,229,0.3)' }}
