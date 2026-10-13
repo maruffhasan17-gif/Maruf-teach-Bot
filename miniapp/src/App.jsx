@@ -382,34 +382,58 @@ const calculateSendMoneyFee = (amt) => {
   return 5;
 };
 
-const BloomingFlowerGraphic = ({ className = 'w-24 h-24' }) => (
-  <div className="relative w-28 h-28 mx-auto mb-3 flex items-center justify-center">
-    {/* Ambient Glowing Halo */}
-    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-400/25 to-pink-400/20 blur-xl animate-pulse" />
+const BloomingFlowerGraphic = () => (
+  <div className="relative w-36 h-36 mx-auto mb-2.5 flex items-center justify-center select-none">
+    {/* Ambient Glowing Aura */}
+    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-500/15 to-transparent blur-xl animate-pulse" />
     
-    {/* Rotating Blooming Flower SVG */}
+    {/* Outer Rotating Sacred Lotus Mandala */}
     <svg 
-      className={`${className} text-indigo-600 flower-bloom-anim flower-petal-pulse drop-shadow-[0_4px_16px_rgba(79,70,229,0.4)]`} 
+      className="absolute inset-0 w-full h-full text-indigo-600/40 animate-[spin_18s_linear_infinite]"
+      viewBox="0 0 200 200" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+        <g key={i} transform={`rotate(${angle} 100 100)`}>
+          <path 
+            d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" 
+            fill="rgba(99,102,241,0.18)" 
+            stroke="rgba(99,102,241,0.6)" 
+            strokeWidth="1.2"
+          />
+          <circle cx="100" cy="18" r="2.5" fill="#6366f1" />
+        </g>
+      ))}
+    </svg>
+
+    {/* Counter-rotating delicate floral ring */}
+    <svg 
+      className="absolute w-26 h-26 text-purple-500/50 animate-[spin_12s_linear_infinite_reverse]"
       viewBox="0 0 100 100" 
       fill="none" 
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="50" cy="50" r="12" fill="#4F46E5" />
-      <circle cx="50" cy="50" r="6" fill="#A5B4FC" />
-      
-      {/* Symmetrical blooming petals with gradients */}
-      <g stroke="#6366F1" strokeWidth="2" fill="rgba(99, 102, 241, 0.18)">
-        <path d="M50 38 C42 22, 58 22, 50 38 Z" />
-        <path d="M50 62 C42 78, 58 78, 50 62 Z" />
-        <path d="M38 50 C22 42, 22 58, 38 50 Z" />
-        <path d="M62 50 C78 42, 78 58, 62 50 Z" />
-        <path d="M41 41 C28 30, 40 18, 41 41 Z" />
-        <path d="M59 59 C72 70, 60 82, 59 59 Z" />
-        <path d="M41 59 C28 70, 40 82, 41 59 Z" />
-        <path d="M59 41 C72 30, 60 18, 59 41 Z" />
-      </g>
-      <circle cx="50" cy="50" r="2.5" fill="#FFFFFF" />
+      {[0, 60, 120, 180, 240, 300].map((angle, i) => (
+        <g key={i} transform={`rotate(${angle} 50 50)`}>
+          <path 
+            d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
+            fill="rgba(168,85,247,0.2)" 
+            stroke="rgba(147,51,234,0.6)" 
+            strokeWidth="1"
+          />
+        </g>
+      ))}
     </svg>
+
+    {/* Center Heart: Brand Transparent Logo Floating Elegantly */}
+    <div className="relative z-10 w-20 h-20 flex items-center justify-center animate-[pulse_2.5s_ease-in-out_infinite]">
+      <img 
+        src={brandLogo} 
+        alt="Trust Pay" 
+        className="w-full h-full object-contain drop-shadow-[0_8px_20px_rgba(79,70,229,0.45)]" 
+      />
+    </div>
   </div>
 );
 
@@ -424,7 +448,7 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn' }) => {
           clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
         }}
       >
-        <FloralWatermark />
+        <WithdrawLilyPattern className="opacity-[0.06]" />
         
         {/* Blooming Flower Graphic */}
         <BloomingFlowerGraphic />
