@@ -113,7 +113,7 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trustpay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trustpay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v4';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v5';
 const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
@@ -1303,7 +1303,7 @@ app.post('/api/miniapp/verify-membership', async (req, res) => {
         const rawUserId = req.body.userId;
         const userId = parseInt(rawUserId);
         if (!userId || userId === 123456789 || isNaN(userId)) {
-            return res.json({ success: true, allJoined: true });
+            return res.json({ success: true, allJoined: true, inChannel: true, inGroup: true });
         }
         const check = await checkUserCommunities(userId);
         if (check.allJoined) {
@@ -1312,13 +1312,13 @@ app.post('/api/miniapp/verify-membership', async (req, res) => {
                 verified: true,
                 communityVerifiedAt: FieldValue.serverTimestamp()
             }, { merge: true });
-            return res.json({ success: true, allJoined: true });
+            return res.json({ success: true, allJoined: true, inChannel: true, inGroup: true });
         } else {
             return res.json({ success: false, ...check });
         }
     } catch (e) {
         console.warn('verify-membership error:', e.message);
-        res.json({ success: true, allJoined: true });
+        res.json({ success: true, allJoined: true, inChannel: true, inGroup: true });
     }
 });
 

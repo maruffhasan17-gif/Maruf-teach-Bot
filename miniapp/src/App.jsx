@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3 } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -623,7 +623,14 @@ const translations = {
     fee: 'সেন্ড মানি ফি',
     youReceive: 'আপনি পাবেন',
     withdrawNote: 'উইথড্র রিকোয়েস্ট সাধারণত ১ থেকে ২ ঘণ্টার মধ্যে এবং সর্বোচ্চ ২৪ ঘণ্টার মধ্যে সম্পন্ন হয়।',
-    loading: 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...'
+    loading: 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...',
+    howToUse: 'বটটি যেভাবে ব্যবহার করবেন',
+    step1Title: 'টাকা আয় করুন:',
+    step1Desc: 'বটটি চালু রাখুন এবং ব্যালেন্সে টাকা যুক্ত বা লেনদেন করে পয়েন্ট ও ক্যাশ আয় করুন।',
+    step2Title: 'ওয়ালেট যুক্ত করুন:',
+    step2Desc: 'উইথড্র এবং স্বয়ংক্রিয় লেনদেনের জন্য নিরাপদে আপনার TON ওয়ালেট কানেক্ট করুন।',
+    step3Title: 'উত্তোলন করুন:',
+    step3Desc: 'আপনার অর্জিত ব্যালেন্স সরাসরি বিকাশ/নগদে অথবা ক্রিপ্টোতে তুলে নিন।'
   },
   en: {
     appName: 'Trust Pay',
@@ -668,7 +675,14 @@ const translations = {
     fee: 'Send Money Fee',
     youReceive: 'You will receive',
     withdrawNote: 'Withdrawals usually take 1 to 2 hours or up to 24 hours to process.',
-    loading: 'Loading, please wait...'
+    loading: 'Loading, please wait...',
+    howToUse: 'How to use this bot',
+    step1Title: 'Earn TK:',
+    step1Desc: 'Start the bot and keep it active to accumulate TK points and earnings.',
+    step2Title: 'Connect Wallet:',
+    step2Desc: 'Link your TON wallet securely to enable withdrawals and swaps.',
+    step3Title: 'Withdraw:',
+    step3Desc: 'Convert your earned TK balance to USDT or BDT directly to your account.'
   }
 };
 
@@ -779,6 +793,34 @@ export default function App() {
     }
   };
 
+  const performCommunityCheck = async (silent = false) => {
+    if (!user?.id || user.id === 123456789) return;
+    try {
+      const res = await checkCommunityMembership(user.id);
+      if (res) {
+        setCommunityStatus({
+          inChannel: Boolean(res.inChannel),
+          inGroup: Boolean(res.inGroup),
+          allJoined: Boolean(res.allJoined)
+        });
+        if (res.allJoined) {
+          localStorage.setItem('trustpay_verified_' + user.id, 'true');
+          setCommunitySuccess(true);
+          setCommunityError('');
+          if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+          }
+          setTimeout(() => {
+            setShowCommunityModal(false);
+            setCommunitySuccess(false);
+          }, 1200);
+        }
+      }
+    } catch (e) {
+      if (!silent) console.warn("performCommunityCheck error:", e);
+    }
+  };
+
   const checkCommunityJoinStatus = async (userId) => {
     try {
       if (!userId || userId === 123456789) return;
@@ -789,7 +831,11 @@ export default function App() {
       }
       const res = await checkCommunityMembership(userId);
       if (res && res.allJoined === false) {
-        setCommunityStatus(res);
+        setCommunityStatus({
+          inChannel: Boolean(res.inChannel),
+          inGroup: Boolean(res.inGroup),
+          allJoined: false
+        });
         setShowCommunityModal(true);
       } else if (res && res.allJoined === true) {
         localStorage.setItem('trustpay_verified_' + userId, 'true');
@@ -800,6 +846,44 @@ export default function App() {
     }
   };
 
+  // Re-check automatically on window focus / visibility change
+  useEffect(() => {
+    if (!showCommunityModal) return;
+
+    const handleFocus = () => {
+      performCommunityCheck(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, [showCommunityModal, user.id]);
+
+  const handleGoChannel = () => {
+    if (window.Telegram?.WebApp?.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink('https://t.me/maruf_teach');
+    } else {
+      window.open('https://t.me/maruf_teach', '_blank');
+    }
+    // Schedule background check after user has opened the link
+    setTimeout(() => performCommunityCheck(true), 2500);
+    setTimeout(() => performCommunityCheck(true), 5000);
+  };
+
+  const handleGoGroup = () => {
+    if (window.Telegram?.WebApp?.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink('https://t.me/bd_trustpay_payout');
+    } else {
+      window.open('https://t.me/bd_trustpay_payout', '_blank');
+    }
+    // Schedule background check after user has opened the link
+    setTimeout(() => performCommunityCheck(true), 2500);
+    setTimeout(() => performCommunityCheck(true), 5000);
+  };
+
   const handleVerifyCommunity = async () => {
     setIsVerifyingCommunity(true);
     setCommunityError('');
@@ -808,6 +892,13 @@ export default function App() {
         window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
       }
       const res = await verifyCommunityMembership(user.id);
+      if (res) {
+        setCommunityStatus({
+          inChannel: Boolean(res.inChannel),
+          inGroup: Boolean(res.inGroup),
+          allJoined: Boolean(res.allJoined)
+        });
+      }
       if (res && res.allJoined) {
         setCommunitySuccess(true);
         localStorage.setItem('trustpay_verified_' + user.id, 'true');
@@ -820,11 +911,11 @@ export default function App() {
         }, 1200);
       } else {
         if (!res.inChannel && !res.inGroup) {
-          setCommunityError(lang === 'bn' ? '❌ আপনি চ্যানেল ও গ্রুপ দুটিতেই এখনও যুক্ত হননি!' : '❌ You have not joined the channel and group yet!');
+          setCommunityError(lang === 'bn' ? '❌ আপনি চ্যানেল ও গ্রুপ দুটিতেই এখনও যুক্ত হননি! উপরের Go বাটনে চাপুন।' : '❌ You have not joined the channel and group yet!');
         } else if (!res.inChannel) {
-          setCommunityError(lang === 'bn' ? '❌ আপনি এখনও Maruf Teach চ্যানেল (@maruf_teach)-এ জয়েন করেননি!' : '❌ You have not joined @maruf_teach channel yet!');
+          setCommunityError(lang === 'bn' ? '❌ আপনি ১ নম্বর চ্যানেলে এখনও জয়েন করেননি! Go চাপুন।' : '❌ You have not joined @maruf_teach channel yet!');
         } else if (!res.inGroup) {
-          setCommunityError(lang === 'bn' ? '❌ আপনি এখনও TrustPay Payout গ্রুপ (@bd_trustpay_payout)-এ জয়েন করেননি!' : '❌ You have not joined @bd_trustpay_payout group yet!');
+          setCommunityError(lang === 'bn' ? '❌ আপনি ২ নম্বর গ্রুপে এখনও জয়েন করেননি! Go চাপুন।' : '❌ You have not joined @bd_trustpay_payout group yet!');
         } else {
           setCommunityError(lang === 'bn' ? '❌ অনুগ্রহ করে দুটিতেই জয়েন করে আবার ভেরিফাই চাপুন।' : '❌ Please join both communities and retry.');
         }
@@ -1100,11 +1191,19 @@ export default function App() {
                 </div>
 
                 {/* 2 Community Items */}
-                <div className="relative z-10 space-y-2.5 mb-5 text-left">
+                <div className="relative z-10 space-y-2.5 mb-3 text-left">
                   {/* Channel 1 */}
-                  <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl flex items-center justify-between gap-2.5 hover:bg-slate-100/70 transition-all">
+                  <div className={`p-3 rounded-xl flex items-center justify-between gap-2.5 transition-all ${
+                    communityStatus.inChannel 
+                      ? 'bg-emerald-50/90 border border-emerald-200/90 shadow-xs' 
+                      : 'bg-slate-50 border border-slate-200/90 hover:bg-slate-100/70'
+                  }`}>
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-sm shrink-0">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 border ${
+                        communityStatus.inChannel
+                          ? 'bg-emerald-100/80 border-emerald-200 text-emerald-800'
+                          : 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                      }`}>
                         📢
                       </div>
                       <div className="min-w-0">
@@ -1112,25 +1211,35 @@ export default function App() {
                         <div className="text-[10px] font-semibold text-indigo-600 truncate">@maruf_teach</div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.Telegram?.WebApp?.openTelegramLink) {
-                          window.Telegram.WebApp.openTelegramLink('https://t.me/maruf_teach');
-                        } else {
-                          window.open('https://t.me/maruf_teach', '_blank');
-                        }
-                      }}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] rounded-lg shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer"
-                    >
-                      Go
-                    </button>
+                    {communityStatus.inChannel ? (
+                      <div className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-extrabold text-[10.5px] rounded-lg flex items-center gap-1 border border-emerald-300 shrink-0 shadow-xs">
+                        <CheckCircle2 size={12} className="text-emerald-700 stroke-[2.5]" />
+                        <span>{lang === 'bn' ? 'জয়েন সম্পন্ন' : 'Joined'}</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleGoChannel}
+                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[11px] rounded-lg shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer flex items-center gap-1"
+                      >
+                        <span>Go</span>
+                        <ExternalLink size={11} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Group 2 */}
-                  <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-xl flex items-center justify-between gap-2.5 hover:bg-slate-100/70 transition-all">
+                  <div className={`p-3 rounded-xl flex items-center justify-between gap-2.5 transition-all ${
+                    communityStatus.inGroup 
+                      ? 'bg-emerald-50/90 border border-emerald-200/90 shadow-xs' 
+                      : 'bg-slate-50 border border-slate-200/90 hover:bg-slate-100/70'
+                  }`}>
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-sm shrink-0">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 border ${
+                        communityStatus.inGroup
+                          ? 'bg-emerald-100/80 border-emerald-200 text-emerald-800'
+                          : 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                      }`}>
                         👥
                       </div>
                       <div className="min-w-0">
@@ -1138,21 +1247,35 @@ export default function App() {
                         <div className="text-[10px] font-semibold text-emerald-600 truncate">@bd_trustpay_payout</div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.Telegram?.WebApp?.openTelegramLink) {
-                          window.Telegram.WebApp.openTelegramLink('https://t.me/bd_trustpay_payout');
-                        } else {
-                          window.open('https://t.me/bd_trustpay_payout', '_blank');
-                        }
-                      }}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-lg shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer"
-                    >
-                      Go
-                    </button>
+                    {communityStatus.inGroup ? (
+                      <div className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-extrabold text-[10.5px] rounded-lg flex items-center gap-1 border border-emerald-300 shrink-0 shadow-xs">
+                        <CheckCircle2 size={12} className="text-emerald-700 stroke-[2.5]" />
+                        <span>{lang === 'bn' ? 'জয়েন সম্পন্ন' : 'Joined'}</span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleGoGroup}
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] rounded-lg shadow-sm active:scale-95 transition-all shrink-0 cursor-pointer flex items-center gap-1"
+                      >
+                        <span>Go</span>
+                        <ExternalLink size={11} />
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                {/* Helpful status tip if 1 of 2 is joined */}
+                {communityStatus.inChannel && !communityStatus.inGroup && (
+                  <p className="relative z-10 text-[10px] text-indigo-700 font-bold mb-3 bg-indigo-50/80 py-1 px-2 rounded-lg border border-indigo-200/60 leading-tight">
+                    ✓ চ্যানেল জয়েন হয়েছে! এবার ২ নম্বর গ্রুপে Go চাপুন।
+                  </p>
+                )}
+                {!communityStatus.inChannel && communityStatus.inGroup && (
+                  <p className="relative z-10 text-[10px] text-emerald-700 font-bold mb-3 bg-emerald-50/80 py-1 px-2 rounded-lg border border-emerald-200/60 leading-tight">
+                    ✓ গ্রুপ জয়েন হয়েছে! এবার ১ নম্বর চ্যানেলে Go চাপুন।
+                  </p>
+                )}
 
                 {/* Feedback / Error Message */}
                 {communityError && (
@@ -1218,6 +1341,282 @@ function AppHeader({ user }) {
             </div>
   );
 }
+
+const FloralTreeLiveChart = ({ data = [], latestPrice = 120.0 }) => {
+  const chartData = data && data.length > 0 ? data : [
+    { price: 118.5 }, { price: 119.2 }, { price: 118.8 },
+    { price: 119.5 }, { price: 120.1 }, { price: 119.9 }, { price: 120.0 }
+  ];
+
+  const prices = chartData.map(d => d.price);
+  const minP = Math.min(...prices);
+  const maxP = Math.max(...prices);
+  const range = (maxP - minP) > 0.05 ? (maxP - minP) : 1;
+
+  // Points on 360 width, height 160
+  // X: 25 to 335
+  // Y: 22 to 62
+  const points = chartData.map((d, i) => {
+    const x = Math.round(25 + (i * 310) / Math.max(1, chartData.length - 1));
+    const norm = (d.price - minP) / range;
+    const y = Math.round(62 - norm * 40);
+    return { x, y, price: d.price };
+  });
+
+  // Construct smooth petal curve line
+  let petalLinePath = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i];
+    const p1 = points[i + 1];
+    const dx = p1.x - p0.x;
+    const cp1x = Math.round(p0.x + dx * 0.45);
+    const cp1y = Math.round(p0.y - 5);
+    const cp2x = Math.round(p0.x + dx * 0.55);
+    const cp2y = Math.round(p1.y - 5);
+    petalLinePath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
+  }
+
+  // Closed area down to tree roots/ground
+  const areaPath = `${petalLinePath} L ${points[points.length - 1].x} 150 L ${points[0].x} 150 Z`;
+  const lastPoint = points[points.length - 1];
+
+  return (
+    <div className="relative w-full overflow-hidden select-none my-1">
+      <svg
+        viewBox="0 0 360 160"
+        className="w-full h-36 drop-shadow-sm"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          {/* Canopy Gradient for Flower Petal Fill */}
+          <linearGradient id="treeCanopyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#9333ea" stopOpacity="0.22" />
+            <stop offset="45%" stopColor="#7c3aed" stopOpacity="0.10" />
+            <stop offset="85%" stopColor="#6366f1" stopOpacity="0.03" />
+            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+          </linearGradient>
+
+          {/* Stroke Gradient for Petal Arches */}
+          <linearGradient id="petalStrokeGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#6366f1" />
+            <stop offset="50%" stopColor="#9333ea" />
+            <stop offset="100%" stopColor="#c084fc" />
+          </linearGradient>
+
+          {/* Tree Trunk & Branches Shading */}
+          <linearGradient id="treeTrunkGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#4338ca" />
+            <stop offset="40%" stopColor="#6d28d9" />
+            <stop offset="100%" stopColor="#9333ea" />
+          </linearGradient>
+        </defs>
+
+        {/* 1. Ethereal Canopy Area Under Petal Curve */}
+        <path d={areaPath} fill="url(#treeCanopyGrad)" />
+
+        {/* 2. Artistic Ground Base & Roots */}
+        <path 
+          d="M 15 150 Q 180 152 345 150" 
+          stroke="rgba(147, 51, 234, 0.2)" 
+          strokeWidth="1.2" 
+          strokeDasharray="4 3" 
+        />
+        {/* Left spreading roots */}
+        <path 
+          d="M 174 148 C 158 150, 138 152, 118 151 M 172 149 C 160 151, 142 153, 132 152 M 170 150 C 150 151, 125 152, 95 152" 
+          stroke="rgba(124, 58, 237, 0.45)" 
+          strokeWidth="1.2" 
+          strokeLinecap="round" 
+        />
+        {/* Right spreading roots */}
+        <path 
+          d="M 186 148 C 202 150, 222 152, 242 151 M 188 149 C 200 151, 218 153, 228 152 M 190 150 C 210 151, 235 152, 265 152" 
+          stroke="rgba(124, 58, 237, 0.45)" 
+          strokeWidth="1.2" 
+          strokeLinecap="round" 
+        />
+
+        {/* 3. The Artistic Tree Trunk (The Tree of Prosperity) */}
+        <path 
+          d="M 172 150 C 174 130, 175 106, 178 88 C 182 106, 183 130, 188 150 Z" 
+          fill="url(#treeTrunkGrad)" 
+          stroke="rgba(147, 51, 234, 0.6)" 
+          strokeWidth="1" 
+        />
+        {/* Trunk glowing core grain */}
+        <path 
+          d="M 180 146 C 180 128, 180 108, 180 90" 
+          stroke="rgba(216, 180, 254, 0.6)" 
+          strokeWidth="1" 
+          strokeLinecap="round" 
+        />
+
+        {/* 4. Sinuous Tree Branches reaching outward and upward */}
+        {/* Lower Left */}
+        <path 
+          d="M 176 112 C 152 106, 115 116, 80 128" 
+          stroke="rgba(124, 58, 237, 0.55)" 
+          strokeWidth="1.6" 
+          fill="none" 
+          strokeLinecap="round" 
+        />
+        {/* Lower Right */}
+        <path 
+          d="M 184 112 C 208 106, 245 116, 280 128" 
+          stroke="rgba(124, 58, 237, 0.55)" 
+          strokeWidth="1.6" 
+          fill="none" 
+          strokeLinecap="round" 
+        />
+
+        {/* Mid Left */}
+        <path 
+          d="M 177 98 C 145 84, 105 88, 65 100" 
+          stroke="rgba(147, 51, 234, 0.65)" 
+          strokeWidth="1.8" 
+          fill="none" 
+          strokeLinecap="round" 
+        />
+        {/* Mid Right */}
+        <path 
+          d="M 183 98 C 215 84, 255 88, 295 100" 
+          stroke="rgba(147, 51, 234, 0.65)" 
+          strokeWidth="1.8" 
+          fill="none" 
+          strokeLinecap="round" 
+        />
+
+        {/* Upper Left reaching to Petal Canopy */}
+        <path 
+          d="M 178 88 C 150 68, 115 54, 76 60" 
+          stroke="rgba(168, 85, 247, 0.75)" 
+          strokeWidth="1.8" 
+          fill="none" 
+          strokeLinecap="round" 
+        />
+        {/* Upper Right reaching to Petal Canopy */}
+        <path 
+          d="M 182 88 C 210 68, 245 54, 284 60" 
+          stroke="rgba(168, 85, 247, 0.75)" 
+          strokeWidth="1.8" 
+          fill="none" 
+          strokeLinecap="round" 
+        />
+
+        {/* Center Twigs */}
+        <path 
+          d="M 179 88 C 176 72, 170 58, 164 48 M 181 88 C 184 72, 190 58, 196 48" 
+          stroke="rgba(192, 132, 252, 0.7)" 
+          strokeWidth="1.3" 
+          fill="none" 
+          strokeLinecap="round" 
+        />
+
+        {/* 5. Delicate Botanical Leaves along the branches */}
+        <g transform="translate(115, 112) rotate(-15)">
+          <path d="M 0 0 C -5 -8, 5 -8, 0 0 Z" fill="rgba(168, 85, 247, 0.28)" stroke="rgba(147, 51, 234, 0.6)" strokeWidth="0.8" />
+          <path d="M 0 0 C -8 -4, -8 4, 0 0 Z" fill="rgba(168, 85, 247, 0.2)" stroke="rgba(147, 51, 234, 0.5)" strokeWidth="0.7" />
+        </g>
+        <g transform="translate(245, 112) rotate(15)">
+          <path d="M 0 0 C -5 -8, 5 -8, 0 0 Z" fill="rgba(168, 85, 247, 0.28)" stroke="rgba(147, 51, 234, 0.6)" strokeWidth="0.8" />
+          <path d="M 0 0 C 8 -4, 8 4, 0 0 Z" fill="rgba(168, 85, 247, 0.2)" stroke="rgba(147, 51, 234, 0.5)" strokeWidth="0.7" />
+        </g>
+        <g transform="translate(100, 88) rotate(-25)">
+          <path d="M 0 0 C -6 -10, 6 -10, 0 0 Z" fill="rgba(168, 85, 247, 0.3)" stroke="rgba(147, 51, 234, 0.7)" strokeWidth="0.9" />
+          <circle cx="0" cy="-10" r="1.5" fill="#c084fc" />
+        </g>
+        <g transform="translate(260, 88) rotate(25)">
+          <path d="M 0 0 C -6 -10, 6 -10, 0 0 Z" fill="rgba(168, 85, 247, 0.3)" stroke="rgba(147, 51, 234, 0.7)" strokeWidth="0.9" />
+          <circle cx="0" cy="-10" r="1.5" fill="#c084fc" />
+        </g>
+        <g transform="translate(120, 62) rotate(-35)">
+          <path d="M 0 0 C -5 -9, 5 -9, 0 0 Z" fill="rgba(192, 132, 252, 0.35)" stroke="rgba(168, 85, 247, 0.7)" strokeWidth="0.9" />
+        </g>
+        <g transform="translate(240, 62) rotate(35)">
+          <path d="M 0 0 C -5 -9, 5 -9, 0 0 Z" fill="rgba(192, 132, 252, 0.35)" stroke="rgba(168, 85, 247, 0.7)" strokeWidth="0.9" />
+        </g>
+
+        {/* 6. Glowing Petal Chart Line (Top Canopy Waveform) */}
+        {/* Wide Glowing Aura */}
+        <path 
+          d={petalLinePath} 
+          fill="none" 
+          stroke="rgba(147, 51, 234, 0.45)" 
+          strokeWidth="6" 
+          strokeLinecap="round" 
+        />
+        {/* Main Vibrant Petal Stroke */}
+        <path 
+          d={petalLinePath} 
+          fill="none" 
+          stroke="url(#petalStrokeGrad)" 
+          strokeWidth="2.4" 
+          strokeLinecap="round" 
+        />
+        {/* Ethereal Highlight Dash */}
+        <path 
+          d={petalLinePath} 
+          fill="none" 
+          stroke="rgba(255, 255, 255, 0.75)" 
+          strokeWidth="0.9" 
+          strokeDasharray="6 4" 
+          strokeLinecap="round" 
+        />
+
+        {/* 7. Petal Nodes & Blossom Buds along the Chart */}
+        {points.map((pt, i) => {
+          const isLatest = i === points.length - 1;
+          if (isLatest) return null;
+
+          return (
+            <g key={i}>
+              <circle cx={pt.x} cy={pt.y} r="4.5" fill="rgba(168, 85, 247, 0.25)" />
+              <circle cx={pt.x} cy={pt.y} r="2.2" fill="#ffffff" stroke="#7c3aed" strokeWidth="1.2" />
+            </g>
+          );
+        })}
+
+        {/* 8. Active Blooming Lotus Node on Latest Price Point */}
+        {lastPoint && (
+          <g>
+            {/* Animated ping ring */}
+            <circle cx={lastPoint.x} cy={lastPoint.y} r="8" fill="none" stroke="#9333ea" strokeWidth="1.2" opacity="0.6">
+              <animate attributeName="r" values="4;12;4" dur="2.4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.8;0;0.8" dur="2.4s" repeatCount="indefinite" />
+            </circle>
+            {/* Outer halo */}
+            <circle cx={lastPoint.x} cy={lastPoint.y} r="5.5" fill="rgba(168, 85, 247, 0.4)" stroke="#7c3aed" strokeWidth="1.5" />
+            {/* Inner Pearl */}
+            <circle cx={lastPoint.x} cy={lastPoint.y} r="2.8" fill="#ffffff" />
+
+            {/* Floating Price Pill Badge */}
+            <g transform={`translate(${Math.min(300, Math.max(35, lastPoint.x))}, ${Math.max(16, lastPoint.y - 14)})`}>
+              <rect 
+                x="-26" 
+                y="-10" 
+                width="52" 
+                height="14" 
+                rx="4" 
+                fill="#7c3aed" 
+              />
+              <text 
+                x="0" 
+                y="0.5" 
+                textAnchor="middle" 
+                fill="#ffffff" 
+                fontSize="8.5" 
+                fontWeight="900" 
+                fontFamily="sans-serif"
+              >
+                ৳{latestPrice.toFixed(2)}
+              </text>
+            </g>
+          </g>
+        )}
+      </svg>
+    </div>
+  );
+};
 
 function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney, lang = 'bn', t = {} }) {
   const [graphData, setGraphData] = useState(initialGraphData);
@@ -1363,77 +1762,83 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
          </div>
       </div>
 
-      {/* Live Chart Card */}
-      <CutCornerCard className="p-3.5">
-         <div className="flex justify-between items-start mb-3">
+      {/* Live Chart Card with Tree Art & Petal Canopy */}
+      <CutCornerCard className="p-3.5" flower={<HomeLotusPattern />}>
+         <div className="flex justify-between items-start mb-2">
             <div className="flex items-center gap-2 text-slate-900">
-                <TrendingUp size={15} className="text-slate-500" />
-                <h3 className="text-[15px] font-bold">{t?.chartTitle || 'USDT/TK Live Chart'}</h3>
+                <div className="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
+                  <TrendingUp size={14} />
+                </div>
+                <h3 className="text-[14px] font-black tracking-tight">{t?.chartTitle || 'USDT/TK লাইভ চার্ট'}</h3>
             </div>
-            <div className="flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                <span className="text-[9px] font-bold text-emerald-700 tracking-wide">LIVE</span>
+            <div className="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                <span className="text-[9.5px] font-black text-emerald-700 tracking-wider">LIVE</span>
             </div>
          </div>
          
-         <div className="flex items-baseline gap-1.5 mb-3">
-            <span className="text-xl font-bold text-slate-900">{graphData[graphData.length-1].price.toFixed(2)}</span>
-            <span className="text-[12px] font-medium text-slate-500">TK/USDT</span>
+         <div className="flex items-baseline gap-2 mb-1 px-1">
+            <span className="text-2xl font-black text-slate-900 tracking-tight">
+              {graphData[graphData.length-1].price.toFixed(2)}
+            </span>
+            <span className="text-[11px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+              TK / USDT
+            </span>
          </div>
 
-         <div className="h-28 w-full ml-[-15px]">
-            <ResponsiveContainer width="100%" height="100%">
-               <AreaChart data={graphData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
-                 <defs>
-                   <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                     <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.15}/>
-                     <stop offset="95%" stopColor="#4F46E5" stopOpacity={0}/>
-                   </linearGradient>
-                 </defs>
-                 <YAxis domain={['dataMin - 0.5', 'dataMax + 0.5']} hide />
-                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                 <Area type="monotone" dataKey="price" stroke="#4F46E5" strokeWidth={2} fillOpacity={1} fill="url(#colorPrice)" isAnimationActive={true} animationDuration={300} />
-               </AreaChart>
-            </ResponsiveContainer>
-         </div>
-         <div className="flex justify-between mt-2 px-2">
-            <span className="text-[10px] text-slate-400 font-medium">1H</span>
-            <span className="text-[10px] text-slate-400 font-medium">1D</span>
-            <span className="text-[10px] text-indigo-600 font-bold">LIVE</span>
-            <span className="text-[10px] text-slate-400 font-medium">1W</span>
-            <span className="text-[10px] text-slate-400 font-medium">1M</span>
+         {/* Majestic Wealth Tree & Blooming Petal Canopy Chart */}
+         <FloralTreeLiveChart data={graphData} latestPrice={graphData[graphData.length-1].price} />
+
+         {/* Timeframe Selector */}
+         <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100/80 px-1">
+            {['1H', '1D', 'LIVE', '1W', '1M'].map(tf => (
+              <button
+                key={tf}
+                onClick={() => setTimeframe(tf)}
+                className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
+                  timeframe === tf 
+                    ? 'bg-purple-600 text-white shadow-xs' 
+                    : 'text-slate-400 hover:text-purple-600'
+                }`}
+              >
+                {tf}
+              </button>
+            ))}
          </div>
       </CutCornerCard>
 
-      {/* Instructions Card */}
-      <CutCornerCard className="p-4 mb-4">
+      {/* Instructions Card (How to use this bot) */}
+      <CutCornerCard className="p-4 mb-4" flower={<HomeLotusPattern />}>
          <h3 className="text-[14px] font-bold text-slate-900 mb-3 flex items-center gap-2">
-            <Info size={16} className="text-indigo-600" />
-            How to use this bot
+            <Info size={16} className="text-purple-600" />
+            {t?.howToUse || 'বটটি যেভাবে ব্যবহার করবেন'}
          </h3>
          <ul className="space-y-3">
             <li className="flex items-start gap-2.5">
-               <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">
-                  <span className="text-[10px] font-bold text-indigo-600">1</span>
+               <div className="w-5 h-5 rounded-full bg-purple-50 flex items-center justify-center shrink-0 mt-0.5 border border-purple-100">
+                  <span className="text-[10px] font-bold text-purple-600">1</span>
                </div>
-               <p className="text-[11px] text-slate-500 leading-relaxed">
-                  <strong className="text-slate-800">Earn TK:</strong> Start the bot and keep it active to accumulate TK points.
+               <p className="text-[11px] text-slate-600 leading-relaxed">
+                  <strong className="text-slate-800 font-bold">{t?.step1Title || 'টাকা আয় করুন:'} </strong>
+                  <span>{t?.step1Desc || 'বটটি চালু রাখুন এবং ব্যালেন্সে টাকা যুক্ত বা লেনদেন করে পয়েন্ট ও ক্যাশ আয় করুন।'}</span>
                </p>
             </li>
             <li className="flex items-start gap-2.5">
-               <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">
-                  <span className="text-[10px] font-bold text-indigo-600">2</span>
+               <div className="w-5 h-5 rounded-full bg-purple-50 flex items-center justify-center shrink-0 mt-0.5 border border-purple-100">
+                  <span className="text-[10px] font-bold text-purple-600">2</span>
                </div>
-               <p className="text-[11px] text-slate-500 leading-relaxed">
-                  <strong className="text-slate-800">Connect Wallet:</strong> Link your TON wallet securely to enable withdrawals.
+               <p className="text-[11px] text-slate-600 leading-relaxed">
+                  <strong className="text-slate-800 font-bold">{t?.step2Title || 'ওয়ালেট যুক্ত করুন:'} </strong>
+                  <span>{t?.step2Desc || 'উইথড্র এবং স্বয়ংক্রিয় লেনদেনের জন্য নিরাপদে আপনার TON ওয়ালেট কানেক্ট করুন।'}</span>
                </p>
             </li>
             <li className="flex items-start gap-2.5">
-               <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-100">
-                  <span className="text-[10px] font-bold text-indigo-600">3</span>
+               <div className="w-5 h-5 rounded-full bg-purple-50 flex items-center justify-center shrink-0 mt-0.5 border border-purple-100">
+                  <span className="text-[10px] font-bold text-purple-600">3</span>
                </div>
-               <p className="text-[11px] text-slate-500 leading-relaxed">
-                  <strong className="text-slate-800">Withdraw:</strong> Convert your earned TK balance to USDT directly to your wallet.
+               <p className="text-[11px] text-slate-600 leading-relaxed">
+                  <strong className="text-slate-800 font-bold">{t?.step3Title || 'উত্তোলন করুন:'} </strong>
+                  <span>{t?.step3Desc || 'আপনার অর্জিত ব্যালেন্স সরাসরি বিকাশ/নগদে অথবা ক্রিপ্টোতে তুলে নিন।'}</span>
                </p>
             </li>
          </ul>
