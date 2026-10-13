@@ -133,6 +133,152 @@ const CutCornerCard = ({ children, className = '', containerClassName = '', onCl
   </div>
 );
 
+const CutCornerButton = ({ 
+  children, 
+  onClick, 
+  disabled = false, 
+  isSubmitting = false, 
+  icon: Icon, 
+  className = '', 
+  variant = 'primary'
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || isSubmitting}
+      className={`relative w-full h-[50px] font-extrabold text-[14px] tracking-wide flex items-center justify-center gap-2 overflow-hidden transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none ${
+        variant === 'primary'
+          ? 'bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 text-white shadow-[0_8px_20px_rgba(79,70,229,0.25)] hover:shadow-[0_10px_25px_rgba(79,70,229,0.35)]'
+          : 'bg-white border border-slate-200 text-slate-800 hover:bg-slate-50'
+      } ${className}`}
+      style={{
+        clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px)',
+      }}
+    >
+      {/* Subtle Flower Watermark in Button */}
+      <svg
+        className="absolute -right-4 -bottom-4 w-20 h-20 text-white/10 pointer-events-none transform rotate-12"
+        viewBox="0 0 100 100"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="2.5" />
+        <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="2" />
+        <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="2" />
+      </svg>
+      
+      {isSubmitting ? (
+        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      ) : (
+        <>
+          {Icon && <Icon size={18} className="shrink-0" />}
+          <span className="relative z-10">{children}</span>
+        </>
+      )}
+    </button>
+  );
+};
+
+const calculateSendMoneyFee = (amt) => {
+  const a = parseFloat(amt) || 0;
+  if (a <= 0) return 0;
+  if (a >= 1500) return 30;
+  if (a > 1000) return 20;
+  if (a > 500) return 10;
+  if (a > 100) return 7;
+  return 5;
+};
+
+const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn' }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+      <div 
+        className="relative bg-white w-full max-w-[340px] p-6 text-center shadow-[0_20px_50px_rgba(79,70,229,0.25)] border border-indigo-100/60 animate-in zoom-in-95 duration-300"
+        style={{
+          clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
+        }}
+      >
+        <FloralWatermark />
+        
+        {/* Blooming Flower Graphic */}
+        <div className="relative w-28 h-28 mx-auto mb-4 flex items-center justify-center">
+          {/* Ambient Glowing Halo */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 via-purple-400/25 to-pink-400/20 blur-xl animate-pulse" />
+          
+          {/* Rotating Blooming Flower SVG */}
+          <svg 
+            className="w-24 h-24 text-indigo-600 flower-bloom-anim flower-petal-pulse drop-shadow-[0_4px_16px_rgba(79,70,229,0.4)]" 
+            viewBox="0 0 100 100" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="50" cy="50" r="12" fill="#4F46E5" />
+            <circle cx="50" cy="50" r="6" fill="#A5B4FC" />
+            
+            {/* Symmetrical blooming petals with gradients */}
+            <g stroke="#6366F1" strokeWidth="2" fill="rgba(99, 102, 241, 0.18)">
+              <path d="M50 38 C42 22, 58 22, 50 38 Z" />
+              <path d="M50 62 C42 78, 58 78, 50 62 Z" />
+              <path d="M38 50 C22 42, 22 58, 38 50 Z" />
+              <path d="M62 50 C78 42, 78 58, 62 50 Z" />
+              <path d="M41 41 C28 30, 40 18, 41 41 Z" />
+              <path d="M59 59 C72 70, 60 82, 59 59 Z" />
+              <path d="M41 59 C28 70, 40 82, 41 59 Z" />
+              <path d="M59 41 C72 30, 60 18, 59 41 Z" />
+            </g>
+            <circle cx="50" cy="50" r="2.5" fill="#FFFFFF" />
+          </svg>
+        </div>
+
+        {/* Title & Badge */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-black uppercase tracking-wider mb-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+          {lang === 'bn' ? 'রিকোয়েস্ট সফল' : 'REQUEST SUBMITTED'}
+        </div>
+        <h3 className="text-[18px] font-black text-slate-900 leading-tight mb-1">
+          {lang === 'bn' ? 'উইথড্র রিকোয়েস্ট সফল!' : 'Withdrawal Submitted!'}
+        </h3>
+        <p className="text-[12px] text-slate-500 font-medium mb-4 leading-relaxed">
+          {lang === 'bn' ? 'আপনার রিকোয়েস্টটি সফলভাবে জমা হয়েছে এবং প্রসেসিং চলছে।' : 'Your withdrawal request has been received and is processing.'}
+        </p>
+
+        {/* Breakdown Card */}
+        {details && (
+          <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-200/80 mb-4 text-left space-y-2 text-[12px]">
+            <div className="flex justify-between items-center text-slate-600">
+              <span>{lang === 'bn' ? 'উত্তোলন:' : 'Amount:'}</span>
+              <span className="font-bold text-slate-900">৳ {parseFloat(details.amount || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between items-center text-red-500">
+              <span>{lang === 'bn' ? 'সেন্ড মানি ফি:' : 'Send Money Fee:'}</span>
+              <span className="font-bold">- ৳ {parseFloat(details.fee || 0).toFixed(2)}</span>
+            </div>
+            <div className="h-px bg-slate-200 w-full my-1" />
+            <div className="flex justify-between items-center text-emerald-700">
+              <span className="font-bold">{lang === 'bn' ? 'আপনি পাবেন:' : 'You Receive:'}</span>
+              <span className="font-black text-[14px]">৳ {parseFloat(details.receiveAmount || 0).toFixed(2)}</span>
+            </div>
+            {details.method && (
+              <div className="flex justify-between items-center text-slate-500 text-[11px] pt-1 border-t border-slate-200/50">
+                <span>{lang === 'bn' ? 'প্রাপক অ্যাকাউন্ট:' : 'Account:'}</span>
+                <span className="font-mono font-bold text-slate-700">{details.method} ({details.number})</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action Button */}
+        <CutCornerButton onClick={onClose} icon={CheckCircle2}>
+          {lang === 'bn' ? 'বুঝেছি (ঠিক আছে)' : 'GOT IT'}
+        </CutCornerButton>
+      </div>
+    </div>
+  );
+};
+
 const getPaymentLogo = (method) => {
   if (method === 'bKash') return `${import.meta.env.BASE_URL}bkash.png`;
   return `${import.meta.env.BASE_URL}nagad.png`;
@@ -239,7 +385,7 @@ const translations = {
     inProgress: 'প্রক্রিয়াধীন',
     completed: 'সফল',
     withdrawFunds: 'টাকা উত্তোলন করুন',
-    fee: 'ফি (৫%)',
+    fee: 'সেন্ড মানি ফি',
     youReceive: 'আপনি পাবেন',
     withdrawNote: 'উইথড্র রিকোয়েস্ট সাধারণত ১ থেকে ২ ঘণ্টার মধ্যে এবং সর্বোচ্চ ২৪ ঘণ্টার মধ্যে সম্পন্ন হয়।',
     loading: 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...'
@@ -284,7 +430,7 @@ const translations = {
     inProgress: 'In Progress',
     completed: 'Completed',
     withdrawFunds: 'WITHDRAW FUNDS',
-    fee: 'Fee (5%)',
+    fee: 'Send Money Fee',
     youReceive: 'You will receive',
     withdrawNote: 'Withdrawals usually take 1 to 2 hours or up to 24 hours to process.',
     loading: 'Loading, please wait...'
@@ -2999,6 +3145,8 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState('');
     const [showEditWalletModal, setShowEditWalletModal] = useState(false);
+    const [showFlowerModal, setShowFlowerModal] = useState(false);
+    const [withdrawDetails, setWithdrawDetails] = useState(null);
     const [editMethod, setEditMethod] = useState('bKash');
     const [editNumber, setEditNumber] = useState('');
     const [editName, setEditName] = useState('');
@@ -3006,9 +3154,9 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
 
     useEffect(() => {
         if (setIsModalOpen) {
-            setIsModalOpen(showEditWalletModal);
+            setIsModalOpen(showEditWalletModal || showFlowerModal);
         }
-    }, [showEditWalletModal, setIsModalOpen]);
+    }, [showEditWalletModal, showFlowerModal, setIsModalOpen]);
 
     const handleSaveEditedWallet = async () => {
         if (!editNumber || !editName) return;
@@ -3054,33 +3202,59 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
     const handleMax = () => setAmount(balance.toString());
 
     const handleSubmit = async () => {
-          const amt = parseFloat(amount);
-          if (!amount || isNaN(amt) || amt <= 0) return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "সঠিক পরিমাণ লিখুন" : "Invalid amount") : alert("Invalid amount");
-          if (amt < 20) return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম উত্তোলন ২০ টাকা" : "Minimum withdraw amount is 20 BDT") : alert("Minimum withdraw amount is 20 BDT");
-          if (amt > balance) return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "অপর্যাপ্ত ব্যালেন্স" : "Insufficient balance") : alert("Insufficient balance");
-          
-          setIsSubmitting(true);
-          try {
-              await withdrawFiat({
-                  userId: user?.id || 123456789,
-                  amount: amt,
-                  fee: parseFloat((amt * 0.05).toFixed(2)),
-                  receiveAmount: parseFloat((amt * 0.95).toFixed(2))
-              });
-              if(window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(lang === 'bn' ? "উইথড্র রিকোয়েস্ট সফলভাবে জমা হয়েছে!" : "Withdrawal submitted successfully!");
-              else alert("Withdrawal submitted successfully!");
-              reloadData();
-          } catch (e) {
-              if(window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(e.message || "Withdrawal failed");
-              else alert(e.message || "Withdrawal failed");
-          } finally {
-              setIsSubmitting(false);
-          }
-      };
+        const amt = parseFloat(amount);
+        if (!amount || isNaN(amt) || amt <= 0) {
+            const msg = lang === 'bn' ? "সঠিক পরিমাণ লিখুন" : "Invalid amount";
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+        }
+        if (amt < 20) {
+            const msg = lang === 'bn' ? "নূন্যতম উত্তোলন ২০ টাকা" : "Minimum withdraw amount is 20 BDT";
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+        }
+        if (amt > balance) {
+            const msg = lang === 'bn' ? "অপর্যাপ্ত ব্যালেন্স" : "Insufficient balance";
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+        }
+
+        const fee = calculateSendMoneyFee(amt);
+        const receiveAmount = amt - fee;
+        if (receiveAmount <= 0) {
+            const msg = lang === 'bn' ? "সেন্ড মানি ফি বাদ দিলে প্রাপ্য টাকার পরিমাণ শূন্য বা কম হয়" : "Amount after fee must be greater than zero";
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+        }
+
+        setIsSubmitting(true);
+        try {
+            await withdrawFiat({
+                userId: user?.id || 123456789,
+                amount: amt,
+                fee: fee,
+                receiveAmount: receiveAmount
+            });
+            setWithdrawDetails({
+                amount: amt,
+                fee: fee,
+                receiveAmount: receiveAmount,
+                method: fiatWallet?.method || 'bKash',
+                number: fiatWallet?.number || ''
+            });
+            setShowFlowerModal(true);
+            setAmount('');
+            reloadData();
+        } catch (e) {
+            if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(e.message || "Withdrawal failed");
+            else alert(e.message || "Withdrawal failed");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const getLogo = () => {
         return getPaymentLogo(fiatWallet?.method);
     };
+
+    const currentFee = amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 ? calculateSendMoneyFee(parseFloat(amount)) : 0;
+    const currentReceive = amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 ? Math.max(0, parseFloat(amount) - currentFee) : 0;
 
     return (
         <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
@@ -3143,72 +3317,85 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             </CutCornerCard>
 
             {/* Live Fee Breakdown */}
-            {amount && !isNaN(amount) && parseFloat(amount) > 0 && (
+            {amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 && (
                 <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#E4E7EC] shadow-sm space-y-1.5 text-[12px]">
                     <div className="flex justify-between items-center">
                         <span className="text-[#475467] font-medium">{lang === 'bn' ? 'উত্তোলনের পরিমাণ' : 'Withdraw Amount'}</span>
                         <span className="font-bold text-[#101828]">৳ {parseFloat(amount).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                        <span className="text-red-500 font-medium">{t?.fee || 'Fee (5%)'}</span>
-                        <span className="font-bold text-red-500">- ৳ {(parseFloat(amount) * 0.05).toFixed(2)}</span>
+                        <span className="text-red-500 font-medium">{lang === 'bn' ? 'সেন্ড মানি ফি' : 'Send Money Fee'}</span>
+                        <span className="font-bold text-red-500">- ৳ {currentFee.toFixed(2)}</span>
                     </div>
                     <div className="h-px bg-[#E4E7EC] my-1 w-full" />
                     <div className="flex justify-between items-center text-[12px]">
-                        <span className="text-[#00A878] font-bold">{t?.youReceive || 'You will receive'}</span>
-                        <span className="font-black text-[#00A878] text-[13px]">৳ {(parseFloat(amount) * 0.95).toFixed(2)}</span>
+                        <span className="text-[#00A878] font-bold">{t?.youReceive || (lang === 'bn' ? 'আপনি পাবেন' : 'You will receive')}</span>
+                        <span className="font-black text-[#00A878] text-[13px]">৳ {currentReceive.toFixed(2)}</span>
                     </div>
                 </div>
             )}
 
-            {/* Saved Wallet Info with Edit Icon */}
-            <CutCornerCard className="p-3.5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
-                        <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
+            {/* Saved Wallet Info with Edit Icon Aligned Right and Floral Underneath */}
+            <CutCornerCard className="p-3.5">
+                <div className="flex items-center justify-between gap-3 w-full">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                            <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <h4 className="text-[13px] font-bold text-[var(--color-text-primary)] leading-tight">{fiatWallet?.method || 'bKash'} Wallet</h4>
+                            <p className="text-[12px] font-mono font-bold text-[var(--color-text-secondary)] truncate">{fiatWallet?.number}</p>
+                            {fiatWallet?.name && <p className="text-[11px] text-gray-400 truncate">{fiatWallet?.name}</p>}
+                        </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <h4 className="text-[13px] font-bold text-[var(--color-text-primary)] leading-tight">{fiatWallet?.method || 'bKash'} Wallet</h4>
-                        <p className="text-[12px] font-mono font-bold text-[var(--color-text-secondary)] truncate">{fiatWallet?.number}</p>
-                        {fiatWallet?.name && <p className="text-[11px] text-gray-400 truncate">{fiatWallet?.name}</p>}
-                    </div>
+                    <button 
+                        type="button"
+                        onClick={() => {
+                            setEditMethod(fiatWallet?.method || 'bKash');
+                            setEditNumber(fiatWallet?.number || '');
+                            setEditName(fiatWallet?.name || '');
+                            setShowEditWalletModal(true);
+                        }}
+                        className="px-3 py-1.5 bg-indigo-50/90 text-indigo-700 hover:bg-indigo-100/90 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-bold border border-indigo-100 shrink-0 shadow-xs"
+                        title="Edit Wallet"
+                    >
+                        <Edit3 size={14} />
+                        <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
+                    </button>
                 </div>
-                <button 
-                    type="button"
-                    onClick={() => {
-                        setEditMethod(fiatWallet?.method || 'bKash');
-                        setEditNumber(fiatWallet?.number || '');
-                        setEditName(fiatWallet?.name || '');
-                        setShowEditWalletModal(true);
-                    }}
-                    className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-bold border border-emerald-100 shrink-0"
-                    title="Edit Wallet"
-                >
-                    <Edit3 size={15} />
-                    <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
-                </button>
             </CutCornerCard>
 
             {/* Warning Note */}
             <div className="bg-blue-50/60 border border-blue-100/70 p-3 rounded-xl flex items-center gap-2.5">
                 <Info size={16} className="text-blue-500 shrink-0" />
                 <p className="text-[11px] text-blue-700 font-medium leading-tight">
-                    {t?.withdrawNote || 'উইথড্র রিকোয়েস্ট সাধারণত ১ থেকে ২ ঘণ্টার মধ্যে এবং সর্বোচ্চ ২৪ ঘণ্টার মধ্যে সম্পূর্ণ হয়।'}
+                    {t?.withdrawNote || 'উইথড্র রিকোয়েস্ট সাধারণত ১ থেকে ২ ঘণ্টার মধ্যে এবং সর্বোচ্চ ২৪ ঘণ্টার মধ্যে সম্পন্ন হয়।'}
                 </p>
             </div>
 
             {/* Submit Button */}
-            <button 
-                onClick={handleSubmit} 
-                disabled={!amount || isSubmitting} 
-                className="w-full h-[48px] mt-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold text-[14px] tracking-wide flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50 disabled:active:scale-100 shadow-md shadow-emerald-500/20"
-            >
-                {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (t?.withdrawFunds || "WITHDRAW FUNDS")}
-            </button>
+            <div className="mt-2">
+                <CutCornerButton 
+                    onClick={handleSubmit} 
+                    disabled={!amount || isSubmitting} 
+                    isSubmitting={isSubmitting}
+                    icon={Wallet}
+                >
+                    {t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS')}
+                </CutCornerButton>
+            </div>
+
+            {/* Blooming Flower Withdrawal Success Modal */}
+            <WithdrawFlowerModal 
+                isOpen={showFlowerModal}
+                onClose={() => setShowFlowerModal(false)}
+                details={withdrawDetails}
+                lang={lang}
+            />
 
             {/* Edit Wallet Modal */}
             {showEditWalletModal && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
                     <div className="bg-white rounded-[28px] p-6 w-full max-w-[320px] premium-shadow border border-[var(--color-border)] animate-in zoom-in-95">
                         <div className="flex justify-between items-center mb-5">
                             <h3 className="text-xl font-extrabold text-[var(--color-text-primary)]">
@@ -3230,7 +3417,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                                             onClick={() => setEditMethod(method)}
                                             className={`flex-1 py-2.5 px-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all ${
                                                 editMethod === method 
-                                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' 
+                                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm' 
                                                     : 'border-gray-200 bg-gray-50 text-gray-600'
                                             }`}
                                         >
@@ -3266,14 +3453,16 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                             </div>
                         </div>
 
-                        <button 
-                            onClick={handleSaveEditedWallet} 
-                            disabled={!editNumber || !editName || isSavingWallet} 
-                            className="w-full h-[48px] mt-6 bg-[var(--color-brand)] hover:bg-emerald-600 text-white rounded-[16px] font-bold text-[14px] flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 shadow-md shadow-emerald-500/20"
-                        >
-                            {isSavingWallet ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
-                            {lang === 'bn' ? 'আপডেট করুন' : 'UPDATE WALLET'}
-                        </button>
+                        <div className="mt-6">
+                            <CutCornerButton 
+                                onClick={handleSaveEditedWallet} 
+                                disabled={!editNumber || !editName || isSavingWallet} 
+                                isSubmitting={isSavingWallet}
+                                icon={Save}
+                            >
+                                {lang === 'bn' ? 'আপডেট করুন' : 'UPDATE WALLET'}
+                            </CutCornerButton>
+                        </div>
                     </div>
                 </div>
             )}
