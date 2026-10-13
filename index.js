@@ -1608,7 +1608,7 @@ app.post('/api/withdraw', async (req, res) => {
                         to: destination,
                         value: amountNano,
                         bounce: false,
-                        body: "Withdrawal from Maruf Teach Bot"
+                        body: "Withdrawal from Trust Pay"
                     })
                 ]
             });

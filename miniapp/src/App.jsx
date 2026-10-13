@@ -787,7 +787,7 @@ function AppHeader({ user }) {
              </div>
              <div className="flex flex-col justify-center">
                 <p className="text-[9px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.2em] mb-0.5 opacity-80">Welcome back</p>
-                <h1 className="text-[15px] font-extrabold text-[var(--color-text-primary)] leading-none tracking-tight">Maruf Earn Bot</h1>
+                <h1 className="text-[15px] font-extrabold text-[var(--color-text-primary)] leading-none tracking-tight">Trust Pay</h1>
              </div>
          </div>
          
@@ -1048,7 +1048,7 @@ function ClaimPage({ user, onBack }) {
                  {(user?.first_name?.charAt(0)?.toUpperCase() || 'U')}
               </div>
               <div>
-                 <h1 className="text-[15px] font-bold text-[var(--color-text-primary)] leading-tight">Maruf Earn Bot</h1>
+                 <h1 className="text-[15px] font-bold text-[var(--color-text-primary)] leading-tight">Trust Pay</h1>
                  <p className="text-[9px] font-semibold text-[var(--color-brand)] uppercase tracking-[0.2em]">Welcome back</p>
               </div>
           </div>
