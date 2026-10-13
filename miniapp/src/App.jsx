@@ -57,11 +57,11 @@ const PremiumGiftBox = () => (
   </svg>
 );
 
-const FloralWatermark = ({ className = "opacity-[0.04]" }) => (
+const FloralWatermark = ({ className = "opacity-[0.055]" }) => (
   <svg 
-    className={`absolute pointer-events-none select-none right-[-12px] bottom-[-12px] text-indigo-900 ${className}`} 
-    width="130" 
-    height="130" 
+    className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-indigo-900 ${className}`} 
+    width="140" 
+    height="140" 
     viewBox="0 0 100 100" 
     fill="none" 
     xmlns="http://www.w3.org/2000/svg"
@@ -80,6 +80,39 @@ const FloralWatermark = ({ className = "opacity-[0.04]" }) => (
   </svg>
 );
 
+const PageBackgroundFlowers = () => (
+  <div className="fixed inset-0 pointer-events-none select-none z-0 overflow-hidden">
+    {/* Top-right delicate aesthetic floral watermark */}
+    <svg 
+      className="absolute -top-10 -right-10 w-72 h-72 text-indigo-900 opacity-[0.035] transform rotate-12" 
+      viewBox="0 0 100 100" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      <path d="M50 85 C15 90, 0 75, 10 50 C25 65, 40 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+      <path d="M50 85 C85 90, 100 75, 90 50 C75 65, 60 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+      <circle cx="50" cy="10" r="2" fill="currentColor" />
+    </svg>
+    {/* Bottom-left delicate aesthetic floral watermark */}
+    <svg 
+      className="absolute bottom-16 -left-12 w-80 h-80 text-indigo-900 opacity-[0.03] transform -rotate-45" 
+      viewBox="0 0 100 100" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      <path d="M50 85 C15 90, 0 75, 10 50 C25 65, 40 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+      <path d="M50 85 C85 90, 100 75, 90 50 C75 65, 60 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+      <circle cx="50" cy="10" r="2" fill="currentColor" />
+    </svg>
+  </div>
+);
+
 const CutCornerCard = ({ children, className = '', containerClassName = '', onClick }) => (
   <div 
     onClick={onClick}
@@ -95,7 +128,7 @@ const CutCornerCard = ({ children, className = '', containerClassName = '', onCl
       }}
     >
       <FloralWatermark />
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 w-full">{children}</div>
     </div>
   </div>
 );
@@ -392,6 +425,7 @@ export default function App() {
     <TonConnectUIProvider manifestUrl={manifestUrl}>
       <TonConnectStyles />
       <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] pb-28 relative overflow-x-hidden font-sans selection:bg-[var(--color-brand)]/20">
+        <PageBackgroundFlowers />
         
         <div className="relative z-10 p-4 max-w-md mx-auto">
           {/* Header */}
@@ -1513,9 +1547,9 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     };
 
     return (
-        <div className="h-[calc(100vh-24px)] max-h-[640px] flex flex-col justify-between overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto">
+        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto">
             {/* Header */}
-            <div className="flex items-center gap-2.5 shrink-0 py-1 mb-1">
+            <div className="flex items-center gap-2.5 py-0.5">
                 <button 
                     type="button" 
                     onClick={onBack} 
@@ -1534,7 +1568,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 </div>
             </div>
 
-            <CutCornerCard className="p-3.5 flex-1 flex flex-col justify-between overflow-hidden">
+            <CutCornerCard className="p-3.5 space-y-3">
 
                 {/* SUCCESS STAGE */}
                 {stage === 'success' ? (
@@ -1626,7 +1660,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                     </div>
                 ) : (
                     /* IDLE / COMPACT NO-SCROLL INPUT STAGE */
-                    <div className="flex flex-col justify-between h-full space-y-2.5">
+                    <div className="space-y-2.5">
                         {/* 1. Balance Banner */}
                         <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 flex justify-between items-center shrink-0">
                             <div>
@@ -2017,9 +2051,9 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
 
     // STEP 1: COMPACT NO-SCROLL SINGLE SCREEN
     return (
-        <div className="h-[calc(100vh-24px)] max-h-[640px] flex flex-col justify-between overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-md mx-auto">
+        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-md mx-auto">
             {/* Header */}
-            <div className="flex items-center justify-between shrink-0 py-1 mb-1">
+            <div className="flex items-center justify-between py-0.5">
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-xs shrink-0">
                         <ArrowRightLeft size={16} strokeWidth={2.5} />
@@ -2048,8 +2082,8 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 )}
             </div>
 
-            <CutCornerCard className="p-3.5 flex-1 flex flex-col justify-between overflow-hidden">
-                <div className="flex flex-col justify-between h-full space-y-2.5">
+            <CutCornerCard className="p-3.5 space-y-3">
+                <div className="space-y-2.5">
                     {/* 1. Asset Selection */}
                     <div className="shrink-0">
                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">
@@ -2594,11 +2628,13 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
             {fiatWallet ? (
                <>
                   <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                     <img 
-                        src={getPaymentLogo(fiatWallet.method)} 
-                        alt={fiatWallet.method} 
-                        className="w-8 h-8 rounded-full object-cover border border-slate-200 p-0.5 bg-white shrink-0" 
-                     />
+                     <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                        <img 
+                           src={getPaymentLogo(fiatWallet.method)} 
+                           alt={fiatWallet.method} 
+                           className="w-full h-full object-contain" 
+                        />
+                     </div>
                      <div className="min-w-0">
                         <span className="text-[12px] font-black text-slate-900 block leading-tight">{fiatWallet.method} Wallet</span>
                         <span className="text-[11px] font-mono font-bold text-slate-600 block mt-0.5 truncate">
@@ -2851,7 +2887,9 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
                           <div className="relative">
                               <div onClick={() => setShowMethodDropdown(!showMethodDropdown)} className="w-full h-[52px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 flex items-center justify-between cursor-pointer hover:border-[var(--color-brand)]/50 transition-all">
                                   <div className="flex items-center gap-3">
-                                      <img src={getPaymentLogo(walletMethod)} alt={walletMethod} className="w-6 h-6 rounded-full object-cover border border-gray-200" />
+                                      <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                                       <img src={getPaymentLogo(walletMethod)} alt={walletMethod} className="w-full h-full object-contain" />
+                                   </div>
                                       <span className="font-bold text-[var(--color-text-primary)]">{walletMethod}</span>
                                   </div>
                                   <ChevronRight size={16} className={`text-gray-400 transition-transform ${showMethodDropdown ? '-rotate-90' : 'rotate-90'}`} />
@@ -2863,7 +2901,9 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
                                       <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-[14px] premium-shadow border border-[var(--color-border)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                                           {['bKash', 'Nagad'].filter(method => method !== walletMethod).map(method => (
                                               <button key={method} onClick={() => { setWalletMethod(method); setShowMethodDropdown(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                                                  <img src={getPaymentLogo(method)} alt={method} className="w-6 h-6 rounded-full object-cover border border-gray-100" />
+                                                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                                                   <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
+                                               </div>
                                                   <span className="font-bold text-[14px] text-[var(--color-text-primary)]">{method}</span>
                                               </button>
                                           ))}
@@ -3095,7 +3135,9 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             {/* Saved Wallet Info with Edit Icon */}
             <div className="bg-white p-3.5 rounded-2xl premium-shadow border border-[var(--color-border)] flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <img src={getLogo()} alt={fiatWallet?.method} className="w-10 h-10 rounded-full object-cover border border-gray-100 p-0.5 shrink-0" />
+                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                        <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
+                    </div>
                     <div className="flex-1 min-w-0">
                         <h4 className="text-[13px] font-bold text-[var(--color-text-primary)] leading-tight">{fiatWallet?.method || 'bKash'} Wallet</h4>
                         <p className="text-[12px] font-mono font-bold text-[var(--color-text-secondary)] truncate">{fiatWallet?.number}</p>
@@ -3163,7 +3205,9 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                                                     : 'border-gray-200 bg-gray-50 text-gray-600'
                                             }`}
                                         >
-                                            <img src={getPaymentLogo(method)} alt={method} className="w-5 h-5 rounded-full object-cover" />
+                                            <div className="w-6 h-6 rounded-lg bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                                                <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
+                                            </div>
                                             {method}
                                         </button>
                                     ))}
