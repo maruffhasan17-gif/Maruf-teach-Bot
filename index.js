@@ -1636,7 +1636,7 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // Serve static manifest and logo for TON Connect with CORS
-app.get(['/tonconnect-manifest.json', '/tonconnect-manifest.json*'], (req, res) => {
+app.get('/tonconnect-manifest.json', (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
     res.sendFile(path.join(__dirname, 'tonconnect-manifest.json'));
