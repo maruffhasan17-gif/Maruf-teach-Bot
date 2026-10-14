@@ -174,7 +174,7 @@ const userStates = {};
 
 const t = {
     en: {
-        welcome: `💎 <b>Trust Pay</b> 💎\n\nWelcome! Instant & secure Crypto Buy/Sell via bKash & Nagad.\n\n📢 <b>Required Communities:</b>\n1. Channel: @maruf_teach\n2. Payout Group: @bd_trustpay_payout\n\n👇 <i>Join both and tap Verify below:</i>`,
+        welcome: `💎 <b>Trust Pay</b> 💎\n\nWelcome! Instant & secure Crypto Buy/Sell via bKash & Nagad.\n\n📢 <b>Join our community from the buttons below:</b>`,
         joinChannelBtn: '📢 1. Join Channel (@maruf_teach)',
         joinGroupBtn: '👥 2. Join Group (@bd_trustpay_payout)',
         verifyBtn: '✅ Verify & Open App',
@@ -187,7 +187,7 @@ const t = {
         mainMenuMsg: "🎉 <b>Verification Successful!</b>\n\n👇 <b>Tap below to open the app:</b>"
     },
     bn: {
-        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম! বিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল।\n\n📢 <b>কমিউনিটিতে যুক্ত হোন:</b>\n১. চ্যানেল: @maruf_teach\n২. পে-আউট গ্রুপ: @bd_trustpay_payout\n\n👇 <i>জয়েন করে নিচের বোতামে চাপ দিন:</i>`,
+        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম! বিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল।\n\n📢 <b>কমিউনিটিতে যুক্ত হতে নিচের বোতামে চাপ দিন:</b>`,
         joinChannelBtn: '📢 ১. চ্যানেল জয়েন (@maruf_teach)',
         joinGroupBtn: '👥 ২. গ্রুপ জয়েন (@bd_trustpay_payout)',
         verifyBtn: '✅ ভেরিফাই ও অ্যাপ ওপেন',
