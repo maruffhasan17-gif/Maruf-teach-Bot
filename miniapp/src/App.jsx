@@ -1342,429 +1342,6 @@ function AppHeader({ user }) {
   );
 }
 
-const FloralTreeLiveChart = ({ data = [], latestPrice = 120.0 }) => {
-  const chartData = data && data.length > 0 ? data : [
-    { price: 118.5 }, { price: 119.2 }, { price: 118.8 },
-    { price: 119.5 }, { price: 120.1 }, { price: 119.9 }, { price: 120.0 }
-  ];
-
-  const prices = chartData.map(d => d.price);
-  const minP = Math.min(...prices);
-  const maxP = Math.max(...prices);
-  const range = (maxP - minP) > 0.05 ? (maxP - minP) : 1;
-
-  // Coordinate mapping on 380 x 200 canvas
-  // Points X: 25 to 355
-  // Points Y: 24 to 66
-  const points = chartData.map((d, i) => {
-    const x = Math.round(25 + (i * 330) / Math.max(1, chartData.length - 1));
-    const norm = (d.price - minP) / range;
-    const y = Math.round(66 - norm * 42);
-    return { x, y, price: d.price };
-  });
-
-  // Construct organic petal curve line for the canopy top edge
-  let petalLinePath = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i];
-    const p1 = points[i + 1];
-    const dx = p1.x - p0.x;
-    const cp1x = Math.round(p0.x + dx * 0.45);
-    const cp1y = Math.round(p0.y - 4);
-    const cp2x = Math.round(p0.x + dx * 0.55);
-    const cp2y = Math.round(p1.y - 4);
-    petalLinePath += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p1.x} ${p1.y}`;
-  }
-
-  // Canopy area fill down to the tree branch junctions
-  const lastPoint = points.length > 0 ? points[points.length - 1] : { x: 355, y: 45, price: 120.0 };
-  const firstPoint = points[0];
-  const canopyPath = `${petalLinePath} L ${lastPoint.x} 118 Q 190 142 ${firstPoint.x} 118 Z`;
-
-  return (
-    <div className="relative w-full overflow-hidden select-none my-1">
-      <svg
-        viewBox="0 0 380 200"
-        className="w-full h-44 sm:h-48 drop-shadow-sm"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          {/* Canopy Fill Gradient */}
-          <linearGradient id="treeCanopyGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#9333ea" stopOpacity="0.26" />
-            <stop offset="45%" stopColor="#7c3aed" stopOpacity="0.14" />
-            <stop offset="85%" stopColor="#6366f1" stopOpacity="0.04" />
-            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
-          </linearGradient>
-
-          {/* Top Petal Chart Line Stroke Gradient */}
-          <linearGradient id="petalStrokeGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#6366f1" />
-            <stop offset="35%" stopColor="#8b5cf6" />
-            <stop offset="70%" stopColor="#a855f7" />
-            <stop offset="100%" stopColor="#e879f9" />
-          </linearGradient>
-
-          {/* Ancient Thick Trunk 3D Shading Gradient */}
-          <linearGradient id="trunkCoreGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#1e1035" />
-            <stop offset="18%" stopColor="#372772" />
-            <stop offset="45%" stopColor="#581c87" />
-            <stop offset="68%" stopColor="#4c1d95" />
-            <stop offset="90%" stopColor="#312e81" />
-            <stop offset="100%" stopColor="#1e1035" />
-          </linearGradient>
-
-          {/* Trunk Vertical Bark Gradient */}
-          <linearGradient id="treeTrunkGrad" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor="#2e1065" />
-            <stop offset="40%" stopColor="#4c1d95" />
-            <stop offset="80%" stopColor="#6b21a8" />
-            <stop offset="100%" stopColor="#8b5cf6" />
-          </linearGradient>
-
-          {/* Living Sap Heartwood Glowing Stream */}
-          <linearGradient id="sapGlowGrad" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.3" />
-            <stop offset="50%" stopColor="#c084fc" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="#f3e8ff" stopOpacity="1" />
-          </linearGradient>
-
-          {/* Ground Soil & Moss Glow */}
-          <linearGradient id="groundSoilGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#581c87" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#3b0764" stopOpacity="0.02" />
-          </linearGradient>
-
-          {/* Leaf Glow Gradient */}
-          <linearGradient id="leafGrad" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor="#6b21a8" stopOpacity="0.75" />
-            <stop offset="60%" stopColor="#a855f7" stopOpacity="0.88" />
-            <stop offset="100%" stopColor="#c084fc" stopOpacity="0.95" />
-          </linearGradient>
-
-          {/* Emerald Prosperity Leaf Gradient */}
-          <linearGradient id="leafProsperityGrad" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stopColor="#4c1d95" stopOpacity="0.7" />
-            <stop offset="50%" stopColor="#7c3aed" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#34d399" stopOpacity="0.9" />
-          </linearGradient>
-
-          {/* Reusable Botanical Leaf Symbol */}
-          <g id="botanicalLeaf">
-            <path d="M 0 0 C -4 -7, -2 -14, 0 -17 C 2 -14, 4 -7, 0 0 Z" fill="url(#leafGrad)" stroke="rgba(147, 51, 234, 0.7)" strokeWidth="0.8" />
-            <line x1="0" y1="0" x2="0" y2="-15" stroke="#f3e8ff" strokeWidth="0.5" strokeOpacity="0.8" />
-          </g>
-
-          {/* Reusable Emerald Prosperity Leaf Symbol */}
-          <g id="prosperityLeaf">
-            <path d="M 0 0 C -4 -7, -2 -14, 0 -17 C 2 -14, 4 -7, 0 0 Z" fill="url(#leafProsperityGrad)" stroke="rgba(16, 185, 129, 0.6)" strokeWidth="0.8" />
-            <line x1="0" y1="0" x2="0" y2="-15" stroke="#ecfdf5" strokeWidth="0.5" strokeOpacity="0.8" />
-          </g>
-        </defs>
-
-        <style>
-          {`
-            @keyframes windSwayL1 {
-              0%, 100% { transform: rotate(0deg); }
-              50% { transform: rotate(-5.5deg) skewX(-1.5deg); }
-            }
-            @keyframes windSwayL2 {
-              0%, 100% { transform: rotate(0deg); }
-              50% { transform: rotate(-7deg) skewX(-2deg); }
-            }
-            @keyframes windSwayR1 {
-              0%, 100% { transform: rotate(0deg); }
-              50% { transform: rotate(5.5deg) skewX(1.5deg); }
-            }
-            @keyframes windSwayR2 {
-              0%, 100% { transform: rotate(0deg); }
-              50% { transform: rotate(7deg) skewX(2deg); }
-            }
-            @keyframes windSwayCenter {
-              0%, 100% { transform: rotate(0deg); }
-              50% { transform: rotate(3deg) skewX(1deg); }
-            }
-            @keyframes leafFlutterA {
-              0%, 100% { transform: scale(1) rotate(0deg); }
-              33% { transform: scale(1.08, 0.94) rotate(9deg); }
-              66% { transform: scale(0.95, 1.05) rotate(-6deg); }
-            }
-            @keyframes leafFlutterB {
-              0%, 100% { transform: scale(1) rotate(0deg); }
-              40% { transform: scale(1.09, 0.93) rotate(-10deg); }
-              75% { transform: scale(0.94, 1.04) rotate(7deg); }
-            }
-            @keyframes petalBreeze1 {
-              0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
-              18% { opacity: 0.9; }
-              75% { opacity: 0.9; }
-              100% { transform: translate(75px, -36px) rotate(65deg); opacity: 0; }
-            }
-            @keyframes petalBreeze2 {
-              0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
-              22% { opacity: 0.85; }
-              80% { opacity: 0.85; }
-              100% { transform: translate(-65px, -30px) rotate(-70deg); opacity: 0; }
-            }
-            @keyframes petalBreeze3 {
-              0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
-              20% { opacity: 0.8; }
-              70% { opacity: 0.8; }
-              100% { transform: translate(50px, -45px) rotate(40deg); opacity: 0; }
-            }
-            .breeze-l1 { animation: windSwayL1 3.8s ease-in-out infinite; transform-origin: 115px 96px; }
-            .breeze-l2 { animation: windSwayL2 4.4s ease-in-out infinite 0.6s; transform-origin: 65px 102px; }
-            .breeze-r1 { animation: windSwayR1 3.6s ease-in-out infinite 0.3s; transform-origin: 265px 96px; }
-            .breeze-r2 { animation: windSwayR2 4.2s ease-in-out infinite 0.9s; transform-origin: 315px 102px; }
-            .breeze-c { animation: windSwayCenter 3.2s ease-in-out infinite 0.4s; transform-origin: 190px 85px; }
-            .flutter-1 { animation: leafFlutterA 2.4s ease-in-out infinite; }
-            .flutter-2 { animation: leafFlutterB 2.9s ease-in-out infinite 0.5s; }
-            .drift-petal-1 { animation: petalBreeze1 6.8s ease-in-out infinite; }
-            .drift-petal-2 { animation: petalBreeze2 7.5s ease-in-out infinite 2.2s; }
-            .drift-petal-3 { animation: petalBreeze3 6.0s ease-in-out infinite 4.1s; }
-          `}
-        </style>
-
-        {/* 1. Ethereal Canopy Area Under Petal Curve */}
-        <path d={canopyPath} fill="url(#treeCanopyGrad)" />
-
-        {/* 2. Soil & Ground Base */}
-        <path d="M 8 188 Q 95 185 190 187 Q 285 189 372 187 L 372 200 L 8 200 Z" fill="url(#groundSoilGrad)" />
-        <path d="M 15 188 Q 190 185 365 188" stroke="rgba(147, 51, 234, 0.25)" strokeWidth="1.2" strokeDasharray="4 3" />
-        <path d="M 40 193 Q 190 191 340 193" stroke="rgba(124, 58, 237, 0.18)" strokeWidth="1" strokeDasharray="6 4" />
-
-        {/* 3. Sprawling Roots Anchored Deep in the Ground */}
-        {/* Massive Far-Left Root */}
-        <path d="M 150 166 C 132 174, 95 182, 40 186 C 85 188, 125 181, 156 173 Z" fill="url(#treeTrunkGrad)" stroke="rgba(147, 51, 234, 0.7)" strokeWidth="0.8" />
-        <path d="M 152 168 C 125 175, 80 183, 30 188" stroke="#c084fc" strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M 85 184 C 65 187, 45 192, 15 193" stroke="rgba(168, 85, 247, 0.6)" strokeWidth="1" strokeLinecap="round" />
-
-        {/* Mid-Left Root */}
-        <path d="M 162 163 C 148 171, 128 179, 85 186 C 118 187, 142 179, 170 170 Z" fill="url(#treeTrunkGrad)" />
-        <path d="M 165 165 C 142 173, 118 181, 75 187" stroke="#a855f7" strokeWidth="1.3" strokeLinecap="round" />
-
-        {/* Central Anchor Tap Roots */}
-        <path d="M 176 162 C 172 174, 168 186, 163 195 C 170 195, 176 186, 182 170 Z" fill="url(#treeTrunkGrad)" />
-        <path d="M 178 164 C 174 176, 170 188, 166 196" stroke="#e9d5ff" strokeWidth="1.1" strokeLinecap="round" />
-        <path d="M 198 162 C 202 174, 206 186, 211 195 C 205 195, 199 186, 193 170 Z" fill="url(#treeTrunkGrad)" />
-        <path d="M 200 164 C 204 176, 208 188, 212 196" stroke="#e9d5ff" strokeWidth="1.1" strokeLinecap="round" />
-
-        {/* Mid-Right Root */}
-        <path d="M 218 163 C 232 171, 252 179, 295 186 C 262 187, 238 179, 210 170 Z" fill="url(#treeTrunkGrad)" />
-        <path d="M 215 165 C 238 173, 262 181, 305 187" stroke="#a855f7" strokeWidth="1.3" strokeLinecap="round" />
-
-        {/* Massive Far-Right Root */}
-        <path d="M 230 166 C 248 174, 285 182, 340 186 C 295 188, 255 181, 224 173 Z" fill="url(#treeTrunkGrad)" stroke="rgba(147, 51, 234, 0.7)" strokeWidth="0.8" />
-        <path d="M 228 168 C 255 175, 300 183, 350 188" stroke="#c084fc" strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M 295 184 C 315 187, 335 192, 365 193" stroke="rgba(168, 85, 247, 0.6)" strokeWidth="1" strokeLinecap="round" />
-
-        {/* 4. The Massive Ancient Trunk Body (The Tree of Prosperity) */}
-        <path 
-          d="M 148 172 C 158 146, 163 130, 168 116 C 176 111, 184 116, 190 118 C 196 111, 204 116, 212 116 C 217 130, 222 146, 232 172 C 205 176, 175 176, 148 172 Z" 
-          fill="url(#trunkCoreGrad)" 
-          stroke="rgba(147, 51, 234, 0.8)" 
-          strokeWidth="1" 
-        />
-        {/* Shaded 3D Bark Muscle Striations & Wood Grain */}
-        <path d="M 156 170 C 163 146, 166 130, 170 117" stroke="#1e1035" strokeWidth="2.8" strokeLinecap="round" />
-        <path d="M 166 172 C 171 148, 173 133, 177 116" stroke="#9333ea" strokeWidth="1.5" strokeDasharray="16 5" strokeLinecap="round" />
-        
-        {/* Heartwood Luminous Stream (Golden/Lavender Life Energy Flow) */}
-        <path d="M 189 174 C 190 152, 190 132, 190 117" stroke="url(#sapGlowGrad)" strokeWidth="2.8" strokeLinecap="round" />
-        <path d="M 191 170 C 191 150, 191 130, 191 119" stroke="#ffffff" strokeWidth="1" strokeDasharray="8 6" strokeLinecap="round" />
-        
-        <path d="M 214 172 C 209 148, 207 133, 203 116" stroke="#9333ea" strokeWidth="1.5" strokeDasharray="16 5" strokeLinecap="round" />
-        <path d="M 224 170 C 217 146, 214 130, 210 117" stroke="#1e1035" strokeWidth="2.8" strokeLinecap="round" />
-        
-        {/* Moss & Prosperity Accents near Trunk Base */}
-        <path d="M 142 174 Q 190 178 238 174" stroke="rgba(52, 211, 153, 0.4)" strokeWidth="2" strokeDasharray="6 3" strokeLinecap="round" />
-
-        {/* 5. Powerful Muscular Boughs & Branches */}
-        {/* Left Primary Bough & Twigs */}
-        <path d="M 170 116 C 152 108, 130 102, 115 96" stroke="url(#treeTrunkGrad)" strokeWidth="7" strokeLinecap="round" />
-        <path d="M 168 115 C 150 107, 130 101, 116 95" stroke="#c084fc" strokeWidth="1.2" strokeLinecap="round" />
-        <path d="M 115 96 C 90 100, 65 104, 35 94" stroke="url(#treeTrunkGrad)" strokeWidth="3.6" strokeLinecap="round" />
-        <path d="M 65 102 C 50 86, 38 70, 28 55" stroke="rgba(147, 51, 234, 0.8)" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M 115 96 C 100 82, 85 68, 65 52" stroke="url(#treeTrunkGrad)" strokeWidth="3.4" strokeLinecap="round" />
-        <path d="M 92 76 C 105 65, 118 54, 130 46" stroke="rgba(168, 85, 247, 0.8)" strokeWidth="1.8" strokeLinecap="round" />
-
-        {/* Right Primary Bough & Twigs */}
-        <path d="M 210 116 C 228 108, 250 102, 265 96" stroke="url(#treeTrunkGrad)" strokeWidth="7" strokeLinecap="round" />
-        <path d="M 212 115 C 230 107, 250 101, 264 95" stroke="#c084fc" strokeWidth="1.2" strokeLinecap="round" />
-        <path d="M 265 96 C 290 100, 315 104, 345 94" stroke="url(#treeTrunkGrad)" strokeWidth="3.6" strokeLinecap="round" />
-        <path d="M 315 102 C 330 86, 342 70, 352 55" stroke="rgba(147, 51, 234, 0.8)" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M 265 96 C 280 82, 295 68, 315 52" stroke="url(#treeTrunkGrad)" strokeWidth="3.4" strokeLinecap="round" />
-        <path d="M 288 76 C 275 65, 262 54, 250 46" stroke="rgba(168, 85, 247, 0.8)" strokeWidth="1.8" strokeLinecap="round" />
-
-        {/* Center Crown Bough */}
-        <path d="M 190 118 C 190 102, 190 92, 190 85" stroke="url(#treeTrunkGrad)" strokeWidth="5.5" strokeLinecap="round" />
-        <path d="M 190 85 C 176 72, 162 60, 150 46" stroke="rgba(147, 51, 234, 0.8)" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M 190 85 C 204 72, 218 60, 230 46" stroke="rgba(147, 51, 234, 0.8)" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M 190 85 C 190 70, 190 60, 190 48" stroke="rgba(192, 132, 252, 0.8)" strokeWidth="1.8" strokeLinecap="round" />
-
-        {/* 6. Swaying Foliage & Fluttering Botanical Leaves */}
-        {/* Left Outer Canopy Foliage (breeze-l2) */}
-        <g className="breeze-l2">
-          <use href="#botanicalLeaf" x="35" y="94" transform="rotate(-30 35 94) scale(0.95)" />
-          <use href="#prosperityLeaf" x="28" y="55" transform="rotate(-40 28 55) scale(0.9)" />
-          <use href="#botanicalLeaf" x="42" y="70" transform="rotate(-15 42 70) scale(1.05)" />
-          <use href="#botanicalLeaf" x="50" y="86" transform="rotate(-50 50 86) scale(0.85)" />
-        </g>
-
-        {/* Left Inner Branch Foliage (breeze-l1) */}
-        <g className="breeze-l1">
-          <use href="#botanicalLeaf" x="65" y="52" transform="rotate(-25 65 52) scale(1)" />
-          <use href="#prosperityLeaf" x="78" y="64" transform="rotate(10 78 64) scale(0.9)" />
-          <use href="#botanicalLeaf" x="92" y="76" transform="rotate(-35 92 76) scale(1.1)" />
-          <use href="#botanicalLeaf" x="110" y="60" transform="rotate(-10 110 60) scale(1.05)" />
-          <use href="#prosperityLeaf" x="130" y="46" transform="rotate(-20 130 46) scale(0.9)" />
-        </g>
-
-        {/* Center Crown Foliage (breeze-c) */}
-        <g className="breeze-c">
-          <use href="#botanicalLeaf" x="150" y="46" transform="rotate(-15 150 46) scale(1.1)" />
-          <use href="#prosperityLeaf" x="170" y="40" transform="rotate(5 170 40) scale(0.95)" />
-          <use href="#botanicalLeaf" x="190" y="48" transform="rotate(0 190 48) scale(1.15)" />
-          <use href="#prosperityLeaf" x="210" y="40" transform="rotate(-5 210 40) scale(0.95)" />
-          <use href="#botanicalLeaf" x="230" y="46" transform="rotate(15 230 46) scale(1.1)" />
-        </g>
-
-        {/* Right Inner Branch Foliage (breeze-r1) */}
-        <g className="breeze-r1">
-          <use href="#botanicalLeaf" x="250" y="46" transform="rotate(20 250 46) scale(0.9)" />
-          <use href="#prosperityLeaf" x="270" y="60" transform="rotate(10 270 60) scale(1.05)" />
-          <use href="#botanicalLeaf" x="288" y="76" transform="rotate(35 288 76) scale(1.1)" />
-          <use href="#prosperityLeaf" x="302" y="64" transform="rotate(-10 302 64) scale(0.9)" />
-          <use href="#botanicalLeaf" x="315" y="52" transform="rotate(25 315 52) scale(1)" />
-        </g>
-
-        {/* Right Outer Canopy Foliage (breeze-r2) */}
-        <g className="breeze-r2">
-          <use href="#botanicalLeaf" x="330" y="86" transform="rotate(50 330 86) scale(0.85)" />
-          <use href="#botanicalLeaf" x="338" y="70" transform="rotate(15 338 70) scale(1.05)" />
-          <use href="#prosperityLeaf" x="352" y="55" transform="rotate(40 352 55) scale(0.9)" />
-          <use href="#botanicalLeaf" x="345" y="94" transform="rotate(30 345 94) scale(0.95)" />
-        </g>
-
-        {/* 7. Wind-blown Floating Blossom Petals / Spores Drifting in Breeze */}
-        <g className="drift-petal-1" transform="translate(140, 110)">
-          <path d="M 0 0 C -3 -5, 0 -9, 3 -7 C 5 -4, 3 0, 0 0 Z" fill="#c084fc" opacity="0.9" />
-          <circle cx="1" cy="-4" r="0.8" fill="#ffffff" />
-        </g>
-        <g className="drift-petal-2" transform="translate(240, 95)">
-          <path d="M 0 0 C -4 -4, -1 -8, 2 -6 C 4 -3, 2 1, 0 0 Z" fill="#e879f9" opacity="0.85" />
-          <circle cx="0" cy="-3" r="0.8" fill="#ffffff" />
-        </g>
-        <g className="drift-petal-3" transform="translate(190, 75)">
-          <path d="M 0 0 C -3 -4, 0 -7, 3 -5 C 4 -2, 2 0, 0 0 Z" fill="#34d399" opacity="0.8" />
-          <circle cx="1" cy="-3" r="0.6" fill="#ffffff" />
-        </g>
-
-        {/* 8. Glowing Live Graph Ribbon (Top Petal Canopy Boundary) */}
-        {/* Soft Wide Glowing Aura */}
-        <path 
-          d={petalLinePath} 
-          fill="none" 
-          stroke="rgba(168, 85, 247, 0.35)" 
-          strokeWidth="7" 
-          strokeLinecap="round" 
-        />
-        {/* Main Vibrant Petal Stroke */}
-        <path 
-          d={petalLinePath} 
-          fill="none" 
-          stroke="url(#petalStrokeGrad)" 
-          strokeWidth="2.6" 
-          strokeLinecap="round" 
-        />
-        {/* Ethereal Shimmer Line */}
-        <path 
-          d={petalLinePath} 
-          fill="none" 
-          stroke="rgba(255, 255, 255, 0.85)" 
-          strokeWidth="1" 
-          strokeDasharray="8 5" 
-          strokeLinecap="round" 
-        />
-
-        {/* 9. Blossom Buds and Petal Nodes along the Graph */}
-        {points.map((pt, i) => {
-          const isLatest = i === points.length - 1;
-          if (isLatest) return null;
-
-          return (
-            <g key={i}>
-              {/* Petal Calyx */}
-              <path 
-                d={`M ${pt.x - 4} ${pt.y + 1} Q ${pt.x} ${pt.y + 4} ${pt.x + 4} ${pt.y + 1}`} 
-                fill="none" 
-                stroke="#a855f7" 
-                strokeWidth="1" 
-              />
-              {/* Halo & Blossom Core */}
-              <circle cx={pt.x} cy={pt.y} r="5" fill="rgba(168, 85, 247, 0.25)" />
-              <circle cx={pt.x} cy={pt.y} r="2.3" fill="#ffffff" stroke="#7c3aed" strokeWidth="1.3" />
-            </g>
-          );
-        })}
-
-        {/* 10. Active Radiant Lotus / Orchid Blossom at Latest Price Point */}
-        {lastPoint && (
-          <g>
-            {/* Ripple Pulse Rings */}
-            <circle cx={lastPoint.x} cy={lastPoint.y} r="8" fill="none" stroke="#a855f7" strokeWidth="1.4" opacity="0.7">
-              <animate attributeName="r" values="4;16;4" dur="2.2s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.8;0;0.8" dur="2.2s" repeatCount="indefinite" />
-            </circle>
-            <circle cx={lastPoint.x} cy={lastPoint.y} r="12" fill="none" stroke="#c084fc" strokeWidth="1" opacity="0.5">
-              <animate attributeName="r" values="8;22;8" dur="2.2s" repeatCount="indefinite" begin="0.7s" />
-              <animate attributeName="opacity" values="0.5;0;0.5" dur="2.2s" repeatCount="indefinite" begin="0.7s" />
-            </circle>
-
-            {/* Radiant Blossom Corona */}
-            <circle cx={lastPoint.x} cy={lastPoint.y} r="6" fill="rgba(168, 85, 247, 0.45)" stroke="#7c3aed" strokeWidth="1.5" />
-            <circle cx={lastPoint.x} cy={lastPoint.y} r="3" fill="#ffffff" />
-
-            {/* Floating Price Pill Badge */}
-            <g transform={`translate(${Math.min(315, Math.max(45, lastPoint.x))}, ${Math.max(16, lastPoint.y - 15)})`}>
-              <rect 
-                x="-29" 
-                y="-11" 
-                width="58" 
-                height="16" 
-                rx="5" 
-                fill="rgba(30, 16, 53, 0.35)" 
-              />
-              <rect 
-                x="-28" 
-                y="-12" 
-                width="56" 
-                height="16" 
-                rx="5" 
-                fill="#7c3aed" 
-                stroke="#c084fc" 
-                strokeWidth="1" 
-              />
-              <text 
-                x="0" 
-                y="0" 
-                textAnchor="middle" 
-                fill="#ffffff" 
-                fontSize="9" 
-                fontWeight="900" 
-                fontFamily="sans-serif"
-              >
-                ৳{Number(latestPrice || 120).toFixed(2)}
-              </text>
-            </g>
-          </g>
-        )}
-      </svg>
-    </div>
-  );
-};
-
 function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney, lang = 'bn', t = {} }) {
   const [graphData, setGraphData] = useState(initialGraphData);
   const [timeframe, setTimeframe] = useState('LIVE');
@@ -1910,46 +1487,97 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
          </div>
       </div>
 
-      {/* Live Chart Card with Tree Art & Petal Canopy */}
+      {/* Premium Live Area Chart Card */}
       <CutCornerCard className="p-3.5" flower={<HomeLotusPattern />}>
-         <div className="flex justify-between items-start mb-2">
-            <div className="flex items-center gap-2 text-slate-900">
-                <div className="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
-                  <TrendingUp size={14} />
+         <div className="flex justify-between items-start mb-2.5">
+            <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100/80 shadow-xs">
+                  <TrendingUp size={15} />
                 </div>
-                <h3 className="text-[14px] font-black tracking-tight">{t?.chartTitle || 'USDT/TK লাইভ চার্ট'}</h3>
+                <div>
+                   <h3 className="text-[14px] font-black text-slate-900 tracking-tight leading-none">{t?.chartTitle || 'USDT/TK লাইভ চার্ট'}</h3>
+                   <div className="flex items-center gap-1 mt-1">
+                      <span className="flex items-center text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
+                         <ArrowUpRight size={10} strokeWidth={2.5} /> +1.85%
+                      </span>
+                      <span className="text-[9.5px] font-semibold text-slate-400">২৪ ঘণ্টা</span>
+                   </div>
+                </div>
             </div>
-            <div className="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+            <div className="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80 shadow-xs">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
                 <span className="text-[9.5px] font-black text-emerald-700 tracking-wider">LIVE</span>
             </div>
          </div>
          
-         <div className="flex items-baseline gap-2 mb-1 px-1">
-            <span className="text-2xl font-black text-slate-900 tracking-tight">
-              {Number(graphData?.[graphData.length - 1]?.price ?? 120.0).toFixed(2)}
-            </span>
-            <span className="text-[11px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
-              TK / USDT
-            </span>
+         <div className="flex justify-between items-baseline mb-2 px-1">
+            <div className="flex items-baseline gap-2">
+               <span className="text-3xl font-black text-slate-900 tracking-tight">
+                 {Number(graphData?.[graphData.length - 1]?.price ?? 120.0).toFixed(2)}
+               </span>
+               <span className="text-[11px] font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                 TK / USDT
+               </span>
+            </div>
+            <div className="text-right">
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">24h Range</span>
+               <span className="text-[11px] font-extrabold text-slate-600">
+                  <span className="text-rose-500">৳118.50</span> - <span className="text-emerald-600">৳121.20</span>
+               </span>
+            </div>
          </div>
 
-         {/* Majestic Wealth Tree & Blooming Petal Canopy Chart */}
-         <FloralTreeLiveChart 
-           data={graphData} 
-           latestPrice={Number(graphData?.[graphData.length - 1]?.price ?? 120.0)} 
-         />
+         {/* Modern Responsive Area Chart with Glowing Gradient */}
+         <div className="h-32 w-full ml-[-12px] my-1">
+            <ResponsiveContainer width="100%" height="100%">
+               <AreaChart data={graphData} margin={{ top: 8, right: 6, left: 6, bottom: 0 }}>
+                 <defs>
+                   <linearGradient id="premiumColorPrice" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="0%" stopColor="#4f46e5" stopOpacity={0.28}/>
+                     <stop offset="60%" stopColor="#6366f1" stopOpacity={0.08}/>
+                     <stop offset="100%" stopColor="#818cf8" stopOpacity={0.00}/>
+                   </linearGradient>
+                 </defs>
+                 <YAxis domain={['dataMin - 0.4', 'dataMax + 0.4']} hide />
+                 <Tooltip 
+                    content={({ active, payload }) => {
+                       if (active && payload && payload.length) {
+                          const p = payload[0].value;
+                          const time = payload[0].payload?.time || '';
+                          return (
+                             <div className="bg-slate-900/95 backdrop-blur-md text-white px-2.5 py-1.5 rounded-xl shadow-xl border border-white/10 text-center">
+                                <div className="text-[9px] text-slate-400 font-bold">{time}</div>
+                                <div className="text-[12px] font-black text-emerald-400">৳{Number(p).toFixed(2)} TK</div>
+                             </div>
+                          );
+                       }
+                       return null;
+                    }}
+                 />
+                 <Area 
+                    type="monotone" 
+                    dataKey="price" 
+                    stroke="#4f46e5" 
+                    strokeWidth={2.6} 
+                    fillOpacity={1} 
+                    fill="url(#premiumColorPrice)" 
+                    isAnimationActive={true} 
+                    animationDuration={400} 
+                 />
+               </AreaChart>
+            </ResponsiveContainer>
+         </div>
 
          {/* Timeframe Selector */}
-         <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100/80 px-1">
+         <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100/90 px-1">
             {['1H', '1D', 'LIVE', '1W', '1M'].map(tf => (
               <button
                 key={tf}
                 onClick={() => setTimeframe(tf)}
-                className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold transition-all cursor-pointer ${
+                className={`text-[10px] px-3 py-1 rounded-full font-black transition-all cursor-pointer ${
                   timeframe === tf 
-                    ? 'bg-purple-600 text-white shadow-xs' 
-                    : 'text-slate-400 hover:text-purple-600'
+                    ? 'bg-indigo-600 text-white shadow-xs scale-[1.02]' 
+                    : 'text-slate-400 hover:text-indigo-600 hover:bg-slate-50'
                 }`}
               >
                 {tf}
