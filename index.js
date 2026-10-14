@@ -114,7 +114,7 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v14';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v15';
 const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
@@ -1161,8 +1161,8 @@ let cachedMarketRates = {
     realGramUsdt: 1.46,
     realGramBdt: 175.2,
     buyRates: {
-        USDT: 130, // 120 + 10
-        GRAM: 185  // 175.2 + 10
+        USDT: 130, // Fixed 130 BDT
+        GRAM: 220  // Fixed 220 BDT
     },
     sellRates: {
         USDT: 115, // 120 - 5
@@ -1210,11 +1210,11 @@ async function updateMarketRates() {
         const realGramUsdt = Number(tonUsdt.toFixed(4));
         const realGramBdt = Number((realGramUsdt * realUsdtBdt).toFixed(2));
 
-        // Buyer Price Rule (+10 TK):
-        // USDT: realUsdtBdt + 10 TK
-        // GRAM: (realGramUsdt in BDT) + 10 TK
-        const buyUsdt = Math.round(realUsdtBdt + 10);
-        const buyGram = Math.round(realGramBdt + 10);
+        // Buyer Price Rule:
+        // USDT: Fixed 130 BDT
+        // GRAM: Fixed 220 BDT
+        const buyUsdt = 130;
+        const buyGram = 220;
 
         // Seller Price Rule:
         // USDT: realUsdtBdt - 5 TK

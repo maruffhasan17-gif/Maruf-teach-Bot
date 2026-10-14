@@ -2465,18 +2465,21 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const [processStep, setProcessStep] = useState(1);
     const [errorMessage, setErrorMessage] = useState('');
     const [txResult, setTxResult] = useState(null);
-    // Hourly Buyer Rates (USDT real price + 10 TK, GRAM real price in BDT + 10 TK)
+    // Fixed Buyer Rates (GRAM 220 TK, USDT 130 TK)
     const [buyerRates, setBuyerRates] = useState(() => {
         try {
             const cached = localStorage.getItem('maruf_buyer_rates');
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000 && parsed.rates?.USDT) {
-                    return parsed.rates;
+                    return {
+                        GRAM: parsed.rates.GRAM || 220,
+                        USDT: parsed.rates.USDT || 130
+                    };
                 }
             }
         } catch (e) {}
-        return { GRAM: 185, USDT: 130 };
+        return { GRAM: 220, USDT: 130 };
     });
 
     // Auto-fill connected TonConnect wallet if address empty
@@ -2490,25 +2493,23 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         let isMounted = true;
         fetchMarketRates().then(data => {
             if (!isMounted || !data) return;
-            if (data.buyRates && data.buyRates.USDT && data.buyRates.GRAM) {
-                const newRates = {
-                    GRAM: data.buyRates.GRAM,
-                    USDT: data.buyRates.USDT
-                };
-                setBuyerRates(newRates);
-                try {
-                    localStorage.setItem('maruf_buyer_rates', JSON.stringify({
-                        rates: newRates,
-                        timestamp: Date.now()
-                    }));
-                } catch(e) {}
-            }
+            const newRates = {
+                GRAM: data.buyRates?.GRAM || 220,
+                USDT: data.buyRates?.USDT || 130
+            };
+            setBuyerRates(newRates);
+            try {
+                localStorage.setItem('maruf_buyer_rates', JSON.stringify({
+                    rates: newRates,
+                    timestamp: Date.now()
+                }));
+            } catch(e) {}
         }).catch(err => console.error("Error fetching buyer market rates:", err));
 
         return () => { isMounted = false; };
     }, []);
 
-    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 130) : (buyerRates?.GRAM || 185);
+    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 130) : (buyerRates?.GRAM || 220);
     const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
         ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
         : '0.0000';
