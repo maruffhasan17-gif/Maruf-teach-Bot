@@ -32,7 +32,7 @@ let botConfig = {
 // Helper: Post live payout confirmation to public Payout Group / Channel (Matches Image 2)
 const notifyPayoutGroup = async (payoutData) => {
     try {
-        const payoutChatId = (botConfig.payoutGroupId && botConfig.payoutGroupId !== '@bd_trustpay_payout') ? botConfig.payoutGroupId : '@bd_trust_pay_payout';
+        const payoutChatId = (botConfig.payoutGroupId && botConfig.payoutGroupId !== '@bd_trustpay_payout' && botConfig.payoutGroupId !== '-1004483837390') ? botConfig.payoutGroupId : '@bd_trust_pay_payout';
         if (!payoutChatId || !bot) return;
 
         const maskId = (id) => {
