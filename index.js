@@ -26,13 +26,13 @@ let botConfig = {
     dataGroupId: '',
     supportGroupId: '',
     withdrawGroupId: '',
-    payoutGroupId: ''
+    payoutGroupId: '@bd_trust_pay_payout'
 };
 
 // Helper: Post live payout confirmation to public Payout Group / Channel (Matches Image 2)
 const notifyPayoutGroup = async (payoutData) => {
     try {
-        const payoutChatId = botConfig.payoutGroupId;
+        const payoutChatId = (botConfig.payoutGroupId && botConfig.payoutGroupId !== '@bd_trustpay_payout') ? botConfig.payoutGroupId : '@bd_trust_pay_payout';
         if (!payoutChatId || !bot) return;
 
         const maskId = (id) => {
@@ -110,10 +110,10 @@ process.on('unhandledRejection', (reason, promise) => {
 const token = process.env.BOT_TOKEN;
 const channelUsername = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
-const PAYOUT_GROUP = '@bd_trustpay_payout';
+const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
-const PAYOUT_GROUP_URL = 'https://t.me/bd_trustpay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v12';
+const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v13';
 const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
@@ -545,11 +545,11 @@ bot.on('callback_query', async (query) => {
             } else {
                 let alertMsg = '❌ আপনি এখনও দুটিতেই জয়েন করেননি!';
                 if (!check.inChannel && !check.inGroup) {
-                    alertMsg = '❌ আপনি এখনও চ্যানেল ১ (@maruf_teach) ও গ্রুপ ২ (@bd_trustpay_payout)-এ জয়েন করেননি!';
+                    alertMsg = '❌ আপনি এখনও চ্যানেল ১ (@maruf_teach) ও পে-আউট চ্যানেল (@bd_trust_pay_payout)-এ জয়েন করেননি!';
                 } else if (!check.inChannel) {
                     alertMsg = '❌ আপনি এখনও চ্যানেল ১ (@maruf_teach)-এ জয়েন করেননি! দয়া করে জয়েন করুন।';
                 } else if (!check.inGroup) {
-                    alertMsg = '❌ আপনি এখনও গ্রুপ ২ (@bd_trustpay_payout)-এ জয়েন করেননি! দয়া করে জয়েন করুন।';
+                    alertMsg = '❌ আপনি এখনও পে-আউট চ্যানেল (@bd_trust_pay_payout)-এ জয়েন করেননি! দয়া করে জয়েন করুন।';
                 }
                 bot.answerCallbackQuery(query.id, { text: alertMsg, show_alert: true });
             }

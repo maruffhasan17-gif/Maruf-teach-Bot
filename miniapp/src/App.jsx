@@ -1063,9 +1063,9 @@ export default function App() {
 
   const handleGoGroup = () => {
     if (window.Telegram?.WebApp?.openTelegramLink) {
-      window.Telegram.WebApp.openTelegramLink('https://t.me/bd_trustpay_payout');
+      window.Telegram.WebApp.openTelegramLink('https://t.me/bd_trust_pay_payout');
     } else {
-      window.open('https://t.me/bd_trustpay_payout', '_blank');
+      window.open('https://t.me/bd_trust_pay_payout', '_blank');
     }
     // Schedule background check after user has opened the link
     setTimeout(() => performCommunityCheck(true), 2500);
@@ -1099,11 +1099,11 @@ export default function App() {
         }, 1200);
       } else {
         if (!res.inChannel && !res.inGroup) {
-          setCommunityError(lang === 'bn' ? '❌ আপনি চ্যানেল ও গ্রুপ দুটিতেই এখনও যুক্ত হননি! উপরের Go বাটনে চাপুন।' : '❌ You have not joined the channel and group yet!');
+          setCommunityError(lang === 'bn' ? '❌ আপনি চ্যানেল ও পে-আউট চ্যানেল দুটিতেই এখনও যুক্ত হননি! উপরের Go বাটনে চাপুন।' : '❌ You have not joined the channel and payout channel yet!');
         } else if (!res.inChannel) {
           setCommunityError(lang === 'bn' ? '❌ আপনি ১ নম্বর চ্যানেলে এখনও জয়েন করেননি! Go চাপুন।' : '❌ You have not joined @maruf_teach channel yet!');
         } else if (!res.inGroup) {
-          setCommunityError(lang === 'bn' ? '❌ আপনি ২ নম্বর গ্রুপে এখনও জয়েন করেননি! Go চাপুন।' : '❌ You have not joined @bd_trustpay_payout group yet!');
+          setCommunityError(lang === 'bn' ? '❌ আপনি পে-আউট চ্যানেলে এখনও জয়েন করেননি! Go চাপুন।' : '❌ You have not joined @bd_trust_pay_payout channel yet!');
         } else {
           setCommunityError(lang === 'bn' ? '❌ অনুগ্রহ করে দুটিতেই জয়েন করে আবার ভেরিফাই চাপুন।' : '❌ Please join both communities and retry.');
         }
@@ -1450,8 +1450,8 @@ export default function App() {
                         👥
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[12px] font-bold text-slate-900 truncate">২. TrustPay Payout</div>
-                        <div className="text-[10px] font-semibold text-emerald-600 truncate">@bd_trustpay_payout</div>
+                        <div className="text-[12px] font-bold text-slate-900 truncate">২. TrustPay Payout Channel</div>
+                        <div className="text-[10px] font-semibold text-emerald-600 truncate">@bd_trust_pay_payout</div>
                       </div>
                     </div>
                     {communityStatus.inGroup ? (
