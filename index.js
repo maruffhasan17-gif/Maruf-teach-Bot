@@ -175,8 +175,8 @@ const userStates = {};
 const t = {
     en: {
         welcome: `💎 <b>Trust Pay</b> 💎\n\nWelcome! Instant & secure Crypto Buy/Sell via bKash & Nagad.\n\n📢 <b>Join our community from the buttons below:</b>`,
-        joinChannelBtn: '📢 1. Join Channel (@maruf_teach)',
-        joinGroupBtn: '👥 2. Join Group (@bd_trustpay_payout)',
+        joinChannelBtn: '📢 Channel',
+        joinGroupBtn: '👥 Group',
         verifyBtn: '✅ Verify & Open App',
         notJoined: '❌ Please join both our Channel and Group first!',
         langPrompt: '✅ <b>Verification Successful!</b>\n\nPlease select your language:',
@@ -188,8 +188,8 @@ const t = {
     },
     bn: {
         welcome: `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম! বিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল।\n\n📢 <b>কমিউনিটিতে যুক্ত হতে নিচের বোতামে চাপ দিন:</b>`,
-        joinChannelBtn: '📢 ১. চ্যানেল জয়েন (@maruf_teach)',
-        joinGroupBtn: '👥 ২. গ্রুপ জয়েন (@bd_trustpay_payout)',
+        joinChannelBtn: '📢 Channel',
+        joinGroupBtn: '👥 Group',
         verifyBtn: '✅ ভেরিফাই ও অ্যাপ ওপেন',
         notJoined: '❌ অনুগ্রহ করে চ্যানেল ও গ্রুপ দুটিতেই যুক্ত হোন!',
         langPrompt: '✅ <b>ভেরিফিকেশন সফল!</b>\n\nভাষা নির্বাচন করুন:',
@@ -488,8 +488,8 @@ bot.onText(/\/start/, async (msg) => {
         parse_mode: 'HTML',
         reply_markup: {
             inline_keyboard: [
-                [{ text: '📢 ১. চ্যানেল জয়েন (@maruf_teach)', url: OFFICIAL_CHANNEL_URL }],
-                [{ text: '👥 ২. গ্রুপ জয়েন (@bd_trustpay_payout)', url: PAYOUT_GROUP_URL }],
+                [{ text: '📢 Channel', url: OFFICIAL_CHANNEL_URL }],
+                [{ text: '👥 Group', url: PAYOUT_GROUP_URL }],
                 [{ text: '✅ ভেরিফাই ও অ্যাপ ওপেন', callback_data: 'verify_join' }]
             ]
         }
