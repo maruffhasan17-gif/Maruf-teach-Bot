@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "build": "cd admin && npm install && npm run build && cd ../miniapp && npm install && npm run build",
+    "build": "echo Prebuilt assets ready",
+    "build:local": "cd admin && npm run build && cd ../miniapp && npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

@@ -174,11 +174,11 @@ const userStates = {};
 
 const t = {
     en: {
-        welcome: `💎 <b>Trust Pay</b> 💎\n\nWelcome! Instant & secure Crypto Buy/Sell via bKash & Nagad.\n\n👇 <b>Tap buttons below to verify:</b>`,
-        joinChannelBtn: 'Channel',
-        joinGroupBtn: 'Group',
+        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nWelcome! Instant & secure Crypto Buy/Sell via bKash & Nagad.\n\n📢 <b>Join Communities:</b>\n1. Channel\n2. Payout Channel\n\n👇 <b>Join & tap buttons below to verify:</b>`,
+        joinChannelBtn: 'Channel 1',
+        joinGroupBtn: 'Channel 2',
         verifyBtn: '✅ Verify & Open App',
-        notJoined: '❌ Please join both our Channel and Group first!',
+        notJoined: '❌ Please join both channels first!',
         langPrompt: '✅ <b>Verification Successful!</b>\n\nPlease select your language:',
         profileMsg: '👤 <b>Profile</b>\n\nID: {id}',
         bkashMsg: '🚀 <b>bKash Payment</b>',
@@ -187,11 +187,11 @@ const t = {
         mainMenuMsg: "🎉 <b>Verification Successful!</b>\n\n👇 <b>Tap below to open the app:</b>"
     },
     bn: {
-        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম! বিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল।\n\n👇 <b>নিচের বোতামে চাপ দিয়ে ভেরিফাই করুন:</b>`,
-        joinChannelBtn: 'Channel',
-        joinGroupBtn: 'Group',
+        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম! বিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল।\n\n📢 <b>কমিউনিটিতে যুক্ত হোন:</b>\n১. চ্যানেল\n২. পে-আউট চ্যানেল\n\n👇 <b>জয়েন করে নিচের বোতামে চাপ দিন:</b>`,
+        joinChannelBtn: 'Channel 1',
+        joinGroupBtn: 'Channel 2',
         verifyBtn: '✅ ভেরিফাই ও অ্যাপ ওপেন',
-        notJoined: '❌ অনুগ্রহ করে চ্যানেল ও গ্রুপ দুটিতেই যুক্ত হোন!',
+        notJoined: '❌ অনুগ্রহ করে চ্যানেল দুটিতেই যুক্ত হোন!',
         langPrompt: '✅ <b>ভেরিফিকেশন সফল!</b>\n\nভাষা নির্বাচন করুন:',
         profileMsg: '👤 <b>প্রোফাইল</b>\n\nID: {id}',
         bkashMsg: '🚀 <b>বিকাশ পেমেন্ট</b>',
@@ -488,8 +488,8 @@ bot.onText(/\/start/, async (msg) => {
         parse_mode: 'HTML',
         reply_markup: {
             inline_keyboard: [
-                [{ text: 'Channel', url: OFFICIAL_CHANNEL_URL }],
-                [{ text: 'Group', url: PAYOUT_GROUP_URL }],
+                [{ text: 'Channel 1', url: OFFICIAL_CHANNEL_URL }],
+                [{ text: 'Channel 2', url: PAYOUT_GROUP_URL }],
                 [{ text: '✅ ভেরিফাই ও অ্যাপ ওপেন', callback_data: 'verify_join' }]
             ]
         }
