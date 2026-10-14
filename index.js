@@ -3020,10 +3020,23 @@ app.use('/app', (req, res) => {
     else res.send("MiniApp is not built yet.");
 });
 
-// Serve Admin on / with caching
-app.use(express.static(path.join(__dirname, 'admin/dist'), { maxAge: '1d', etag: true }));
+// Serve Admin on / with anti-cache headers for HTML
+app.use(express.static(path.join(__dirname, 'admin/dist'), {
+    maxAge: '1d',
+    etag: true,
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
 app.use((req, res) => {
     const p = path.join(__dirname, 'admin/dist/index.html');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     if (fs.existsSync(p)) res.sendFile(p);
     else res.send("Backend is running!");
 });
