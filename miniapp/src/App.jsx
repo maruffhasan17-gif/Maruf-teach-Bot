@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink } from 'lucide-react';
-import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
+import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut } from 'lucide-react';
+import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership } from './api';
@@ -686,21 +686,205 @@ const translations = {
   }
 };
 
-function HeaderWalletButton() {
+function ConnectedWalletModal({ isOpen, onClose, userTonAddress, onDisconnect, lang = 'bn' }) {
+  const [copied, setCopied] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+
+  if (!isOpen || !userTonAddress) return null;
+
+  const firstChars = userTonAddress.slice(0, 6);
+  const lastChars = userTonAddress.slice(-6);
+
+  const handleCopy = () => {
+    if (!userTonAddress) return;
+    navigator.clipboard.writeText(userTonAddress);
+    setCopied(true);
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDisconnectClick = async () => {
+    setIsDisconnecting(true);
+    try {
+      if (onDisconnect) {
+        await onDisconnect();
+      }
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+      }
+      onClose();
+    } catch (err) {
+      console.error('Disconnect error:', err);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+      <div 
+        className="relative bg-white w-full max-w-[340px] p-5 text-center shadow-[0_20px_50px_rgba(79,70,229,0.25)] border border-indigo-100/80 animate-in zoom-in-95 duration-200"
+        style={{
+          clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
+        }}
+      >
+        <WithdrawLilyPattern className="opacity-[0.05]" />
+
+        {/* Top Close Icon */}
+        <button 
+          type="button"
+          onClick={onClose}
+          className="absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors z-10 cursor-pointer"
+        >
+          <X size={15} />
+        </button>
+
+        {/* Trust Pay Logo with Ring */}
+        <div className="relative w-16 h-16 mx-auto mb-2.5 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full bg-indigo-500/10 animate-ping opacity-60" />
+          <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-50 to-purple-50 p-1 border border-indigo-100/80 shadow-xs flex items-center justify-center">
+            <img src={brandLogo} alt="Trust Pay" className="w-full h-full object-contain drop-shadow-[0_4px_10px_rgba(79,70,229,0.3)]" />
+          </div>
+        </div>
+
+        {/* Status Badge */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-black uppercase tracking-wider mb-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>{lang === 'bn' ? 'ওয়ালেট সংযুক্ত' : 'WALLET CONNECTED'}</span>
+        </div>
+
+        <h3 className="text-[17px] font-black text-slate-900 leading-tight mb-1">
+          {lang === 'bn' ? 'কানেক্টেড TON ওয়ালেট' : 'Connected TON Wallet'}
+        </h3>
+        <p className="text-[11px] text-slate-500 font-medium mb-3.5 leading-relaxed">
+          {lang === 'bn' ? 'আপনার ওয়ালেটটি Trust Pay অ্যাপের সাথে সংযুক্ত রয়েছে' : 'Your TON wallet is securely linked with Trust Pay'}
+        </p>
+
+        {/* Address Card with First & Last Characters Highlighted */}
+        <div className="bg-slate-50/90 rounded-2xl p-3 border border-slate-200/80 mb-3.5 text-left space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {lang === 'bn' ? 'ওয়ালেট অ্যাড্রেস:' : 'Wallet Address:'}
+            </span>
+            <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 border border-indigo-100/80 px-2 py-0.5 rounded-full">
+              TON Mainnet
+            </span>
+          </div>
+
+          {/* Prominent First & Last Characters Box */}
+          <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-1.5 font-mono text-[13px] font-black tracking-tight">
+              <span className="text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100/60 font-bold">
+                {firstChars}
+              </span>
+              <span className="text-slate-300 font-bold text-base tracking-widest">••••</span>
+              <span className="text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100/60 font-bold">
+                {lastChars}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopy}
+              className={`px-2.5 py-1.5 rounded-lg transition-all active:scale-95 flex items-center gap-1 text-[11px] font-bold cursor-pointer ${
+                copied 
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
+              title={lang === 'bn' ? 'সম্পূর্ণ অ্যাড্রেস কপি করুন' : 'Copy address'}
+            >
+              {copied ? (
+                <>
+                  <Check size={13} className="text-emerald-600" />
+                  <span>{lang === 'bn' ? 'কপি হয়েছে' : 'Copied'}</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={13} className="text-slate-500" />
+                  <span>{lang === 'bn' ? 'কপি' : 'Copy'}</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Full Address details */}
+          <div className="pt-0.5">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
+              {lang === 'bn' ? 'সম্পূর্ণ অ্যাড্রেস:' : 'Full Address:'}
+            </p>
+            <p className="text-[10px] text-slate-600 font-mono break-all leading-tight bg-slate-100/70 p-1.5 rounded-lg border border-slate-200/60 select-all">
+              {userTonAddress}
+            </p>
+          </div>
+        </div>
+
+        {/* Disconnect Button directly below address */}
+        <button
+          type="button"
+          onClick={handleDisconnectClick}
+          disabled={isDisconnecting}
+          className="w-full py-2.5 px-4 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+        >
+          {isDisconnecting ? (
+            <>
+              <Loader2 size={15} className="animate-spin text-rose-500" />
+              <span>{lang === 'bn' ? 'ডিসকানেক্ট হচ্ছে...' : 'Disconnecting...'}</span>
+            </>
+          ) : (
+            <>
+              <LogOut size={15} className="text-rose-500" />
+              <span>{lang === 'bn' ? 'ওয়ালেট ডিসকানেক্ট করুন' : 'Disconnect Wallet'}</span>
+            </>
+          )}
+        </button>
+
+        {/* Back / Close button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full mt-2 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+        >
+          {lang === 'bn' ? 'ফিরে যান' : 'Close'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function HeaderWalletButton({ lang = 'bn' }) {
   const userTonAddress = useTonAddress();
   const [tonConnectUI] = useTonConnectUI();
+  const [showWalletModal, setShowWalletModal] = useState(false);
+
+  const handleDisconnect = async () => {
+    if (tonConnectUI) {
+      await tonConnectUI.disconnect();
+    }
+  };
 
   if (userTonAddress) {
     return (
-      <button 
-        type="button"
-        onClick={() => tonConnectUI.openModal()}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm active:scale-95 transition-all"
-        title={userTonAddress}
-      >
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-        <span className="text-[12px] font-extrabold tracking-tight">Connected</span>
-      </button>
+      <>
+        <button 
+          type="button"
+          onClick={() => setShowWalletModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm active:scale-95 transition-all cursor-pointer"
+          title={userTonAddress}
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="text-[12px] font-extrabold tracking-tight">Connected</span>
+        </button>
+
+        <ConnectedWalletModal
+          isOpen={showWalletModal}
+          onClose={() => setShowWalletModal(false)}
+          userTonAddress={userTonAddress}
+          onDisconnect={handleDisconnect}
+          lang={lang}
+        />
+      </>
     );
   }
 
@@ -708,10 +892,10 @@ function HeaderWalletButton() {
     <button 
       type="button"
       onClick={() => tonConnectUI.openModal()}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0098ea] hover:bg-[#0088d1] text-white shadow-sm shadow-[#0098ea]/20 active:scale-95 transition-all"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0098ea] hover:bg-[#0088d1] text-white shadow-sm shadow-[#0098ea]/20 active:scale-95 transition-all cursor-pointer"
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="shrink-0">
-        <path d="M12 2L3 7L12 12L21 7L12 2Z" fill="currentColor"/>
+        <path d="M12 2L3 7L12 12L21 7L12 12Z" fill="currentColor"/>
         <path d="M3 17L12 22L21 17L12 12L3 17Z" fill="currentColor" fillOpacity="0.8"/>
       </svg>
       <span className="text-[12px] font-extrabold tracking-tight">Connect</span>
@@ -948,14 +1132,33 @@ export default function App() {
     }
   }, []);
 
-  const manifestUrl = 'https://maruf-teach-bot.onrender.com/tonconnect-manifest.json';
+  const manifestUrl = 'https://maruf-teach-bot.onrender.com/tonconnect-manifest.json?v=20261014v10';
 
   if (appLoading) {
     return <BloomingFlowerLoader lang={lang} />;
   }
 
   return (
-    <TonConnectUIProvider manifestUrl={manifestUrl}>
+    <TonConnectUIProvider 
+      manifestUrl={manifestUrl}
+      actionsConfiguration={{
+        twaReturnUrl: 'https://t.me/maruf_teach_bot'
+      }}
+      uiPreferences={{
+        theme: THEME.LIGHT,
+        borderRadius: 'm',
+        colorsSet: {
+          [THEME.LIGHT]: {
+            connectButton: {
+              background: '#4f46e5',
+              foreground: '#ffffff'
+            },
+            accent: '#4f46e5',
+            telegramButton: '#0098ea'
+          }
+        }
+      }}
+    >
       <TonConnectStyles />
       <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] pb-28 relative overflow-x-hidden font-sans selection:bg-[var(--color-brand)]/20">
         <PageBackgroundFlowers page={activeTab} />
@@ -974,7 +1177,7 @@ export default function App() {
              </div>
              {/* Header Wallet Button (Shows Connected when connected, Connect when disconnected) */}
              <div className="origin-right">
-                <HeaderWalletButton />
+                <HeaderWalletButton lang={lang} />
              </div>
           </div>
 
@@ -1309,9 +1512,10 @@ export default function App() {
   );
 }
 
-function AppHeader({ user }) {
+function AppHeader({ user, lang = 'bn' }) {
   const userTonAddress = useTonAddress();
   const [tonConnectUI] = useTonConnectUI();
+  const [showWalletModal, setShowWalletModal] = useState(false);
   
   return (
       <div className="flex justify-between items-center mb-8 pt-2 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -1328,17 +1532,27 @@ function AppHeader({ user }) {
          {/* Premium Custom Connect Button */}
          <button onClick={() => {
             if (userTonAddress) {
-               tonConnectUI.disconnect();
+               setShowWalletModal(true);
             } else {
                tonConnectUI.openModal();
             }
-         }} className="glass-button flex items-center gap-2 rounded-full px-4 py-2.5 active-scale smooth-transition group">
+         }} className="glass-button flex items-center gap-2 rounded-full px-4 py-2.5 active-scale smooth-transition group cursor-pointer">
             <Wallet size={16} className="text-[var(--color-brand)] group-hover:scale-110 transition-transform duration-300" />
             <span className="text-xs font-bold text-[var(--color-text-primary)]">
                {userTonAddress ? `${userTonAddress.slice(0, 4)}...${userTonAddress.slice(-4)}` : 'Connect'}
             </span>
          </button>
-            </div>
+
+         <ConnectedWalletModal
+            isOpen={showWalletModal}
+            onClose={() => setShowWalletModal(false)}
+            userTonAddress={userTonAddress}
+            onDisconnect={async () => {
+               if (tonConnectUI) await tonConnectUI.disconnect();
+            }}
+            lang={lang}
+         />
+      </div>
   );
 }
 
@@ -2654,6 +2868,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
     const [errorMessage, setErrorMessage] = useState('');
     const [copied, setCopied] = useState(false);
     const [sellResult, setSellResult] = useState(null);
+    const [showWalletDetails, setShowWalletDetails] = useState(false);
     const [liveRates, setLiveRates] = useState(() => {
         try {
             const cached = localStorage.getItem('maruf_seller_rates');
@@ -2873,9 +3088,15 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                     </div>
                 </div>
                 {userTonAddress ? (
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-full text-[10px] font-bold">
-                        Connected
-                    </span>
+                    <button 
+                        type="button"
+                        onClick={() => setShowWalletDetails(true)}
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-full text-[10px] font-bold active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+                        title={userTonAddress}
+                    >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                        <span>Connected</span>
+                    </button>
                 ) : (
                     <button 
                         type="button" 
@@ -3013,6 +3234,16 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                     </div>
                 </div>
             </CutCornerCard>
+
+            <ConnectedWalletModal
+                isOpen={showWalletDetails}
+                onClose={() => setShowWalletDetails(false)}
+                userTonAddress={userTonAddress}
+                onDisconnect={async () => {
+                    if (tonConnectUI) await tonConnectUI.disconnect();
+                }}
+                lang={lang}
+            />
         </div>
     );
 }

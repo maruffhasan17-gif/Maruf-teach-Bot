@@ -1,5 +1,7 @@
 {
   "url": "https://maruf-teach-bot.onrender.com",
   "name": "Trust Pay",
-  "iconUrl": "https://maruf-teach-bot.onrender.com/logo.png"
+  "iconUrl": "https://maruf-teach-bot.onrender.com/logo.png",
+  "termsOfUseUrl": "https://maruf-teach-bot.onrender.com",
+  "privacyPolicyUrl": "https://maruf-teach-bot.onrender.com"
 }

@@ -113,7 +113,7 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trustpay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trustpay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v9';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v10';
 const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
@@ -1636,12 +1636,15 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // Serve static manifest and logo for TON Connect with CORS
-app.get('/tonconnect-manifest.json', (req, res) => {
+app.get(['/tonconnect-manifest.json', '/tonconnect-manifest.json*'], (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json');
     res.sendFile(path.join(__dirname, 'tonconnect-manifest.json'));
 });
-app.get('/logo.png', (req, res) => {
+app.get(['/logo.png', '/trustpaylogo.png', '/logo-512.png', '/logo-256.png'], (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     res.sendFile(path.join(__dirname, 'logo.png'));
 });
 
