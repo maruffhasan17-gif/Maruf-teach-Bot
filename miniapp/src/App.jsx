@@ -2247,7 +2247,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 }
             }
         } catch (e) {}
-        return { GRAM: 226, USDT: 130 };
+        return { GRAM: 185, USDT: 130 };
     });
 
     // Auto-fill connected TonConnect wallet if address empty
@@ -2279,7 +2279,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         return () => { isMounted = false; };
     }, []);
 
-    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 130) : (buyerRates?.GRAM || 226);
+    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 130) : (buyerRates?.GRAM || 185);
     const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
         ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
         : '0.0000';
@@ -2664,7 +2664,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 }
             }
         } catch(e) {}
-        return { GRAM: 200, USDT: 115 };
+        return { GRAM: 165, USDT: 115 };
     });
 
     // Fetch live market rates
@@ -2673,8 +2673,12 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
         fetchMarketRates().then(data => {
             if (!isMounted || !data) return;
             if (data.sellRates && data.sellRates.USDT) {
+                // Ensure 10 TK profit and max 170 TK ceiling
+                const gramRate = data.sellRates.GRAM 
+                    ? Math.min(170, data.sellRates.GRAM) 
+                    : (data.realGramBdt ? Math.min(170, Math.round(data.realGramBdt - 10)) : 165);
                 const newRates = {
-                    GRAM: 200, // Fixed at 200 BDT as requested
+                    GRAM: gramRate,
                     USDT: data.sellRates.USDT
                 };
                 setLiveRates(newRates);
@@ -2690,7 +2694,9 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
     }, []);
 
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
-    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 115) : 200;
+    const currentRate = asset === 'USDT' 
+        ? (liveRates?.USDT || 115) 
+        : Math.min(170, (liveRates?.GRAM || 165));
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
 
@@ -2902,7 +2908,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                                 <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-5 h-5 object-contain shrink-0" alt="GRAM" />
                                 <div className="text-left">
                                     <span className="font-extrabold text-[11px] text-slate-900 block leading-tight">GRAM</span>
-                                    <span className="text-[9px] text-indigo-600 font-bold block">Fixed ৳200 TK</span>
+                                    <span className="text-[9px] text-indigo-600 font-bold block">≈ ৳{liveRates?.GRAM || 165} TK</span>
                                 </div>
                             </button>
 

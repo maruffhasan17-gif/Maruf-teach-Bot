@@ -113,7 +113,7 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trustpay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trustpay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v8';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v9';
 const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
@@ -1157,15 +1157,15 @@ const { ethers } = require('ethers');
 // ==================== HOURLY MARKET RATES TRACKER ====================
 let cachedMarketRates = {
     realUsdtBdt: 120,
-    realGramUsdt: 1.80,
-    realGramBdt: 216,
+    realGramUsdt: 1.46,
+    realGramBdt: 175.2,
     buyRates: {
         USDT: 130, // 120 + 10
-        GRAM: 226  // (1.80 * 120) + 10
+        GRAM: 185  // 175.2 + 10
     },
     sellRates: {
         USDT: 115, // 120 - 5
-        GRAM: 211  // (1.80 * 120) - 5
+        GRAM: 165  // 175.2 - 10 = 165 (max 170 TK cap)
     },
     lastUpdated: 0
 };
@@ -1173,7 +1173,7 @@ let cachedMarketRates = {
 async function updateMarketRates() {
     try {
         let usdtBdt = 120;
-        let tonUsdt = 1.80;
+        let tonUsdt = 1.46;
 
         // 1. Fetch live USD/BDT from Open Exchange API
         try {
@@ -1210,14 +1210,21 @@ async function updateMarketRates() {
         const realGramBdt = Number((realGramUsdt * realUsdtBdt).toFixed(2));
 
         // Buyer Price Rule (+10 TK):
-        // USDT: realUsdtBdt + 10 TK (e.g. 120 + 10 = 130 TK)
-        // GRAM: (realGramUsdt in BDT) + 10 TK (e.g. 1.80 * 120 = 216 + 10 = 226 TK)
+        // USDT: realUsdtBdt + 10 TK
+        // GRAM: (realGramUsdt in BDT) + 10 TK
         const buyUsdt = Math.round(realUsdtBdt + 10);
+        const buyGram = Math.round(realGramBdt + 10);
+
         // Seller Price Rule:
-        // USDT: realUsdtBdt - 5 TK (e.g. 130 - 5 = 125 TK or 120 - 5 = 115 TK)
-        // GRAM: Fixed at 200 BDT as requested by admin
+        // USDT: realUsdtBdt - 5 TK
         const sellUsdt = Math.max(1, Math.round(realUsdtBdt - 5));
-        const sellGram = 200; // Fixed 200 BDT
+
+        // GRAM Seller Price Rule:
+        // Platform keeps 10 TK profit: (realGramBdt - 10 TK).
+        // Cap rule: Maximum 170 TK (even if GRAM price is 200+ TK, platform pays max 170 TK).
+        // If price is low, it dynamically follows (realGramBdt - 10 TK).
+        const calculatedSellGram = Math.round(realGramBdt - 10);
+        const sellGram = Math.max(1, Math.min(170, calculatedSellGram));
 
         cachedMarketRates = {
             realUsdtBdt,
@@ -1233,7 +1240,7 @@ async function updateMarketRates() {
             },
             lastUpdated: Date.now()
         };
-        console.log(`[RATES UPDATED] Real USDT: ৳${realUsdtBdt}, Real TON: $${realGramUsdt} (৳${realGramBdt}) => Buy: USDT ৳${buyUsdt}, GRAM ৳${buyGram} | Sell: USDT ৳${sellUsdt}, GRAM ৳${sellGram}`);
+        console.log(`[RATES UPDATED] Real USDT: ৳${realUsdtBdt}, Real TON/GRAM: $${realGramUsdt} (৳${realGramBdt}) => Buy: USDT ৳${buyUsdt}, GRAM ৳${buyGram} | Sell: USDT ৳${sellUsdt}, GRAM ৳${sellGram}`);
     } catch(err) {
         console.error("Rates update error:", err.message);
     }
