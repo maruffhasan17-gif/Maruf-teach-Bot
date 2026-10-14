@@ -113,7 +113,7 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trustpay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trustpay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v10';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v12';
 const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
@@ -174,9 +174,9 @@ const userStates = {};
 
 const t = {
     en: {
-        welcome: `💎 <b>Trust Pay</b> 💎\n\nWelcome! Instant & secure Crypto Buy/Sell via bKash & Nagad.\n\n📢 <b>Join our community from the buttons below:</b>`,
-        joinChannelBtn: '📢 Channel',
-        joinGroupBtn: '👥 Group',
+        welcome: `💎 <b>Trust Pay</b> 💎\n\nWelcome! Instant & secure Crypto Buy/Sell via bKash & Nagad.\n\n👇 <b>Tap buttons below to verify:</b>`,
+        joinChannelBtn: 'Channel',
+        joinGroupBtn: 'Group',
         verifyBtn: '✅ Verify & Open App',
         notJoined: '❌ Please join both our Channel and Group first!',
         langPrompt: '✅ <b>Verification Successful!</b>\n\nPlease select your language:',
@@ -187,9 +187,9 @@ const t = {
         mainMenuMsg: "🎉 <b>Verification Successful!</b>\n\n👇 <b>Tap below to open the app:</b>"
     },
     bn: {
-        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম! বিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল।\n\n📢 <b>কমিউনিটিতে যুক্ত হতে নিচের বোতামে চাপ দিন:</b>`,
-        joinChannelBtn: '📢 Channel',
-        joinGroupBtn: '👥 Group',
+        welcome: `💎 <b>Trust Pay — ট্রাস্ট পে</b> 💎\n\nস্বাগতম! বিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল।\n\n👇 <b>নিচের বোতামে চাপ দিয়ে ভেরিফাই করুন:</b>`,
+        joinChannelBtn: 'Channel',
+        joinGroupBtn: 'Group',
         verifyBtn: '✅ ভেরিফাই ও অ্যাপ ওপেন',
         notJoined: '❌ অনুগ্রহ করে চ্যানেল ও গ্রুপ দুটিতেই যুক্ত হোন!',
         langPrompt: '✅ <b>ভেরিফিকেশন সফল!</b>\n\nভাষা নির্বাচন করুন:',
@@ -488,8 +488,8 @@ bot.onText(/\/start/, async (msg) => {
         parse_mode: 'HTML',
         reply_markup: {
             inline_keyboard: [
-                [{ text: '📢 Channel', url: OFFICIAL_CHANNEL_URL }],
-                [{ text: '👥 Group', url: PAYOUT_GROUP_URL }],
+                [{ text: 'Channel', url: OFFICIAL_CHANNEL_URL }],
+                [{ text: 'Group', url: PAYOUT_GROUP_URL }],
                 [{ text: '✅ ভেরিফাই ও অ্যাপ ওপেন', callback_data: 'verify_join' }]
             ]
         }
@@ -1641,11 +1641,11 @@ app.get(['/tonconnect-manifest.json', '/tonconnect-manifest.json*'], (req, res) 
     res.setHeader('Content-Type', 'application/json');
     res.sendFile(path.join(__dirname, 'tonconnect-manifest.json'));
 });
-app.get(['/logo.png', '/trustpaylogo.png', '/logo-512.png', '/logo-256.png'], (req, res) => {
+app.get(['/logo.png', '/trustpaylogo.png', '/logo-512.png', '/logo-256.png', '/trustpay-tp-512.png', '/trustpay-tp-logo.png'], (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.sendFile(path.join(__dirname, 'logo.png'));
+    res.sendFile(path.join(__dirname, 'trustpay-tp-512.png'));
 });
 
 const { mnemonicToPrivateKey } = require('@ton/crypto');

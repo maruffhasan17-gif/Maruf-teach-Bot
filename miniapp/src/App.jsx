@@ -869,7 +869,11 @@ function HeaderWalletButton({ lang = 'bn' }) {
       <>
         <button 
           type="button"
-          onClick={() => setShowWalletModal(true)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setShowWalletModal(true);
+          }}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm active:scale-95 transition-all cursor-pointer"
           title={userTonAddress}
         >
@@ -1132,7 +1136,7 @@ export default function App() {
     }
   }, []);
 
-  const manifestUrl = 'https://maruf-teach-bot.onrender.com/tonconnect-manifest.json?v=20261014v10';
+  const manifestUrl = 'https://maruf-teach-bot.onrender.com/tonconnect-manifest.json?v=20261014v12';
 
   if (appLoading) {
     return <BloomingFlowerLoader lang={lang} />;
