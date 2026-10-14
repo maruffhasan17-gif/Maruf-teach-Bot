@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
@@ -722,8 +723,8 @@ function ConnectedWalletModal({ isOpen, onClose, userTonAddress, onDisconnect, l
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
+  const modalNode = (
+    <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
       <div 
         className="relative bg-white w-full max-w-[340px] p-5 text-center shadow-[0_20px_50px_rgba(79,70,229,0.25)] border border-indigo-100/80 animate-in zoom-in-95 duration-200"
         style={{
@@ -851,9 +852,11 @@ function ConnectedWalletModal({ isOpen, onClose, userTonAddress, onDisconnect, l
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 }
 
-function HeaderWalletButton({ lang = 'bn' }) {
+function HeaderWalletButton({ lang = 'bn', setIsModalOpen }) {
   const userTonAddress = useTonAddress();
   const [tonConnectUI] = useTonConnectUI();
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -864,16 +867,24 @@ function HeaderWalletButton({ lang = 'bn' }) {
     }
   };
 
+  const handleOpenModal = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowWalletModal(true);
+    if (setIsModalOpen) setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowWalletModal(false);
+    if (setIsModalOpen) setIsModalOpen(false);
+  };
+
   if (userTonAddress) {
     return (
       <>
         <button 
           type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setShowWalletModal(true);
-          }}
+          onClick={handleOpenModal}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm active:scale-95 transition-all cursor-pointer"
           title={userTonAddress}
         >
@@ -883,7 +894,7 @@ function HeaderWalletButton({ lang = 'bn' }) {
 
         <ConnectedWalletModal
           isOpen={showWalletModal}
-          onClose={() => setShowWalletModal(false)}
+          onClose={handleCloseModal}
           userTonAddress={userTonAddress}
           onDisconnect={handleDisconnect}
           lang={lang}
@@ -1181,7 +1192,7 @@ export default function App() {
              </div>
              {/* Header Wallet Button (Shows Connected when connected, Connect when disconnected) */}
              <div className="origin-right">
-                <HeaderWalletButton lang={lang} />
+                <HeaderWalletButton lang={lang} setIsModalOpen={setIsModalOpen} />
              </div>
           </div>
 

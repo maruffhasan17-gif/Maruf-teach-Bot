@@ -993,12 +993,13 @@ function Dashboard() {
 
 export default function App() {
   return (
-    <TonConnectUIProvider manifestUrl="https://ton-connect.github.io/demo-dapp-with-react-ui/tonconnect-manifest.json">
-      <ErrorBoundary>
+    <ErrorBoundary>
+      <TonConnectUIProvider manifestUrl={`${API_BASE}/tonconnect-manifest.json`}>
         <Router>
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/admin" element={<Dashboard />} />
               <Route path="/bot-wallet" element={<BotWallet />} />
               <Route path="/bot-settings" element={<BotSettings />} />
               <Route path="/users" element={<UsersList />} />
@@ -1010,8 +1011,8 @@ export default function App() {
             </Routes>
           </Layout>
         </Router>
-      </ErrorBoundary>
-    </TonConnectUIProvider>
+      </TonConnectUIProvider>
+    </ErrorBoundary>
   );
 }
 
