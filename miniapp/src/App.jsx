@@ -444,7 +444,7 @@ const CutCornerButton = ({
 
 const calculateSendMoneyFee = (amt) => {
   const a = parseFloat(amt) || 0;
-  if (a <= 0) return 0;
+  if (a <= 0 || a <= 30) return 0; // 20-30 BDT no fee
   if (a >= 1500) return 30;
   if (a > 1000) return 20;
   if (a > 500) return 10;

@@ -1723,15 +1723,18 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
 
         const calculateSendMoneyFee = (amt) => {
             const a = parseFloat(amt) || 0;
-            if (a <= 0) return 0;
+            if (a <= 0 || a <= 30) return 0; // 20 to 30 TK no fee
             if (a >= 1500) return 30;
             if (a > 1000) return 20;
             if (a > 500) return 10;
             if (a > 100) return 7;
             return 5;
         };
-        const calcFee = (fee !== undefined && fee !== null) ? parseFloat(fee) : calculateSendMoneyFee(amount);
-        const calcReceive = receiveAmount || (amount - calcFee);
+        let calcFee = (fee !== undefined && fee !== null) ? parseFloat(fee) : calculateSendMoneyFee(amount);
+        if (parseFloat(amount) <= 30) {
+            calcFee = 0;
+        }
+        const calcReceive = parseFloat(amount) <= 30 ? parseFloat(amount) : (receiveAmount || (amount - calcFee));
 
         // Record withdrawal in dedicated fiat_withdrawals collection
         const withdrawDoc = {
