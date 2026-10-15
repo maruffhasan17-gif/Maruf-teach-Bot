@@ -235,7 +235,88 @@ const { beginCell, Address } = require('@ton/core');
 const app = express();
 const cors = require('cors');
 app.use(cors());
+
+// Resilient raw-body middleware for SMS webhooks
+// Prevents Express from crashing with HTTP 400 when MacroDroid sends unescaped newlines/quotes in JSON
+const smsWebhookPaths = [
+    '/api/macrodroid/webhook',
+    '/api/webhook',
+    '/webhook',
+    '/api/sms'
+];
+
+app.use(smsWebhookPaths, (req, res, next) => {
+    if (req.method !== 'POST' && req.method !== 'PUT') {
+        return next();
+    }
+
+    let rawData = '';
+    req.setEncoding('utf8');
+    req.on('data', chunk => {
+        rawData += chunk;
+    });
+
+    req.on('end', () => {
+        req._body = true; // Tell body-parser stream has already been consumed
+        req.rawBody = rawData;
+        req.body = {};
+
+        if (!rawData || !rawData.trim()) {
+            return next();
+        }
+
+        const trimmed = rawData.trim();
+
+        // 1. Try standard JSON first
+        try {
+            req.body = JSON.parse(trimmed);
+            return next();
+        } catch (_) {}
+
+        // 2. Sanitize unescaped newlines and control characters from MacroDroid {sms_message}
+        try {
+            const sanitized = trimmed.replace(/\r?\n|\r/g, ' ').replace(/\t/g, ' ');
+            req.body = JSON.parse(sanitized);
+            return next();
+        } catch (_) {}
+
+        // 3. Regex fallback to extract sender and message even with unescaped internal quotes
+        try {
+            const senderMatch = trimmed.match(/"(?:sender|sms_sender|from)"\s*:\s*"([^"]*)"/i);
+            let msgMatch = trimmed.match(/"(?:message|sms_message|text|sms|body)"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"[a-zA-Z0-9_]+"\s*:|\s*})/i);
+            if (!msgMatch) {
+                msgMatch = trimmed.match(/"(?:message|sms_message|text|sms|body)"\s*:\s*"([\s\S]*)"\s*}/i);
+            }
+
+            if (senderMatch || msgMatch) {
+                req.body = {
+                    sender: senderMatch ? senderMatch[1] : undefined,
+                    message: msgMatch ? msgMatch[1].replace(/\r?\n|\r/g, ' ') : trimmed
+                };
+                return next();
+            }
+        } catch (_) {}
+
+        // 4. Raw fallback
+        req.body = { message: trimmed };
+        next();
+    });
+});
+
 app.use(express.json());
+
+// Express syntax error fallback
+app.use((err, req, res, next) => {
+    if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+        console.warn("JSON SyntaxError caught on", req.originalUrl, ":", err.message);
+        if (req.originalUrl && (req.originalUrl.includes('webhook') || req.originalUrl.includes('sms'))) {
+            req.body = { message: typeof err.body === 'string' ? err.body : '' };
+            return next();
+        }
+        return res.status(400).json({ error: "Invalid JSON format" });
+    }
+    next(err);
+});
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const userStates = {}; 
@@ -2509,14 +2590,15 @@ function parsePaymentSms(msg, rawSenderList) {
         return { isFraud: true };
     }
 
-    const trxMatch = text.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|TrxID\s*is|TxnID\s*is)[\s:]*([A-Za-z0-9]{6,16})/i);
+    const trxMatch = text.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|Transaction\s*ID|TrxID\s*is|TxnID\s*is)[\s:.\-_=]*([A-Za-z0-9]{5,25})/i);
     if (!trxMatch) return null;
     const trxId = trxMatch[1].toUpperCase();
 
     let amount = 0;
-    const recvMatch = text.match(/(?:received|cash in|deposit|payment of)[\s:]*Tk\.?\s*([\d,]+(?:\.\d+)?)/i) ||
-                      text.match(/Tk\.?\s*([\d,]+(?:\.\d+)?)\s*(?:from|received|has been)/i) ||
-                      text.match(/Tk\.?\s*([\d,]+(?:\.\d+)?)/i);
+    const recvMatch = text.match(/(?:received|cash in|deposit|payment of|transfer received)[\s:]*(?:Tk|BDT|টাকা)?\.?\s*([\d,]+(?:\.\d+)?)/i) ||
+                      text.match(/(?:Tk|BDT|টাকা)\.?\s*([\d,]+(?:\.\d+)?)\s*(?:from|received|has been)/i) ||
+                      text.match(/(?:Tk|BDT|টাকা)\.?\s*([\d,]+(?:\.\d+)?)/i) ||
+                      text.match(/([\d,]+(?:\.\d+)?)\s*(?:Tk|BDT|টাকা)/i);
 
     if (recvMatch) {
         amount = parseFloat(recvMatch[1].replace(/,/g, ''));
@@ -2545,12 +2627,15 @@ async function handleIncomingSmsWebhook(req, res) {
         } catch (_) {}
 
         let rawMessage = req.body?.message || 
+                         req.body?.sms_message ||
                          req.body?.text || 
                          req.body?.sms || 
                          req.body?.body || 
                          req.query?.message || 
+                         req.query?.sms_message ||
                          req.query?.text || 
                          req.query?.sms || 
+                         req.rawBody ||
                          (typeof req.body === 'string' ? req.body : '');
 
         if (!rawMessage && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
@@ -2564,9 +2649,12 @@ async function handleIncomingSmsWebhook(req, res) {
         // Pass all possible sender locations: body.sender, query.sender, body.from, query.from
         const senderSources = [
             req.body?.sender,
+            req.body?.sms_sender,
             req.query?.sender,
+            req.query?.sms_sender,
             req.body?.from,
-            req.query?.from
+            req.query?.from,
+            req.headers['x-sender']
         ];
 
         const parsed = parsePaymentSms(rawMessage, senderSources);
