@@ -3172,3 +3172,584 @@ bot.onText(/\/wallet/, async (msg) => {
         bot.sendMessage(chatId, "Error fetching wallet: " + e.message).catch(e => console.error(e.message));
     }
 });
+
+// ============================================================
+// WITHDRAW MANAGER BOT  (Dedicated Admin Helper Bot)
+// Token: 8965853759:AAHdAas87oEfVY_fbqAdb9KXF3vHj6ECLGY
+// Admin Telegram Username: maruff666 / maruff_hasan17
+// ============================================================
+// This bot fetches pending withdrawal requests from Firestore
+// and presents them one-by-one to the admin with:
+//   - The send data formatted as: "<number> <receiveAmount>"
+//   - ✅ Confirm button  →  marks as completed, notifies user,
+//                           posts proof to payout channel
+//   - ❌ Reject button   →  refunds user's balance, notifies user
+// Fee policy (set by admin request):
+//   - Amount ≤ 30 BDT  → NO fee (user gets full amount)
+//   - Amount  > 30 BDT → fee applied per calculateSendMoneyFee()
+// ============================================================
+
+const WITHDRAW_BOT_TOKEN = '8965853759:AAHdAas87oEfVY_fbqAdb9KXF3vHj6ECLGY';
+
+// Allowed admin Telegram user IDs (the admin who will use this bot)
+// We'll compare msg.from.username against this to guard against strangers.
+const WITHDRAW_BOT_ADMIN_USERNAMES = ['maruff666', 'maruff_hasan17'];
+
+// Fee calculator (mirrors the logic in /api/miniapp/withdraw-fiat)
+// ≤30 BDT → 0 fee;  >30 BDT → tiered fee
+const calcWithdrawFee = (amt) => {
+    const a = parseFloat(amt) || 0;
+    if (a <= 0) return 0;
+    if (a <= 30) return 0;         // no fee for 20-30 TK (admin request)
+    if (a >= 1500) return 30;
+    if (a > 1000) return 20;
+    if (a > 500) return 10;
+    if (a > 100) return 7;
+    return 5;
+};
+
+let withdrawBot;
+try {
+    withdrawBot = new TelegramBot(WITHDRAW_BOT_TOKEN, { polling: true });
+    console.log('[WithdrawBot] ✅ Withdraw Manager Bot started successfully');
+} catch(e) {
+    console.error('[WithdrawBot] ❌ Failed to start Withdraw Bot:', e.message);
+}
+
+// In-memory queue: array of pending withdrawal objects for the current admin session
+// Each entry: { docId, userId, method, number, amount, receiveAmount, fee, name, serial }
+let withdrawQueue = [];
+// Which index in the queue the admin is currently viewing
+let withdrawQueueIndex = 0;
+// Whether a session is active (admin ran /withdrawals)
+let withdrawSessionActive = false;
+
+// ─────────────────────────────────────────────────────────
+// Helper: Check if message sender is an authorized admin
+// ─────────────────────────────────────────────────────────
+const isWithdrawAdmin = (msg) => {
+    const username = (msg.from?.username || '').toLowerCase();
+    return WITHDRAW_BOT_ADMIN_USERNAMES.some(u => u.toLowerCase() === username);
+};
+
+// ─────────────────────────────────────────────────────────
+// Helper: Fetch all pending withdrawals from Firestore
+// Returns array sorted by timestamp (oldest first = serial order)
+// ─────────────────────────────────────────────────────────
+const fetchPendingWithdrawals = async () => {
+    const results = [];
+    const seenIds = new Set();
+
+    try {
+        // Source 1: fiat_withdrawals collection
+        const fwSnap = await db.collection('fiat_withdrawals')
+            .where('status', '==', 'pending')
+            .orderBy('createdAt', 'asc')
+            .get();
+
+        fwSnap.forEach(doc => {
+            const d = doc.data();
+            const id = doc.id;
+            if (seenIds.has(id)) return;
+            seenIds.add(id);
+
+            const amount = parseFloat(d.amount) || 0;
+            // Apply fee policy: ≤30 → no fee; >30 → use stored fee or recalculate
+            const storedFee = (d.fee !== undefined && d.fee !== null) ? parseFloat(d.fee) : null;
+            const fee = storedFee !== null ? (amount <= 30 ? 0 : storedFee) : calcWithdrawFee(amount);
+            const receiveAmount = d.receiveAmount ? parseFloat(d.receiveAmount) : (amount - fee);
+
+            results.push({
+                docId: id,
+                userId: String(d.userId || ''),
+                method: d.method || 'bKash',
+                number: d.number || 'N/A',
+                amount,
+                fee,
+                receiveAmount,
+                name: d.name || 'User',
+                serial: d.serial || '?',
+                source: 'fiat_withdrawals'
+            });
+        });
+    } catch(e) {
+        console.error('[WithdrawBot] fiat_withdrawals fetch error:', e.message);
+    }
+
+    // Source 2: users collection (legacy fiatWithdrawPending)
+    try {
+        const usersSnap = await db.collection('users').get();
+        usersSnap.forEach(doc => {
+            const data = doc.data();
+            if (!data.fiatWithdrawPending) return;
+            const p = data.fiatWithdrawPending;
+            if (p.status && p.status !== 'pending') return;
+            const pendId = p.id || doc.id;
+            if (seenIds.has(pendId)) return;
+            seenIds.add(pendId);
+
+            const amount = parseFloat(p.amount) || 0;
+            const storedFee = (p.fee !== undefined && p.fee !== null) ? parseFloat(p.fee) : null;
+            const fee = storedFee !== null ? (amount <= 30 ? 0 : storedFee) : calcWithdrawFee(amount);
+            const receiveAmount = p.receiveAmount ? parseFloat(p.receiveAmount) : (amount - fee);
+
+            results.push({
+                docId: pendId,
+                userId: doc.id,
+                method: p.method || 'bKash',
+                number: p.number || 'N/A',
+                amount,
+                fee,
+                receiveAmount,
+                name: p.name || data.first_name || 'User',
+                serial: p.serial || '?',
+                source: 'users'
+            });
+        });
+    } catch(e) {
+        console.error('[WithdrawBot] users fetch error:', e.message);
+    }
+
+    return results;
+};
+
+// ─────────────────────────────────────────────────────────
+// Helper: Build the message and inline keyboard for a single withdrawal
+// ─────────────────────────────────────────────────────────
+const buildWithdrawMessage = (w, index, total) => {
+    const receiveFormatted = w.receiveAmount.toFixed(2);
+    const feeText = w.fee > 0 ? `\n💸 <b>ফি (Fee):</b> ৳${w.fee.toFixed(2)} BDT` : '\n💸 <b>ফি:</b> বিনামূল্যে (No Fee)';
+    const methodEmoji = w.method?.toLowerCase() === 'nagad' ? '🟠' : '🩷';
+
+    const msgText = 
+`<blockquote><b>💳 ক্যাশআউট রিকোয়েস্ট — #${index + 1}/${total}</b></blockquote>
+
+👤 <b>গ্রাহক:</b> ${w.name} (<code>${w.userId}</code>)
+${methodEmoji} <b>মেথড:</b> <b>${w.method?.toUpperCase()}</b>
+📱 <b>নম্বর:</b> <code>${w.number}</code>
+💰 <b>রিকোয়েস্ট:</b> ৳${w.amount.toFixed(2)} BDT${feeText}
+✅ <b>পাঠাবেন:</b> ৳${receiveFormatted} BDT
+🔢 <b>সিরিয়াল:</b> #${w.serial}
+
+━━━━━━━━━━━━━━━━━━
+📋 <b>কপি করুন:</b>
+<code>${w.number} ${receiveFormatted}</code>
+━━━━━━━━━━━━━━━━━━
+👆 উপরের লাইন কপি করে পেমেন্ট অ্যাপে পেস্ট করুন।`;
+
+    const keyboard = {
+        inline_keyboard: [
+            [
+                { text: `✅ কনফার্ম (Confirm) — ৳${receiveFormatted}`, callback_data: `wd_confirm:${w.docId}:${w.userId}` },
+            ],
+            [
+                { text: `❌ রিজেক্ট ও রিফান্ড (Reject)`, callback_data: `wd_reject:${w.docId}:${w.userId}:${w.amount}` },
+            ],
+            [
+                { text: `⏭ পরবর্তী (${index + 1}/${total})`, callback_data: `wd_next` },
+                { text: `🔄 রিফ্রেশ লিস্ট`, callback_data: `wd_refresh` },
+            ],
+        ]
+    };
+
+    return { msgText, keyboard };
+};
+
+// ─────────────────────────────────────────────────────────
+// Helper: Approve a withdrawal (same logic as /api/admin/approve-withdraw)
+// ─────────────────────────────────────────────────────────
+const doApproveWithdraw = async (docId, userId) => {
+    const targetUser = String(userId);
+
+    // Update fiat_withdrawals doc
+    try {
+        const fwRef = db.collection('fiat_withdrawals').doc(docId);
+        const fwDoc = await fwRef.get();
+        if (fwDoc.exists) {
+            await fwRef.update({ status: 'completed', completedAt: Date.now() });
+        }
+    } catch(e) { /* doc may not exist, that's OK */ }
+
+    // Update user document and send notification
+    let pend = null;
+    try {
+        const userRef = db.collection('users').doc(targetUser);
+        const doc = await userRef.get();
+        if (doc.exists) {
+            pend = doc.data()?.fiatWithdrawPending;
+            await userRef.update({
+                'fiatWithdrawPending.status': 'completed',
+                'fiatWithdrawPending.completedAt': Date.now()
+            });
+        }
+    } catch(e) {}
+
+    // Update any other pending fiat_withdrawals for this user
+    try {
+        const pendSnaps = await db.collection('fiat_withdrawals')
+            .where('userId', 'in', [parseInt(targetUser), targetUser].filter(Boolean))
+            .where('status', '==', 'pending').get();
+        for (const d of pendSnaps.docs) {
+            await d.ref.update({ status: 'completed', completedAt: Date.now() }).catch(() => {});
+        }
+    } catch(e) {}
+
+    // Send success notification to user via main bot
+    if (pend && bot) {
+        const userMsg = `<blockquote><b>✅ আপনার ক্যাশআউট সফল হয়েছে! (Withdrawal Successful!)</b>\n\n` +
+            `💰 <b>রিকোয়েস্ট করা:</b> ৳${pend?.amount || 0} BDT\n` +
+            `💸 <b>কাটা ফি:</b> ৳${pend?.fee || 0} BDT\n` +
+            `✅ <b>পাঠানো হয়েছে:</b> ৳${pend?.receiveAmount || pend?.amount || 0} BDT\n` +
+            `📱 <b>পদ্ধতি:</b> ${pend?.method || 'bKash'} (<code>${pend?.number || ''}</code>)\n\n` +
+            `আপনার ${pend?.method || 'bKash'} নম্বরে টাকা পৌঁছে যাবে কিছুক্ষণের মধ্যে। ধন্যবাদ!</blockquote>`;
+        bot.sendMessage(targetUser, userMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+
+        // Post payout proof to public payout channel
+        await notifyPayoutGroup({
+            type: 'fiat',
+            userId: targetUser,
+            name: pend?.name || 'User',
+            amount: pend?.amount || 0,
+            receiveAmount: pend?.receiveAmount || pend?.amount || 0,
+            method: pend?.method || 'bKash',
+            number: pend?.number || ''
+        });
+    }
+};
+
+// ─────────────────────────────────────────────────────────
+// Helper: Reject a withdrawal (refund user balance)
+// ─────────────────────────────────────────────────────────
+const doRejectWithdraw = async (docId, userId, refundAmt) => {
+    const targetUser = String(userId);
+    const reason = 'বাতিল করেছেন এডমিন (Rejected by admin)';
+
+    // Update fiat_withdrawals doc
+    try {
+        const fwRef = db.collection('fiat_withdrawals').doc(docId);
+        const fwDoc = await fwRef.get();
+        if (fwDoc.exists) {
+            const fwData = fwDoc.data();
+            const actualRefund = refundAmt || parseFloat(fwData.amount) || 0;
+            await fwRef.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() });
+        }
+    } catch(e) {}
+
+    // Refund user balance and notify
+    try {
+        const userRef = db.collection('users').doc(targetUser);
+        const doc = await userRef.get();
+        if (doc.exists) {
+            const userData = doc.data();
+            const actualRefund = refundAmt || parseFloat(userData.fiatWithdrawPending?.amount) || 0;
+            await userRef.update({
+                'fiatWithdrawPending.status': 'rejected',
+                'fiatWithdrawPending.rejectReason': reason,
+                'fiatWithdrawPending.rejectedAt': Date.now(),
+                balance: FieldValue.increment(actualRefund)
+            });
+
+            if (bot) {
+                const userRejectMsg = `<blockquote><b>❌ আপনার ক্যাশআউট রিকোয়েস্ট বাতিল করা হয়েছে (Withdrawal Rejected)!</b>\n\n` +
+                    `💰 <b>বাতিল করা:</b> ৳${actualRefund} BDT\n` +
+                    `ℹ️ <b>কারণ:</b> <i>${reason}</i>\n\n` +
+                    `আপনার ব্যালেন্সে ৳${actualRefund} BDT ফেরত দেওয়া হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।</blockquote>`;
+                bot.sendMessage(targetUser, userRejectMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            }
+        }
+    } catch(e) { console.error('[WithdrawBot] reject user error:', e.message); }
+
+    // Also mark any other pending fiat_withdrawals for this user
+    try {
+        const pendSnaps = await db.collection('fiat_withdrawals')
+            .where('userId', 'in', [parseInt(targetUser), targetUser].filter(Boolean))
+            .where('status', '==', 'pending').get();
+        for (const d of pendSnaps.docs) {
+            await d.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(() => {});
+        }
+    } catch(e) {}
+};
+
+// ─────────────────────────────────────────────────────────
+// Helper: Show the current withdrawal from the queue
+// ─────────────────────────────────────────────────────────
+const showCurrentWithdrawal = async (chatId, messageId = null) => {
+    if (withdrawQueue.length === 0) {
+        const emptyMsg = `<blockquote><b>✅ সকল ক্যাশআউট রিকোয়েস্ট সম্পন্ন!</b>\n\nকোনো পেন্ডিং উইথড্র রিকোয়েস্ট নেই। সব ক্লিয়ার! 🎉</blockquote>`;
+        if (messageId) {
+            await withdrawBot.editMessageText(emptyMsg, { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' }).catch(() => {
+                withdrawBot.sendMessage(chatId, emptyMsg, { parse_mode: 'HTML' }).catch(() => {});
+            });
+        } else {
+            await withdrawBot.sendMessage(chatId, emptyMsg, { parse_mode: 'HTML' }).catch(() => {});
+        }
+        withdrawSessionActive = false;
+        return;
+    }
+
+    // Clamp index
+    if (withdrawQueueIndex >= withdrawQueue.length) withdrawQueueIndex = 0;
+    const w = withdrawQueue[withdrawQueueIndex];
+    const { msgText, keyboard } = buildWithdrawMessage(w, withdrawQueueIndex, withdrawQueue.length);
+
+    try {
+        if (messageId) {
+            await withdrawBot.editMessageText(msgText, {
+                chat_id: chatId,
+                message_id: messageId,
+                parse_mode: 'HTML',
+                reply_markup: keyboard
+            });
+        } else {
+            await withdrawBot.sendMessage(chatId, msgText, {
+                parse_mode: 'HTML',
+                reply_markup: keyboard
+            });
+        }
+    } catch(e) {
+        // If edit fails, send a new message
+        await withdrawBot.sendMessage(chatId, msgText, {
+            parse_mode: 'HTML',
+            reply_markup: keyboard
+        }).catch(() => {});
+    }
+};
+
+// ─────────────────────────────────────────────────────────
+// Command: /withdrawals  — Load all pending & start queue
+// ─────────────────────────────────────────────────────────
+if (withdrawBot) {
+    withdrawBot.onText(/\/(withdrawals|w|cashout|pending)/, async (msg) => {
+        const chatId = msg.chat.id;
+        if (!isWithdrawAdmin(msg)) {
+            withdrawBot.sendMessage(chatId, '⛔ এই বটটি শুধুমাত্র Trust Pay এডমিনের জন্য।').catch(() => {});
+            return;
+        }
+
+        await withdrawBot.sendMessage(chatId, '⏳ ডেটাবেস থেকে পেন্ডিং ক্যাশআউট লিস্ট লোড হচ্ছে...').catch(() => {});
+
+        try {
+            const pending = await fetchPendingWithdrawals();
+            if (pending.length === 0) {
+                withdrawBot.sendMessage(chatId, '<blockquote><b>✅ দারুণ!</b> কোনো পেন্ডিং ক্যাশআউট রিকোয়েস্ট নেই।</blockquote>', { parse_mode: 'HTML' }).catch(() => {});
+                return;
+            }
+            withdrawQueue = pending;
+            withdrawQueueIndex = 0;
+            withdrawSessionActive = true;
+
+            await withdrawBot.sendMessage(chatId, 
+                `<blockquote><b>📋 মোট ${pending.length}টি পেন্ডিং ক্যাশআউট রিকোয়েস্ট পাওয়া গেছে।</b>\nসিরিয়াল অনুযায়ী একে একে দেখাচ্ছি...</blockquote>`, 
+                { parse_mode: 'HTML' }).catch(() => {});
+
+            await showCurrentWithdrawal(chatId);
+        } catch(e) {
+            console.error('[WithdrawBot] Error loading withdrawals:', e.message);
+            withdrawBot.sendMessage(chatId, `❌ এরর: ${e.message}`).catch(() => {});
+        }
+    });
+
+    // Command /start — Welcome message
+    withdrawBot.onText(/\/start/, (msg) => {
+        const chatId = msg.chat.id;
+        if (!isWithdrawAdmin(msg)) {
+            withdrawBot.sendMessage(chatId, '⛔ এই বটটি শুধুমাত্র Trust Pay এডমিনের জন্য।').catch(() => {});
+            return;
+        }
+        const welcomeMsg = 
+`<blockquote><b>💳 Trust Pay Withdraw Manager Bot</b></blockquote>
+
+স্বাগতম! এই বটটি দিয়ে আপনি সব পেন্ডিং বিকাশ/নগদ ক্যাশআউট রিকোয়েস্ট সহজে ম্যানেজ করতে পারবেন।
+
+<b>📌 কমান্ড লিস্ট:</b>
+/withdrawals — পেন্ডিং সব রিকোয়েস্ট দেখুন ও ম্যানেজ করুন
+/w — সংক্ষিপ্ত কমান্ড (একই কাজ)
+/pending — একই কাজ
+/list — সব পেন্ডিং রিকোয়েস্টের তালিকা
+/help — সাহায্য
+
+<b>💡 কিভাবে ব্যবহার করবেন:</b>
+১. /withdrawals টাইপ করুন
+২. প্রতিটি রিকোয়েস্টে নম্বর ও পরিমাণ দেখাবে
+৩. ✅ Confirm দিলে → ইউজার নোটিফাই হবে ও পে-আউট চ্যানেলে রসিদ যাবে
+৪. ❌ Reject দিলে → ইউজারের ব্যালেন্সে টাকা ফেরত যাবে`;
+
+        withdrawBot.sendMessage(chatId, welcomeMsg, { parse_mode: 'HTML' }).catch(() => {});
+    });
+
+    // Command /list — Show a numbered list of all pending withdrawals
+    withdrawBot.onText(/\/list/, async (msg) => {
+        const chatId = msg.chat.id;
+        if (!isWithdrawAdmin(msg)) return;
+
+        try {
+            const pending = await fetchPendingWithdrawals();
+            if (pending.length === 0) {
+                withdrawBot.sendMessage(chatId, '✅ কোনো পেন্ডিং ক্যাশআউট নেই।').catch(() => {});
+                return;
+            }
+            let listMsg = `<b>📋 পেন্ডিং ক্যাশআউট রিকোয়েস্ট (${pending.length}টি):</b>\n\n`;
+            pending.forEach((w, i) => {
+                const methodEmoji = w.method?.toLowerCase() === 'nagad' ? '🟠' : '🩷';
+                listMsg += `<b>${i + 1}.</b> ${methodEmoji} <code>${w.number}</code> → ৳${w.receiveAmount.toFixed(2)}\n` +
+                           `    👤 ${w.name} (ID: <code>${w.userId}</code>)\n\n`;
+            });
+            listMsg += `\n/withdrawals কমান্ড দিন একে একে ম্যানেজ করতে।`;
+            withdrawBot.sendMessage(chatId, listMsg, { parse_mode: 'HTML' }).catch(() => {});
+        } catch(e) {
+            withdrawBot.sendMessage(chatId, `❌ এরর: ${e.message}`).catch(() => {});
+        }
+    });
+
+    // Command /help
+    withdrawBot.onText(/\/help/, (msg) => {
+        const chatId = msg.chat.id;
+        if (!isWithdrawAdmin(msg)) return;
+        withdrawBot.sendMessage(chatId, 
+`<b>📌 Trust Pay Withdraw Bot — সাহায্য:</b>
+
+/withdrawals বা /w — পেন্ডিং ক্যাশআউট লিস্ট লোড করুন
+/list — সব রিকোয়েস্টের তালিকা দেখুন
+/start — বট পরিচিতি
+
+<b>📋 ফি নীতি:</b>
+• ≤ ৳৩০ BDT → কোনো ফি নেই (ফুল পাবে)
+• > ৳৩০ BDT → নিচের ফি স্কেল:
+  • ৳৩১–৳১০০ → ৳৫ ফি
+  • ৳১০১–৳৫০০ → ৳৭ ফি
+  • ৳৫০১–৳১০০০ → ৳১০ ফি
+  • ৳১০০১–৳১৪৯৯ → ৳২০ ফি
+  • ৳১৫০০+ → ৳৩০ ফি`, { parse_mode: 'HTML' }).catch(() => {});
+    });
+
+    // ─────────────────────────────────────────────────────────
+    // Callback Query Handler — for Confirm / Reject / Next / Refresh buttons
+    // ─────────────────────────────────────────────────────────
+    withdrawBot.on('callback_query', async (query) => {
+        const chatId = query.message.chat.id;
+        const messageId = query.message.message_id;
+        const data = query.data;
+
+        if (!isWithdrawAdmin(query)) {
+            await withdrawBot.answerCallbackQuery(query.id, { text: '⛔ আপনার এক্সেস নেই।', show_alert: true }).catch(() => {});
+            return;
+        }
+
+        await withdrawBot.answerCallbackQuery(query.id).catch(() => {});
+
+        // ─── CONFIRM ──────────────────────────────────────────
+        if (data.startsWith('wd_confirm:')) {
+            const parts = data.split(':');
+            const docId = parts[1];
+            const userId = parts[2];
+
+            try {
+                // Edit message to show processing state
+                await withdrawBot.editMessageText(
+                    `<blockquote>⏳ <b>প্রসেস করা হচ্ছে...</b>\n\nইউজার <code>${userId}</code>-এর ক্যাশআউট কনফার্ম করা হচ্ছে।</blockquote>`,
+                    { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' }
+                ).catch(() => {});
+
+                await doApproveWithdraw(docId, userId);
+
+                // Remove the completed item from the queue
+                withdrawQueue = withdrawQueue.filter(w => w.docId !== docId);
+                if (withdrawQueueIndex >= withdrawQueue.length) withdrawQueueIndex = 0;
+
+                if (withdrawQueue.length > 0) {
+                    await withdrawBot.sendMessage(chatId,
+                        `✅ <b>কনফার্ম সফল!</b> ইউজার <code>${userId}</code>-কে নোটিফাই করা হয়েছে এবং পে-আউট চ্যানেলে রসিদ পোস্ট হয়েছে।\n\n⬇️ পরবর্তী রিকোয়েস্ট দেখাচ্ছি...`,
+                        { parse_mode: 'HTML' }).catch(() => {});
+                    await showCurrentWithdrawal(chatId);
+                } else {
+                    await withdrawBot.sendMessage(chatId,
+                        `✅ <b>কনফার্ম সফল!</b>\n\n🎉 সব ক্যাশআউট রিকোয়েস্ট সম্পন্ন হয়েছে! আর কোনো পেন্ডিং নেই।`,
+                        { parse_mode: 'HTML' }).catch(() => {});
+                }
+            } catch(e) {
+                console.error('[WithdrawBot] Confirm error:', e.message);
+                await withdrawBot.sendMessage(chatId, `❌ কনফার্ম ব্যর্থ: ${e.message}`, { parse_mode: 'HTML' }).catch(() => {});
+            }
+            return;
+        }
+
+        // ─── REJECT ───────────────────────────────────────────
+        if (data.startsWith('wd_reject:')) {
+            const parts = data.split(':');
+            const docId = parts[1];
+            const userId = parts[2];
+            const refundAmt = parseFloat(parts[3]) || 0;
+
+            try {
+                await withdrawBot.editMessageText(
+                    `<blockquote>⏳ <b>রিজেক্ট প্রসেস হচ্ছে...</b>\n\nইউজার <code>${userId}</code>-এর ব্যালেন্সে ৳${refundAmt} BDT রিফান্ড করা হচ্ছে।</blockquote>`,
+                    { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' }
+                ).catch(() => {});
+
+                await doRejectWithdraw(docId, userId, refundAmt);
+
+                // Remove rejected item from queue
+                withdrawQueue = withdrawQueue.filter(w => w.docId !== docId);
+                if (withdrawQueueIndex >= withdrawQueue.length) withdrawQueueIndex = 0;
+
+                if (withdrawQueue.length > 0) {
+                    await withdrawBot.sendMessage(chatId,
+                        `❌ <b>রিজেক্ট সফল!</b> ইউজার <code>${userId}</code>-এর ব্যালেন্সে ৳${refundAmt} BDT ফেরত দেওয়া হয়েছে।\n\n⬇️ পরবর্তী রিকোয়েস্ট দেখাচ্ছি...`,
+                        { parse_mode: 'HTML' }).catch(() => {});
+                    await showCurrentWithdrawal(chatId);
+                } else {
+                    await withdrawBot.sendMessage(chatId,
+                        `❌ <b>রিজেক্ট সফল!</b>\n\n✅ সব ক্যাশআউট রিকোয়েস্ট সম্পন্ন হয়েছে! আর কোনো পেন্ডিং নেই।`,
+                        { parse_mode: 'HTML' }).catch(() => {});
+                }
+            } catch(e) {
+                console.error('[WithdrawBot] Reject error:', e.message);
+                await withdrawBot.sendMessage(chatId, `❌ রিজেক্ট ব্যর্থ: ${e.message}`, { parse_mode: 'HTML' }).catch(() => {});
+            }
+            return;
+        }
+
+        // ─── NEXT ─────────────────────────────────────────────
+        if (data === 'wd_next') {
+            if (withdrawQueue.length === 0) {
+                await showCurrentWithdrawal(chatId, messageId);
+                return;
+            }
+            withdrawQueueIndex = (withdrawQueueIndex + 1) % withdrawQueue.length;
+            await showCurrentWithdrawal(chatId, messageId);
+            return;
+        }
+
+        // ─── REFRESH ──────────────────────────────────────────
+        if (data === 'wd_refresh') {
+            try {
+                await withdrawBot.editMessageText(
+                    '⏳ ডেটাবেস থেকে সর্বশেষ তালিকা লোড হচ্ছে...',
+                    { chat_id: chatId, message_id: messageId, parse_mode: 'HTML' }
+                ).catch(() => {});
+
+                const pending = await fetchPendingWithdrawals();
+                withdrawQueue = pending;
+                withdrawQueueIndex = 0;
+
+                if (pending.length === 0) {
+                    await withdrawBot.editMessageText(
+                        '✅ কোনো পেন্ডিং ক্যাশআউট রিকোয়েস্ট নেই!',
+                        { chat_id: chatId, message_id: messageId }
+                    ).catch(() => {});
+                    return;
+                }
+
+                await showCurrentWithdrawal(chatId, messageId);
+            } catch(e) {
+                await withdrawBot.sendMessage(chatId, `❌ রিফ্রেশ ব্যর্থ: ${e.message}`).catch(() => {});
+            }
+            return;
+        }
+    });
+
+    console.log('[WithdrawBot] 📋 All handlers registered successfully.');
+}
+// ============================================================
+// END OF WITHDRAW MANAGER BOT
+// ============================================================
