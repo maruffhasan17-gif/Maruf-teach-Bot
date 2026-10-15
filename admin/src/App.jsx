@@ -49,6 +49,14 @@ import {
   BadgeCheck
 } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
+import { 
+  InfographicConcentricRings, 
+  InfographicBarChart, 
+  InfographicWaveChart, 
+  InfographicRadarGauge, 
+  InfographicPillSliders, 
+  InfographicLineChart 
+} from './components/DashboardCharts';
 
 export const API_BASE = (function() {
   if (typeof window === 'undefined') return 'https://maruf-teach-bot.onrender.com';
@@ -430,14 +438,14 @@ function Layout({ children, onOpenCreateTrx }) {
   const pendingWithdrawCount = orders.withdrawals.filter(w => w.status === 'pending' || !w.status).length;
 
   return (
-    <div className={`min-h-screen flex ${isDark ? 'bg-[#060411] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+    <div className={`min-h-screen flex ${isDark ? 'bg-[#090d24] text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       <Sidebar 
         onOpenCreateTrx={onOpenCreateTrx} 
         pendingBuysCount={pendingBuysCount}
         pendingWithdrawCount={pendingWithdrawCount}
       />
-      <main className="flex-1 ml-72 p-8 transition-colors duration-200">
-        <div className="max-w-7xl mx-auto">
+      <main className="flex-1 ml-72 p-6 md:p-8 transition-colors duration-200">
+        <div className="max-w-[1780px] w-full mx-auto">
           {children}
         </div>
       </main>
@@ -636,6 +644,13 @@ function Dashboard() {
   const pendingBuys = orders.buys.filter(b => b.status === 'pending' || b.status === 'verified').length;
   const pendingWithdrawals = orders.withdrawals.filter(w => w.status === 'pending' || !w.status).length;
 
+  const totalUsersCount = data.users?.length || 0;
+  const verifiedUsersCount = (data.users || []).filter(u => u.isVerified || (parseFloat(u.balance || 0) > 0)).length;
+  const verifiedPercent = totalUsersCount > 0 ? Math.round((verifiedUsersCount / totalUsersCount) * 100) : 0;
+  const totalBuys = orders.buys.length;
+  const completedBuys = orders.buys.filter(b => b.status === 'completed').length;
+  const completionRate = totalBuys > 0 ? Math.round((completedBuys / totalBuys) * 100) : 94;
+
   const handleApproveBuy = async (id) => {
     if (!window.confirm("Approve this crypto order? Net crypto after gas fee will be sent automatically on-chain with memo 'TrustPay'.")) return;
     try {
@@ -726,6 +741,144 @@ function Dashboard() {
               Refresh
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* 6 Quick KPI Metric Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3.5">
+        {/* Metric 1 */}
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>USERS</span>
+            <span className="w-2 h-2 rounded-full bg-pink-500"></span>
+          </div>
+          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-purple-400">
+            {totalUsersCount}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
+            <span>Verified: <strong className="text-emerald-400">{verifiedUsersCount}</strong></span>
+            <span>{verifiedPercent}%</span>
+          </div>
+        </div>
+
+        {/* Metric 2 */}
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>GRAM POOL</span>
+            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+          </div>
+          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
+            {parseFloat(data.tonNativeBalance || data.gramBalance || 0).toFixed(2)}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            ≈ ৳{(parseFloat(data.tonNativeBalance || data.gramBalance || 0) * 220).toLocaleString('en-US', { maximumFractionDigits: 0 })} BDT
+          </div>
+        </div>
+
+        {/* Metric 3 */}
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>USDT POOL</span>
+            <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+          </div>
+          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400">
+            ${parseFloat(data.tonUsdtBalance || 0).toFixed(2)}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            ≈ ৳{(parseFloat(data.tonUsdtBalance || 0) * 130).toLocaleString('en-US', { maximumFractionDigits: 0 })} BDT
+          </div>
+        </div>
+
+        {/* Metric 4 */}
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>PENDING BUYS</span>
+            <span className={`w-2 h-2 rounded-full ${pendingBuys > 0 ? 'bg-amber-400 animate-ping' : 'bg-slate-600'}`}></span>
+          </div>
+          <div className={`text-2xl font-black font-mono tracking-tight ${pendingBuys > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+            {pendingBuys}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            {pendingBuys > 0 ? 'Action Needed' : 'All Clear'}
+          </div>
+        </div>
+
+        {/* Metric 5 */}
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>CASHOUTS</span>
+            <span className={`w-2 h-2 rounded-full ${pendingWithdrawals > 0 ? 'bg-rose-500 animate-ping' : 'bg-slate-600'}`}></span>
+          </div>
+          <div className={`text-2xl font-black font-mono tracking-tight ${pendingWithdrawals > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+            {pendingWithdrawals}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            {pendingWithdrawals > 0 ? 'Pending Payout' : 'No Backlog'}
+          </div>
+        </div>
+
+        {/* Metric 6 */}
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>GAS RESERVE</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+          </div>
+          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-300">
+            {parseFloat(data.tonNativeBalance || data.tonBalance || 0).toFixed(2)}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            TON On-Chain Gas
+          </div>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* 6 ADVANCED INFOGRAPHIC CHARTS (DIRECTLY FROM USER REFERENCE IMAGES) */}
+      {/* ================================================================ */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
+              <Sparkles size={16} />
+            </div>
+            <div>
+              <h3 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Visual Analytics & Infographics
+              </h3>
+              <p className="text-xs text-slate-400">
+                Live color-graded operational charts, liquidity waveforms & reserve distribution
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-300">
+            PREMIUM HUD
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <InfographicConcentricRings 
+            verifiedPercent={verifiedPercent} 
+            completionRate={completionRate} 
+            activeScore={totalUsersCount || 142} 
+            isDark={isDark} 
+          />
+          <InfographicBarChart isDark={isDark} />
+          <InfographicWaveChart isDark={isDark} />
+          <InfographicRadarGauge isDark={isDark} />
+          <InfographicPillSliders isDark={isDark} />
+          <InfographicLineChart isDark={isDark} />
         </div>
       </div>
 
@@ -1287,6 +1440,90 @@ function BuyOrders() {
         </div>
       </div>
 
+      {/* 6-Card Responsive Grid for Buy Orders */}
+      {filteredBuys.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3.5 mb-6">
+          {filteredBuys.map((b) => {
+            const isPending = b.status === 'pending' || b.status === 'verified';
+            const isCompleted = b.status === 'completed';
+            const isRejected = b.status === 'rejected';
+            const method = (b.method || 'bKash').toLowerCase();
+
+            return (
+              <div 
+                key={b.id || b.trxId || Math.random()}
+                className={`p-4 rounded-3xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between gap-3 hover:-translate-y-1 hover:shadow-xl ${
+                  isDark 
+                    ? 'bg-[#101438]/90 border-[#262f6b]/70 hover:border-cyan-400/50 shadow-lg' 
+                    : 'bg-white border-slate-200 shadow-sm'
+                }`}
+              >
+                {/* Top: Method badge & Status */}
+                <div className="flex items-center justify-between gap-1">
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${
+                    method === 'nagad' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30' : 'bg-pink-500/15 text-pink-400 border border-pink-500/30'
+                  }`}>
+                    {method}
+                  </span>
+
+                  {isCompleted && (
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                      <CheckCircle2 size={10} /> Completed
+                    </span>
+                  )}
+                  {isPending && (
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1 animate-pulse">
+                      <Clock size={10} /> Pending
+                    </span>
+                  )}
+                  {isRejected && (
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1">
+                      <XCircle size={10} /> Rejected
+                    </span>
+                  )}
+                </div>
+
+                {/* Center: Amount & Asset */}
+                <div className="text-center py-1">
+                  <div className="text-[10px] font-mono text-slate-400">User: <strong className="text-purple-300">{b.userId}</strong></div>
+                  <div className={`text-xl font-black font-mono tracking-tight my-1 ${b.asset === 'USDT' ? 'text-emerald-400' : 'text-purple-400'}`}>
+                    +{b.amount} {b.asset}
+                  </div>
+                  <div className="text-xs font-black text-slate-300">
+                    Paid: <span className="text-emerald-400">৳{b.totalBdt || b.amountBdt || 0}</span>
+                  </div>
+                </div>
+
+                {/* Bottom: TrxID & Actions */}
+                <div className="pt-2 border-t border-slate-700/30 space-y-2">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                    <span className="truncate max-w-[120px]">{b.trxId || b.id}</span>
+                    <span>{formatTimestamp(b.timestamp)}</span>
+                  </div>
+
+                  {isPending && (
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button
+                        onClick={() => handleApprove(b.id || b.trxId)}
+                        className="flex-1 py-1 px-2 rounded-xl text-[10px] font-black bg-emerald-500 hover:bg-emerald-400 text-white shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Check size={11} /> Approve
+                      </button>
+                      <button
+                        onClick={() => handleReject(b.id || b.trxId)}
+                        className="py-1 px-2.5 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Table */}
       <div className={`rounded-3xl border overflow-hidden ${
         isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
@@ -1425,6 +1662,52 @@ function SellOrders() {
           Refresh
         </button>
       </div>
+
+      {/* 6-Card Responsive Grid for Crypto Sales */}
+      {orders.sells.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3.5 mb-6">
+          {orders.sells.map(s => {
+            const sTs = s?.timestamp;
+            const formattedTime = (sTs && sTs._seconds)
+              ? new Date(sTs._seconds * 1000).toLocaleString()
+              : (sTs ? new Date(sTs).toLocaleString() : 'Just now');
+
+            return (
+              <div 
+                key={s.id || Math.random()}
+                className={`p-4 rounded-3xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between gap-3 hover:-translate-y-1 hover:shadow-xl ${
+                  isDark 
+                    ? 'bg-[#101438]/90 border-[#262f6b]/70 hover:border-cyan-400/50 shadow-lg' 
+                    : 'bg-white border-slate-200 shadow-sm'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                    {s.asset || 'GRAM'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 size={10} /> Received
+                  </span>
+                </div>
+
+                <div className="text-center py-1">
+                  <div className="text-[10px] font-mono text-slate-400">User: <strong className="text-purple-300">{s.userId || 'N/A'}</strong></div>
+                  <div className="text-xl font-black font-mono tracking-tight my-1 text-cyan-400">
+                    {s.cryptoAmount || s.amount || 0} {s.asset || 'GRAM'}
+                  </div>
+                  <div className="text-xs font-black text-slate-300">
+                    Payout: <span className="text-emerald-400">৳{s.bdtAmount || s.totalBdt || 0}</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-700/30 text-[10px] text-slate-400 font-mono text-center truncate">
+                  {s.payoutNumber || s.wallet || s.id || 'N/A'}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className={`rounded-3xl border overflow-hidden ${
         isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
@@ -1615,6 +1898,97 @@ function FiatWithdrawals() {
           />
         </div>
       </div>
+
+      {/* 6-Card Responsive Grid for Fiat Cashouts */}
+      {displayedList.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3.5 mb-6">
+          {displayedList.map(w => {
+            const info = w?.fiatWithdrawPending || w || {};
+            const amount = info.amount || w.amount || 0;
+            const rawNumber = info.number || w.number || 'N/A';
+            const formattedNumber = formatBdPhone(rawNumber);
+            const method = (info.method || w.method || 'bKash').toLowerCase();
+            const isPending = w.status === 'pending' || !w.status;
+            const isCompleted = w.status === 'completed' || w.status === 'approved' || w.status === 'paid';
+            const isRejected = w.status === 'rejected' || w.status === 'refunded';
+
+            return (
+              <div 
+                key={w.id || Math.random()}
+                className={`p-4 rounded-3xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between gap-3 hover:-translate-y-1 hover:shadow-xl ${
+                  isDark 
+                    ? 'bg-[#101438]/90 border-[#262f6b]/70 hover:border-cyan-400/50 shadow-lg' 
+                    : 'bg-white border-slate-200 shadow-sm'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${
+                    method === 'nagad' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30' : 'bg-pink-500/15 text-pink-400 border border-pink-500/30'
+                  }`}>
+                    {method}
+                  </span>
+
+                  {isCompleted && (
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                      <CheckCircle2 size={10} /> Paid
+                    </span>
+                  )}
+                  {isPending && (
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1 animate-pulse">
+                      <Clock size={10} /> Pending
+                    </span>
+                  )}
+                  {isRejected && (
+                    <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-slate-500/15 text-slate-400 border border-slate-500/30 flex items-center gap-1">
+                      <XCircle size={10} /> Rejected
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-center py-1">
+                  <div className="text-[10px] font-mono text-slate-400">User: <strong className="text-purple-300">{w.userId}</strong></div>
+                  <div className="text-xl font-black font-mono tracking-tight my-1 text-emerald-400">
+                    ৳ {amount} BDT
+                  </div>
+                  <div className="text-xs font-mono font-bold text-cyan-300 flex items-center justify-center gap-1">
+                    <span>{formattedNumber}</span>
+                    <button 
+                      onClick={() => navigator.clipboard.writeText(formattedNumber)} 
+                      className="p-0.5 hover:text-white transition-colors cursor-pointer"
+                      title="Copy Number"
+                    >
+                      <Copy size={10} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-700/30 space-y-2">
+                  <div className="text-[10px] text-slate-500 font-mono text-center">
+                    {formatTimestamp(w.timestamp || w.createdAt)}
+                  </div>
+
+                  {isPending && (
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button
+                        onClick={() => handleApprove(w.id, w.userId)}
+                        className="flex-1 py-1 px-2 rounded-xl text-[10px] font-black bg-emerald-500 hover:bg-emerald-400 text-white shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Check size={11} /> Approve
+                      </button>
+                      <button
+                        onClick={() => handleReject(w.id, w.userId, amount)}
+                        className="py-1 px-2.5 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Table */}
       <div className={`rounded-3xl border overflow-hidden ${
@@ -2017,7 +2391,7 @@ function UsersManagement() {
           <p className="text-xs text-slate-500 mt-1">অনুসন্ধান বা ফিল্টার পরিবর্তন করে চেষ্টা করুন।</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3.5">
           {processedUsers.map((u, idx) => {
             const rank = idx + 1;
             const isRank1 = sortOrder === 'desc' && rank === 1;
@@ -2028,147 +2402,123 @@ function UsersManagement() {
               <div
                 key={u.chatId}
                 onClick={() => handleOpenUser(u)}
-                className={`group p-5 rounded-3xl border transition-all duration-300 cursor-pointer relative overflow-hidden flex flex-col justify-between gap-4 hover:-translate-y-1 hover:shadow-2xl ${
+                className={`group p-4 rounded-3xl border transition-all duration-300 cursor-pointer relative overflow-hidden flex flex-col justify-between gap-3 hover:-translate-y-1.5 hover:shadow-2xl ${
                   isRank1
                     ? isDark 
-                      ? 'bg-gradient-to-br from-[#1a1338] via-[#120f29] to-[#0d0a1f] border-amber-500/50 shadow-amber-500/10' 
+                      ? 'bg-gradient-to-br from-[#1c143d] via-[#141030] to-[#0d0a22] border-amber-500/50 shadow-[0_10px_25px_rgba(245,158,11,0.2)]' 
                       : 'bg-gradient-to-br from-amber-50/90 to-white border-amber-300 shadow-amber-200/50'
+                    : isRank2
+                      ? isDark
+                        ? 'bg-gradient-to-br from-[#131b3d] via-[#0e132e] to-[#090b20] border-cyan-400/40 shadow-[0_10px_25px_rgba(6,182,212,0.15)]'
+                        : 'bg-white border-slate-200 shadow-md'
                     : isDark 
-                      ? 'bg-[#0f0c22] border-purple-900/30 hover:border-purple-500/50 shadow-xl' 
+                      ? 'bg-[#101438]/90 border-[#262f6b]/70 hover:border-purple-500/60 shadow-xl' 
                       : 'bg-white border-slate-200 hover:border-indigo-300 shadow-md'
                 }`}
               >
-                {/* Background Ambient Glow for Rank 1 */}
-                {isRank1 && (
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-                )}
+                {/* Ambient Top Glow for top ranks */}
+                {isRank1 && <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/15 rounded-full blur-xl pointer-events-none" />}
+                {isRank2 && <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/15 rounded-full blur-xl pointer-events-none" />}
 
-                {/* Top Section: User Left Details & Right Badges */}
-                <div className="flex items-start justify-between gap-3">
-                  {/* Left Side: Avatar & Identity Details */}
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    {/* Telegram Avatar with Fallback to Initials */}
-                    <div className="relative shrink-0">
-                      <img 
-                        src={u.photoUrl || `${API_BASE}/api/admin/user-avatar/${u.chatId}`} 
-                        alt={u.firstName || u.username || 'User'} 
-                        className="w-13 h-13 rounded-2xl object-cover ring-2 ring-purple-500/30 shadow-md"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                      <div 
-                        className={`avatar-fallback w-13 h-13 rounded-2xl items-center justify-center font-black text-lg shadow-md ring-2 ${
-                          isRank1 ? 'bg-gradient-to-br from-amber-400 to-yellow-600 text-slate-950 ring-amber-400/50' :
-                          isRank2 ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-slate-950 ring-slate-300/40' :
-                          isRank3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white ring-amber-600/40' :
-                          'bg-gradient-to-br from-indigo-600 to-purple-700 text-white ring-purple-500/30'
-                        }`}
-                        style={{ display: 'none' }}
-                      >
-                        {isRank1 ? <Crown size={22} className="text-slate-950" /> : (u.firstName || u.username || u.chatId || 'U').slice(0, 1).toUpperCase()}
-                      </div>
+                {/* Card Top: Rank Badge & Status */}
+                <div className="flex items-center justify-between gap-1 relative z-10">
+                  <div className={`px-2 py-0.5 rounded-full text-[10px] font-black border flex items-center gap-1 shadow-sm ${
+                    isRank1 ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 border-amber-300' :
+                    isRank2 ? 'bg-gradient-to-r from-slate-200 to-slate-400 text-slate-950 border-slate-200' :
+                    isRank3 ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white border-amber-500' :
+                    'bg-slate-900/90 text-purple-300 border-purple-800/40'
+                  }`}>
+                    {isRank1 ? <Crown size={11} className="text-slate-950" /> : null}
+                    <span>#{rank}</span>
+                  </div>
 
-                      {/* Rank Tag */}
-                      <div className={`absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-black border flex items-center gap-0.5 shadow-sm ${
-                        isRank1 ? 'bg-amber-400 text-slate-950 border-amber-300' :
-                        isRank2 ? 'bg-slate-300 text-slate-950 border-slate-200' :
-                        isRank3 ? 'bg-amber-700 text-white border-amber-600' :
-                        'bg-slate-900 text-purple-300 border-purple-800/40'
-                      }`}>
-                        #{rank}
-                      </div>
-                    </div>
+                  {u.status === 'banned' ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[9px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                      <Ban size={9} />
+                      <span>ব্যান</span>
+                    </span>
+                  ) : u.status === 'restricted' ? (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[9px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/40">
+                      <Lock size={9} />
+                      <span>রেস্ট্রিক্টেড</span>
+                    </span>
+                  ) : u.isVerified ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xl text-[9.5px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <BadgeCheck size={11} />
+                      <span>ভেরিফাইড</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xl text-[9.5px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                      <span>আন-ভেরিফাইড</span>
+                    </span>
+                  )}
+                </div>
 
-                    {/* Identity: Telegram Name, Telegram Username, Bot ID, Balance */}
-                    <div className="space-y-1 min-w-0">
-                      {/* Telegram Name */}
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`font-black text-sm truncate group-hover:text-cyan-400 transition-colors ${
-                          isDark ? 'text-white' : 'text-slate-900'
-                        }`}>
-                          {u.firstName || 'Telegram User'}
-                        </span>
-                      </div>
-
-                      {/* Telegram Username */}
-                      <div className="flex items-center gap-1.5 text-[11px] min-w-0">
-                        <span className="text-cyan-400 font-bold shrink-0">Username:</span>
-                        {u.username ? (
-                          <span className="font-semibold text-cyan-300 truncate">
-                            @{u.username}
-                          </span>
-                        ) : (
-                          <span className="text-slate-500 italic text-[10px]">
-                            (No username)
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Bot ID & Telegram ID */}
-                      <div className="flex items-center gap-1.5 text-[11px] font-mono">
-                        <span className="text-purple-400 font-bold shrink-0">Bot ID:</span>
-                        <span className={`px-1.5 py-0.2 rounded font-bold border ${
-                          isDark ? 'bg-purple-950/60 border-purple-800/50 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
-                        }`}>
-                          {u.mbsId}
-                        </span>
-                        <span className="text-slate-500 text-[10px]">({u.chatId})</span>
-                      </div>
-
-                      {/* Account Balance */}
-                      <div className="pt-0.5 flex items-baseline gap-1.5">
-                        <span className="text-[10px] uppercase font-bold text-slate-400">ব্যালেন্স:</span>
-                        <span className="text-base font-black text-emerald-400 font-mono tracking-tight drop-shadow-sm">
-                          ৳ {u.balanceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
-                        </span>
-                      </div>
+                {/* Center Section: Avatar & User Identity */}
+                <div className="flex flex-col items-center text-center space-y-1.5 relative z-10 pt-1">
+                  <div className="relative">
+                    <img 
+                      src={u.photoUrl || `${API_BASE}/api/admin/user-avatar/${u.chatId}`} 
+                      alt={u.firstName || u.username || 'User'} 
+                      className="w-14 h-14 rounded-2xl object-cover ring-2 ring-purple-500/30 shadow-md group-hover:scale-105 group-hover:ring-cyan-400 transition-all"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                    <div 
+                      className={`avatar-fallback w-14 h-14 rounded-2xl items-center justify-center font-black text-xl shadow-md ring-2 ${
+                        isRank1 ? 'bg-gradient-to-br from-amber-400 to-yellow-600 text-slate-950 ring-amber-400/50' :
+                        isRank2 ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-slate-950 ring-slate-300/40' :
+                        isRank3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white ring-amber-600/40' :
+                        'bg-gradient-to-br from-indigo-600 to-purple-700 text-white ring-purple-500/30'
+                      }`}
+                      style={{ display: 'none' }}
+                    >
+                      {isRank1 ? <Crown size={24} className="text-slate-950" /> : (u.firstName || u.username || u.chatId || 'U').slice(0, 1).toUpperCase()}
                     </div>
                   </div>
 
-                  {/* Right Badges */}
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    {/* Verification Status */}
-                    {u.isVerified ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.8 rounded-xl text-[10px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                        <BadgeCheck size={12} />
-                        <span>ভেরিফাইড</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.8 rounded-xl text-[10px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                        <Clock size={12} />
-                        <span>আন-ভেরিফাইড</span>
-                      </span>
-                    )}
+                  {/* Telegram Name */}
+                  <div className="w-full px-1">
+                    <div className={`font-black text-sm truncate group-hover:text-cyan-400 transition-colors ${
+                      isDark ? 'text-white' : 'text-slate-900'
+                    }`} title={u.firstName}>
+                      {u.firstName || 'Telegram User'}
+                    </div>
 
-                    {/* Account Status (Banned / Restricted) */}
-                    {u.status === 'banned' ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                        <Ban size={10} />
-                        <span>ব্যান করা</span>
+                    {/* Telegram Username */}
+                    <div className="text-[11px] truncate">
+                      {u.username ? (
+                        <span className="font-semibold text-cyan-300">@{u.username}</span>
+                      ) : (
+                        <span className="text-slate-500 italic text-[10px]">(No username)</span>
+                      )}
+                    </div>
+
+                    {/* Bot ID */}
+                    <div className="mt-1 flex items-center justify-center gap-1 font-mono text-[10px]">
+                      <span className="px-1.5 py-0.2 rounded font-bold bg-purple-950/60 border border-purple-800/40 text-purple-300">
+                        {u.mbsId}
                       </span>
-                    ) : u.status === 'restricted' ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/40">
-                        <Lock size={10} />
-                        <span>রেস্ট্রিক্টেড</span>
-                      </span>
-                    ) : null}
+                    </div>
                   </div>
                 </div>
 
-                {/* Bottom Card Footer: Action Button */}
-                <div className={`pt-3 border-t flex items-center justify-between text-xs ${
-                  isDark ? 'border-purple-900/30' : 'border-slate-100'
-                }`}>
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    যুক্ত হয়েছে: {formatTimestamp(u.createdAt || u.joinedAt)}
-                  </span>
-                  <div className="flex items-center gap-1 text-purple-400 group-hover:text-purple-300 font-bold text-xs">
-                    <span>ম্যানেজ করুন</span>
-                    <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                {/* Card Bottom: Balance & Manage Button */}
+                <div className="pt-2 border-t border-slate-700/30 space-y-1.5 relative z-10">
+                  <div className="p-2 rounded-xl bg-slate-900/60 border border-purple-900/20 text-center">
+                    <div className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">WALLET BALANCE</div>
+                    <div className="text-sm font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-300">
+                      ৳ {u.balanceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
                   </div>
+
+                  <button className="w-full py-1.5 rounded-xl text-[10.5px] font-bold bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 group-hover:border-cyan-400/50 group-hover:text-cyan-300 transition-all flex items-center justify-center gap-1">
+                    <span>ম্যানেজ করুন</span>
+                    <ArrowRight size={10} className="group-hover:translate-x-0.5 transition-transform" />
+                  </button>
                 </div>
               </div>
             );
