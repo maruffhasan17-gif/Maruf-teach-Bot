@@ -2437,19 +2437,43 @@ app.post('/api/miniapp/buy', async (req, res) => {
 });
 
 
-function parsePaymentSms(msg, rawSender) {
+function parsePaymentSms(msg, rawSenderList) {
     if (!msg || typeof msg !== 'string') return null;
     const text = msg.trim();
+    const textLower = text.toLowerCase();
     
-    let senderStr = '';
-    if (typeof rawSender === 'string') senderStr = rawSender.trim().toLowerCase();
-    else if (Array.isArray(rawSender) && rawSender.length > 0) senderStr = String(rawSender[0]).trim().toLowerCase();
+    // Normalize all potential sender sources (string or array)
+    const senders = [];
+    function collectSender(val) {
+        if (!val) return;
+        if (typeof val === 'string') {
+            senders.push(val.trim().toLowerCase());
+        } else if (Array.isArray(val)) {
+            val.forEach(v => collectSender(v));
+        }
+    }
+    if (Array.isArray(rawSenderList)) {
+        rawSenderList.forEach(s => collectSender(s));
+    } else {
+        collectSender(rawSenderList);
+    }
+    const senderCombined = senders.join(' ');
+
+    // Authentic verification check for bKash and Nagad
+    let provider = null;
+    const isBkashSender = senderCombined.includes('bkash') || senderCombined.includes('16247');
+    const isNagadSender = senderCombined.includes('nagad') || senderCombined.includes('16167');
     
-    let provider = 'bKash';
-    if (senderStr.includes('nagad') || senderStr.includes('16167') || text.toLowerCase().includes('nagad') || text.toLowerCase().includes('txnid')) {
+    const isBkashBody = textLower.includes('bkash') && textLower.includes('trxid');
+    const isNagadBody = (textLower.includes('nagad') || textLower.includes('txnid')) && (textLower.includes('txnid') || textLower.includes('trxid'));
+
+    if (isNagadSender || isNagadBody) {
         provider = 'nagad';
-    } else if (senderStr.includes('bkash') || senderStr.includes('16247') || text.toLowerCase().includes('bkash') || text.toLowerCase().includes('trxid')) {
+    } else if (isBkashSender || isBkashBody) {
         provider = 'bKash';
+    } else {
+        // Untrusted source - blocked as fraud
+        return { isFraud: true };
     }
 
     const trxMatch = text.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|TrxID\s*is|TxnID\s*is)[\s:]*([A-Za-z0-9]{6,16})/i);
@@ -2496,12 +2520,6 @@ async function handleIncomingSmsWebhook(req, res) {
                          req.query?.sms || 
                          (typeof req.body === 'string' ? req.body : '');
 
-        let rawSender = req.body?.sender || 
-                        req.body?.from || 
-                        req.query?.sender || 
-                        req.query?.from || 
-                        '';
-
         if (!rawMessage && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
             rawMessage = JSON.stringify(req.body);
         }
@@ -2510,7 +2528,19 @@ async function handleIncomingSmsWebhook(req, res) {
             return res.status(400).json({ error: "Missing SMS message content" });
         }
 
-        const parsed = parsePaymentSms(rawMessage, rawSender);
+        // Pass all possible sender locations: body.sender, query.sender, body.from, query.from
+        const senderSources = [
+            req.body?.sender,
+            req.query?.sender,
+            req.body?.from,
+            req.query?.from
+        ];
+
+        const parsed = parsePaymentSms(rawMessage, senderSources);
+        if (parsed?.isFraud) {
+            console.warn("Blocked untrusted SMS attempt:", senderSources, rawMessage);
+            return res.status(403).json({ error: "Fraud attempt blocked! Sender must be bKash or Nagad" });
+        }
         if (!parsed || !parsed.trxId) {
             console.warn("Could not extract TrxID from SMS:", rawMessage);
             return res.status(400).json({ error: "No valid TrxID or TxnID found in message" });
