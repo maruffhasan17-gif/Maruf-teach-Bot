@@ -1110,16 +1110,33 @@ function Dashboard() {
 // =========================================================================
 // 2. BOT WALLET / TREASURY COMPONENT (UNIQUE CRYPTO VAULT EXPERIENCE)
 // =========================================================================
+// =========================================================================
+// 2. BOT WALLET / TREASURY COMPONENT (FULL TONKEEPER DEPOSIT & ON-CHAIN WITHDRAW)
+// =========================================================================
 function BotWallet() {
   const { data, refresh, refreshing } = useBotData();
   const { orders, refresh: refreshOrders } = useOrdersData();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  
+  // TonConnect Hooks for Admin
+  const userTonAddress = useTonAddress();
+  const [tonConnectUI] = useTonConnectUI();
+
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [historyTab, setHistoryTab] = useState('all'); // 'all' | 'gram' | 'usdt' | 'pending' | 'completed'
   const [search, setSearch] = useState('');
-  const [depositModalOpen, setDepositModalOpen] = useState(false);
   const [copiedHash, setCopiedHash] = useState(null);
+
+  // Deposit & Withdraw Modal States
+  const [depositModal, setDepositModal] = useState({ isOpen: false, asset: 'USDT' });
+  const [withdrawModal, setWithdrawModal] = useState({ isOpen: false, asset: 'USDT' });
+  const [depositAmount, setDepositAmount] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawDestination, setWithdrawDestination] = useState('');
+  const [depositing, setDepositing] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   const gramBuys = useMemo(() => {
     return orders.buys.filter(b => {
@@ -1184,6 +1201,118 @@ function BotWallet() {
     });
   }, [orders.buys, historyTab, search]);
 
+  // Modal Opener Handlers
+  const handleOpenDeposit = (asset = 'USDT') => {
+    setDepositAmount('');
+    setDepositModal({ isOpen: true, asset });
+  };
+
+  const handleOpenWithdraw = (asset = 'USDT') => {
+    setWithdrawAmount('');
+    setWithdrawDestination(userTonAddress || '');
+    setWithdrawModal({ isOpen: true, asset });
+  };
+
+  // 1. TONKEEPER DEPOSIT EXECUTION
+  const executeDeposit = async () => {
+    if (!depositAmount || isNaN(depositAmount) || parseFloat(depositAmount) <= 0) {
+      setToast({ show: true, type: 'error', message: 'Please enter a valid deposit amount.' });
+      return;
+    }
+    if (!userTonAddress) {
+      tonConnectUI.openModal();
+      return;
+    }
+
+    setDepositing(true);
+    try {
+      const numAmt = parseFloat(depositAmount);
+      let tx;
+
+      if (depositModal.asset === 'TON') {
+        tx = {
+          validUntil: Math.floor(Date.now() / 1000) + 360,
+          messages: [
+            {
+              address: data.tonAddress,
+              amount: (numAmt * 1e9).toString()
+            }
+          ]
+        };
+      } else {
+        // Jetton (USDT or GRAM) via backend transaction builder
+        const res = await fetch(`${API_BASE}/api/miniapp/build-tx`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            asset: depositModal.asset,
+            amount: numAmt,
+            userAddress: userTonAddress
+          })
+        });
+        const resData = await res.json();
+        if (!resData.success && !resData.tx) {
+          throw new Error(resData.error || 'Failed to construct Jetton deposit transaction');
+        }
+        tx = resData.tx || resData;
+      }
+
+      // Prompt Tonkeeper on Admin device
+      await tonConnectUI.sendTransaction(tx);
+
+      setDepositModal({ isOpen: false, asset: 'USDT' });
+      setDepositAmount('');
+      setToast({ show: true, type: 'success', message: `Deposit transaction sent via Tonkeeper! Your ${depositModal.asset} balance will update in moments.` });
+      setTimeout(() => { refresh(); }, 3500);
+    } catch (err) {
+      console.error('Deposit error:', err);
+      setToast({ show: true, type: 'error', message: err.message || 'Deposit was cancelled or failed in Tonkeeper.' });
+    } finally {
+      setDepositing(false);
+    }
+  };
+
+  // 2. ON-CHAIN WITHDRAWAL EXECUTION
+  const executeWithdraw = async () => {
+    if (!withdrawAmount || isNaN(withdrawAmount) || parseFloat(withdrawAmount) <= 0) {
+      setToast({ show: true, type: 'error', message: 'Please enter a valid withdrawal amount.' });
+      return;
+    }
+    const dest = (withdrawDestination || userTonAddress || '').trim();
+    if (!dest) {
+      setToast({ show: true, type: 'error', message: 'Please enter or connect a destination wallet address.' });
+      return;
+    }
+
+    setWithdrawing(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/withdraw`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          network: 'TON',
+          asset: withdrawModal.asset,
+          amount: parseFloat(withdrawAmount),
+          destination: dest
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setWithdrawModal({ isOpen: false, asset: 'USDT' });
+        setWithdrawAmount('');
+        setToast({ show: true, type: 'success', message: json.message || 'Withdrawal initiated successfully on-chain!' });
+        setTimeout(() => { refresh(); }, 2500);
+      } else {
+        setToast({ show: true, type: 'error', message: json.error || 'Withdrawal failed.' });
+      }
+    } catch (err) {
+      console.error('Withdraw error:', err);
+      setToast({ show: true, type: 'error', message: err.message || 'Network error processing withdrawal.' });
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   const handleApproveBuy = async (id) => {
     if (!window.confirm("Approve this crypto order? Net crypto after gas fee will be sent automatically on-chain with memo 'TrustPay'.")) return;
     try {
@@ -1244,7 +1373,7 @@ function BotWallet() {
       <Toast {...toast} onClose={() => setToast({ ...toast, show: false })} />
 
       {/* ================================================================ */}
-      {/* 1. WALLET-SPECIFIC HEADER WITH LIVE NETWORK TELEMETRY */}
+      {/* 1. WALLET-SPECIFIC HEADER WITH LIVE ACTIONS (DEPOSIT & WITHDRAW) */}
       {/* ================================================================ */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -1261,12 +1390,12 @@ function BotWallet() {
 
         <div className="flex flex-wrap items-center gap-3">
           {/* Live Gas Reserve Status */}
-          <div className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 shadow-sm ${
+          <div className={`px-3.5 py-2 rounded-2xl border text-xs font-bold flex items-center gap-2 shadow-sm ${
             isDark ? 'bg-[#0f1738] border-cyan-500/30 text-cyan-300' : 'bg-white border-cyan-200 text-cyan-800'
           }`}>
             <Fuel size={14} className="text-cyan-400" />
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-            <span>Gas Tank: <b>{tonGasVal.toFixed(3)} TON</b></span>
+            <span>Gas: <b>{tonGasVal.toFixed(3)} TON</b></span>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
               tonGasVal >= 0.2 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
             }`}>
@@ -1274,12 +1403,20 @@ function BotWallet() {
             </span>
           </div>
 
-          {/* Deposit & Refill Trigger Button */}
+          {/* TONKEEPER DEPOSIT TRIGGER BUTTON */}
           <button
-            onClick={() => setDepositModalOpen(true)}
-            className="px-4 py-2.5 rounded-2xl text-xs font-black bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white shadow-lg shadow-purple-600/30 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+            onClick={() => handleOpenDeposit('USDT')}
+            className="px-4 py-2 rounded-2xl text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
           >
-            <PlusCircle size={15} /> Top Up / Deposit
+            <ArrowDownToLine size={15} /> Deposit (Tonkeeper)
+          </button>
+
+          {/* ON-CHAIN WITHDRAW TRIGGER BUTTON */}
+          <button
+            onClick={() => handleOpenWithdraw('USDT')}
+            className="px-4 py-2 rounded-2xl text-xs font-black bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-600/30 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+          >
+            <ArrowUpRight size={15} /> Withdraw Funds
           </button>
 
           {/* Tonviewer Explorer */}
@@ -1287,23 +1424,23 @@ function BotWallet() {
             href={`https://tonviewer.com/${data.tonAddress}`}
             target="_blank"
             rel="noreferrer"
-            className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all ${
+            className={`px-3.5 py-2 rounded-2xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
               isDark 
                 ? 'bg-slate-900/60 border-slate-700/60 text-slate-300 hover:text-white hover:bg-slate-800' 
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
             }`}
           >
-            <ExternalLink size={14} />
+            <ExternalLink size={13} />
             <span>Tonviewer</span>
           </a>
 
           <button
             onClick={() => { refresh(); refreshOrders(); }}
-            className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-2 rounded-2xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               isDark ? 'bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-900/40' : 'bg-white border-slate-200 text-slate-700 shadow-sm'
             }`}
           >
-            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
@@ -1395,30 +1532,39 @@ function BotWallet() {
               </div>
             </div>
 
-            {/* Hot Wallet Address Bar */}
-            <div className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
-              isDark ? 'bg-slate-900/60 border-purple-900/40 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
-            }`}>
-              <div className="flex items-center gap-2 overflow-hidden">
-                <Wallet size={15} className="text-purple-400 shrink-0" />
-                <span className="font-mono truncate">{data.tonAddress}</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => copyAddress(data.tonAddress)}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
-                >
-                  <Copy size={12} /> Copy Address
-                </button>
-                <button
-                  onClick={() => setDepositModalOpen(true)}
-                  className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    isDark ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
-                  }`}
-                >
-                  <QrCode size={12} /> QR / Info
-                </button>
-              </div>
+            {/* Quick Action Button Hub */}
+            <div className="pt-2 flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={() => handleOpenDeposit('USDT')}
+                className="py-2.5 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-md shadow-emerald-600/30 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+              >
+                <ArrowDownToLine size={14} /> Deposit via Tonkeeper
+              </button>
+
+              <button
+                onClick={() => handleOpenWithdraw('USDT')}
+                className="py-2.5 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-400 text-white shadow-md shadow-cyan-600/30 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+              >
+                <ArrowUpRight size={14} /> Withdraw to Wallet
+              </button>
+
+              <button
+                onClick={() => copyAddress(data.tonAddress)}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isDark ? 'bg-slate-900/60 border-slate-700/60 text-slate-300 hover:text-white' : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                <Copy size={12} /> Copy Address
+              </button>
+
+              <button
+                onClick={() => setInfoModalOpen(true)}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isDark ? 'bg-slate-900/60 border-slate-700/60 text-slate-300 hover:text-white' : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                <QrCode size={12} /> QR / Info
+              </button>
             </div>
           </div>
         </div>
@@ -1521,12 +1667,12 @@ function BotWallet() {
               </p>
             </div>
 
-            {/* Quick Refill Button */}
+            {/* Quick Refill Button via Tonkeeper */}
             <button
-              onClick={() => setDepositModalOpen(true)}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md"
+              onClick={() => handleOpenDeposit('TON')}
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md"
             >
-              <Fuel size={14} /> Refill Gas Reserve
+              <Fuel size={14} /> Refill TON Gas (via Tonkeeper)
             </button>
           </div>
         </div>
@@ -1583,18 +1729,24 @@ function BotWallet() {
               <span className="font-bold text-purple-300">
                 ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => setHistoryTab('gram')}
-                  className="px-3 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30 transition-all cursor-pointer"
+                  onClick={() => handleOpenDeposit('GRAM')}
+                  className="px-3 py-1.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1 transition-all cursor-pointer shadow-sm"
                 >
-                  View GRAM Orders
+                  <ArrowDownToLine size={12} /> Deposit
                 </button>
                 <button
-                  onClick={() => copyAddress(data.tonAddress)}
-                  className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer transition-all"
+                  onClick={() => handleOpenWithdraw('GRAM')}
+                  className="px-3 py-1.5 rounded-xl text-xs font-black bg-purple-950/60 border border-purple-600/40 text-purple-300 hover:text-white flex items-center gap-1 transition-all cursor-pointer"
                 >
-                  <Copy size={11} /> Copy Address
+                  <ArrowUpRight size={12} /> Withdraw
+                </button>
+                <button
+                  onClick={() => setHistoryTab('gram')}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900/50 text-slate-300 hover:text-white border border-slate-700/50 transition-all cursor-pointer"
+                >
+                  Orders
                 </button>
               </div>
             </div>
@@ -1646,18 +1798,24 @@ function BotWallet() {
               <span className="font-bold text-emerald-300">
                 ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => setHistoryTab('usdt')}
-                  className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition-all cursor-pointer"
+                  onClick={() => handleOpenDeposit('USDT')}
+                  className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 transition-all cursor-pointer shadow-sm"
                 >
-                  View USDT Orders
+                  <ArrowDownToLine size={12} /> Deposit
                 </button>
                 <button
-                  onClick={() => copyAddress(data.tonAddress)}
-                  className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer transition-all"
+                  onClick={() => handleOpenWithdraw('USDT')}
+                  className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-950/60 border border-emerald-600/40 text-emerald-300 hover:text-white flex items-center gap-1 transition-all cursor-pointer"
                 >
-                  <Copy size={11} /> Copy Address
+                  <ArrowUpRight size={12} /> Withdraw
+                </button>
+                <button
+                  onClick={() => setHistoryTab('usdt')}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900/50 text-slate-300 hover:text-white border border-slate-700/50 transition-all cursor-pointer"
+                >
+                  Orders
                 </button>
               </div>
             </div>
@@ -1927,15 +2085,313 @@ function BotWallet() {
       </div>
 
       {/* ================================================================ */}
-      {/* 6. DEPOSIT & GAS TOP-UP MODAL */}
+      {/* 6. INTERACTIVE TONKEEPER DEPOSIT MODAL */}
       {/* ================================================================ */}
-      {depositModalOpen && (
+      {depositModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className={`w-full max-w-md p-7 rounded-[2.5rem] border relative shadow-2xl overflow-hidden ${
+            isDark ? 'bg-[#0b1426] border-emerald-500/40 text-white shadow-[0_0_80px_rgba(16,185,129,0.25)]' : 'bg-white border-slate-200 text-slate-900 shadow-2xl'
+          }`}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent"></div>
+
+            <button
+              onClick={() => setDepositModal({ ...depositModal, isOpen: false })}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer transition-all"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <ArrowDownToLine size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black">Deposit via Tonkeeper</h3>
+                <p className="text-xs text-slate-400">Recharge Bot Treasury balance via Tonkeeper wallet</p>
+              </div>
+            </div>
+
+            {/* Asset Selector Tabs */}
+            <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-emerald-900/40">
+              {['USDT', 'TON', 'GRAM'].map(asset => (
+                <button
+                  key={asset}
+                  type="button"
+                  onClick={() => { setDepositModal({ ...depositModal, asset }); }}
+                  className={`flex-1 py-2 rounded-xl font-black text-xs transition-all cursor-pointer ${
+                    depositModal.asset === asset
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {asset === 'TON' ? 'TON Gas' : asset}
+                </button>
+              ))}
+            </div>
+
+            {/* Amount Input */}
+            <div className="mb-5 space-y-2">
+              <label className="text-[11px] font-black uppercase tracking-wider text-emerald-300/80">
+                Amount to Deposit ({depositModal.asset})
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={depositAmount}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setDepositAmount(v);
+                  }}
+                  className="w-full bg-black/50 border border-emerald-900/60 p-4 pl-6 pr-20 rounded-2xl text-2xl font-black text-white outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-mono"
+                  placeholder="0.00"
+                  autoFocus
+                />
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-black text-emerald-400 uppercase">
+                  {depositModal.asset}
+                </span>
+              </div>
+
+              {/* Quick Amount Pills */}
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {['1', '5', '10', '25', '50', '100'].map(val => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setDepositAmount(val)}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800/80 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-700/60 transition-all cursor-pointer"
+                  >
+                    +{val} {depositModal.asset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Connected Tonkeeper Status */}
+            <div className="mb-6 space-y-2">
+              <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Source Wallet (Tonkeeper)
+              </label>
+              {userTonAddress ? (
+                <div className="bg-black/40 p-3.5 rounded-2xl text-xs font-mono text-emerald-300 break-all border border-emerald-900/40 flex items-center justify-between gap-2 shadow-inner">
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shrink-0"></span>
+                    <span className="truncate">{userTonAddress}</span>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold shrink-0">Connected</span>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
+                  <span className="text-amber-300 font-bold">Tonkeeper not connected!</span>
+                  <button
+                    type="button"
+                    onClick={() => tonConnectUI.openModal()}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all cursor-pointer"
+                  >
+                    Connect Wallet
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Target Bot Treasury */}
+            <div className="mb-6 text-[11px] text-slate-400 flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+              <span>Destination: Bot Treasury</span>
+              <span className="font-mono text-emerald-400 truncate max-w-[170px]">{data.tonAddress}</span>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDepositModal({ ...depositModal, isOpen: false })}
+                className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={depositing || !depositAmount || parseFloat(depositAmount) <= 0}
+                onClick={executeDeposit}
+                className="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {depositing ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin" />
+                    <span>Opening Tonkeeper...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownToLine size={15} />
+                    <span>Pay via Tonkeeper</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* 7. INTERACTIVE ON-CHAIN WITHDRAWAL MODAL */}
+      {/* ================================================================ */}
+      {withdrawModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
+          <div className={`w-full max-w-md p-7 rounded-[2.5rem] border relative shadow-2xl overflow-hidden ${
+            isDark ? 'bg-[#0b1426] border-cyan-500/40 text-white shadow-[0_0_80px_rgba(6,182,212,0.25)]' : 'bg-white border-slate-200 text-slate-900 shadow-2xl'
+          }`}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent"></div>
+
+            <button
+              onClick={() => setWithdrawModal({ ...withdrawModal, isOpen: false })}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer transition-all"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                <ArrowUpRight size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black">Withdraw from Treasury</h3>
+                <p className="text-xs text-slate-400">Transfer crypto from Bot Treasury on-chain to your wallet</p>
+              </div>
+            </div>
+
+            {/* Asset Selector Tabs with Live Balances */}
+            <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-cyan-900/40">
+              {[
+                { id: 'USDT', label: `USDT (${data.tonUsdtBalance || '0.00'})` },
+                { id: 'TON', label: `TON Gas (${parseFloat(data.tonNativeBalance || data.tonBalance || 0).toFixed(2)})` },
+                { id: 'GRAM', label: `GRAM (${parseFloat(data.gramBalance || 0).toFixed(2)})` }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => { setWithdrawModal({ ...withdrawModal, asset: tab.id }); setWithdrawAmount(''); }}
+                  className={`flex-1 py-2 px-1 rounded-xl font-black text-[11px] truncate transition-all cursor-pointer ${
+                    withdrawModal.asset === tab.id
+                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Amount Input with MAX button */}
+            <div className="mb-5 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-black uppercase tracking-wider text-cyan-300/80">
+                  Amount to Withdraw
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (withdrawModal.asset === 'USDT') {
+                      setWithdrawAmount(data.tonUsdtBalance || '0');
+                    } else if (withdrawModal.asset === 'TON') {
+                      const curTon = parseFloat(data.tonNativeBalance || data.tonBalance || 0);
+                      const safeMax = Math.max(0, curTon - 0.05); // keep 0.05 TON for gas
+                      setWithdrawAmount(safeMax.toFixed(2));
+                    } else {
+                      setWithdrawAmount((parseFloat(data.gramBalance || 0)).toFixed(2));
+                    }
+                  }}
+                  className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 transition-all cursor-pointer"
+                >
+                  MAX BALANCE
+                </button>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={withdrawAmount}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setWithdrawAmount(v);
+                  }}
+                  className="w-full bg-black/50 border border-cyan-900/60 p-4 pl-6 pr-20 rounded-2xl text-2xl font-black text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-mono"
+                  placeholder="0.00"
+                  autoFocus
+                />
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-black text-cyan-400 uppercase">
+                  {withdrawModal.asset}
+                </span>
+              </div>
+            </div>
+
+            {/* Destination Wallet Address */}
+            <div className="mb-6 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                  Destination TON Address
+                </label>
+                {userTonAddress && (
+                  <button
+                    type="button"
+                    onClick={() => setWithdrawDestination(userTonAddress)}
+                    className="text-[10px] text-cyan-400 hover:underline font-bold cursor-pointer"
+                  >
+                    Use Connected Tonkeeper
+                  </button>
+                )}
+              </div>
+              <input
+                type="text"
+                value={withdrawDestination}
+                onChange={e => setWithdrawDestination(e.target.value)}
+                placeholder="Enter recipient TON wallet address..."
+                className="w-full bg-black/50 border border-cyan-900/60 p-3.5 rounded-2xl text-xs font-mono text-cyan-300 outline-none focus:border-cyan-400"
+              />
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setWithdrawModal({ ...withdrawModal, isOpen: false })}
+                className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={withdrawing || !withdrawAmount || parseFloat(withdrawAmount) <= 0 || !withdrawDestination}
+                onClick={executeWithdraw}
+                className="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {withdrawing ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin" />
+                    <span>Dispatching On-Chain...</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowUpRight size={15} />
+                    <span>Confirm Withdrawal</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* 8. ADDRESS & QR INFO MODAL */}
+      {/* ================================================================ */}
+      {infoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
           <div className={`w-full max-w-lg p-7 rounded-[2rem] border relative shadow-2xl ${
             isDark ? 'bg-[#0f1236] border-purple-500/40 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             <button
-              onClick={() => setDepositModalOpen(false)}
+              onClick={() => setInfoModalOpen(false)}
               className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer transition-all"
             >
               <X size={18} />
@@ -1946,13 +2402,12 @@ function BotWallet() {
                 <Wallet size={24} />
               </div>
               <div>
-                <h3 className="text-xl font-black">Top Up Bot Treasury & Gas</h3>
-                <p className="text-xs text-slate-400">Send TON or Jettons directly to the Bot Treasury address</p>
+                <h3 className="text-xl font-black">Bot Treasury Address & Info</h3>
+                <p className="text-xs text-slate-400">On-chain address for manual deposits or external wallet monitoring</p>
               </div>
             </div>
 
             <div className="space-y-4">
-              {/* Address Box */}
               <div className="p-4 rounded-2xl bg-slate-900/80 border border-purple-900/40 space-y-2">
                 <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   Bot Treasury TON Address
@@ -1968,33 +2423,6 @@ function BotWallet() {
                 </button>
               </div>
 
-              {/* Instructions */}
-              <div className="space-y-2.5 text-xs">
-                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-start gap-2.5">
-                  <Fuel size={16} className="text-cyan-400 shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="text-cyan-300 block">Refill Gas Fuel (TON)</strong>
-                    <span className="text-slate-400 text-[11px]">Send 1-2 TON to this address to power smart contract transfer fees for user orders.</span>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-start gap-2.5">
-                  <Gem size={16} className="text-purple-400 shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="text-purple-300 block">Add GRAM Reserves</strong>
-                    <span className="text-slate-400 text-[11px]">Send GRAM jettons to this address to keep sufficient stock for buyer requests.</span>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2.5">
-                  <CircleDollarSign size={16} className="text-emerald-400 shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="text-emerald-300 block">Add USDT Reserves</strong>
-                    <span className="text-slate-400 text-[11px]">Send USDT (TON Jetton) to replenish dollar payout liquidity.</span>
-                  </div>
-                </div>
-              </div>
-
               <div className="pt-2 flex items-center justify-end gap-2">
                 <a
                   href={`https://tonviewer.com/${data.tonAddress}`}
@@ -2005,10 +2433,10 @@ function BotWallet() {
                   <ExternalLink size={13} /> View on Tonviewer
                 </a>
                 <button
-                  onClick={() => setDepositModalOpen(false)}
+                  onClick={() => setInfoModalOpen(false)}
                   className="px-5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition-all cursor-pointer"
                 >
-                  Done
+                  Close
                 </button>
               </div>
             </div>
