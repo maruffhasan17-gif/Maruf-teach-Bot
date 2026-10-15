@@ -2047,24 +2047,29 @@ function UsersManagement() {
                 <div className="flex items-start justify-between gap-3">
                   {/* Left Side: Avatar & Identity Details */}
                   <div className="flex items-center gap-3.5 min-w-0">
-                    {/* Telegram Avatar or Gradient Initials */}
+                    {/* Telegram Avatar with Fallback to Initials */}
                     <div className="relative shrink-0">
-                      {u.photoUrl ? (
-                        <img 
-                          src={u.photoUrl} 
-                          alt={u.username || 'User'} 
-                          className="w-13 h-13 rounded-2xl object-cover ring-2 ring-purple-500/30 shadow-md"
-                        />
-                      ) : (
-                        <div className={`w-13 h-13 rounded-2xl flex items-center justify-center font-black text-lg shadow-md ring-2 ${
+                      <img 
+                        src={u.photoUrl || `${API_BASE}/api/admin/user-avatar/${u.chatId}`} 
+                        alt={u.firstName || u.username || 'User'} 
+                        className="w-13 h-13 rounded-2xl object-cover ring-2 ring-purple-500/30 shadow-md"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.parentElement?.querySelector('.avatar-fallback');
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                      <div 
+                        className={`avatar-fallback w-13 h-13 rounded-2xl items-center justify-center font-black text-lg shadow-md ring-2 ${
                           isRank1 ? 'bg-gradient-to-br from-amber-400 to-yellow-600 text-slate-950 ring-amber-400/50' :
                           isRank2 ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-slate-950 ring-slate-300/40' :
                           isRank3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white ring-amber-600/40' :
                           'bg-gradient-to-br from-indigo-600 to-purple-700 text-white ring-purple-500/30'
-                        }`}>
-                          {isRank1 ? <Crown size={22} className="text-slate-950" /> : (u.firstName || u.username || u.chatId || 'U').slice(0, 1).toUpperCase()}
-                        </div>
-                      )}
+                        }`}
+                        style={{ display: 'none' }}
+                      >
+                        {isRank1 ? <Crown size={22} className="text-slate-950" /> : (u.firstName || u.username || u.chatId || 'U').slice(0, 1).toUpperCase()}
+                      </div>
 
                       {/* Rank Tag */}
                       <div className={`absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-black border flex items-center gap-0.5 shadow-sm ${
@@ -2077,20 +2082,34 @@ function UsersManagement() {
                       </div>
                     </div>
 
-                    {/* Identity: Username, Bot ID, Balance */}
+                    {/* Identity: Telegram Name, Telegram Username, Bot ID, Balance */}
                     <div className="space-y-1 min-w-0">
-                      {/* Telegram Username */}
+                      {/* Telegram Name */}
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className={`font-black text-sm truncate group-hover:text-cyan-400 transition-colors ${
                           isDark ? 'text-white' : 'text-slate-900'
                         }`}>
-                          {u.username ? `@${u.username}` : (u.firstName || 'ইউজার')}
+                          {u.firstName || 'Telegram User'}
                         </span>
+                      </div>
+
+                      {/* Telegram Username */}
+                      <div className="flex items-center gap-1.5 text-[11px] min-w-0">
+                        <span className="text-cyan-400 font-bold shrink-0">Username:</span>
+                        {u.username ? (
+                          <span className="font-semibold text-cyan-300 truncate">
+                            @{u.username}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 italic text-[10px]">
+                            (No username)
+                          </span>
+                        )}
                       </div>
 
                       {/* Bot ID & Telegram ID */}
                       <div className="flex items-center gap-1.5 text-[11px] font-mono">
-                        <span className="text-purple-400 font-bold">Bot ID:</span>
+                        <span className="text-purple-400 font-bold shrink-0">Bot ID:</span>
                         <span className={`px-1.5 py-0.2 rounded font-bold border ${
                           isDark ? 'bg-purple-950/60 border-purple-800/50 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
                         }`}>
@@ -2177,15 +2196,24 @@ function UsersManagement() {
             {/* Modal Header: User Info */}
             <div className="flex items-start gap-4">
               <div className="relative shrink-0">
-                {userPhoto ? (
-                  <img src={userPhoto} alt={selectedUser.username} className="w-16 h-16 rounded-2xl object-cover ring-2 ring-purple-500/40 shadow-lg" />
-                ) : (
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center font-black text-2xl shadow-lg ring-2 ring-purple-500/40">
-                    {(selectedUser.firstName || selectedUser.username || selectedUser.chatId || 'U').slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+                <img 
+                  src={userPhoto || `${API_BASE}/api/admin/user-avatar/${selectedUser.chatId}`} 
+                  alt={selectedUser.firstName || selectedUser.username} 
+                  className="w-16 h-16 rounded-2xl object-cover ring-2 ring-purple-500/40 shadow-lg"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const fb = e.currentTarget.parentElement?.querySelector('.modal-fallback');
+                    if (fb) fb.style.display = 'flex';
+                  }}
+                />
+                <div 
+                  className="modal-fallback w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white items-center justify-center font-black text-2xl shadow-lg ring-2 ring-purple-500/40"
+                  style={{ display: 'none' }}
+                >
+                  {(selectedUser.firstName || selectedUser.username || selectedUser.chatId || 'U').slice(0, 1).toUpperCase()}
+                </div>
                 {modalLoading && (
-                  <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center pointer-events-none">
                     <RefreshCw size={18} className="animate-spin text-purple-400" />
                   </div>
                 )}
@@ -2194,7 +2222,7 @@ function UsersManagement() {
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-black text-lg text-white">
-                    {selectedUser.username ? `@${selectedUser.username}` : (selectedUser.firstName || 'User')}
+                    {selectedUser.firstName || 'Telegram User'}
                   </h3>
                   {selectedUser.isVerified ? (
                     <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
@@ -2207,6 +2235,11 @@ function UsersManagement() {
                       <span>আন-ভেরিফাইড</span>
                     </span>
                   )}
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs text-cyan-300 font-semibold">
+                  <span className="text-slate-400">Username:</span>
+                  <span>{selectedUser.username ? `@${selectedUser.username}` : '(No username)'}</span>
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">

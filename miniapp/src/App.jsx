@@ -244,15 +244,21 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
       style={{ width: `${outerSize}px`, height: `${outerSize}px` }}
     >
       <style>{`
+        @-webkit-keyframes tpFlowerSpin {
+          0% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
+          100% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+        }
         @keyframes tpFlowerSpin {
-          0% { transform: rotate(0deg) scale(0.96); }
-          50% { transform: rotate(180deg) scale(1.04); }
-          100% { transform: rotate(360deg) scale(0.96); }
+          0% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
+          100% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+        }
+        @-webkit-keyframes tpFlowerSpinReverse {
+          0% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+          100% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
         }
         @keyframes tpFlowerSpinReverse {
-          0% { transform: rotate(360deg) scale(1.04); }
-          50% { transform: rotate(180deg) scale(0.96); }
-          100% { transform: rotate(0deg) scale(1.04); }
+          0% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+          100% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
         }
         @keyframes tpGlowPulse {
           0%, 100% { transform: scale(0.92); opacity: 0.6; }
@@ -277,54 +283,92 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
       />
 
       {/* Outer Rotating Sacred Lotus Mandala */}
-      <svg 
+      <div
         style={{
           position: 'absolute',
           inset: 0,
           width: '100%',
           height: '100%',
-          animation: 'tpFlowerSpin 20s linear infinite'
-        }} 
-        viewBox="0 0 200 200" 
-        fill="none" 
-        xmlns="http://www.w3.org/2000/svg"
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transformOrigin: 'center center',
+          WebkitTransformOrigin: 'center center',
+          animation: 'tpFlowerSpin 16s linear infinite',
+          WebkitAnimation: 'tpFlowerSpin 16s linear infinite',
+          willChange: 'transform',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+          pointerEvents: 'none'
+        }}
       >
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
-          <g key={i} transform={`rotate(${angle} 100 100)`}>
-            <path 
-              d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" 
-              fill="rgba(99,102,241,0.18)" 
-              stroke="rgba(99,102,241,0.6)" 
-              strokeWidth="1.2"
-            />
-            <circle cx="100" cy="18" r="2.5" fill="#6366f1" />
-          </g>
-        ))}
-      </svg>
+        <svg 
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'block'
+          }} 
+          viewBox="0 0 200 200" 
+          fill="none" 
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+            <g key={i} transform={`rotate(${angle} 100 100)`}>
+              <path 
+                d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" 
+                fill="rgba(99,102,241,0.18)" 
+                stroke="rgba(99,102,241,0.6)" 
+                strokeWidth="1.2"
+              />
+              <circle cx="100" cy="18" r="2.5" fill="#6366f1" />
+            </g>
+          ))}
+        </svg>
+      </div>
 
       {/* Middle Counter-rotating Petal Layer */}
-      <svg 
+      <div
         style={{
           position: 'absolute',
           width: `${innerSize}px`,
           height: `${innerSize}px`,
-          animation: 'tpFlowerSpinReverse 13s linear infinite'
-        }} 
-        viewBox="0 0 100 100" 
-        fill="none" 
-        xmlns="http://www.w3.org/2000/svg"
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transformOrigin: 'center center',
+          WebkitTransformOrigin: 'center center',
+          animation: 'tpFlowerSpinReverse 11s linear infinite',
+          WebkitAnimation: 'tpFlowerSpinReverse 11s linear infinite',
+          willChange: 'transform',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+          transform: 'translateZ(0)',
+          pointerEvents: 'none'
+        }}
       >
-        {[0, 60, 120, 180, 240, 300].map((angle, i) => (
-          <g key={i} transform={`rotate(${angle} 50 50)`}>
-            <path 
-              d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
-              fill="rgba(168,85,247,0.22)" 
-              stroke="rgba(147,51,234,0.6)" 
-              strokeWidth="1"
-            />
-          </g>
-        ))}
-      </svg>
+        <svg 
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'block'
+          }} 
+          viewBox="0 0 100 100" 
+          fill="none" 
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          {[0, 60, 120, 180, 240, 300].map((angle, i) => (
+            <g key={i} transform={`rotate(${angle} 50 50)`}>
+              <path 
+                d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
+                fill="rgba(168,85,247,0.22)" 
+                stroke="rgba(147,51,234,0.6)" 
+                strokeWidth="1"
+              />
+            </g>
+          ))}
+        </svg>
+      </div>
 
       {/* Center Heart: 3D Transparent Trust Pay Logo */}
       <div 
@@ -1203,6 +1247,13 @@ export default function App() {
         setUser(u);
         loadData(u.id);
         checkCommunityJoinStatus(u.id);
+        axios.post('/api/miniapp/sync-profile', {
+          userId: u.id,
+          username: u.username || '',
+          firstName: u.first_name || '',
+          lastName: u.last_name || '',
+          photoUrl: u.photo_url || ''
+        }).catch(()=>{});
       } else {
         setUser({ id: GUEST_ID, first_name: "Guest", last_name: "Account" });
         loadData(GUEST_ID);

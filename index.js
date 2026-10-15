@@ -693,12 +693,24 @@ bot.onText(/\/start/, async (msg) => {
         await lockRef.set({ timestamp: FieldValue.serverTimestamp(), chatId });
     } catch(e) {}
 
-    const username = msg.from.username || "Unknown";
+    const username = msg.from.username || "";
     const firstName = msg.from.first_name || "User";
+    const lastName = msg.from.last_name || "";
     
     // Save user to Firebase
     const userRef = db.collection('users').doc(chatId.toString());
     const existingUserDoc = await userRef.get().catch(() => null);
+
+    await userRef.set({
+        id: chatId,
+        userId: chatId,
+        chatId: chatId.toString(),
+        username: username,
+        firstName: firstName,
+        first_name: firstName,
+        lastName: lastName,
+        last_name: lastName
+    }, { merge: true }).catch(() => {});
 
     await notifyNewUserJoined(chatId, { username, firstName });
 
@@ -1865,6 +1877,9 @@ app.get('/api/stats', async (req, res) => {
                 const uId = (u.chatId || doc.id).toString();
                 u.chatId = uId;
                 u.id = doc.id;
+                u.firstName = u.firstName || u.first_name || u.name || u.fiatWallet?.name || '';
+                u.username = u.username || '';
+                u.photoUrl = u.photoUrl || u.photo_url || null;
                 if (!u.mbsId) {
                     u.mbsId = 'MBS' + uId.slice(-5);
                 }
@@ -3205,21 +3220,98 @@ app.post('/api/admin/user/status', async (req, res) => {
     }
 });
 
-// Admin User Management: Fetch Telegram Profile Photo
+// In-memory cache for user avatars to protect Telegram API rate limits
+const adminAvatarCache = new Map();
+
+// Admin User Management: Fetch Telegram Profile Photo (JSON)
 app.get('/api/admin/user-photo/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        if (!bot) return res.json({ photoUrl: null });
-        const photos = await bot.getUserProfilePhotos(userId, { limit: 1 });
-        if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
-            // Get best resolution photo from the set
-            const bestPhoto = photos.photos[0][photos.photos[0].length - 1];
-            const fileLink = await bot.getFileLink(bestPhoto.file_id);
-            return res.json({ photoUrl: fileLink });
+        if (!userId || userId === '12345' || userId === '123456789' || !bot) {
+            return res.json({ photoUrl: null });
         }
+        
+        const now = Date.now();
+        if (adminAvatarCache.has(userId)) {
+            const cached = adminAvatarCache.get(userId);
+            if (cached.expireAt > now) {
+                return res.json({ photoUrl: cached.url });
+            }
+        }
+
+        const photos = await bot.getUserProfilePhotos(userId, { limit: 1 }).catch(() => null);
+        if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
+            const bestPhoto = photos.photos[0][photos.photos[0].length - 1];
+            const fileLink = await bot.getFileLink(bestPhoto.file_id).catch(() => null);
+            if (fileLink) {
+                adminAvatarCache.set(userId, { url: fileLink, expireAt: now + 3600000 });
+                return res.json({ photoUrl: fileLink });
+            }
+        }
+        adminAvatarCache.set(userId, { url: null, expireAt: now + 600000 });
         res.json({ photoUrl: null });
     } catch (e) {
         res.json({ photoUrl: null });
+    }
+});
+
+// Admin User Management: Direct Image Avatar Redirect for <img> tags
+app.get('/api/admin/user-avatar/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        if (!userId || userId === '12345' || userId === '123456789' || !bot) {
+            return res.status(404).send('No avatar');
+        }
+
+        const now = Date.now();
+        if (adminAvatarCache.has(userId)) {
+            const cached = adminAvatarCache.get(userId);
+            if (cached.expireAt > now && cached.url) {
+                return res.redirect(cached.url);
+            }
+        }
+
+        const photos = await bot.getUserProfilePhotos(userId, { limit: 1 }).catch(() => null);
+        if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
+            const bestPhoto = photos.photos[0][photos.photos[0].length - 1];
+            const fileLink = await bot.getFileLink(bestPhoto.file_id).catch(() => null);
+            if (fileLink) {
+                adminAvatarCache.set(userId, { url: fileLink, expireAt: now + 3600000 });
+                return res.redirect(fileLink);
+            }
+        }
+        adminAvatarCache.set(userId, { url: null, expireAt: now + 600000 });
+        return res.status(404).send('No avatar');
+    } catch (e) {
+        return res.status(404).send('No avatar');
+    }
+});
+
+// MiniApp Profile Sync Endpoint (syncs telegram name, username, photo to db)
+app.post('/api/miniapp/sync-profile', async (req, res) => {
+    try {
+        const { userId, username, firstName, lastName, photoUrl } = req.body;
+        if (!userId || userId === 123456789) return res.json({ success: true });
+        
+        const updates = {
+            chatId: userId.toString(),
+            updatedAt: FieldValue.serverTimestamp()
+        };
+        if (username) updates.username = username;
+        if (firstName) {
+            updates.firstName = firstName;
+            updates.first_name = firstName;
+        }
+        if (lastName) {
+            updates.lastName = lastName;
+            updates.last_name = lastName;
+        }
+        if (photoUrl) updates.photoUrl = photoUrl;
+
+        await db.collection('users').doc(userId.toString()).set(updates, { merge: true });
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 
