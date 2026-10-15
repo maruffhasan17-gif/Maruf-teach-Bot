@@ -1108,10 +1108,12 @@ function Dashboard() {
 // =========================================================================
 function BotWallet() {
   const { data, refresh, refreshing } = useBotData();
-  const { orders } = useOrdersData();
+  const { orders, refresh: refreshOrders } = useOrdersData();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [historyTab, setHistoryTab] = useState('all'); // 'all' | 'gram' | 'usdt' | 'pending'
+  const [search, setSearch] = useState('');
 
   const gramBuys = useMemo(() => {
     return orders.buys.filter(b => {
@@ -1124,9 +1126,78 @@ function BotWallet() {
     return orders.buys.filter(b => (b.asset || '').toUpperCase() === 'USDT');
   }, [orders.buys]);
 
+  const pendingBuys = orders.buys.filter(b => b.status === 'pending' || b.status === 'verified').length;
+  const completedBuys = orders.buys.filter(b => b.status === 'completed').length;
+
+  const gramBalanceVal = parseFloat(data.tonNativeBalance || data.gramBalance || 0);
+  const usdtBalanceVal = parseFloat(data.tonUsdtBalance || 0);
+  const gramBdtVal = gramBalanceVal * 220;
+  const usdtBdtVal = usdtBalanceVal * 130;
+  const totalVaultBdt = gramBdtVal + usdtBdtVal;
+
+  const filteredHistory = useMemo(() => {
+    return orders.buys.filter(b => {
+      const a = (b.asset || '').toUpperCase();
+      const matchTab = 
+        historyTab === 'all' ? true :
+        historyTab === 'gram' ? (a === 'GRAM' || a === 'TON') :
+        historyTab === 'usdt' ? a === 'USDT' :
+        historyTab === 'pending' ? (b.status === 'pending' || b.status === 'verified') : true;
+
+      const matchSearch = !search ? true :
+        (b.trxId || '').toLowerCase().includes(search.toLowerCase()) ||
+        (b.userId || '').toString().includes(search);
+
+      return matchTab && matchSearch;
+    });
+  }, [orders.buys, historyTab, search]);
+
+  const handleApproveBuy = async (id) => {
+    if (!window.confirm("Approve this crypto order? Net crypto after gas fee will be sent automatically on-chain with memo 'TrustPay'.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/approve-buy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      const d = await res.json();
+      if (d.success) {
+        setToast({ show: true, type: 'success', message: 'Order approved and crypto dispatched on-chain!' });
+        refreshOrders();
+        refresh();
+      } else {
+        setToast({ show: true, type: 'error', message: d.error || 'Approval failed' });
+      }
+    } catch (e) {
+      setToast({ show: true, type: 'error', message: 'Error: ' + e.message });
+    }
+  };
+
+  const handleRejectBuy = async (id) => {
+    const reason = prompt("Enter rejection reason (optional):", "Payment verification failed");
+    if (reason === null) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/reject-buy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, reason })
+      });
+      const d = await res.json();
+      if (d.success) {
+        setToast({ show: true, type: 'success', message: 'Order rejected and BDT refunded to user.' });
+        refreshOrders();
+        refresh();
+      } else {
+        setToast({ show: true, type: 'error', message: d.error || 'Rejection failed' });
+      }
+    } catch (e) {
+      setToast({ show: true, type: 'error', message: 'Error: ' + e.message });
+    }
+  };
+
   const copyAddress = (addr) => {
     navigator.clipboard.writeText(addr);
-    setToast({ show: true, type: 'success', message: 'Address copied to clipboard!' });
+    setToast({ show: true, type: 'success', message: 'Treasury address copied to clipboard!' });
   };
 
   return (
@@ -1170,7 +1241,7 @@ function BotWallet() {
           </a>
 
           <button
-            onClick={refresh}
+            onClick={() => { refresh(); refreshOrders(); }}
             className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               isDark ? 'bg-purple-950/30 border-purple-800/40 text-purple-300' : 'bg-white border-slate-200 text-slate-700 shadow-sm'
             }`}
@@ -1181,11 +1252,142 @@ function BotWallet() {
         </div>
       </div>
 
+      {/* 6 Quick Treasury Metric KPI Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3.5">
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>GRAM RESERVE</span>
+            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+          </div>
+          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
+            {gramBalanceVal.toFixed(2)}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            ≈ ৳{gramBdtVal.toLocaleString('en-US', { maximumFractionDigits: 1 })} BDT
+          </div>
+        </div>
+
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>USDT RESERVE</span>
+            <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+          </div>
+          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400">
+            ${usdtBalanceVal.toFixed(2)}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            ≈ ৳{usdtBdtVal.toLocaleString('en-US', { maximumFractionDigits: 1 })} BDT
+          </div>
+        </div>
+
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>VAULT TOTAL</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+          </div>
+          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-300">
+            ৳{totalVaultBdt.toFixed(0)}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            Combined Liquidity
+          </div>
+        </div>
+
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>GAS TANK</span>
+            <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+          </div>
+          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-indigo-400">
+            {parseFloat(data.tonNativeBalance || data.tonBalance || 0).toFixed(2)}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            TON Gas Fuel
+          </div>
+        </div>
+
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>COMPLETED</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+          <div className="text-2xl font-black font-mono tracking-tight text-emerald-400">
+            {completedBuys}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            On-Chain Dispatched
+          </div>
+        </div>
+
+        <div className={`p-4 rounded-2xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <span>PENDING</span>
+            <span className={`w-2 h-2 rounded-full ${pendingBuys > 0 ? 'bg-amber-400 animate-ping' : 'bg-slate-600'}`}></span>
+          </div>
+          <div className={`text-2xl font-black font-mono tracking-tight ${pendingBuys > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+            {pendingBuys}
+          </div>
+          <div className="text-[10px] text-slate-400 mt-1">
+            {pendingBuys > 0 ? 'Needs Dispatch' : 'Zero Queue'}
+          </div>
+        </div>
+      </div>
+
+      {/* ================================================================ */}
+      {/* 6 ADVANCED INFOGRAPHIC CHARTS (DIRECTLY FROM USER REFERENCE IMAGES) */}
+      {/* ================================================================ */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
+              <Sparkles size={16} />
+            </div>
+            <div>
+              <h3 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Treasury Waveforms & Performance
+              </h3>
+              <p className="text-xs text-slate-400">
+                Liquidity distribution, on-chain execution telemetry & reserve rebalancing
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-300">
+            TREASURY HUD
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <InfographicConcentricRings 
+            verifiedPercent={88} 
+            completionRate={96} 
+            activeScore={Math.round(totalVaultBdt) || 195} 
+            isDark={isDark} 
+          />
+          <InfographicBarChart isDark={isDark} />
+          <InfographicWaveChart isDark={isDark} />
+          <InfographicRadarGauge isDark={isDark} />
+          <InfographicPillSliders isDark={isDark} />
+          <InfographicLineChart isDark={isDark} />
+        </div>
+      </div>
+
       {/* 2 PRIMARY HERO CARDS: GRAM & USDT */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* CARD 1: GRAM BALANCE */}
-        <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden transition-all duration-300 ${
+        <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden transition-all duration-300 hover:scale-[1.01] ${
           isDark 
             ? 'bg-gradient-to-br from-[#1c123d] via-[#150d30] to-[#0c081e] border-purple-500/30 shadow-[0_20px_50px_rgba(147,51,234,0.18)]' 
             : 'bg-gradient-to-br from-purple-50 via-indigo-50 to-white border-purple-200 shadow-xl'
@@ -1214,20 +1416,20 @@ function BotWallet() {
             <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
               isDark ? 'text-white' : 'text-slate-900'
             }`}>
-              {data.tonNativeBalance || data.gramBalance || '0.00'}
+              {gramBalanceVal.toFixed(2)}
             </span>
-            <span className="text-2xl font-black text-purple-400">
+            <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
               GRAM
             </span>
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t border-purple-900/30 text-xs">
             <span className="font-bold text-purple-300">
-              ≈ ৳{(parseFloat(data.gramBalance || 0) * 220).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
+              ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
             </span>
             <button
               onClick={() => copyAddress(data.tonAddress)}
-              className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer"
+              className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer transition-all"
             >
               <Copy size={11} /> Copy Address
             </button>
@@ -1235,7 +1437,7 @@ function BotWallet() {
         </div>
 
         {/* CARD 2: USDT BALANCE */}
-        <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden transition-all duration-300 ${
+        <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden transition-all duration-300 hover:scale-[1.01] ${
           isDark 
             ? 'bg-gradient-to-br from-[#0e2422] via-[#091a18] to-[#040e0d] border-emerald-500/30 shadow-[0_20px_50px_rgba(16,185,129,0.18)]' 
             : 'bg-gradient-to-br from-emerald-50 via-teal-50 to-white border-emerald-200 shadow-xl'
@@ -1264,20 +1466,20 @@ function BotWallet() {
             <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
               isDark ? 'text-white' : 'text-slate-900'
             }`}>
-              {data.tonUsdtBalance || '0.00'}
+              {usdtBalanceVal.toFixed(2)}
             </span>
-            <span className="text-2xl font-black text-emerald-400">
+            <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">
               USDT
             </span>
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t border-emerald-900/30 text-xs">
             <span className="font-bold text-emerald-300">
-              ≈ ৳{(parseFloat(data.tonUsdtBalance || 0) * 130).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
+              ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
             </span>
             <button
               onClick={() => copyAddress(data.tonAddress)}
-              className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer"
+              className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer transition-all"
             >
               <Copy size={11} /> Copy Address
             </button>
@@ -1286,22 +1488,170 @@ function BotWallet() {
 
       </div>
 
+      {/* ================================================================ */}
+      {/* TREASURY ON-CHAIN TRANSACTION HISTORY (6-CARD RESPONSIVE GRID) */}
+      {/* ================================================================ */}
+      <div className="space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              Treasury On-Chain Transaction Cards
+            </h3>
+            <p className="text-xs text-slate-400">
+              Real-time feed of crypto purchases and on-chain contract settlements in 6-card grid
+            </p>
+          </div>
+
+          {/* Filter Tabs & Search */}
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { id: 'all', label: `All (${orders.buys.length})` },
+              { id: 'gram', label: `GRAM (${gramBuys.length})` },
+              { id: 'usdt', label: `USDT (${usdtBuys.length})` },
+              { id: 'pending', label: `Pending (${pendingBuys})` }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setHistoryTab(tab.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  historyTab === tab.id
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                    : isDark 
+                      ? 'bg-slate-900/60 text-slate-400 hover:text-white border border-purple-900/20' 
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search Trx or User..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className={`pl-8 pr-3 py-1.5 rounded-xl text-xs font-medium border outline-none w-44 md:w-56 ${
+                  isDark ? 'bg-slate-900/60 border-purple-900/30 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-900'
+                }`}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 6-Card Responsive Grid */}
+        {filteredHistory.length === 0 ? (
+          <div className={`p-12 text-center rounded-3xl border ${
+            isDark ? 'bg-[#0f0c22] border-purple-900/30 text-slate-400' : 'bg-white border-slate-200 text-slate-500'
+          }`}>
+            <Wallet size={36} className="mx-auto mb-3 opacity-40 text-purple-400" />
+            <p className="text-sm font-bold">No transactions found for this filter</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3.5">
+            {filteredHistory.map((b) => {
+              const isPending = b.status === 'pending' || b.status === 'verified';
+              const isCompleted = b.status === 'completed';
+              const isRejected = b.status === 'rejected';
+              const method = (b.method || 'bKash').toLowerCase();
+
+              return (
+                <div 
+                  key={b.id || b.trxId || Math.random()}
+                  className={`p-4 rounded-3xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between gap-3 hover:-translate-y-1.5 hover:shadow-xl ${
+                    isDark 
+                      ? 'bg-[#101438]/90 border-[#262f6b]/70 hover:border-cyan-400/50 shadow-lg' 
+                      : 'bg-white border-slate-200 shadow-sm'
+                  }`}
+                >
+                  {/* Top: Method & Status */}
+                  <div className="flex items-center justify-between gap-1">
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${
+                      method === 'nagad' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30' : 'bg-pink-500/15 text-pink-400 border border-pink-500/30'
+                    }`}>
+                      {method}
+                    </span>
+
+                    {isCompleted && (
+                      <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <CheckCircle2 size={10} /> Completed
+                      </span>
+                    )}
+                    {isPending && (
+                      <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1 animate-pulse">
+                        <Clock size={10} /> Pending
+                      </span>
+                    )}
+                    {isRejected && (
+                      <span className="px-2 py-0.5 rounded-lg text-[9px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1">
+                        <XCircle size={10} /> Rejected
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Center: Amount */}
+                  <div className="text-center py-1">
+                    <div className="text-[10px] font-mono text-slate-400">User: <strong className="text-purple-300">{b.userId}</strong></div>
+                    <div className={`text-xl font-black font-mono tracking-tight my-1 ${b.asset === 'USDT' ? 'text-emerald-400' : 'text-purple-400'}`}>
+                      +{b.amount} {b.asset}
+                    </div>
+                    <div className="text-xs font-black text-slate-300">
+                      Paid: <span className="text-emerald-400">৳{b.totalBdt || b.amountBdt || 0}</span>
+                    </div>
+                  </div>
+
+                  {/* Bottom: TrxID & Actions */}
+                  <div className="pt-2 border-t border-slate-700/30 space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                      <span className="truncate max-w-[110px]">{b.trxId || b.id}</span>
+                      <span>{formatTimestamp(b.timestamp)}</span>
+                    </div>
+
+                    {isPending && (
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <button
+                          onClick={() => handleApproveBuy(b.id || b.trxId)}
+                          className="flex-1 py-1 px-2 rounded-xl text-[10px] font-black bg-emerald-500 hover:bg-emerald-400 text-white shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                        >
+                          <Check size={11} /> Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectBuy(b.id || b.trxId)}
+                          className="py-1 px-2.5 rounded-xl text-[10px] font-black bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* 2 COLUMNS OF LIVE TRANSACTIONS BELOW THE CARDS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <LiveOrderFeed
-          title="GRAM Live Orders"
+          title="GRAM Live Purchase Feed"
           asset="GRAM"
           icon={<Gem size={20} />}
           items={gramBuys}
           isDark={isDark}
+          onApprove={handleApproveBuy}
+          onReject={handleRejectBuy}
         />
 
         <LiveOrderFeed
-          title="USDT Live Orders"
+          title="USDT Live Purchase Feed"
           asset="USDT"
           icon={<CircleDollarSign size={20} />}
           items={usdtBuys}
           isDark={isDark}
+          onApprove={handleApproveBuy}
+          onReject={handleRejectBuy}
         />
       </div>
     </div>
