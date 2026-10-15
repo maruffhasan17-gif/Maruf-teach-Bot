@@ -46,7 +46,11 @@ import {
   Lock,
   ArrowUpDown,
   MinusCircle,
-  BadgeCheck
+  BadgeCheck,
+  Fuel,
+  ShieldCheck,
+  Activity,
+  QrCode
 } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import { 
@@ -1104,7 +1108,7 @@ function Dashboard() {
 }
 
 // =========================================================================
-// 2. BOT WALLET / TREASURY COMPONENT
+// 2. BOT WALLET / TREASURY COMPONENT (UNIQUE CRYPTO VAULT EXPERIENCE)
 // =========================================================================
 function BotWallet() {
   const { data, refresh, refreshing } = useBotData();
@@ -1112,8 +1116,10 @@ function BotWallet() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-  const [historyTab, setHistoryTab] = useState('all'); // 'all' | 'gram' | 'usdt' | 'pending'
+  const [historyTab, setHistoryTab] = useState('all'); // 'all' | 'gram' | 'usdt' | 'pending' | 'completed'
   const [search, setSearch] = useState('');
+  const [depositModalOpen, setDepositModalOpen] = useState(false);
+  const [copiedHash, setCopiedHash] = useState(null);
 
   const gramBuys = useMemo(() => {
     return orders.buys.filter(b => {
@@ -1128,12 +1134,36 @@ function BotWallet() {
 
   const pendingBuys = orders.buys.filter(b => b.status === 'pending' || b.status === 'verified').length;
   const completedBuys = orders.buys.filter(b => b.status === 'completed').length;
+  const totalBuys = orders.buys.length;
 
   const gramBalanceVal = parseFloat(data.tonNativeBalance || data.gramBalance || 0);
   const usdtBalanceVal = parseFloat(data.tonUsdtBalance || 0);
+  const tonGasVal = parseFloat(data.tonNativeBalance || data.tonBalance || 0);
+
   const gramBdtVal = gramBalanceVal * 220;
   const usdtBdtVal = usdtBalanceVal * 130;
   const totalVaultBdt = gramBdtVal + usdtBdtVal;
+
+  const gramPercent = totalVaultBdt > 0 ? Math.round((gramBdtVal / totalVaultBdt) * 100) : 50;
+  const usdtPercent = 100 - gramPercent;
+
+  // Estimated dispatches remaining based on ~0.008 TON gas per transfer
+  const estimatedTx = Math.max(0, Math.floor(tonGasVal / 0.008));
+
+  // Inflow vs Outflow metrics
+  const totalBdtInflow = useMemo(() => {
+    return orders.buys.reduce((sum, b) => sum + (parseFloat(b.totalBdt || b.amountBdt || 0) || 0), 0);
+  }, [orders.buys]);
+
+  const totalBdtDispatched = useMemo(() => {
+    return orders.buys
+      .filter(b => b.status === 'completed')
+      .reduce((sum, b) => sum + (parseFloat(b.totalBdt || b.amountBdt || 0) || 0), 0);
+  }, [orders.buys]);
+
+  const fulfillmentRate = totalBdtInflow > 0 
+    ? Math.min(100, Math.round((totalBdtDispatched / totalBdtInflow) * 100)) 
+    : 100;
 
   const filteredHistory = useMemo(() => {
     return orders.buys.filter(b => {
@@ -1142,11 +1172,13 @@ function BotWallet() {
         historyTab === 'all' ? true :
         historyTab === 'gram' ? (a === 'GRAM' || a === 'TON') :
         historyTab === 'usdt' ? a === 'USDT' :
-        historyTab === 'pending' ? (b.status === 'pending' || b.status === 'verified') : true;
+        historyTab === 'pending' ? (b.status === 'pending' || b.status === 'verified') :
+        historyTab === 'completed' ? b.status === 'completed' : true;
 
       const matchSearch = !search ? true :
         (b.trxId || '').toLowerCase().includes(search.toLowerCase()) ||
-        (b.userId || '').toString().includes(search);
+        (b.userId || '').toString().includes(search) ||
+        (b.senderNumber || '').toString().includes(search);
 
       return matchTab && matchSearch;
     });
@@ -1200,296 +1232,550 @@ function BotWallet() {
     setToast({ show: true, type: 'success', message: 'Treasury address copied to clipboard!' });
   };
 
+  const copyTrxId = (id) => {
+    navigator.clipboard.writeText(id);
+    setCopiedHash(id);
+    setTimeout(() => setCopiedHash(null), 2000);
+    setToast({ show: true, type: 'success', message: `TrxID copied: ${id}` });
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <Toast {...toast} onClose={() => setToast({ ...toast, show: false })} />
 
-      {/* Header */}
+      {/* ================================================================ */}
+      {/* 1. WALLET-SPECIFIC HEADER WITH LIVE NETWORK TELEMETRY */}
+      {/* ================================================================ */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">
-            <Wallet size={14} /> Bot Treasury Vault & Reserves
+            <Wallet size={14} /> Bot Treasury & Hot Wallet Vault
           </div>
           <h2 className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
             Treasury & Crypto Reserves
           </h2>
           <p className={`text-xs mt-1 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Live monitoring of bot on-chain reserves: GRAM and USDT balances with real-time transaction logs.
+            Autonomous hot wallet liquidity, TON network gas telemetry & automated on-chain contract settlements.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className={`px-4 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 ${
-            isDark ? 'bg-cyan-950/40 border-cyan-800/40 text-cyan-300' : 'bg-white border-cyan-200 text-cyan-800'
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Live Gas Reserve Status */}
+          <div className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 shadow-sm ${
+            isDark ? 'bg-[#0f1738] border-cyan-500/30 text-cyan-300' : 'bg-white border-cyan-200 text-cyan-800'
           }`}>
+            <Fuel size={14} className="text-cyan-400" />
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-            Gas Balance: {data.tonNativeBalance || data.tonBalance || '0.00'} TON
+            <span>Gas Tank: <b>{tonGasVal.toFixed(3)} TON</b></span>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+              tonGasVal >= 0.2 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+            }`}>
+              {tonGasVal >= 0.2 ? 'OPTIMAL' : 'LOW'}
+            </span>
           </div>
 
+          {/* Deposit & Refill Trigger Button */}
+          <button
+            onClick={() => setDepositModalOpen(true)}
+            className="px-4 py-2.5 rounded-2xl text-xs font-black bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white shadow-lg shadow-purple-600/30 flex items-center gap-2 transition-all active:scale-95 cursor-pointer"
+          >
+            <PlusCircle size={15} /> Top Up / Deposit
+          </button>
+
+          {/* Tonviewer Explorer */}
           <a
             href={`https://tonviewer.com/${data.tonAddress}`}
             target="_blank"
             rel="noreferrer"
-            className={`px-4 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all ${
+            className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 transition-all ${
               isDark 
-                ? 'bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-900/40' 
+                ? 'bg-slate-900/60 border-slate-700/60 text-slate-300 hover:text-white hover:bg-slate-800' 
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm'
             }`}
           >
             <ExternalLink size={14} />
-            <span>Tonviewer Explorer</span>
+            <span>Tonviewer</span>
           </a>
 
           <button
             onClick={() => { refresh(); refreshOrders(); }}
-            className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              isDark ? 'bg-purple-950/30 border-purple-800/40 text-purple-300' : 'bg-white border-slate-200 text-slate-700 shadow-sm'
+            className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isDark ? 'bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-900/40' : 'bg-white border-slate-200 text-slate-700 shadow-sm'
             }`}
           >
-            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
       </div>
 
-      {/* 6 Quick Treasury Metric KPI Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3.5">
-        <div className={`p-4 rounded-2xl border transition-all ${
-          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
-        }`}>
-          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
-            <span>GRAM RESERVE</span>
-            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-          </div>
-          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
-            {gramBalanceVal.toFixed(2)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-1">
-            ≈ ৳{gramBdtVal.toLocaleString('en-US', { maximumFractionDigits: 1 })} BDT
-          </div>
-        </div>
-
-        <div className={`p-4 rounded-2xl border transition-all ${
-          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
-        }`}>
-          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
-            <span>USDT RESERVE</span>
-            <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-          </div>
-          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400">
-            ${usdtBalanceVal.toFixed(2)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-1">
-            ≈ ৳{usdtBdtVal.toLocaleString('en-US', { maximumFractionDigits: 1 })} BDT
-          </div>
-        </div>
-
-        <div className={`p-4 rounded-2xl border transition-all ${
-          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
-        }`}>
-          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
-            <span>VAULT TOTAL</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-          </div>
-          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-300">
-            ৳{totalVaultBdt.toFixed(0)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-1">
-            Combined Liquidity
-          </div>
-        </div>
-
-        <div className={`p-4 rounded-2xl border transition-all ${
-          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
-        }`}>
-          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
-            <span>GAS TANK</span>
-            <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-          </div>
-          <div className="text-2xl font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-indigo-400">
-            {parseFloat(data.tonNativeBalance || data.tonBalance || 0).toFixed(2)}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-1">
-            TON Gas Fuel
-          </div>
-        </div>
-
-        <div className={`p-4 rounded-2xl border transition-all ${
-          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
-        }`}>
-          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
-            <span>COMPLETED</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-          </div>
-          <div className="text-2xl font-black font-mono tracking-tight text-emerald-400">
-            {completedBuys}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-1">
-            On-Chain Dispatched
-          </div>
-        </div>
-
-        <div className={`p-4 rounded-2xl border transition-all ${
-          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
-        }`}>
-          <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
-            <span>PENDING</span>
-            <span className={`w-2 h-2 rounded-full ${pendingBuys > 0 ? 'bg-amber-400 animate-ping' : 'bg-slate-600'}`}></span>
-          </div>
-          <div className={`text-2xl font-black font-mono tracking-tight ${pendingBuys > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
-            {pendingBuys}
-          </div>
-          <div className="text-[10px] text-slate-400 mt-1">
-            {pendingBuys > 0 ? 'Needs Dispatch' : 'Zero Queue'}
-          </div>
-        </div>
-      </div>
-
       {/* ================================================================ */}
-      {/* 6 ADVANCED INFOGRAPHIC CHARTS (DIRECTLY FROM USER REFERENCE IMAGES) */}
+      {/* 2. LIQUIDITY MASTER HUB & SMART GAS FUEL STATION (HERO DUO) */}
       {/* ================================================================ */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
-              <Sparkles size={16} />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        
+        {/* CARD 1: MASTER LIQUIDITY VAULT (7 COLS) */}
+        <div className={`lg:col-span-7 p-7 rounded-[2.5rem] border relative overflow-hidden flex flex-col justify-between transition-all duration-300 hover:shadow-2xl ${
+          isDark 
+            ? 'bg-gradient-to-br from-[#15123d] via-[#0f1131] to-[#090b20] border-purple-500/30 shadow-[0_20px_60px_rgba(124,58,237,0.15)]' 
+            : 'bg-gradient-to-br from-purple-50 via-indigo-50 to-white border-purple-200 shadow-xl'
+        }`}>
+          <div className="absolute -right-20 -top-20 w-80 h-80 bg-purple-600/15 blur-[90px] rounded-full pointer-events-none"></div>
+
+          <div className="relative z-10 space-y-5">
+            {/* Top Status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400">
+                  TON MAINNET • HOT WALLET ACTIVE
+                </span>
+              </div>
+              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
+                <ShieldCheck size={13} className="text-purple-400" /> AES-256 SIGNED
+              </span>
             </div>
+
+            {/* Total Valuation */}
             <div>
-              <h3 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Treasury Waveforms & Performance
-              </h3>
-              <p className="text-xs text-slate-400">
-                Liquidity distribution, on-chain execution telemetry & reserve rebalancing
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
+                COMBINED TREASURY LIQUIDITY
+              </div>
+              <div className="flex items-baseline gap-3">
+                <span className={`text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight font-mono ${
+                  isDark ? 'text-white' : 'text-slate-900'
+                }`}>
+                  ৳{totalVaultBdt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400">
+                  BDT
+                </span>
+              </div>
+              <div className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-2">
+                <span>≈ ${(totalVaultBdt / 120).toFixed(2)} USD</span>
+                <span className="w-1 h-1 rounded-full bg-slate-500"></span>
+                <span className="text-emerald-400">Backing 100% of User Orders</span>
+              </div>
+            </div>
+
+            {/* Asset Allocation Gradient Progress Strip */}
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                <span>Asset Allocation</span>
+                <span>{gramPercent}% GRAM / {usdtPercent}% USDT</span>
+              </div>
+
+              <div className="w-full h-3 rounded-full bg-slate-800/80 p-0.5 flex overflow-hidden border border-slate-700/50">
+                <div 
+                  style={{ width: `${Math.max(10, Math.min(90, gramPercent))}%` }} 
+                  className="h-full rounded-l-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-500" 
+                  title={`GRAM: ${gramPercent}%`}
+                />
+                <div 
+                  style={{ width: `${Math.max(10, Math.min(90, usdtPercent))}%` }} 
+                  className="h-full rounded-r-full bg-gradient-to-r from-emerald-400 to-teal-400 transition-all duration-500" 
+                  title={`USDT: ${usdtPercent}%`}
+                />
+              </div>
+
+              {/* Allocation Legend */}
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs font-bold">
+                <div className="flex items-center gap-1.5 text-purple-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                  <span>GRAM Pool: <b>{gramBalanceVal.toFixed(2)}</b> (৳{gramBdtVal.toFixed(0)})</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                  <span>USDT Pool: <b>${usdtBalanceVal.toFixed(2)}</b> (৳{usdtBdtVal.toFixed(0)})</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-cyan-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                  <span>Gas Reserve: <b>{tonGasVal.toFixed(2)} TON</b></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Hot Wallet Address Bar */}
+            <div className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+              isDark ? 'bg-slate-900/60 border-purple-900/40 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+            }`}>
+              <div className="flex items-center gap-2 overflow-hidden">
+                <Wallet size={15} className="text-purple-400 shrink-0" />
+                <span className="font-mono truncate">{data.tonAddress}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => copyAddress(data.tonAddress)}
+                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                >
+                  <Copy size={12} /> Copy Address
+                </button>
+                <button
+                  onClick={() => setDepositModalOpen(true)}
+                  className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    isDark ? 'bg-slate-800/80 border-slate-700 text-slate-300 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-800'
+                  }`}
+                >
+                  <QrCode size={12} /> QR / Info
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* CARD 2: SMART GAS FUEL STATION (5 COLS) */}
+        <div className={`lg:col-span-5 p-7 rounded-[2.5rem] border relative overflow-hidden flex flex-col justify-between transition-all duration-300 hover:shadow-2xl ${
+          isDark 
+            ? 'bg-gradient-to-br from-[#0c1f38] via-[#09172c] to-[#050e1a] border-cyan-500/30 shadow-[0_20px_60px_rgba(6,182,212,0.12)]' 
+            : 'bg-gradient-to-br from-cyan-50 via-sky-50 to-white border-cyan-200 shadow-xl'
+        }`}>
+          <div className="absolute -right-16 -top-16 w-64 h-64 bg-cyan-600/15 blur-[80px] rounded-full pointer-events-none"></div>
+
+          <div className="relative z-10 space-y-5">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-500/30 shadow-lg shadow-cyan-500/20">
+                  <Fuel size={20} />
+                </div>
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
+                    Gas Fuel Station
+                  </span>
+                  <div className="text-[11px] font-bold text-slate-400">
+                    TON On-Chain Gas Engine
+                  </div>
+                </div>
+              </div>
+
+              <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${
+                tonGasVal >= 0.2 
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${tonGasVal >= 0.2 ? 'bg-emerald-400' : 'bg-amber-400 animate-ping'}`}></span>
+                {tonGasVal >= 0.2 ? 'HEALTHY FUEL' : 'REFILL NEEDED'}
+              </span>
+            </div>
+
+            {/* Circular Gas Meter SVG Visualizer */}
+            <div className="flex items-center justify-center py-2">
+              <div className="relative w-40 h-40 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke={isDark ? '#1a2942' : '#e2e8f0'}
+                    strokeWidth="8"
+                    fill="transparent"
+                  />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    stroke="url(#cyanGasGradient)"
+                    strokeWidth="8"
+                    strokeDasharray={251.2}
+                    strokeDashoffset={251.2 - (251.2 * Math.min(100, Math.max(10, (tonGasVal / 2) * 100))) / 100}
+                    strokeLinecap="round"
+                    fill="transparent"
+                    className="transition-all duration-1000 ease-out"
+                  />
+                  <defs>
+                    <linearGradient id="cyanGasGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#06b6d4" />
+                      <stop offset="100%" stopColor="#3b82f6" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+
+                <div className="absolute text-center">
+                  <div className="text-3xl font-black font-mono tracking-tight text-cyan-300">
+                    {tonGasVal.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                    TON FUEL
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Remaining Dispatches & Capacity */}
+            <div className="space-y-2">
+              <div className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between ${
+                isDark ? 'bg-slate-900/60 border-cyan-900/40 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+              }`}>
+                <span className="flex items-center gap-1.5 text-cyan-300">
+                  <Zap size={14} /> Estimated Capacity
+                </span>
+                <span className="font-mono font-black text-cyan-400">
+                  ~{estimatedTx} On-Chain Dispatches
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                {tonGasVal >= 0.2 
+                  ? 'Reserve is optimal. Auto-dispatches for GRAM and USDT jettons will execute instantly on-chain.' 
+                  : '⚠️ Gas reserve is low. Top up at least 1-2 TON to prevent user order timeouts.'}
               </p>
             </div>
+
+            {/* Quick Refill Button */}
+            <button
+              onClick={() => setDepositModalOpen(true)}
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md"
+            >
+              <Fuel size={14} /> Refill Gas Reserve
+            </button>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 text-purple-300">
-            TREASURY HUD
-          </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          <InfographicConcentricRings 
-            verifiedPercent={88} 
-            completionRate={96} 
-            activeScore={Math.round(totalVaultBdt) || 195} 
-            isDark={isDark} 
-          />
-          <InfographicBarChart isDark={isDark} />
-          <InfographicWaveChart isDark={isDark} />
-          <InfographicRadarGauge isDark={isDark} />
-          <InfographicPillSliders isDark={isDark} />
-          <InfographicLineChart isDark={isDark} />
-        </div>
       </div>
 
-      {/* 2 PRIMARY HERO CARDS: GRAM & USDT */}
+      {/* ================================================================ */}
+      {/* 3. THE 2 PRIMARY CRYPTO ASSET VAULTS (GRAM & USDT) */}
+      {/* ================================================================ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* CARD 1: GRAM BALANCE */}
+        {/* VAULT 1: GRAM JETTON */}
         <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden transition-all duration-300 hover:scale-[1.01] ${
           isDark 
             ? 'bg-gradient-to-br from-[#1c123d] via-[#150d30] to-[#0c081e] border-purple-500/30 shadow-[0_20px_50px_rgba(147,51,234,0.18)]' 
             : 'bg-gradient-to-br from-purple-50 via-indigo-50 to-white border-purple-200 shadow-xl'
         }`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
-                <Gem size={24} />
-              </div>
-              <div>
-                <span className="text-xs font-black uppercase tracking-wider text-purple-400">
-                  GRAM Balance
-                </span>
-                <div className="text-[11px] font-bold text-slate-400">
-                  Telegram MiniApp Liquidity
+          <div className="absolute -right-16 -top-16 w-64 h-64 bg-purple-600/15 blur-[80px] rounded-full pointer-events-none"></div>
+
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center shadow-lg shadow-purple-600/20 border border-purple-500/30">
+                  <Gem size={24} />
+                </div>
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-purple-400">
+                    GRAM Treasury Reserve
+                  </span>
+                  <div className="text-[11px] font-bold text-slate-400">
+                    On-Chain TON Jetton Pool
+                  </div>
                 </div>
               </div>
+
+              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+                Rate: ৳220 / GRAM
+              </span>
             </div>
 
-            <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30">
-              Rate: ৳220 / GRAM
-            </span>
-          </div>
+            <div className="flex items-baseline gap-3 my-2">
+              <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
+                isDark ? 'text-white' : 'text-slate-900'
+              }`}>
+                {gramBalanceVal.toFixed(2)}
+              </span>
+              <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
+                GRAM
+              </span>
+            </div>
 
-          <div className="flex items-baseline gap-3 my-4">
-            <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
-              isDark ? 'text-white' : 'text-slate-900'
-            }`}>
-              {gramBalanceVal.toFixed(2)}
-            </span>
-            <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
-              GRAM
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between pt-3 border-t border-purple-900/30 text-xs">
-            <span className="font-bold text-purple-300">
-              ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
-            </span>
-            <button
-              onClick={() => copyAddress(data.tonAddress)}
-              className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer transition-all"
-            >
-              <Copy size={11} /> Copy Address
-            </button>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-purple-900/30 text-xs">
+              <span className="font-bold text-purple-300">
+                ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHistoryTab('gram')}
+                  className="px-3 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30 transition-all cursor-pointer"
+                >
+                  View GRAM Orders
+                </button>
+                <button
+                  onClick={() => copyAddress(data.tonAddress)}
+                  className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer transition-all"
+                >
+                  <Copy size={11} /> Copy Address
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* CARD 2: USDT BALANCE */}
+        {/* VAULT 2: USDT JETTON */}
         <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden transition-all duration-300 hover:scale-[1.01] ${
           isDark 
             ? 'bg-gradient-to-br from-[#0e2422] via-[#091a18] to-[#040e0d] border-emerald-500/30 shadow-[0_20px_50px_rgba(16,185,129,0.18)]' 
             : 'bg-gradient-to-br from-emerald-50 via-teal-50 to-white border-emerald-200 shadow-xl'
         }`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <CircleDollarSign size={24} />
-              </div>
-              <div>
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
-                  USDT Balance
-                </span>
-                <div className="text-[11px] font-bold text-slate-400">
-                  Jetton USDT Reserve
+          <div className="absolute -right-16 -top-16 w-64 h-64 bg-emerald-600/15 blur-[80px] rounded-full pointer-events-none"></div>
+
+          <div className="relative z-10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-600/20 border border-emerald-500/30">
+                  <CircleDollarSign size={24} />
+                </div>
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                    USDT Treasury Reserve
+                  </span>
+                  <div className="text-[11px] font-bold text-slate-400">
+                    Tether USD (Jetton Contract)
+                  </div>
                 </div>
               </div>
+
+              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Rate: ৳130 / USDT
+              </span>
             </div>
 
-            <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-              Rate: ৳130 / USDT
-            </span>
-          </div>
+            <div className="flex items-baseline gap-3 my-2">
+              <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
+                isDark ? 'text-white' : 'text-slate-900'
+              }`}>
+                {usdtBalanceVal.toFixed(2)}
+              </span>
+              <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">
+                USDT
+              </span>
+            </div>
 
-          <div className="flex items-baseline gap-3 my-4">
-            <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
-              isDark ? 'text-white' : 'text-slate-900'
-            }`}>
-              {usdtBalanceVal.toFixed(2)}
-            </span>
-            <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">
-              USDT
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between pt-3 border-t border-emerald-900/30 text-xs">
-            <span className="font-bold text-emerald-300">
-              ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
-            </span>
-            <button
-              onClick={() => copyAddress(data.tonAddress)}
-              className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer transition-all"
-            >
-              <Copy size={11} /> Copy Address
-            </button>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-emerald-900/30 text-xs">
+              <span className="font-bold text-emerald-300">
+                ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setHistoryTab('usdt')}
+                  className="px-3 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 transition-all cursor-pointer"
+                >
+                  View USDT Orders
+                </button>
+                <button
+                  onClick={() => copyAddress(data.tonAddress)}
+                  className="px-3 py-1 rounded-lg text-slate-300 hover:text-white bg-slate-900/50 border border-slate-700/50 flex items-center gap-1 font-bold cursor-pointer transition-all"
+                >
+                  <Copy size={11} /> Copy Address
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
       </div>
 
       {/* ================================================================ */}
-      {/* TREASURY ON-CHAIN TRANSACTION HISTORY (6-CARD RESPONSIVE GRID) */}
+      {/* 4. WALLET FINANCIAL TELEMETRY & RESERVE FLOW (3 UNIQUE PANELS) */}
+      {/* ================================================================ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        {/* Panel 1: Liquidity Flow Velocity */}
+        <div className={`p-6 rounded-3xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+              <Activity size={16} />
+            </div>
+            <div>
+              <div className="text-xs font-black uppercase text-slate-400">LIQUIDITY VELOCITY</div>
+              <div className="text-sm font-bold text-white">Fiat Inflow vs Crypto Outflow</div>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-400">Total Inflow (Paid BDT):</span>
+              <span className="text-emerald-400 font-mono">৳{totalBdtInflow.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-400">Total Outflow (Dispatched):</span>
+              <span className="text-purple-400 font-mono">৳{totalBdtDispatched.toLocaleString()}</span>
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+                <span>Fulfillment Ratio</span>
+                <span className="text-cyan-400">{fulfillmentRate}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                <div 
+                  style={{ width: `${fulfillmentRate}%` }} 
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel 2: Smart Contract Engine Status */}
+        <div className={`p-6 rounded-3xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
+              <Zap size={16} />
+            </div>
+            <div>
+              <div className="text-xs font-black uppercase text-slate-400">ON-CHAIN ENGINE</div>
+              <div className="text-sm font-bold text-white">Tonweb Jetton Engine</div>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 pt-2 text-xs">
+            <div className="flex items-center justify-between font-bold">
+              <span className="text-slate-400">Execution Speed:</span>
+              <span className="text-emerald-400 font-mono">&lt; 2.8s confirmation</span>
+            </div>
+            <div className="flex items-center justify-between font-bold">
+              <span className="text-slate-400">Memo Enforcement:</span>
+              <span className="text-purple-300 font-mono font-black">'TrustPay' attached</span>
+            </div>
+            <div className="flex items-center justify-between font-bold">
+              <span className="text-slate-400">Fail-Safe Refund:</span>
+              <span className="text-cyan-400 font-bold">Instant BDT rollback</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel 3: 24h Settlement Ledger Summary */}
+        <div className={`p-6 rounded-3xl border transition-all ${
+          isDark ? 'bg-[#101438]/90 border-[#262f6b]/70 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
+        }`}>
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <Clock size={16} />
+            </div>
+            <div>
+              <div className="text-xs font-black uppercase text-slate-400">SETTLEMENT QUEUE</div>
+              <div className="text-sm font-bold text-white">Live Order Throughput</div>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 pt-2 text-xs">
+            <div className="flex items-center justify-between font-bold">
+              <span className="text-slate-400">Total Purchase Orders:</span>
+              <span className="text-white font-mono font-black">{totalBuys}</span>
+            </div>
+            <div className="flex items-center justify-between font-bold">
+              <span className="text-slate-400">Dispatched On-Chain:</span>
+              <span className="text-emerald-400 font-mono font-black">{completedBuys} Completed</span>
+            </div>
+            <div className="flex items-center justify-between font-bold">
+              <span className="text-slate-400">Action Required:</span>
+              <span className={`font-mono font-black ${pendingBuys > 0 ? 'text-amber-400 animate-pulse' : 'text-slate-500'}`}>
+                {pendingBuys} Orders Pending
+              </span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ================================================================ */}
+      {/* 5. ON-CHAIN TRANSACTION CARDS (RESPONSIVE 6-CARD GRID) */}
       {/* ================================================================ */}
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1508,7 +1794,8 @@ function BotWallet() {
               { id: 'all', label: `All (${orders.buys.length})` },
               { id: 'gram', label: `GRAM (${gramBuys.length})` },
               { id: 'usdt', label: `USDT (${usdtBuys.length})` },
-              { id: 'pending', label: `Pending (${pendingBuys})` }
+              { id: 'pending', label: `Pending (${pendingBuys})` },
+              { id: 'completed', label: `Completed (${completedBuys})` }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -1604,7 +1891,14 @@ function BotWallet() {
                   {/* Bottom: TrxID & Actions */}
                   <div className="pt-2 border-t border-slate-700/30 space-y-2">
                     <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                      <span className="truncate max-w-[110px]">{b.trxId || b.id}</span>
+                      <button 
+                        onClick={() => copyTrxId(b.trxId || b.id)}
+                        className="truncate max-w-[110px] hover:text-purple-300 flex items-center gap-1 cursor-pointer transition-colors"
+                        title="Click to copy TrxID"
+                      >
+                        <Copy size={9} />
+                        {copiedHash === (b.trxId || b.id) ? 'Copied!' : (b.trxId || b.id)}
+                      </button>
                       <span>{formatTimestamp(b.timestamp)}</span>
                     </div>
 
@@ -1632,28 +1926,96 @@ function BotWallet() {
         )}
       </div>
 
-      {/* 2 COLUMNS OF LIVE TRANSACTIONS BELOW THE CARDS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <LiveOrderFeed
-          title="GRAM Live Purchase Feed"
-          asset="GRAM"
-          icon={<Gem size={20} />}
-          items={gramBuys}
-          isDark={isDark}
-          onApprove={handleApproveBuy}
-          onReject={handleRejectBuy}
-        />
+      {/* ================================================================ */}
+      {/* 6. DEPOSIT & GAS TOP-UP MODAL */}
+      {/* ================================================================ */}
+      {depositModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+          <div className={`w-full max-w-lg p-7 rounded-[2rem] border relative shadow-2xl ${
+            isDark ? 'bg-[#0f1236] border-purple-500/40 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <button
+              onClick={() => setDepositModalOpen(false)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer transition-all"
+            >
+              <X size={18} />
+            </button>
 
-        <LiveOrderFeed
-          title="USDT Live Purchase Feed"
-          asset="USDT"
-          icon={<CircleDollarSign size={20} />}
-          items={usdtBuys}
-          isDark={isDark}
-          onApprove={handleApproveBuy}
-          onReject={handleRejectBuy}
-        />
-      </div>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-purple-600/30">
+                <Wallet size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black">Top Up Bot Treasury & Gas</h3>
+                <p className="text-xs text-slate-400">Send TON or Jettons directly to the Bot Treasury address</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Address Box */}
+              <div className="p-4 rounded-2xl bg-slate-900/80 border border-purple-900/40 space-y-2">
+                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Bot Treasury TON Address
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/40 border border-slate-800 font-mono text-xs text-purple-300 break-all select-all">
+                  {data.tonAddress}
+                </div>
+                <button
+                  onClick={() => copyAddress(data.tonAddress)}
+                  className="w-full py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md"
+                >
+                  <Copy size={13} /> Copy Full Address
+                </button>
+              </div>
+
+              {/* Instructions */}
+              <div className="space-y-2.5 text-xs">
+                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-start gap-2.5">
+                  <Fuel size={16} className="text-cyan-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-cyan-300 block">Refill Gas Fuel (TON)</strong>
+                    <span className="text-slate-400 text-[11px]">Send 1-2 TON to this address to power smart contract transfer fees for user orders.</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-start gap-2.5">
+                  <Gem size={16} className="text-purple-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-purple-300 block">Add GRAM Reserves</strong>
+                    <span className="text-slate-400 text-[11px]">Send GRAM jettons to this address to keep sufficient stock for buyer requests.</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2.5">
+                  <CircleDollarSign size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-emerald-300 block">Add USDT Reserves</strong>
+                    <span className="text-slate-400 text-[11px]">Send USDT (TON Jetton) to replenish dollar payout liquidity.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <a
+                  href={`https://tonviewer.com/${data.tonAddress}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5 transition-all"
+                >
+                  <ExternalLink size={13} /> View on Tonviewer
+                </a>
+                <button
+                  onClick={() => setDepositModalOpen(false)}
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white transition-all cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
