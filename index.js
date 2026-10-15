@@ -119,30 +119,30 @@ const notifyPayoutGroup = async (payoutData) => {
             const rec = parseFloat(payoutData.receiveAmount || payoutData.amount || 0).toFixed(2);
             const method = (payoutData.method || 'bKash').toUpperCase();
             
-            msg = `<blockquote><b>⚡ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — 𝗣𝗔𝗬𝗢𝗨𝗧 𝗣𝗥𝗢𝗢𝗙</b>\n` +
+            msg = `<b>⚡ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — 𝗣𝗔𝗬𝗢𝗨𝗧 𝗣𝗥𝗢𝗢𝗙</b>\n` +
                   `━━━━━━━━━━━━━━━━━━━━━━\n` +
                   `✅ <b>Status:</b> <code>Paid Successfully</code> 💸\n` +
                   `👤 <b>Customer:</b> <b>${payoutData.name || 'Verified User'}</b> (<code>${maskId(payoutData.userId)}</code>)\n` +
-                  `💵 <b>Withdraw Amount:</b> <b>৳${amt} BDT</b>\n` +
-                  `📦 <b>Net Received:</b> <b>৳${rec} BDT</b>\n` +
-                  `🏦 <b>Payment Method:</b> <b>${method}</b> (<code>${maskNumber(payoutData.number)}</code>)\n` +
+                  `🏦 <b>Payment Method:</b> <b>${method}</b> (<code>${maskNumber(payoutData.number)}</code>)\n\n` +
+                  `<blockquote>💵 <b>Withdraw Amount:</b> ৳${amt} BDT\n` +
+                  `📦 <b>Net Received:</b> <b>৳${rec} BDT</b></blockquote>\n\n` +
                   `⏱ <b>Completed:</b> <code>${nowStr} (BST)</code>\n` +
                   `━━━━━━━━━━━━━━━━━━━━━━\n` +
                   `🚀 <b>Bot:</b> @bd_trust_pay_bot\n` +
-                  `#TrustPay #PayoutProof #${method} #Withdrawal</blockquote>`;
+                  `#TrustPay #PayoutProof #${method} #Withdrawal`;
         } else {
             const asset = (payoutData.asset || 'TON').toUpperCase();
-            msg = `<blockquote><b>⚡ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — 𝗣𝗔𝗬𝗢𝗨𝗧 𝗣𝗥𝗢𝗢𝗙</b>\n` +
+            msg = `<b>⚡ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — 𝗣𝗔𝗬𝗢𝗨𝗧 𝗣𝗥𝗢𝗢𝗙</b>\n` +
                   `━━━━━━━━━━━━━━━━━━━━━━\n` +
                   `✅ <b>Status:</b> <code>On-Chain Transferred</code> 💎\n` +
                   `👤 <b>Customer:</b> <b>${payoutData.name || 'Verified User'}</b> (<code>${maskId(payoutData.userId)}</code>)\n` +
-                  `💰 <b>Amount:</b> <b>${payoutData.amount} ${asset}</b>\n` +
-                  `📦 <b>Delivered:</b> <b>${payoutData.receiveAmount || payoutData.amount} ${asset}</b>\n` +
-                  `🏷 <b>Wallet Address:</b> <code>${payoutData.destination || ''}</code>\n` +
+                  `🏷 <b>Wallet Address:</b> <code>${payoutData.destination || ''}</code>\n\n` +
+                  `<blockquote>💰 <b>Crypto Amount:</b> ${payoutData.amount} ${asset}\n` +
+                  `📦 <b>Delivered:</b> <b>${payoutData.receiveAmount || payoutData.amount} ${asset}</b></blockquote>\n\n` +
                   `⏱ <b>Completed:</b> <code>${nowStr} (BST)</code>\n` +
                   `━━━━━━━━━━━━━━━━━━━━━━\n` +
                   `🚀 <b>Bot:</b> @bd_trust_pay_bot\n` +
-                  `#TrustPay #CryptoPayout #${asset}</blockquote>`;
+                  `#TrustPay #CryptoPayout #${asset}`;
         }
 
         await bot.sendMessage(payoutChatId, msg, { parse_mode: 'HTML', disable_web_page_preview: true });
