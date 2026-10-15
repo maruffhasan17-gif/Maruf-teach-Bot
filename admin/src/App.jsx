@@ -39,7 +39,14 @@ import {
   Coins,
   CircleDollarSign,
   DollarSign,
-  ArrowRight
+  ArrowRight,
+  Crown,
+  Ban,
+  Unlock,
+  Lock,
+  ArrowUpDown,
+  MinusCircle,
+  BadgeCheck
 } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 
@@ -1713,7 +1720,7 @@ function FiatWithdrawals() {
 }
 
 // =========================================================================
-// 6. USER MANAGEMENT COMPONENT
+// 6. USER MANAGEMENT COMPONENT (PREMIUM REDESIGNED)
 // =========================================================================
 function UsersManagement() {
   const { data, refresh, refreshing } = useBotData();
@@ -1721,191 +1728,698 @@ function UsersManagement() {
   const isDark = theme === 'dark';
 
   const [search, setSearch] = useState('');
-  const [bonusUser, setBonusUser] = useState('');
-  const [bonusAmt, setBonusAmt] = useState('');
-  const [bonusLoading, setBonusLoading] = useState(false);
+  const [filter, setFilter] = useState('all'); // 'all' | 'verified' | 'unverified'
+  const [sortOrder, setSortOrder] = useState('desc'); // 'desc' (high balance first) | 'asc' (low balance first)
+
+  // Selected User Modal State
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [userPhoto, setUserPhoto] = useState(null);
+
+  // Balance Add / Deduct State
+  const [balanceAmount, setBalanceAmount] = useState('');
+  const [balanceReason, setBalanceReason] = useState('');
+  const [balanceSubmitting, setBalanceSubmitting] = useState(false);
+
+  // Status (Ban / Restrict) State
+  const [restrictDays, setRestrictDays] = useState(7);
+  const [statusSubmitting, setStatusSubmitting] = useState(false);
+
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  const filteredUsers = useMemo(() => {
-    return (data.users || []).filter(u => {
-      const matchSearch = 
-        !search ? true :
-        (u.chatId || '').toString().includes(search) ||
-        (u.username || '').toLowerCase().includes(search.toLowerCase());
-      return matchSearch;
+  // Compute sorted & filtered users
+  const { processedUsers, statsCounts } = useMemo(() => {
+    const rawList = (data.users || []).map(u => {
+      const uId = (u.chatId || u.id || '').toString();
+      const bal = parseFloat(u.balance || 0);
+      return {
+        ...u,
+        chatId: uId,
+        mbsId: u.mbsId || `MBS${uId.slice(-5)}`,
+        balanceNum: bal,
+        isVerified: Boolean(u.isVerified || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0) || u.status === 'verified')
+      };
     });
-  }, [data.users, search]);
 
-  const handleSendBonus = async (e) => {
-    e.preventDefault();
-    if (!bonusUser || !bonusAmt) {
-      alert("Enter a Telegram username and BDT bonus amount.");
+    const total = rawList.length;
+    const verifiedCount = rawList.filter(u => u.isVerified).length;
+    const unverifiedCount = total - verifiedCount;
+
+    let filtered = rawList.filter(u => {
+      if (filter === 'verified') return u.isVerified;
+      if (filter === 'unverified') return !u.isVerified;
+      return true;
+    });
+
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      filtered = filtered.filter(u => 
+        (u.chatId || '').toLowerCase().includes(q) ||
+        (u.username || '').toLowerCase().includes(q) ||
+        (u.firstName || '').toLowerCase().includes(q) ||
+        (u.mbsId || '').toLowerCase().includes(q)
+      );
+    }
+
+    filtered.sort((a, b) => {
+      if (sortOrder === 'desc') {
+        return b.balanceNum - a.balanceNum;
+      } else {
+        return a.balanceNum - b.balanceNum;
+      }
+    });
+
+    return {
+      processedUsers: filtered,
+      statsCounts: { total, verifiedCount, unverifiedCount }
+    };
+  }, [data.users, search, filter, sortOrder]);
+
+  // Open User Modal & Load Real Photo
+  const handleOpenUser = async (user) => {
+    setSelectedUser(user);
+    setModalLoading(true);
+    setUserPhoto(user.photoUrl || null);
+    setBalanceAmount('');
+    setBalanceReason('');
+
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/user-photo/${user.chatId}`);
+      const d = await res.json();
+      if (d && d.photoUrl) {
+        setUserPhoto(d.photoUrl);
+      }
+    } catch (_) {}
+    setModalLoading(false);
+  };
+
+  // Balance Add / Deduct Handler
+  const handleBalanceUpdate = async (action) => {
+    if (!selectedUser || !balanceAmount || parseFloat(balanceAmount) <= 0) {
+      alert("সঠিক টাকার পরিমাণ দিন (Enter a valid amount)");
       return;
     }
-    setBonusLoading(true);
+    setBalanceSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/bonus`, {
+      const res = await fetch(`${API_BASE}/api/admin/user/balance`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: bonusUser, amount: bonusAmt })
+        body: JSON.stringify({
+          userId: selectedUser.chatId,
+          action,
+          amount: parseFloat(balanceAmount),
+          reason: balanceReason
+        })
       });
       const d = await res.json();
       if (d.success) {
-        setToast({ show: true, type: 'success', message: `Bonus sent! New balance: ৳${d.newBalance} BDT` });
-        setBonusUser('');
-        setBonusAmt('');
+        setToast({ 
+          show: true, 
+          type: 'success', 
+          message: action === 'add' 
+            ? `৳${balanceAmount} BDT সফলভাবে যোগ করা হয়েছে! নতুন ব্যালেন্স: ৳${d.newBalance} BDT`
+            : `৳${balanceAmount} BDT সফলভাবে কর্তন করা হয়েছে! নতুন ব্যালেন্স: ৳${d.newBalance} BDT`
+        });
+        setSelectedUser(prev => ({ ...prev, balance: d.newBalance, balanceNum: d.newBalance }));
+        setBalanceAmount('');
+        setBalanceReason('');
         refresh();
       } else {
-        setToast({ show: true, type: 'error', message: d.error || 'Failed to send bonus.' });
+        setToast({ show: true, type: 'error', message: d.error || 'ব্যালেন্স আপডেট ব্যর্থ হয়েছে' });
       }
     } catch (e) {
       setToast({ show: true, type: 'error', message: 'Error: ' + e.message });
     } finally {
-      setBonusLoading(false);
+      setBalanceSubmitting(false);
+    }
+  };
+
+  // Status Change (Ban, Unban, Restrict)
+  const handleStatusChange = async (status, days = null) => {
+    if (!selectedUser) return;
+    setStatusSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/user/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: selectedUser.chatId,
+          status,
+          restrictionDays: days,
+          reason: balanceReason || (status === 'banned' ? 'অ্যাকাউন্ট ভায়োলেশন' : 'সাময়িক স্থগিতাদেশ')
+        })
+      });
+      const d = await res.json();
+      if (d.success) {
+        const statusText = status === 'active' ? 'অ্যাক্টিভ' : status === 'banned' ? 'ব্যান' : `${days} দিনের জন্য রেস্ট্রিক্ট`;
+        setToast({ show: true, type: 'success', message: `ইউজার সফলভাবে ${statusText} করা হয়েছে!` });
+        setSelectedUser(prev => ({ ...prev, status }));
+        refresh();
+      } else {
+        setToast({ show: true, type: 'error', message: d.error || 'স্ট্যাটাস আপডেট ব্যর্থ হয়েছে' });
+      }
+    } catch (e) {
+      setToast({ show: true, type: 'error', message: 'Error: ' + e.message });
+    } finally {
+      setStatusSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300">
       <Toast {...toast} onClose={() => setToast({ ...toast, show: false })} />
 
-      {/* Give User Bonus Card */}
-      <div className={`p-6 rounded-3xl border ${
-        isDark ? 'bg-gradient-to-r from-purple-950/40 to-indigo-950/40 border-purple-500/30 shadow-xl' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 shadow-md'
-      }`}>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
-            <Sparkles size={20} />
-          </div>
-          <div>
-            <h3 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Send Direct Bonus to User
-            </h3>
-            <p className="text-xs text-slate-400">
-              Credit free BDT directly to any user account with instant Telegram notification.
-            </p>
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/30">
+              <Users size={20} />
+            </div>
+            <div>
+              <h2 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                ইউজার ম্যানেজমেন্ট (User Panel)
+              </h2>
+              <p className="text-xs text-slate-400">
+                সকল নিবন্ধিত ইউজারের ব্যালেন্স, ভেরিফিকেশন ও অ্যাকাউন্ট নিয়ন্ত্রণ প্যানেল
+              </p>
+            </div>
           </div>
         </div>
 
-        <form onSubmit={handleSendBonus} className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="text"
-            value={bonusUser}
-            onChange={e => setBonusUser(e.target.value)}
-            placeholder="@username"
-            className={`flex-1 p-3 rounded-xl text-xs font-bold border outline-none ${
-              isDark ? 'bg-slate-950 border-purple-800/40 text-white focus:border-purple-500' : 'bg-white border-slate-300 text-slate-900 focus:border-indigo-500'
-            }`}
-            required
-          />
-          <input
-            type="number"
-            value={bonusAmt}
-            onChange={e => setBonusAmt(e.target.value)}
-            placeholder="Amount (BDT, e.g. 50)"
-            className={`w-full sm:w-48 p-3 rounded-xl text-xs font-bold border outline-none ${
-              isDark ? 'bg-slate-950 border-purple-800/40 text-white focus:border-purple-500' : 'bg-white border-slate-300 text-slate-900 focus:border-indigo-500'
-            }`}
-            required
-          />
+        {/* Global Stats / Quick Counter */}
+        <div className="flex items-center gap-2">
+          <div className={`px-4 py-2 rounded-2xl border flex items-center gap-2 ${
+            isDark ? 'bg-slate-900/60 border-purple-900/30 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <span className="text-[11px] font-bold text-slate-400">মোট ইউজার:</span>
+            <span className="text-sm font-black font-mono text-purple-400">{statsCounts.total}</span>
+          </div>
           <button
-            type="submit"
-            disabled={bonusLoading}
-            className="px-6 py-3 rounded-xl text-xs font-black bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+            onClick={() => refresh()}
+            disabled={refreshing}
+            className={`p-2.5 rounded-2xl border transition-all cursor-pointer ${
+              isDark ? 'bg-purple-950/40 border-purple-800/40 text-purple-300 hover:bg-purple-900/40' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+            }`}
+            title="রিফ্রেশ করুন"
           >
-            {bonusLoading ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
-            <span>Send Bonus</span>
+            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
           </button>
-        </form>
+        </div>
       </div>
 
-      {/* Users List Table */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Registered Accounts ({data.users.length})
-            </h3>
-            <p className="text-xs text-slate-400">View user balances and verification statuses.</p>
-          </div>
+      {/* Filter Tabs & Search & Sort Bar */}
+      <div className={`p-4 rounded-3xl border flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 ${
+        isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
+      }`}>
+        {/* Verification Filters */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              filter === 'all'
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/30'
+                : isDark ? 'bg-slate-900 text-slate-400 hover:text-white' : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span>সকল ইউজার</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{statsCounts.total}</span>
+          </button>
 
-          <div className="relative">
+          <button
+            onClick={() => setFilter('verified')}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              filter === 'verified'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                : isDark ? 'bg-slate-900 text-slate-400 hover:text-emerald-400' : 'bg-slate-100 text-slate-600 hover:text-emerald-600'
+            }`}
+          >
+            <BadgeCheck size={14} className={filter === 'verified' ? 'text-white' : 'text-emerald-400'} />
+            <span>ভেরিফাইড (Verified)</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{statsCounts.verifiedCount}</span>
+          </button>
+
+          <button
+            onClick={() => setFilter('unverified')}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              filter === 'unverified'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                : isDark ? 'bg-slate-900 text-slate-400 hover:text-amber-400' : 'bg-slate-100 text-slate-600 hover:text-amber-600'
+            }`}
+          >
+            <Clock size={14} className={filter === 'unverified' ? 'text-white' : 'text-amber-400'} />
+            <span>আন-ভেরিফাইড (Unverified)</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{statsCounts.unverifiedCount}</span>
+          </button>
+        </div>
+
+        {/* Search & Sort Toggle */}
+        <div className="flex items-center gap-2.5">
+          {/* Search Box */}
+          <div className="relative flex-1 md:w-64">
             <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search user or ID..."
+              placeholder="ইউজারনেম বা Bot ID খুঁজুন..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className={`pl-9 pr-4 py-2 rounded-xl text-xs font-medium border outline-none w-full sm:w-64 ${
-                isDark ? 'bg-slate-900/60 border-purple-900/30 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-900'
+              className={`w-full pl-9 pr-4 py-2 rounded-xl text-xs font-medium border outline-none ${
+                isDark ? 'bg-slate-950 border-purple-900/40 text-white placeholder:text-slate-500 focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500'
               }`}
             />
           </div>
-        </div>
 
-        <div className={`rounded-3xl border overflow-hidden ${
-          isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
-        }`}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead className={`border-b ${isDark ? 'bg-purple-950/30 border-purple-900/40 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
-                <tr>
-                  <th className="p-4 font-black uppercase">Telegram ID</th>
-                  <th className="p-4 font-black uppercase">Username</th>
-                  <th className="p-4 font-black uppercase">Balance (BDT)</th>
-                  <th className="p-4 font-black uppercase">Status</th>
-                  <th className="p-4 font-black uppercase">Joined</th>
-                  <th className="p-4 font-black uppercase text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/20">
-                {filteredUsers.map((u) => {
-                  return (
-                    <tr key={u.chatId || Math.random()} className={`transition-colors ${isDark ? 'hover:bg-purple-950/20' : 'hover:bg-slate-50'}`}>
-                      <td className="p-4 font-mono font-bold text-purple-400">{u.chatId}</td>
-                      <td className="p-4 font-bold">
-                        {u.username ? (
-                          <a href={`https://t.me/${u.username}`} target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">
-                            @{u.username}
-                          </a>
-                        ) : 'No Username'}
-                      </td>
-                      <td className="p-4 font-black text-emerald-400 text-sm">৳{u.balance || 0}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
-                          u.status === 'verified' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-500/15 text-slate-400'
-                        }`}>
-                          {u.status || 'Active'}
-                        </span>
-                      </td>
-                      <td className="p-4 text-slate-500 font-mono text-[11px]">
-                        {formatTimestamp(u.createdAt)}
-                      </td>
-                      <td className="p-4 text-right">
-                        <button
-                          onClick={() => {
-                            setBonusUser(u.username ? `@${u.username}` : u.chatId.toString());
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
-                          className="px-3 py-1 rounded-xl font-bold text-[11px] bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/30 transition-all cursor-pointer"
-                        >
-                          + Bonus
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {/* Sort Order Toggle Button */}
+          <button
+            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black border flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
+              sortOrder === 'desc'
+                ? isDark ? 'bg-purple-950/60 border-purple-500/40 text-purple-300 hover:bg-purple-900/50' : 'bg-purple-50 border-purple-300 text-purple-700'
+                : isDark ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/50' : 'bg-cyan-50 border-cyan-300 text-cyan-700'
+            }`}
+            title="ব্যালেন্সের ক্রমানুসারে সাজান"
+          >
+            <ArrowUpDown size={14} />
+            <span className="hidden sm:inline">
+              {sortOrder === 'desc' ? 'সর্বোচ্চ ব্যালেন্স আগে' : 'সর্বনিম্ন ব্যালেন্স আগে'}
+            </span>
+          </button>
         </div>
       </div>
+
+      {/* Users Cards Grid */}
+      {processedUsers.length === 0 ? (
+        <div className={`p-12 text-center rounded-3xl border ${
+          isDark ? 'bg-[#0f0c22] border-purple-900/30 text-slate-400' : 'bg-white border-slate-200 text-slate-500'
+        }`}>
+          <Users size={36} className="mx-auto mb-3 opacity-40 text-purple-400" />
+          <p className="text-sm font-bold">কোনো ইউজার পাওয়া যায়নি</p>
+          <p className="text-xs text-slate-500 mt-1">অনুসন্ধান বা ফিল্টার পরিবর্তন করে চেষ্টা করুন।</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+          {processedUsers.map((u, idx) => {
+            const rank = idx + 1;
+            const isRank1 = sortOrder === 'desc' && rank === 1;
+            const isRank2 = sortOrder === 'desc' && rank === 2;
+            const isRank3 = sortOrder === 'desc' && rank === 3;
+
+            return (
+              <div
+                key={u.chatId}
+                onClick={() => handleOpenUser(u)}
+                className={`group p-5 rounded-3xl border transition-all duration-300 cursor-pointer relative overflow-hidden flex flex-col justify-between gap-4 hover:-translate-y-1 hover:shadow-2xl ${
+                  isRank1
+                    ? isDark 
+                      ? 'bg-gradient-to-br from-[#1a1338] via-[#120f29] to-[#0d0a1f] border-amber-500/50 shadow-amber-500/10' 
+                      : 'bg-gradient-to-br from-amber-50/90 to-white border-amber-300 shadow-amber-200/50'
+                    : isDark 
+                      ? 'bg-[#0f0c22] border-purple-900/30 hover:border-purple-500/50 shadow-xl' 
+                      : 'bg-white border-slate-200 hover:border-indigo-300 shadow-md'
+                }`}
+              >
+                {/* Background Ambient Glow for Rank 1 */}
+                {isRank1 && (
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+                )}
+
+                {/* Top Section: User Left Details & Right Badges */}
+                <div className="flex items-start justify-between gap-3">
+                  {/* Left Side: Avatar & Identity Details */}
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    {/* Telegram Avatar or Gradient Initials */}
+                    <div className="relative shrink-0">
+                      {u.photoUrl ? (
+                        <img 
+                          src={u.photoUrl} 
+                          alt={u.username || 'User'} 
+                          className="w-13 h-13 rounded-2xl object-cover ring-2 ring-purple-500/30 shadow-md"
+                        />
+                      ) : (
+                        <div className={`w-13 h-13 rounded-2xl flex items-center justify-center font-black text-lg shadow-md ring-2 ${
+                          isRank1 ? 'bg-gradient-to-br from-amber-400 to-yellow-600 text-slate-950 ring-amber-400/50' :
+                          isRank2 ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-slate-950 ring-slate-300/40' :
+                          isRank3 ? 'bg-gradient-to-br from-amber-600 to-amber-800 text-white ring-amber-600/40' :
+                          'bg-gradient-to-br from-indigo-600 to-purple-700 text-white ring-purple-500/30'
+                        }`}>
+                          {isRank1 ? <Crown size={22} className="text-slate-950" /> : (u.firstName || u.username || u.chatId || 'U').slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+
+                      {/* Rank Tag */}
+                      <div className={`absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-black border flex items-center gap-0.5 shadow-sm ${
+                        isRank1 ? 'bg-amber-400 text-slate-950 border-amber-300' :
+                        isRank2 ? 'bg-slate-300 text-slate-950 border-slate-200' :
+                        isRank3 ? 'bg-amber-700 text-white border-amber-600' :
+                        'bg-slate-900 text-purple-300 border-purple-800/40'
+                      }`}>
+                        #{rank}
+                      </div>
+                    </div>
+
+                    {/* Identity: Username, Bot ID, Balance */}
+                    <div className="space-y-1 min-w-0">
+                      {/* Telegram Username */}
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`font-black text-sm truncate group-hover:text-cyan-400 transition-colors ${
+                          isDark ? 'text-white' : 'text-slate-900'
+                        }`}>
+                          {u.username ? `@${u.username}` : (u.firstName || 'ইউজার')}
+                        </span>
+                      </div>
+
+                      {/* Bot ID & Telegram ID */}
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                        <span className="text-purple-400 font-bold">Bot ID:</span>
+                        <span className={`px-1.5 py-0.2 rounded font-bold border ${
+                          isDark ? 'bg-purple-950/60 border-purple-800/50 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
+                        }`}>
+                          {u.mbsId}
+                        </span>
+                        <span className="text-slate-500 text-[10px]">({u.chatId})</span>
+                      </div>
+
+                      {/* Account Balance */}
+                      <div className="pt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">ব্যালেন্স:</span>
+                        <span className="text-base font-black text-emerald-400 font-mono tracking-tight drop-shadow-sm">
+                          ৳ {u.balanceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Badges */}
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    {/* Verification Status */}
+                    {u.isVerified ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.8 rounded-xl text-[10px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        <BadgeCheck size={12} />
+                        <span>ভেরিফাইড</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.8 rounded-xl text-[10px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                        <Clock size={12} />
+                        <span>আন-ভেরিফাইড</span>
+                      </span>
+                    )}
+
+                    {/* Account Status (Banned / Restricted) */}
+                    {u.status === 'banned' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40">
+                        <Ban size={10} />
+                        <span>ব্যান করা</span>
+                      </span>
+                    ) : u.status === 'restricted' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/40">
+                        <Lock size={10} />
+                        <span>রেস্ট্রিক্টেড</span>
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                {/* Bottom Card Footer: Action Button */}
+                <div className={`pt-3 border-t flex items-center justify-between text-xs ${
+                  isDark ? 'border-purple-900/30' : 'border-slate-100'
+                }`}>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    যুক্ত হয়েছে: {formatTimestamp(u.createdAt || u.joinedAt)}
+                  </span>
+                  <div className="flex items-center gap-1 text-purple-400 group-hover:text-purple-300 font-bold text-xs">
+                    <span>ম্যানেজ করুন</span>
+                    <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Interactive Modal Popup for Selected User */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className={`w-full max-w-xl rounded-3xl border p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200 ${
+              isDark ? 'bg-[#0f0c22] border-purple-900/50 text-white' : 'bg-white border-slate-200 text-slate-900'
+            }`}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedUser(null)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-800/40 hover:bg-slate-700/60 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Modal Header: User Info */}
+            <div className="flex items-start gap-4">
+              <div className="relative shrink-0">
+                {userPhoto ? (
+                  <img src={userPhoto} alt={selectedUser.username} className="w-16 h-16 rounded-2xl object-cover ring-2 ring-purple-500/40 shadow-lg" />
+                ) : (
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center font-black text-2xl shadow-lg ring-2 ring-purple-500/40">
+                    {(selectedUser.firstName || selectedUser.username || selectedUser.chatId || 'U').slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                {modalLoading && (
+                  <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center">
+                    <RefreshCw size={18} className="animate-spin text-purple-400" />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-black text-lg text-white">
+                    {selectedUser.username ? `@${selectedUser.username}` : (selectedUser.firstName || 'User')}
+                  </h3>
+                  {selectedUser.isVerified ? (
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                      <BadgeCheck size={12} />
+                      <span>ভেরিফাইড একাউন্ট</span>
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                      <Clock size={12} />
+                      <span>আন-ভেরিফাইড</span>
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
+                  <span>Bot ID: <strong className="text-purple-300">{selectedUser.mbsId}</strong></span>
+                  <span>•</span>
+                  <span>Telegram ID: <strong className="text-slate-300">{selectedUser.chatId}</strong></span>
+                </div>
+
+                <div className="text-[11px] text-slate-500">
+                  নিবন্ধনের তারিখ: {formatTimestamp(selectedUser.createdAt || selectedUser.joinedAt)}
+                </div>
+              </div>
+            </div>
+
+            {/* Current Real-time Balance Display Box */}
+            <div className={`p-5 rounded-2xl border flex items-center justify-between ${
+              isDark ? 'bg-gradient-to-r from-emerald-950/40 to-teal-950/30 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
+            }`}>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">বর্তমান লাইভ ব্যালেন্স</span>
+                <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-0.5">
+                  ৳ {parseFloat(selectedUser.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-sans">BDT</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className={`px-2.5 py-1 rounded-xl text-xs font-black uppercase ${
+                  selectedUser.status === 'banned' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                  selectedUser.status === 'restricted' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                  'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                }`}>
+                  {selectedUser.status || 'Active'}
+                </span>
+              </div>
+            </div>
+
+            {/* Action 1: Balance Add / Deduct Tool */}
+            <div className={`p-5 rounded-2xl border space-y-4 ${
+              isDark ? 'bg-slate-950/60 border-purple-900/40' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-2 text-purple-400 font-black text-xs uppercase tracking-wider">
+                <CircleDollarSign size={16} />
+                <span>ব্যালেন্স সমন্বয় (Add / Minus Money)</span>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <input
+                    type="number"
+                    value={balanceAmount}
+                    onChange={e => setBalanceAmount(e.target.value)}
+                    placeholder="টাকার পরিমাণ লিখুন (যেমন: 100)"
+                    className={`flex-1 p-3 rounded-xl text-xs font-bold border outline-none font-mono ${
+                      isDark ? 'bg-[#0f0c22] border-purple-900/50 text-white focus:border-purple-500' : 'bg-white border-slate-300 text-slate-900 focus:border-indigo-500'
+                    }`}
+                  />
+                  <input
+                    type="text"
+                    value={balanceReason}
+                    onChange={e => setBalanceReason(e.target.value)}
+                    placeholder="কারণ / নোট (ঐচ্ছিক)"
+                    className={`flex-1 p-3 rounded-xl text-xs font-medium border outline-none ${
+                      isDark ? 'bg-[#0f0c22] border-purple-900/50 text-white focus:border-purple-500' : 'bg-white border-slate-300 text-slate-900 focus:border-indigo-500'
+                    }`}
+                  />
+                </div>
+
+                {/* Quick Amount Chips */}
+                <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
+                  <span className="text-[11px] text-slate-500">কুইক অ্যামাউন্ট:</span>
+                  {[50, 100, 250, 500, 1000].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setBalanceAmount(amt.toString())}
+                      className={`px-2.5 py-1 rounded-lg border text-[11px] transition-all cursor-pointer ${
+                        balanceAmount === amt.toString()
+                          ? 'bg-purple-600 text-white border-purple-500'
+                          : isDark ? 'bg-slate-900 border-purple-900/40 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      +৳{amt}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Two Action Buttons: Add & Deduct */}
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button
+                    type="button"
+                    disabled={balanceSubmitting}
+                    onClick={() => handleBalanceUpdate('add')}
+                    className="py-3 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {balanceSubmitting ? <RefreshCw size={14} className="animate-spin" /> : <PlusCircle size={14} />}
+                    <span>টাকা যোগ করুন (+ Add)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={balanceSubmitting}
+                    onClick={() => handleBalanceUpdate('deduct')}
+                    className="py-3 rounded-xl text-xs font-black bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white shadow-lg shadow-rose-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {balanceSubmitting ? <RefreshCw size={14} className="animate-spin" /> : <MinusCircle size={14} />}
+                    <span>টাকা মাইনাস করুন (- Minus)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Action 2: Ban / Unban & Temporary Restrictions */}
+            <div className={`p-5 rounded-2xl border space-y-4 ${
+              isDark ? 'bg-slate-950/60 border-purple-900/40' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-2 text-rose-400 font-black text-xs uppercase tracking-wider">
+                <Shield size={16} />
+                <span>নিরাপত্তা ও অ্যাকাউন্ট অ্যাকশন (Security & Status)</span>
+              </div>
+
+              <div className="space-y-3">
+                {/* Temporary Restriction Section */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 mb-1.5">
+                    সাময়িক সময়ের জন্য রেস্ট্রিক্ট করুন (Temporary Suspension):
+                  </label>
+                  <div className="flex items-center gap-2 flex-wrap mb-2.5">
+                    {[1, 3, 7, 15, 30].map(d => (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => setRestrictDays(d)}
+                        className={`px-3 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          restrictDays === d
+                            ? 'bg-orange-600 text-white border-orange-500 shadow-md shadow-orange-600/20'
+                            : isDark ? 'bg-[#0f0c22] border-slate-800 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {d} দিন
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      disabled={statusSubmitting}
+                      onClick={() => handleStatusChange('restricted', restrictDays)}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-black bg-orange-600/20 hover:bg-orange-600/30 text-orange-300 border border-orange-500/40 flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <Lock size={14} />
+                      <span>{restrictDays} দিনের জন্য রেস্ট্রিক্ট করুন</span>
+                    </button>
+
+                    {selectedUser.status === 'restricted' && (
+                      <button
+                        type="button"
+                        disabled={statusSubmitting}
+                        onClick={() => handleStatusChange('active')}
+                        className="py-2.5 px-4 rounded-xl text-xs font-black bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        <Unlock size={14} />
+                        <span>রেস্ট্রিকশন তুলুন</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Permanent Ban / Unban Button */}
+                <div className="pt-2 border-t border-slate-800/40">
+                  {selectedUser.status === 'banned' ? (
+                    <button
+                      type="button"
+                      disabled={statusSubmitting}
+                      onClick={() => handleStatusChange('active')}
+                      className="w-full py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={14} />
+                      <span>অ্যাকাউন্ট আনব্যান করুন (Unban User)</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={statusSubmitting}
+                      onClick={() => handleStatusChange('banned')}
+                      className="w-full py-2.5 rounded-xl text-xs font-black bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      <Ban size={14} />
+                      <span>স্থায়ীভাবে ব্যান করুন (Ban User)</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Bottom Actions */}
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedUser(null)}
+                className="px-6 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white cursor-pointer transition-all"
+              >
+                বন্ধ করুন (Close)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // =========================================================================
-// 7. BOT SETTINGS COMPONENT
+// 7. BOT SETTINGS COMPONENT (CLEAN & PREMIUM REDESIGNED)
 // =========================================================================
 function BotSettings() {
   const { theme } = useTheme();
@@ -1917,10 +2431,12 @@ function BotSettings() {
     gramAmount: '0.07',
     usdtAmount: '0.05',
     dailyWithdrawLimit: 50,
-    userLogGroupId: ''
+    userLogGroupId: '',
+    payoutGroupId: '@bd_trust_pay_payout'
   });
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [copiedField, setCopiedField] = useState('');
 
   useEffect(() => {
     fetch(`${API_BASE}/api/settings`)
@@ -1935,6 +2451,12 @@ function BotSettings() {
       })
       .catch(() => {});
   }, []);
+
+  const handleCopy = (val, field) => {
+    navigator.clipboard.writeText(val);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(''), 2000);
+  };
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -1956,7 +2478,7 @@ function BotSettings() {
       }
 
       if (data.success) {
-        setToast({ show: true, type: 'success', message: 'Settings successfully deployed to live bot!' });
+        setToast({ show: true, type: 'success', message: '✅ সেটিংস সফলভাবে সেভ ও লাইভ বটে প্রয়োগ করা হয়েছে!' });
       } else {
         setToast({ show: true, type: 'error', message: data.error || 'Failed to save settings.' });
       }
@@ -1968,120 +2490,226 @@ function BotSettings() {
   };
 
   return (
-    <div className="max-w-3xl space-y-8 animate-in fade-in duration-300">
+    <div className="max-w-4xl space-y-6 animate-in fade-in duration-300">
       <Toast {...toast} onClose={() => setToast({ ...toast, show: false })} />
 
-      <div>
-        <h2 className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-          Bot Settings & Rate Configuration
-        </h2>
-        <p className="text-xs text-slate-400 mt-1">
-          Configure admin receiving accounts, transaction thresholds, and fixed exchange rates.
-        </p>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/30">
+          <Settings size={20} />
+        </div>
+        <div>
+          <h2 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            বট সেটিংস ও রেট কনফিগারেশন (Bot Settings)
+          </h2>
+          <p className="text-xs text-slate-400">
+            অ্যাডমিন পেমেন্ট নম্বর, দৈনিক ক্যাশআউট লিমিট ও টেলিগ্রাম চ্যানেল/গ্রুপ পরিচালনা করুন
+          </p>
+        </div>
       </div>
 
-      {/* Fixed Rates Overview */}
+      {/* Card 1: Fixed Exchange Rates Overview */}
       <div className={`p-6 rounded-3xl border ${
         isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
       }`}>
-        <h3 className="text-xs font-black uppercase text-purple-400 tracking-wider mb-4">
-          Current Fixed Exchange Rates
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20">
-            <span className="text-[11px] font-bold text-slate-400 uppercase">GRAM Rate</span>
-            <div className="text-2xl font-black text-purple-400 mt-1">1 GRAM = 220 ৳ BDT</div>
-            <p className="text-[10px] text-slate-400 mt-1">Fixed for all buy & sell conversions</p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={16} className="text-purple-400" />
+            <h3 className="text-xs font-black uppercase text-purple-400 tracking-wider">
+              বর্তমান ফিক্সড এক্সচেঞ্জ রেট (Fixed Exchange Rates)
+            </h3>
           </div>
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-            <span className="text-[11px] font-bold text-slate-400 uppercase">USDT Rate</span>
-            <div className="text-2xl font-black text-emerald-400 mt-1">1 USDT = 130 ৳ BDT</div>
-            <p className="text-[10px] text-slate-400 mt-1">Fixed for all buy & sell conversions</p>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            অটো-কনভার্সন চালু
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* GRAM Card */}
+          <div className="p-5 rounded-2xl bg-purple-500/10 border border-purple-500/20 relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400 uppercase">GRAM Rate</span>
+              <Gem size={18} className="text-purple-400" />
+            </div>
+            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = 220 ৳ BDT</div>
+            <p className="text-[11px] text-slate-400 mt-1">বাই ও সেল উভয় ক্ষেত্রে এই রেট অনুযায়ী টাকা হিসাব হবে।</p>
+          </div>
+
+          {/* USDT Card */}
+          <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400 uppercase">USDT Rate</span>
+              <DollarSign size={18} className="text-emerald-400" />
+            </div>
+            <div className="text-2xl font-black text-emerald-400 mt-2 font-mono">1 USDT = 130 ৳ BDT</div>
+            <p className="text-[11px] text-slate-400 mt-1">বাই ও সেল উভয় ক্ষেত্রে এই রেট অনুযায়ী টাকা হিসাব হবে।</p>
           </div>
         </div>
       </div>
 
-      {/* Settings Form */}
-      <form onSubmit={handleSave} className={`p-8 rounded-3xl border space-y-6 ${
-        isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
-      }`}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-400">
-              Admin bKash Personal Number
-            </label>
-            <input
-              type="text"
-              value={settings.adminBkash}
-              onChange={e => setSettings({ ...settings, adminBkash: e.target.value })}
-              className={`w-full p-3.5 rounded-xl font-mono font-bold text-sm border outline-none ${
-                isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
-              }`}
-              required
-            />
+      {/* Main Form */}
+      <form onSubmit={handleSave} className="space-y-6">
+        {/* Card 2: Admin Receiving Accounts */}
+        <div className={`p-6 rounded-3xl border space-y-4 ${
+          isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
+        }`}>
+          <div className="flex items-center gap-2 text-cyan-400 font-black text-xs uppercase tracking-wider">
+            <CreditCard size={16} />
+            <span>অ্যাডমিন পেমেন্ট রিসিভিং অ্যাকাউন্ট (bKash & Nagad)</span>
           </div>
-
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-400">
-              Admin Nagad Personal Number
-            </label>
-            <input
-              type="text"
-              value={settings.adminNagad}
-              onChange={e => setSettings({ ...settings, adminNagad: e.target.value })}
-              className={`w-full p-3.5 rounded-xl font-mono font-bold text-sm border outline-none ${
-                isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
-              }`}
-              required
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-400">
-            Daily Maximum Fiat Cashout Limit (BDT)
-          </label>
-          <input
-            type="number"
-            value={settings.dailyWithdrawLimit}
-            onChange={e => setSettings({ ...settings, dailyWithdrawLimit: parseInt(e.target.value) || 0 })}
-            className={`w-full p-3.5 rounded-xl font-mono font-bold text-sm border outline-none ${
-              isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
-            }`}
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-400">
-            New User Notification Group ID
-          </label>
-          <input
-            type="text"
-            value={settings.userLogGroupId || ''}
-            onChange={e => setSettings({ ...settings, userLogGroupId: e.target.value })}
-            placeholder="e.g. -100xxxxxxxxxx (Or type /setusers in the group)"
-            className={`w-full p-3.5 rounded-xl font-mono font-bold text-sm border outline-none ${
-              isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
-            }`}
-          />
-          <p className="text-[11px] text-slate-500 mt-1">
-            💡 Tip: You can also simply send <code>/setusers</code> in your Telegram group to connect it instantly.
+          <p className="text-xs text-slate-400">
+            ইউজাররা ক্রিপ্টো কিনতে বা ব্যালেন্স ডিপোজিট করতে এই নম্বরগুলোতে টাকা সেন্ডমানি বা ক্যাশ-ইন করবে।
           </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* bKash Number */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase text-slate-400">
+                অ্যাডমিন বিকাশ পার্সোনাল নম্বর (bKash Personal)
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={settings.adminBkash}
+                  onChange={e => setSettings({ ...settings, adminBkash: e.target.value })}
+                  placeholder="017xxxxxxxx"
+                  className={`w-full p-3.5 pr-10 rounded-xl font-mono font-bold text-sm border outline-none ${
+                    isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  }`}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCopy(settings.adminBkash, 'bkash')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                  title="কপি করুন"
+                >
+                  {copiedField === 'bkash' ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Nagad Number */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase text-slate-400">
+                অ্যাডমিন নগদ পার্সোনাল নম্বর (Nagad Personal)
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={settings.adminNagad}
+                  onChange={e => setSettings({ ...settings, adminNagad: e.target.value })}
+                  placeholder="018xxxxxxxx"
+                  className={`w-full p-3.5 pr-10 rounded-xl font-mono font-bold text-sm border outline-none ${
+                    isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
+                  }`}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCopy(settings.adminNagad, 'nagad')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                  title="কপি করুন"
+                >
+                  {copiedField === 'nagad' ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* Card 3: Cashout Limits & Restrictions */}
+        <div className={`p-6 rounded-3xl border space-y-4 ${
+          isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
+        }`}>
+          <div className="flex items-center gap-2 text-emerald-400 font-black text-xs uppercase tracking-wider">
+            <Sliders size={16} />
+            <span>দৈনিক উইথড্র লিমিট (Daily Cashout Limit)</span>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-bold uppercase text-slate-400">
+              একজন ইউজার দৈনিক সর্বোচ্চ কত টাকা উইথড্র করতে পারবেন (BDT Limit)
+            </label>
+            <input
+              type="number"
+              value={settings.dailyWithdrawLimit}
+              onChange={e => setSettings({ ...settings, dailyWithdrawLimit: parseInt(e.target.value) || 0 })}
+              className={`w-full p-3.5 rounded-xl font-mono font-bold text-sm border outline-none ${
+                isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
+              }`}
+              required
+            />
+            <p className="text-[11px] text-slate-500">
+              ইউজার দৈনিক এই সীমার বেশি টাকা উইথড্র করার রিকোয়েস্ট পাঠাতে পারবে না।
+            </p>
+          </div>
+        </div>
+
+        {/* Card 4: Telegram Channels & Groups */}
+        <div className={`p-6 rounded-3xl border space-y-4 ${
+          isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
+        }`}>
+          <div className="flex items-center gap-2 text-indigo-400 font-black text-xs uppercase tracking-wider">
+            <Send size={16} />
+            <span>টেলিগ্রাম চ্যানেল ও নোটিফিকেশন গ্রুপ (Telegram Community)</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* User Log Group */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase text-slate-400">
+                নতুন ইউজার জয়েন নোটিফিকেশন গ্রুপ আইডি
+              </label>
+              <input
+                type="text"
+                value={settings.userLogGroupId || ''}
+                onChange={e => setSettings({ ...settings, userLogGroupId: e.target.value })}
+                placeholder="যেমন: -100xxxxxxxxxx"
+                className={`w-full p-3.5 rounded-xl font-mono font-bold text-sm border outline-none ${
+                  isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}
+              />
+              <p className="text-[10px] text-slate-500">
+                💡 গ্রুপে গিয়ে <code>/setusers</code> কমান্ড পাঠিয়েও সেট করতে পারবেন।
+              </p>
+            </div>
+
+            {/* Payout Channel */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold uppercase text-slate-400">
+                পেমেন্ট প্রুফ / পে-আউট চ্যানেল
+              </label>
+              <input
+                type="text"
+                value={settings.payoutGroupId || '@bd_trust_pay_payout'}
+                onChange={e => setSettings({ ...settings, payoutGroupId: e.target.value })}
+                placeholder="@bd_trust_pay_payout"
+                className={`w-full p-3.5 rounded-xl font-mono font-bold text-sm border outline-none ${
+                  isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
+                }`}
+              />
+              <p className="text-[10px] text-slate-500">
+                উইথড্র বা পেমেন্ট সম্পন্ন হলে এই চ্যানেলে অটোমেটিক প্রুফ পোস্ট যাবে।
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Save Button */}
         <button
           type="submit"
           disabled={saving}
-          className="w-full py-3.5 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+          className="w-full py-4 rounded-2xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 disabled:opacity-50"
         >
-          {saving ? <RefreshCw size={15} className="animate-spin" /> : <Check size={15} />}
-          <span>Save & Apply Settings</span>
+          {saving ? <RefreshCw size={18} className="animate-spin" /> : <Check size={18} />}
+          <span>সেটিংস সেভ ও প্রয়োগ করুন (Save & Apply Settings)</span>
         </button>
       </form>
     </div>
   );
 }
+
 
 // =========================================================================
 // 8. FRAUD LOGS & SECURITY COMPONENT

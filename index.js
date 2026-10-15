@@ -1802,8 +1802,40 @@ app.get('/api/stats', async (req, res) => {
         console.log("Fetching users...");
         let users = [];
         try {
-            const usersSnapshot = await db.collection('users').get();
-            usersSnapshot.forEach(doc => users.push(doc.data()));
+            const [usersSnapshot, buysSnap, sellsSnap, withSnap] = await Promise.all([
+                db.collection('users').get(),
+                db.collection('miniapp_buys').limit(200).get().catch(() => ({ forEach: () => {} })),
+                db.collection('miniapp_sells').limit(200).get().catch(() => ({ forEach: () => {} })),
+                db.collection('fiat_withdrawals').limit(200).get().catch(() => ({ forEach: () => {} }))
+            ]);
+
+            const transactingUserIds = new Set();
+            buysSnap.forEach(d => {
+                const od = d.data();
+                if (od.userId) transactingUserIds.add(od.userId.toString());
+            });
+            sellsSnap.forEach(d => {
+                const od = d.data();
+                if (od.userId) transactingUserIds.add(od.userId.toString());
+            });
+            withSnap.forEach(d => {
+                const od = d.data();
+                if (od.userId) transactingUserIds.add(od.userId.toString());
+            });
+
+            usersSnapshot.forEach(doc => {
+                const u = doc.data();
+                const uId = (u.chatId || doc.id).toString();
+                u.chatId = uId;
+                u.id = doc.id;
+                if (!u.mbsId) {
+                    u.mbsId = 'MBS' + uId.slice(-5);
+                }
+                const hasTx = transactingUserIds.has(uId) || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0);
+                u.isVerified = Boolean(hasTx || u.isVerified || u.status === 'verified');
+                u.balance = parseFloat(u.balance || 0);
+                users.push(u);
+            });
         } catch (uErr) {
             console.warn("Firestore users fetch warning in /api/stats:", uErr.message);
             if (statsCache.data?.users) users = statsCache.data.users;
@@ -3000,6 +3032,121 @@ app.post('/api/admin/bonus', async (req, res) => {
         res.json({ success: true, newBalance });
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin User Management: Real-time Balance Add/Deduct
+app.post('/api/admin/user/balance', async (req, res) => {
+    try {
+        const { userId, action, amount, reason } = req.body;
+        if (!userId || !amount || !['add', 'deduct'].includes(action)) {
+            return res.status(400).json({ error: "Missing required fields" });
+        }
+        const delta = action === 'add' ? parseFloat(amount) : -parseFloat(amount);
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
+
+        const currentBalance = parseFloat(userDoc.data().balance || 0);
+        const newBalance = Math.max(0, parseFloat((currentBalance + delta).toFixed(2)));
+
+        await userRef.set({
+            balance: newBalance,
+            lastBalanceUpdate: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        // Invalidate stats cache so stats refresh instantly
+        statsCache.timestamp = 0;
+
+        // Send Telegram bot notification to the user
+        if (bot) {
+            const notifMsg = action === 'add' ?
+                `<b>💰 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ব্যালেন্স যোগ হয়েছে!</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `<blockquote>➕ <b>যুক্ত করা টাকা:</b> <b>৳${parseFloat(amount).toFixed(2)} BDT</b>\n` +
+                `💳 <b>বর্তমান ব্যালেন্স:</b> <b>৳${newBalance.toFixed(2)} BDT</b></blockquote>\n\n` +
+                (reason ? `📝 <b>কারণ:</b> <i>${reason}</i>\n` : '') +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `🎉 <i>অ্যাডমিন আপনার ওয়ালেটে টাকা যোগ করেছেন।</i>` :
+                `<b>📉 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ব্যালেন্স কর্তন করা হয়েছে!</b>\n` +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `<blockquote>➖ <b>কর্তন করা টাকা:</b> <b>৳${parseFloat(amount).toFixed(2)} BDT</b>\n` +
+                `💳 <b>বর্তমান ব্যালেন্স:</b> <b>৳${newBalance.toFixed(2)} BDT</b></blockquote>\n\n` +
+                (reason ? `📝 <b>কারণ:</b> <i>${reason}</i>\n` : '') +
+                `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `ℹ️ <i>অ্যাডমিন আপনার অ্যাকাউন্ট ব্যালেন্স সমন্বয় করেছেন।</i>`;
+            bot.sendMessage(userId, notifMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
+        }
+
+        res.json({ success: true, newBalance, message: `Balance updated to ৳${newBalance} BDT` });
+    } catch (e) {
+        console.error("Admin balance update error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin User Management: Ban, Unban, Restrict (with days)
+app.post('/api/admin/user/status', async (req, res) => {
+    try {
+        const { userId, status, restrictionDays, reason } = req.body;
+        if (!userId || !status) return res.status(400).json({ error: "Missing required fields" });
+
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
+
+        let updatePayload = {
+            status: status, // 'active', 'banned', 'restricted'
+            statusUpdatedAt: FieldValue.serverTimestamp()
+        };
+
+        if (status === 'restricted' && restrictionDays) {
+            const until = new Date(Date.now() + parseInt(restrictionDays) * 24 * 60 * 60 * 1000);
+            updatePayload.restrictedUntil = until.toISOString();
+        } else if (status === 'active') {
+            updatePayload.restrictedUntil = null;
+        }
+
+        await userRef.set(updatePayload, { merge: true });
+
+        // Invalidate stats cache so stats refresh instantly
+        statsCache.timestamp = 0;
+
+        // Send Telegram bot notification
+        if (bot) {
+            let msg = '';
+            if (status === 'banned') {
+                msg = `<b>🚫 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — অ্যাকাউন্ট স্থগিত (Banned)!</b>\n━━━━━━━━━━━━━━━━━━━━━━\n⚠️ আপনার অ্যাকাউন্টটি সাময়িকভাবে বন্ধ করা হয়েছে।\n${reason ? `📝 <b>কারণ:</b> <i>${reason}</i>\n` : ''}সহায়তার জন্য সাপোর্টে যোগাযোগ করুন।`;
+            } else if (status === 'restricted') {
+                msg = `<b>⚠️ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — অ্যাকাউন্ট রেস্ট্রিক্টেড!</b>\n━━━━━━━━━━━━━━━━━━━━━━\n⏱ আপনার অ্যাকাউন্টটি আগামী <b>${restrictionDays} দিনের জন্য</b> রেস্ট্রিক্ট করা হয়েছে।\n${reason ? `📝 <b>কারণ:</b> <i>${reason}</i>\n` : ''}`;
+            } else if (status === 'active') {
+                msg = `<b>✅ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — অ্যাকাউন্ট সক্রিয় (Active)!</b>\n━━━━━━━━━━━━━━━━━━━━━━\n🎉 আপনার অ্যাকাউন্টটি পুনরায় পুরোপুরি সক্রিয় করা হয়েছে। ধন্যবাদ!`;
+            }
+            if (msg) bot.sendMessage(userId, msg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
+        }
+
+        res.json({ success: true, status, message: `User status set to ${status}` });
+    } catch (e) {
+        console.error("Admin user status error:", e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Admin User Management: Fetch Telegram Profile Photo
+app.get('/api/admin/user-photo/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        if (!bot) return res.json({ photoUrl: null });
+        const photos = await bot.getUserProfilePhotos(userId, { limit: 1 });
+        if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
+            // Get best resolution photo from the set
+            const bestPhoto = photos.photos[0][photos.photos[0].length - 1];
+            const fileLink = await bot.getFileLink(bestPhoto.file_id);
+            return res.json({ photoUrl: fileLink });
+        }
+        res.json({ photoUrl: null });
+    } catch (e) {
+        res.json({ photoUrl: null });
     }
 });
 
