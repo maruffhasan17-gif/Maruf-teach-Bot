@@ -179,6 +179,13 @@ const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
 const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261014v15';
+const appOpenMarkup = {
+    reply_markup: {
+        inline_keyboard: [
+            [{ text: '🚀 ওপেন অ্যাপ (Open App)', web_app: { url: WEB_APP_URL } }]
+        ]
+    }
+};
 const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
@@ -864,13 +871,13 @@ bot.on('message', async (msg) => {
                 if (idMatch && idMatch[1]) {
                     const targetUserId = idMatch[1];
                     const safeReply = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    const userSupportMsg = `<blockquote><b>🎧 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — কাস্টমার সাপোর্ট বার্তা</b>\n` +
+                    const userSupportMsg = `<b>🎧 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — কাস্টমার সাপোর্ট</b>\n` +
                         `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                        `💬 <b>অ্যাডমিন রিপ্লাই:</b>\n\n` +
-                        `${safeReply}\n` +
+                        `💬 <b>অ্যাডমিন বার্তা:</b>\n\n` +
+                        `<blockquote>${safeReply}</blockquote>\n\n` +
                         `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                        `🤝 <i>আপনার যেকোনো প্রয়োজনে TrustPay টিম সবসময় আপনার পাশে আছে।</i></blockquote>`;
-                    await bot.sendMessage(targetUserId, userSupportMsg, { parse_mode: 'HTML' }).catch(e => console.error("Support reply to user error:", e.message));
+                        `🤝 <i>আপনার যেকোনো প্রয়োজনে TrustPay টিম সবসময় আপনার পাশে আছে।</i>`;
+                    await bot.sendMessage(targetUserId, userSupportMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error("Support reply to user error:", e.message));
                     await bot.sendMessage(chatId, `✅ ইউজার <code>${targetUserId}</code> এর কাছে সাপোর্ট উত্তর সফলভাবে পাঠানো হয়েছে।`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
                     return;
                 }
@@ -1683,15 +1690,15 @@ app.post('/api/miniapp/sell', async (req, res) => {
 
         // Send confirmation to User in Telegram with Quote block (Matches Image 3)
         if (bot && userId) {
-            const userSellMsg = `<blockquote><b>🔄 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ক্রিপ্টো বিক্রি সফল!</b>\n` +
+            const userSellMsg = `<b>🔄 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ক্রিপ্টো বিক্রি সফল!</b>\n` +
                 `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                `✅ <b>স্ট্যাটাস:</b> <code>সফলভাবে ব্যালেন্সে যুক্ত</code> 💸\n` +
-                `💎 <b>বিক্রিত ক্রিপ্টো:</b> <b>${numAmount} ${asset}</b>\n` +
-                `💵 <b>প্রাপ্ত টাকা:</b> <b>৳${numEstimatedTk} BDT</b>\n` +
-                `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
+                `✅ <b>স্ট্যাটাস:</b> <code>সফলভাবে ব্যালেন্সে যুক্ত</code> 💸\n\n` +
+                `<blockquote>💎 <b>বিক্রিত ক্রিপ্টো:</b> ${numAmount} ${asset}\n` +
+                `💵 <b>প্রাপ্ত টাকা:</b> ৳${numEstimatedTk} BDT\n` +
+                `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b></blockquote>\n\n` +
                 `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                `🚀 <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে জমা হয়েছে। প্রোফাইল থেকে যেকোনো সময় বিকাশ বা নগদে উইথড্র করতে পারবেন।</i></blockquote>`;
-            bot.sendMessage(userId, userSellMsg, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
+                `🚀 <i>টাকাটি অ্যাপ ব্যালেন্সে জমা হয়েছে। প্রোফাইল থেকে যেকোনো সময় উইথড্র করতে পারবেন।</i>`;
+            bot.sendMessage(userId, userSellMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e=>console.error(e.message));
         }
 
         res.json({ success: true, orderId: savedOrderId, newBalance });
@@ -2161,15 +2168,15 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         const updatedDoc = await userRef.get();
         const newBalance = updatedDoc.data()?.balance || amount;
 
-        const userAddMoneyMsg = `<blockquote><b>💰 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ব্যালেন্স ডিপোজিট সফল!</b>\n` +
+        const userAddMoneyMsg = `<b>💰 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ব্যালেন্স ডিপোজিট সফল!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `✅ <b>স্ট্যাটাস:</b> <code>অটো-ভেরিফাইড ও যুক্ত হয়েছে</code> 💸\n` +
-            `💵 <b>জমা হওয়া টাকা:</b> <b>৳${amount} BDT</b> (${paymentMethod})\n` +
-            `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
-            `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
+            `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n\n` +
+            `<blockquote>💵 <b>জমা হওয়া টাকা:</b> ৳${amount} BDT (${paymentMethod})\n` +
+            `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b></blockquote>\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `🚀 <i>টাকাটি আপনার অ্যাকাউন্টে স্বয়ংক্রিয়ভাবে জমা হয়েছে। এখনই ক্রিপ্টো বাই করতে পারেন!</i></blockquote>`;
-        bot.sendMessage(userId, userAddMoneyMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            `🚀 <i>টাকাটি আপনার অ্যাকাউন্টে স্বয়ংক্রিয়ভাবে জমা হয়েছে।</i>`;
+        bot.sendMessage(userId, userAddMoneyMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
 
         // Notify Data Group
         const config = botConfig || {};
@@ -2334,16 +2341,16 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         const newBalance = currentBalance - bdtAmount;
 
-        const userBuyInstantMsg = `<blockquote><b>💎 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ক্রিপ্টো ক্রয় সফল!</b>\n` +
+        const userBuyInstantMsg = `<b>💎 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ক্রিপ্টো ক্রয় সফল!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `⚡ <b>স্ট্যাটাস:</b> <code>অন-চেইনে ট্রান্সফার সম্পন্ন</code> ✅\n` +
-            `📦 <b>প্রাপ্ত ক্রিপ্টো:</b> <b>${cryptoAmount} ${asset}</b>\n` +
-            `💵 <b>পরিশোধিত মূল্য:</b> <b>৳${bdtAmount} BDT</b>\n` +
-            `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
-            `🏷 <b>রিসিভার ওয়ালেট:</b>\n<code>${receiveAddress}</code>\n` +
+            `🏷 <b>রিসিভার ওয়ালেট:</b>\n<code>${receiveAddress}</code>\n\n` +
+            `<blockquote>📦 <b>প্রাপ্ত ক্রিপ্টো:</b> ${cryptoAmount} ${asset}\n` +
+            `💵 <b>পরিশোধিত মূল্য:</b> ৳${bdtAmount} BDT\n` +
+            `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b></blockquote>\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `🚀 <i>ক্রিপ্টো আপনার ওয়ালেটে ব্লকচেইনে সফলভাবে পাঠিয়ে দেওয়া হয়েছে। TrustPay ব্যবহারের জন্য ধন্যবাদ!</i></blockquote>`;
-        bot.sendMessage(userId, userBuyInstantMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            `🚀 <i>ক্রিপ্টো আপনার ওয়ালেটে সফলভাবে পাঠিয়ে দেওয়া হয়েছে।</i>`;
+        bot.sendMessage(userId, userBuyInstantMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
 
         const dataGroup = config.dataGroupId || adminGroupId;
         if (dataGroup) {
@@ -2439,15 +2446,15 @@ app.post('/api/miniapp/buy', async (req, res) => {
         const updatedDoc = await userRef.get();
         const newBalance = updatedDoc.data()?.balance || totalBdt;
 
-        const addOkMsg = `<blockquote><b>💰 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ব্যালেন্স ডিপোজিট সফল!</b>\n` +
+        const addOkMsg = `<b>💰 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ব্যালেন্স ডিপোজিট সফল!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `✅ <b>স্ট্যাটাস:</b> <code>অ্যাকাউন্টে যুক্ত হয়েছে</code> 💸\n` +
-            `💵 <b>জমা হওয়া টাকা:</b> <b>৳${totalBdt} BDT</b>\n` +
-            `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
-            `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
+            `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n\n` +
+            `<blockquote>💵 <b>জমা হওয়া টাকা:</b> ৳${totalBdt} BDT\n` +
+            `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b></blockquote>\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `🚀 <i>টাকাটি স্বয়ংক্রিয়ভাবে ব্যালেন্সে জমা হয়েছে।</i></blockquote>`;
-        bot.sendMessage(userId, addOkMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            `🚀 <i>টাকাটি স্বয়ংক্রিয়ভাবে ব্যালেন্সে জমা হয়েছে।</i>`;
+        bot.sendMessage(userId, addOkMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
 
         return res.json({ 
             success: true, 
@@ -2643,15 +2650,15 @@ async function handleIncomingSmsWebhook(req, res) {
                 memItem.claimedBy = order.userId;
 
                 if (bot && order.userId) {
-                    const autoVerMsg = `<blockquote><b>⚡ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — পেমেন্ট ভেরিফাইড!</b>\n` +
+                    const autoVerMsg = `<b>⚡ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — পেমেন্ট ভেরিফাইড!</b>\n` +
                         `━━━━━━━━━━━━━━━━━━━━━━\n` +
                         `✅ <b>স্ট্যাটাস:</b> <code>SMS দ্বারা অটো-ভেরিফাইড</code>\n` +
-                        `💰 <b>অর্ডার:</b> <b>${order.amount} ${order.asset}</b>\n` +
-                        `💵 <b>পরিশোধিত:</b> <b>৳${order.totalBdt} BDT</b>\n` +
-                        `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
+                        `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n\n` +
+                        `<blockquote>💰 <b>অর্ডার:</b> ${order.amount} ${order.asset}\n` +
+                        `💵 <b>পরিশোধিত:</b> <b>৳${order.totalBdt} BDT</b></blockquote>\n\n` +
                         `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                        `⏱ <i>অ্যাডমিন খুব দ্রুত ক্রিপ্টো আপনার ওয়ালেটে ট্রান্সফার করে দিচ্ছে।</i></blockquote>`;
-                    bot.sendMessage(order.userId, autoVerMsg, { parse_mode: 'HTML' }).catch(() => {});
+                        `⏱ <i>অ্যাডমিন খুব দ্রুত ক্রিপ্টো আপনার ওয়ালেটে পাঠাচ্ছে।</i>`;
+                    bot.sendMessage(order.userId, autoVerMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
                 }
 
                 if (bot && adminGroupId) {
@@ -2806,15 +2813,15 @@ app.post('/api/admin/approve-buy', async (req, res) => {
             txResult: txResult || null
         });
         
-        const sentOkMsg = `<blockquote><b>💎 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ক্রিপ্টো ডেলিভারি সম্পন্ন!</b>\n` +
+        const sentOkMsg = `<b>💎 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — ক্রিপ্টো ডেলিভারি সম্পন্ন!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `✅ <b>স্ট্যাটাস:</b> <code>অন-চেইনে ট্রান্সফার সফল</code>\n` +
-            `📦 <b>ডেলিভারি:</b> <b>${order.amount} ${order.asset}</b>\n` +
             `🏷 <b>ওয়ালেট:</b>\n<code>${order.receiveAddress}</code>\n` +
-            `#️⃣ <b>TrxID:</b> <code>${order.trxId}</code>\n` +
+            `#️⃣ <b>TrxID:</b> <code>${order.trxId}</code>\n\n` +
+            `<blockquote>📦 <b>ডেলিভারি:</b> <b>${order.amount} ${order.asset}</b></blockquote>\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `🎉 <i>ক্রিপ্টো আপনার ওয়ালেটে জমা হয়েছে। TrustPay ব্যবহারের জন্য ধন্যবাদ!</i></blockquote>`;
-        bot.sendMessage(order.userId, sentOkMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            `🎉 <i>ক্রিপ্টো আপনার ওয়ালেটে জমা হয়েছে।</i>`;
+        bot.sendMessage(order.userId, sentOkMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
         
         const config = botConfig || {};
         if (config.adminGroupId) {
@@ -2861,7 +2868,13 @@ app.post('/api/admin/reject-buy', async (req, res) => {
             }, { merge: true });
         }
 
-        bot.sendMessage(order.userId, `❌ <b>Buy Order Rejected</b>\n\nYour order for ${order.amount} ${order.asset} (TrxID: <code>${order.trxId}</code>) was rejected.\n\n💰 <b>৳${refundBdt} BDT has been refunded to your in-app balance!</b>\nYou can check your balance in the app.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        const buyRejectMsg = `<b>❌ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — বাই অর্ডার বাতিল ও রিফান্ড</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `ℹ️ <b>অর্ডার:</b> ${order.amount} ${order.asset} (<code>${order.trxId}</code>)\n\n` +
+            `<blockquote>💰 <b>রিফান্ড পরিমাণ:</b> <b>৳${refundBdt} BDT</b></blockquote>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🔄 <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে রিফান্ড করা হয়েছে।</i>`;
+        bot.sendMessage(order.userId, buyRejectMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
 
         const config = botConfig || {};
         if (config.adminGroupId) {
@@ -2889,10 +2902,13 @@ app.post('/api/admin/bonus', async (req, res) => {
         const newBalance = (doc.data().balance || 0) + parseFloat(amount);
         await doc.ref.update({ balance: newBalance });
         
-        const bonusMsg = `<blockquote><b>🎉 বোনাস প্রাপ্তি (Bonus Received)!</b>\n\n` +
-            `💰 <b>পরিমাণ:</b> <b>৳${amount} BDT</b>\n\n` +
-            `<i>অ্যাডমিন আপনার অ্যাকাউন্টে বোনাস ব্যালেন্স যোগ করেছেন।</i></blockquote>`;
-        bot.sendMessage(doc.id, bonusMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        const bonusMsg = `<b>🎉 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — বোনাস প্রাপ্তি!</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `<blockquote>💰 <b>বোনাস পরিমাণ:</b> <b>৳${amount} BDT</b>\n` +
+            `💳 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance.toFixed(2)} BDT</b></blockquote>\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `🎁 <i>অ্যাডমিন আপনার অ্যাকাউন্টে বোনাস ব্যালেন্স যোগ করেছেন।</i>`;
+        bot.sendMessage(doc.id, bonusMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
         res.json({ success: true, newBalance });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -2948,16 +2964,16 @@ app.post('/api/admin/approve-withdraw', async (req, res) => {
                     'fiatWithdrawPending.status': 'completed',
                     'fiatWithdrawPending.completedAt': Date.now()
                 });
-                const userMsg = `<blockquote><b>💸 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — উইথড্র সম্পন্ন!</b>\n` +
+                const userMsg = `<b>💸 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — উইথড্র সম্পন্ন!</b>\n` +
                     `━━━━━━━━━━━━━━━━━━━━━━\n` +
                     `✅ <b>স্ট্যাটাস:</b> <code>পেমেন্ট সফলভাবে পাঠানো হয়েছে</code> 💸\n` +
-                    `💵 <b>উত্তোলনের পরিমাণ:</b> <b>৳${pend?.amount || 0} BDT</b>\n` +
-                    `📉 <b>সার্ভিস ফি:</b> <b>৳${pend?.fee || 0} BDT</b>\n` +
-                    `📦 <b>প্রাপ্য টাকা:</b> <b>৳${pend?.receiveAmount || pend?.amount || 0} BDT</b>\n` +
-                    `🏦 <b>মাধ্যম:</b> <b>${(pend?.method || 'bKash').toUpperCase()}</b> (<code>${pend?.number || ''}</code>)\n` +
+                    `🏦 <b>মাধ্যম:</b> <b>${(pend?.method || 'bKash').toUpperCase()}</b> (<code>${pend?.number || ''}</code>)\n\n` +
+                    `<blockquote>💵 <b>উত্তোলনের পরিমাণ:</b> ৳${pend?.amount || 0} BDT\n` +
+                    `📉 <b>সার্ভিস ফি:</b> ৳${pend?.fee || 0} BDT\n` +
+                    `📦 <b>প্রাপ্য টাকা:</b> <b>৳${pend?.receiveAmount || pend?.amount || 0} BDT</b></blockquote>\n\n` +
                     `━━━━━━━━━━━━━━━━━━━━━━\n` +
-                    `🎉 <i>আপনার একাউন্ট চেক করুন। TrustPay-এর সাথে থাকার জন্য ধন্যবাদ!</i></blockquote>`;
-                bot.sendMessage(targetUser, userMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                    `🎉 <i>আপনার একাউন্ট চেক করুন। TrustPay-এর সাথে থাকার জন্য ধন্যবাদ!</i>`;
+                bot.sendMessage(targetUser, userMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
                 
                 await notifyPayoutGroup({
                     type: 'fiat',
@@ -3025,11 +3041,13 @@ app.post('/api/admin/reject-withdraw', async (req, res) => {
                     'fiatWithdrawPending.rejectedAt': Date.now(),
                     balance: FieldValue.increment(refundAmt)
                 });
-                const userRejectMsg = `<blockquote><b>❌ উইথড্র বাতিল ও রিফান্ড (Withdrawal Rejected)!</b>\n\n` +
-                    `💰 <b>রিফান্ড পরিমাণ:</b> ৳${refundAmt} BDT\n` +
-                    `📝 <b>কারণ:</b> <i>${reason || 'অ্যাকাউন্ট তথ্যে ভুল'}</i>\n\n` +
-                    `টাকাটি আপনার অ্যাপ ব্যালেন্সে পুনরায় যোগ করে দেওয়া হয়েছে। তথ্য যাচাই করে আবার চেষ্টা করুন।</blockquote>`;
-                bot.sendMessage(targetUser, userRejectMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                const userRejectMsg = `<b>❌ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — উইথড্র বাতিল ও রিফান্ড</b>\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `ℹ️ <b>কারণ:</b> <i>${reason || 'অ্যাকাউন্ট তথ্যে ভুল'}</i>\n\n` +
+                    `<blockquote>💰 <b>রিফান্ড পরিমাণ:</b> <b>৳${refundAmt} BDT</b></blockquote>\n\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `🔄 <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে ফেরত দেওয়া হয়েছে। তথ্য যাচাই করে আবার চেষ্টা করুন।</i>`;
+                bot.sendMessage(targetUser, userRejectMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
             }
 
             try {
@@ -3107,7 +3125,14 @@ app.post('/api/admin/create-mock-trx', async (req, res) => {
                     });
 
                     if (bot && order.userId) {
-                        bot.sendMessage(order.userId, `🎉 <b>Payment Auto-Verified!</b>\n\nYour payment for <b>${order.amount} ${order.asset}</b> (TrxID: <code>${trxId}</code>) has been automatically verified via Mock Test!\n\nAdmin will dispatch the asset shortly.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                        const mockVerMsg = `<b>⚡ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — পেমেন্ট ভেরিফাইড (মক টেস্ট)</b>\n` +
+                            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                            `✅ <b>স্ট্যাটাস:</b> <code>অটো ভেরিফাইড</code> ⚡\n` +
+                            `📦 <b>অর্ডার:</b> <b>${order.amount} ${order.asset}</b> (TrxID: <code>${trxId}</code>)\n\n` +
+                            `<blockquote>💵 <b>পরিশোধিত টাকা:</b> <b>৳${order.totalBdt} BDT</b></blockquote>\n\n` +
+                            `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                            `⏳ <i>অ্যাডমিন শীঘ্রই আপনার ওয়ালেটে অ্যাসেট পাঠিয়ে দিচ্ছেন।</i>`;
+                        bot.sendMessage(order.userId, mockVerMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
                     }
 
                     const config = botConfig || {};
@@ -3805,16 +3830,16 @@ const doApproveWithdraw = async (docId, userId) => {
     }
 
     if (withdrawItem && bot) {
-        const userMsg = `<blockquote><b>💸 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — উইথড্র সম্পন্ন!</b>\n` +
+        const userMsg = `<b>💸 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — উইথড্র সম্পন্ন!</b>\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `✅ <b>স্ট্যাটাস:</b> <code>পেমেন্ট সফলভাবে পাঠানো হয়েছে</code> 💸\n` +
-            `💵 <b>উত্তোলনের পরিমাণ:</b> <b>৳${withdrawItem?.amount || 0} BDT</b>\n` +
-            `📉 <b>সার্ভিস ফি:</b> <b>৳${withdrawItem?.fee || 0} BDT</b>\n` +
-            `📦 <b>প্রাপ্য টাকা:</b> <b>৳${withdrawItem?.receiveAmount || withdrawItem?.amount || 0} BDT</b>\n` +
-            `🏦 <b>মাধ্যম:</b> <b>${(withdrawItem?.method || 'bKash').toUpperCase()}</b> (<code>${formatBdPhone(withdrawItem?.number)}</code>)\n` +
+            `🏦 <b>মাধ্যম:</b> <b>${(withdrawItem?.method || 'bKash').toUpperCase()}</b> (<code>${formatBdPhone(withdrawItem?.number)}</code>)\n\n` +
+            `<blockquote>💵 <b>উত্তোলনের পরিমাণ:</b> ৳${withdrawItem?.amount || 0} BDT\n` +
+            `📉 <b>সার্ভিস ফি:</b> ৳${withdrawItem?.fee || 0} BDT\n` +
+            `📦 <b>প্রাপ্য টাকা:</b> <b>৳${withdrawItem?.receiveAmount || withdrawItem?.amount || 0} BDT</b></blockquote>\n\n` +
             `━━━━━━━━━━━━━━━━━━━━━━\n` +
-            `🎉 <i>আপনার একাউন্ট চেক করুন। TrustPay-এর সাথে থাকার জন্য ধন্যবাদ!</i></blockquote>`;
-        bot.sendMessage(targetUser, userMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            `🎉 <i>আপনার একাউন্ট চেক করুন। TrustPay-এর সাথে থাকার জন্য ধন্যবাদ!</i>`;
+        bot.sendMessage(targetUser, userMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
 
         await notifyPayoutGroup({
             type: 'fiat',
@@ -3865,11 +3890,13 @@ const doRejectWithdraw = async (docId, userId, refundAmt) => {
             await userRef.update(updatePayload);
 
             if (bot) {
-                const userRejectMsg = `<blockquote><b>❌ আপনার ক্যাশআউট রিকোয়েস্ট বাতিল করা হয়েছে (Withdrawal Rejected)!</b>\n\n` +
-                    `💰 <b>বাতিল করা:</b> ৳${actualRefund} BDT\n` +
+                const userRejectMsg = `<b>❌ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — উইথড্র বাতিল ও রিফান্ড</b>\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━\n` +
                     `ℹ️ <b>কারণ:</b> <i>${reason}</i>\n\n` +
-                    `আপনার ব্যালেন্সে ৳${actualRefund} BDT ফেরত দেওয়া হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।</blockquote>`;
-                bot.sendMessage(targetUser, userRejectMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                    `<blockquote>💰 <b>রিফান্ড পরিমাণ:</b> <b>৳${actualRefund} BDT</b></blockquote>\n\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `🔄 <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে ফেরত দেওয়া হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।</i>`;
+                bot.sendMessage(targetUser, userRejectMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
             }
         }
     } catch(e) { console.error('[WithdrawBot] reject user error:', e.message); }
