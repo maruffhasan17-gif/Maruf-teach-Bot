@@ -1003,7 +1003,7 @@ export default function App() {
           allJoined: Boolean(res.allJoined)
         });
         if (res.allJoined) {
-          localStorage.setItem('trustpay_verified_' + user.id, 'true');
+          // session verified in state
           setCommunitySuccess(true);
           setCommunityError('');
           if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -1023,25 +1023,25 @@ export default function App() {
   const checkCommunityJoinStatus = async (userId) => {
     try {
       if (!userId || userId === 123456789) return;
-      const cached = localStorage.getItem('trustpay_verified_' + userId);
-      if (cached === 'true') {
-        setShowCommunityModal(false);
-        return;
-      }
       const res = await checkCommunityMembership(userId);
-      if (res && res.allJoined === false) {
+      if (res && res.allJoined === true) {
         setCommunityStatus({
-          inChannel: Boolean(res.inChannel),
-          inGroup: Boolean(res.inGroup),
+          inChannel: true,
+          inGroup: true,
+          allJoined: true
+        });
+        setShowCommunityModal(false);
+      } else {
+        setCommunityStatus({
+          inChannel: Boolean(res?.inChannel),
+          inGroup: Boolean(res?.inGroup),
           allJoined: false
         });
         setShowCommunityModal(true);
-      } else if (res && res.allJoined === true) {
-        localStorage.setItem('trustpay_verified_' + userId, 'true');
-        setShowCommunityModal(false);
       }
     } catch (e) {
       console.warn("Community check error:", e);
+      setShowCommunityModal(true);
     }
   };
 
@@ -1100,7 +1100,7 @@ export default function App() {
       }
       if (res && res.allJoined) {
         setCommunitySuccess(true);
-        localStorage.setItem('trustpay_verified_' + user.id, 'true');
+        // session verified in state
         if (window.Telegram?.WebApp?.HapticFeedback) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         }
@@ -1147,7 +1147,7 @@ export default function App() {
     }
   }, []);
 
-  const manifestUrl = 'https://maruf-teach-bot.onrender.com/tonconnect-manifest.json?v=20261014v12';
+  const manifestUrl = typeof window !== 'undefined' && window.location.origin ? (window.location.origin + '/tonconnect-manifest.json?v=20261014v12') : 'https://maruf-teach-bot.onrender.com/tonconnect-manifest.json?v=20261014v12';
 
   if (appLoading) {
     return <BloomingFlowerLoader lang={lang} />;

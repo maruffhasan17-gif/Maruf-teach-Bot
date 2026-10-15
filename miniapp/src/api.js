@@ -1,12 +1,17 @@
 import axios from 'axios';
 import WebApp from '@twa-dev/sdk';
 
-const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('192.168');
-const API_URL = isLocal ? `${window.location.protocol}//${window.location.hostname}:3000` : 'https://maruf-teach-bot.onrender.com';
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname.includes('192.168') || window.location.hostname.includes('127.0.0.1'));
+const API_URL = isLocal 
+    ? `${window.location.protocol}//${window.location.hostname}:3000` 
+    : (typeof window !== 'undefined' && window.location.origin && window.location.origin.startsWith('http') ? window.location.origin : 'https://maruf-teach-bot.onrender.com');
+
+// Default axios config with timeout to prevent hanging on mobile networks
+axios.defaults.timeout = 12000;
 
 export const fetchUserData = async (userId) => {
     try {
-        const res = await axios.get(`${API_URL}/api/miniapp/user/${userId}`);
+        const res = await axios.get(`${API_URL}/api/miniapp/user/${userId}?_t=${Date.now()}`);
         return res.data;
     } catch (e) {
         console.error(e);
@@ -100,7 +105,7 @@ export const submitSupportMessage = async (payload) => {
 
 export const fetchMarketRates = async () => {
     try {
-        const res = await axios.get(`${API_URL}/api/miniapp/rates`);
+        const res = await axios.get(`${API_URL}/api/miniapp/rates?_t=${Date.now()}`, { timeout: 7000 });
         return res.data;
     } catch (e) {
         console.error("fetchMarketRates error:", e);
@@ -111,28 +116,24 @@ export const fetchMarketRates = async () => {
 export const checkCommunityMembership = async (userId) => {
     try {
         const res = await axios.get(`${API_URL}/api/miniapp/check-membership`, {
-            params: { userId },
-            timeout: 6000
+            params: { userId, _t: Date.now() },
+            timeout: 7000
         });
         return res.data;
     } catch (e) {
         console.warn("checkCommunityMembership error:", e);
-        return { allJoined: true, inChannel: true, inGroup: true };
+        return { allJoined: false, inChannel: false, inGroup: false };
     }
 };
 
 export const verifyCommunityMembership = async (userId) => {
     try {
         const res = await axios.post(`${API_URL}/api/miniapp/verify-membership`, { userId }, {
-            timeout: 8000
+            timeout: 9000
         });
         return res.data;
     } catch (e) {
         console.warn("verifyCommunityMembership error:", e);
-        return { success: true, allJoined: true };
+        return { success: false, allJoined: false, inChannel: false, inGroup: false, error: e.response?.data?.error || e.message };
     }
 };
-
-
-
-

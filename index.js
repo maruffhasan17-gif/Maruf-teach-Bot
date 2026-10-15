@@ -24,6 +24,9 @@ const inMemoryVerifiedTrx = new Map();
 const inMemoryMockTrxs = [];
 let statsCache = { data: null, timestamp: 0 };
 let ordersCache = { data: null, timestamp: 0 };
+function invalidateOrdersCache() {
+    ordersCache = { data: null, timestamp: 0 };
+}
 
 async function getVerifiedTrxRecord(trxId) {
     if (!trxId) return null;
@@ -198,24 +201,20 @@ async function checkUserCommunities(userId) {
         const c1 = await bot.getChatMember(OFFICIAL_CHANNEL, userId);
         inChannel = valid.includes(c1?.status);
     } catch (e) {
-        console.warn('Channel check warning:', e.message);
-        if (!e.message.includes('PARTICIPANT_ID_INVALID') && !e.message.includes('USER_NOT_PARTICIPANT') && !e.message.includes('chat not found')) {
-            inChannel = true;
-        }
+        console.warn('Channel check warning (@maruf_teach):', e.message);
+        inChannel = false;
     }
     try {
         const c2 = await bot.getChatMember(PAYOUT_GROUP, userId);
         inGroup = valid.includes(c2?.status);
     } catch (e) {
-        console.warn('Group check warning:', e.message);
-        if (!e.message.includes('PARTICIPANT_ID_INVALID') && !e.message.includes('USER_NOT_PARTICIPANT') && !e.message.includes('chat not found')) {
-            inGroup = true;
-        }
+        console.warn('Group check warning (@bd_trust_pay_payout):', e.message);
+        inGroup = false;
     }
     return {
         inChannel,
         inGroup,
-        allJoined: inChannel && inGroup
+        allJoined: Boolean(inChannel && inGroup)
     };
 }
 
@@ -350,7 +349,10 @@ async function sendTonOnChain(destination, amount) {
                 to: destination,
                 value: amountNano,
                 bounce: false,
-                body: "Crypto Buy payout from Trust Pay Bot"
+                body: (function() {
+                    const { beginCell } = require('@ton/core');
+                    return beginCell().storeUint(0, 32).storeStringTail("TrustPay").endCell();
+                })()
             })
         ]
     });
@@ -430,15 +432,21 @@ async function sendJettonUsdtOnChain(destination, amount) {
 
     const amountInMicro = Math.floor(reqUsdt * 1e6); // 6 decimals for USDT
 
+    const commentCell = beginCell()
+        .storeUint(0, 32)
+        .storeStringTail("TrustPay")
+        .endCell();
+
     const jettonBody = beginCell()
         .storeUint(0xf8a7ea5, 32)
         .storeUint(0, 64)
         .storeCoins(amountInMicro)
         .storeAddress(Address.parse(destination))
         .storeAddress(Address.parse(walletAddrStr))
-        .storeBit(0)
-        .storeCoins(1)
-        .storeBit(0)
+        .storeBit(0) // custom payload
+        .storeCoins(1) // forward_ton_amount
+        .storeBit(1) // forward_payload in ref
+        .storeRef(commentCell)
         .endCell();
 
     const transfer = wallet.createTransfer({
@@ -1337,9 +1345,9 @@ app.get('/api/miniapp/check-membership', async (req, res) => {
         const userId = parseInt(rawUserId);
         if (!userId || userId === 123456789 || isNaN(userId)) {
             return res.json({ 
-                allJoined: true, 
-                inChannel: true, 
-                inGroup: true, 
+                allJoined: false, 
+                inChannel: false, 
+                inGroup: false, 
                 channelLink: OFFICIAL_CHANNEL_URL, 
                 groupLink: PAYOUT_GROUP_URL 
             });
@@ -1353,9 +1361,9 @@ app.get('/api/miniapp/check-membership', async (req, res) => {
     } catch (e) {
         console.warn('check-membership error:', e.message);
         res.json({ 
-            allJoined: true, 
-            inChannel: true, 
-            inGroup: true, 
+            allJoined: false, 
+            inChannel: false, 
+            inGroup: false, 
             channelLink: OFFICIAL_CHANNEL_URL, 
             groupLink: PAYOUT_GROUP_URL 
         });
@@ -2205,12 +2213,16 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         });
 
         // 4. BROADCAST ON-CHAIN TRANSACTION!
+        // Deduct gas fee from cryptoAmount (0.005 for TON/GRAM, 0.03 for USDT)
+        const gasFee = (asset === 'USDT') ? 0.03 : 0.005;
+        const netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - gasFee).toFixed(6)));
+
         let txResult = null;
         try {
             if (isTonAsset) {
-                txResult = await sendTonOnChain(receiveAddress, cryptoAmount);
+                txResult = await sendTonOnChain(receiveAddress, netCryptoAmount);
             } else if (asset === 'USDT') {
-                txResult = await sendJettonUsdtOnChain(receiveAddress, cryptoAmount);
+                txResult = await sendJettonUsdtOnChain(receiveAddress, netCryptoAmount);
             } else {
                 throw new Error(`Unsupported crypto asset: ${asset}`);
             }
@@ -2489,6 +2501,7 @@ app.get('/api/admin/orders', async (req, res) => {
                     withdrawId: doc.id,
                     userId: data.userId,
                     firstName: data.name || 'User',
+                    status: data.status || 'pending',
                     ...data,
                     fiatWithdrawPending: data
                 });
@@ -2532,16 +2545,19 @@ app.post('/api/admin/approve-buy', async (req, res) => {
         }
 
         let txResult = null;
+        const gasFee = (order.asset === 'USDT') ? 0.03 : 0.005;
+        const netCryptoAmount = Math.max(0.0001, parseFloat(((order.amount || 0) - gasFee).toFixed(6)));
+
         if (order.asset === 'TON' || order.asset === 'GRAM') {
             try {
-                txResult = await sendTonOnChain(order.receiveAddress, order.amount);
+                txResult = await sendTonOnChain(order.receiveAddress, netCryptoAmount);
             } catch(txErr) {
                 console.error("On-chain transfer failed:", txErr);
                 return res.status(500).json({ error: `On-chain transfer failed: ${txErr.message}` });
             }
         } else if (order.asset === 'USDT') {
             try {
-                txResult = await sendJettonUsdtOnChain(order.receiveAddress, order.amount);
+                txResult = await sendJettonUsdtOnChain(order.receiveAddress, netCryptoAmount);
             } catch(txErr) {
                 console.error("On-chain USDT transfer failed:", txErr);
                 return res.status(500).json({ error: `On-chain USDT transfer failed: ${txErr.message}` });
@@ -2779,6 +2795,7 @@ app.post('/api/admin/reject-withdraw', async (req, res) => {
             } catch(e) {}
         }
         
+        invalidateOrdersCache();
         res.json({ success: true, message: `Withdrawal rejected and ৳${refundAmt} refunded to user.` });
     } catch(e) {
         console.error("Reject withdraw error:", e);
@@ -3702,6 +3719,7 @@ if (withdrawBot) {
 
             // Process approval in Firestore, notify user and payout channel
             await doApproveWithdraw(docId, userId);
+            invalidateOrdersCache();
 
             // Automatically send the next pending withdrawal!
             await sendNextWithdrawal(chatId, 0);
@@ -3724,6 +3742,7 @@ if (withdrawBot) {
 
             // Process refund in Firestore and notify user
             await doRejectWithdraw(docId, userId, refundAmt);
+            invalidateOrdersCache();
 
             // Automatically send the next pending withdrawal!
             await sendNextWithdrawal(chatId, 0);
