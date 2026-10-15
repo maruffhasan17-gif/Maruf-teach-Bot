@@ -2476,16 +2476,16 @@ function parsePaymentSms(msg, rawSender) {
 
 async function handleIncomingSmsWebhook(req, res) {
     try {
-        db.collection('debug_logs').add({
-            method: req.method,
-            body: req.body || {},
-            query: req.query || {},
-            headers: {
-                'user-agent': req.headers['user-agent'],
-                'content-type': req.headers['content-type']
-            },
-            timestamp: FieldValue.serverTimestamp()
-        }).catch(e => console.warn("debug_logs add error:", e.message));
+        try {
+            db.collection('debug_logs').add({
+                method: req.method || 'UNKNOWN',
+                body: JSON.parse(JSON.stringify(req.body || {})),
+                query: JSON.parse(JSON.stringify(req.query || {})),
+                userAgent: req.headers['user-agent'] || '',
+                contentType: req.headers['content-type'] || '',
+                timestamp: FieldValue.serverTimestamp()
+            }).catch(e => console.warn("debug_logs add error:", e.message));
+        } catch (_) {}
 
         let rawMessage = req.body?.message || 
                          req.body?.text || 
