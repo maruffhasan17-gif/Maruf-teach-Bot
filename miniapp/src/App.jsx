@@ -245,20 +245,20 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
     >
       <style>{`
         @-webkit-keyframes tpFlowerSpin {
-          0% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
-          100% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+          0% { -webkit-transform: rotate(0.05deg); transform: rotate(0.05deg); }
+          100% { -webkit-transform: rotate(360.05deg); transform: rotate(360.05deg); }
         }
         @keyframes tpFlowerSpin {
-          0% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
-          100% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
+          0% { -webkit-transform: rotate(0.05deg); transform: rotate(0.05deg); }
+          100% { -webkit-transform: rotate(360.05deg); transform: rotate(360.05deg); }
         }
         @-webkit-keyframes tpFlowerSpinReverse {
-          0% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
-          100% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
+          0% { -webkit-transform: rotate(360.05deg); transform: rotate(360.05deg); }
+          100% { -webkit-transform: rotate(0.05deg); transform: rotate(0.05deg); }
         }
         @keyframes tpFlowerSpinReverse {
-          0% { -webkit-transform: rotate(360deg); transform: rotate(360deg); }
-          100% { -webkit-transform: rotate(0deg); transform: rotate(0deg); }
+          0% { -webkit-transform: rotate(360.05deg); transform: rotate(360.05deg); }
+          100% { -webkit-transform: rotate(0.05deg); transform: rotate(0.05deg); }
         }
         @keyframes tpGlowPulse {
           0%, 100% { transform: scale(0.92); opacity: 0.6; }
@@ -299,7 +299,6 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
           willChange: 'transform',
           WebkitBackfaceVisibility: 'hidden',
           backfaceVisibility: 'hidden',
-          transform: 'translateZ(0)',
           pointerEvents: 'none'
         }}
       >
@@ -313,17 +312,27 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
           fill="none" 
           xmlns="http://www.w3.org/2000/svg"
         >
-          {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
-            <g key={i} transform={`rotate(${angle} 100 100)`}>
-              <path 
-                d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" 
-                fill="rgba(99,102,241,0.18)" 
-                stroke="rgba(99,102,241,0.6)" 
-                strokeWidth="1.2"
-              />
-              <circle cx="100" cy="18" r="2.5" fill="#6366f1" />
-            </g>
-          ))}
+          <g>
+            <animateTransform 
+              attributeName="transform" 
+              type="rotate" 
+              from="0 100 100" 
+              to="360 100 100" 
+              dur="16s" 
+              repeatCount="indefinite" 
+            />
+            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
+              <g key={i} transform={`rotate(${angle} 100 100)`}>
+                <path 
+                  d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" 
+                  fill="rgba(99,102,241,0.18)" 
+                  stroke="rgba(99,102,241,0.6)" 
+                  strokeWidth="1.2"
+                />
+                <circle cx="100" cy="18" r="2.5" fill="#6366f1" />
+              </g>
+            ))}
+          </g>
         </svg>
       </div>
 
@@ -343,7 +352,6 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
           willChange: 'transform',
           WebkitBackfaceVisibility: 'hidden',
           backfaceVisibility: 'hidden',
-          transform: 'translateZ(0)',
           pointerEvents: 'none'
         }}
       >
@@ -357,16 +365,26 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
           fill="none" 
           xmlns="http://www.w3.org/2000/svg"
         >
-          {[0, 60, 120, 180, 240, 300].map((angle, i) => (
-            <g key={i} transform={`rotate(${angle} 50 50)`}>
-              <path 
-                d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
-                fill="rgba(168,85,247,0.22)" 
-                stroke="rgba(147,51,234,0.6)" 
-                strokeWidth="1"
-              />
-            </g>
-          ))}
+          <g>
+            <animateTransform 
+              attributeName="transform" 
+              type="rotate" 
+              from="360 50 50" 
+              to="0 50 50" 
+              dur="11s" 
+              repeatCount="indefinite" 
+            />
+            {[0, 60, 120, 180, 240, 300].map((angle, i) => (
+              <g key={i} transform={`rotate(${angle} 50 50)`}>
+                <path 
+                  d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
+                  fill="rgba(168,85,247,0.22)" 
+                  stroke="rgba(147,51,234,0.6)" 
+                  strokeWidth="1"
+                />
+              </g>
+            ))}
+          </g>
         </svg>
       </div>
 
