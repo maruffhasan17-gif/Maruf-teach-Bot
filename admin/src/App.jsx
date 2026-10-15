@@ -83,7 +83,10 @@ function useBotData() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(() => fetchData(false), 5000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchData(false);
+    }, 25000);
     return () => clearInterval(interval);
   }, []);
 
@@ -116,7 +119,10 @@ function useOrdersData() {
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(() => fetchOrders(false), 6000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchOrders(false);
+    }, 25000);
     return () => clearInterval(interval);
   }, []);
 
