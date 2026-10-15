@@ -91,8 +91,9 @@ let botConfig = {
 // Helper: Post live payout confirmation to public Payout Group / Channel (Matches Image 2)
 const notifyPayoutGroup = async (payoutData) => {
     try {
-        const payoutChatId = (botConfig.payoutGroupId && botConfig.payoutGroupId !== '@bd_trustpay_payout' && botConfig.payoutGroupId !== '-1004483837390') ? botConfig.payoutGroupId : '@bd_trust_pay_payout';
-        if (!payoutChatId || !bot) return;
+        const primaryTarget = (botConfig.payoutGroupId && botConfig.payoutGroupId !== '@bd_trustpay_payout' && botConfig.payoutGroupId !== '-1004483837390') ? botConfig.payoutGroupId : '-1004405147138';
+        const fallbackTarget = '-1004405147138';
+        if (!bot) return;
 
         const maskId = (id) => {
             const s = String(id || '');
@@ -106,12 +107,21 @@ const notifyPayoutGroup = async (payoutData) => {
             return s.slice(0, 4) + '***' + s.slice(-3);
         };
 
+        const escapeHtml = (str) => {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        };
+
         const nowStr = new Date().toLocaleTimeString('en-US', { 
             timeZone: 'Asia/Dhaka', 
             hour: '2-digit', 
             minute: '2-digit', 
             hour12: true 
         });
+
+        const safeCustomerName = escapeHtml(payoutData.name || 'Verified User');
 
         let msg = '';
         if (payoutData.type === 'fiat') {
@@ -122,7 +132,7 @@ const notifyPayoutGroup = async (payoutData) => {
             msg = `<b>⚡ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — 𝗣𝗔𝗬𝗢𝗨𝗧 𝗣𝗥𝗢𝗢𝗙</b>\n` +
                   `━━━━━━━━━━━━━━━━━━━━━━\n` +
                   `✅ <b>Status:</b> <code>Paid Successfully</code> 💸\n` +
-                  `👤 <b>Customer:</b> <b>${payoutData.name || 'Verified User'}</b> (<code>${maskId(payoutData.userId)}</code>)\n` +
+                  `👤 <b>Customer:</b> <b>${safeCustomerName}</b> (<code>${maskId(payoutData.userId)}</code>)\n` +
                   `🏦 <b>Payment Method:</b> <b>${method}</b> (<code>${maskNumber(payoutData.number)}</code>)\n\n` +
                   `<blockquote>💵 <b>Withdraw Amount:</b> ৳${amt} BDT\n` +
                   `📦 <b>Net Received:</b> <b>৳${rec} BDT</b></blockquote>\n\n` +
@@ -135,7 +145,7 @@ const notifyPayoutGroup = async (payoutData) => {
             msg = `<b>⚡ 𝗧𝗥𝗨𝗦𝗧 𝗣𝗔𝗬 — 𝗣𝗔𝗬𝗢𝗨𝗧 𝗣𝗥𝗢𝗢𝗙</b>\n` +
                   `━━━━━━━━━━━━━━━━━━━━━━\n` +
                   `✅ <b>Status:</b> <code>On-Chain Transferred</code> 💎\n` +
-                  `👤 <b>Customer:</b> <b>${payoutData.name || 'Verified User'}</b> (<code>${maskId(payoutData.userId)}</code>)\n` +
+                  `👤 <b>Customer:</b> <b>${safeCustomerName}</b> (<code>${maskId(payoutData.userId)}</code>)\n` +
                   `🏷 <b>Wallet Address:</b> <code>${payoutData.destination || ''}</code>\n\n` +
                   `<blockquote>💰 <b>Crypto Amount:</b> ${payoutData.amount} ${asset}\n` +
                   `📦 <b>Delivered:</b> <b>${payoutData.receiveAmount || payoutData.amount} ${asset}</b></blockquote>\n\n` +
@@ -145,10 +155,22 @@ const notifyPayoutGroup = async (payoutData) => {
                   `#TrustPay #CryptoPayout #${asset}`;
         }
 
-        await bot.sendMessage(payoutChatId, msg, { parse_mode: 'HTML', disable_web_page_preview: true });
-        console.log("Posted public payout proof to", payoutChatId);
+        try {
+            await bot.sendMessage(primaryTarget, msg, { parse_mode: 'HTML', disable_web_page_preview: true });
+            console.log("Posted public payout proof to primary target:", primaryTarget);
+        } catch(primaryErr) {
+            console.warn(`Failed to post to primary target ${primaryTarget}:`, primaryErr.message);
+            if (primaryTarget !== fallbackTarget) {
+                try {
+                    await bot.sendMessage(fallbackTarget, msg, { parse_mode: 'HTML', disable_web_page_preview: true });
+                    console.log("Posted public payout proof to fallback target:", fallbackTarget);
+                } catch(fallbackErr) {
+                    console.error("Failed to post to fallback target:", fallbackErr.message);
+                }
+            }
+        }
     } catch(err) {
-        console.error("Failed to post to payoutGroupId:", err.message);
+        console.error("Failed in notifyPayoutGroup:", err.message);
     }
 };
 async function loadConfig() {
@@ -1052,10 +1074,15 @@ bot.on('message', async (msg) => {
             }
 
             // --- C) FIAT WITHDRAWAL LOGIC ---
-            if (caption.includes("New Fiat Withdrawal") || caption.includes("নতুন উইথড্র রিকোয়েস্ট") || caption.includes("Withdraw Request")) {
+            if (caption.includes("New Fiat Withdrawal") || 
+                caption.includes("নতুন উইথড্র রিকোয়েস্ট") || 
+                caption.includes("Withdraw Request") || 
+                caption.includes("ক্যাশআউট রিকোয়েস্ট") || 
+                caption.includes("ক্যাশআউট") ||
+                caption.includes("উইথড্র")) {
                 let targetUserId = null;
                 const idMatch = caption.match(/\((\d{6,})\)/) ||
-                                caption.match(/(?:User\s*ID|ID|ইউজার|User):\s*(?:<code>)?(\d+)(?:<\/code>)?/i) ||
+                                caption.match(/(?:User\s*ID|ID|ইউজার|User|গ্রাহক):\s*(?:<b>|<code>)?(\d+)(?:<\/b>|<\/code>)?/i) ||
                                 caption.match(/tg:\/\/user\?id=(\d+)/i) ||
                                 caption.match(/<code>(\d{6,})<\/code>/i);
                 
@@ -1065,7 +1092,7 @@ bot.on('message', async (msg) => {
 
                 // Fallback: If targetUserId not found directly, look up by serial number
                 if (!targetUserId) {
-                    const serialMatch = caption.match(/(?:সিরিয়াল নং|Serial|#):\s*#?(\d+)/i);
+                    const serialMatch = caption.match(/(?:সিরিয়াল নং|সিরিয়াল নং|Serial|সিরিয়াল|সিরিয়াল|#):\s*#?(\d+)/i);
                     if (serialMatch && serialMatch[1]) {
                         try {
                             const wDocs = await db.collection('fiat_withdrawals').where('serial', '==', parseInt(serialMatch[1])).get();
@@ -1597,7 +1624,10 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             balance: data.balance || 0,
             fiatWallet: data.fiatWallet || null,
             fiatWithdrawPending: pendingWithdraw,
-            mbsId: mbsId
+            mbsId: mbsId,
+            hasDepositWithoutTrade: Boolean(data.hasDepositWithoutTrade),
+            hasSellBalance: Boolean(data.hasSellBalance),
+            spentSinceLastDeposit: data.spentSinceLastDeposit || 0
         });
     } catch(e) {
         console.error(e);
@@ -1747,9 +1777,16 @@ app.post('/api/miniapp/sell', async (req, res) => {
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
         if (userDoc.exists) {
-            await userRef.update({ balance: FieldValue.increment(numEstimatedTk) });
+            await userRef.update({ 
+                balance: FieldValue.increment(numEstimatedTk),
+                hasSellBalance: true
+            });
         } else {
-            await userRef.set({ balance: numEstimatedTk, joinedAt: FieldValue.serverTimestamp() }, { merge: true });
+            await userRef.set({ 
+                balance: numEstimatedTk, 
+                joinedAt: FieldValue.serverTimestamp(),
+                hasSellBalance: true
+            }, { merge: true });
         }
 
         const updatedDoc = await userRef.get();
@@ -1986,6 +2023,27 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
 
         if (!userData.fiatWallet || !userData.fiatWallet.number) {
             throw new Error("Please set your withdrawal wallet number first");
+        }
+
+        // Anti-Abuse Withdrawal System (Add Money vs Sell Crypto)
+        const isDepositUser = (userData.hasDepositWithoutTrade === true) || 
+                              (userData.hasDepositWithoutTrade === undefined && !userData.hasSellBalance);
+
+        // Minimum withdrawal: 30 TK for deposit users, 20 TK for crypto sellers
+        const minWithdrawAmount = isDepositUser ? 30 : 20;
+        if (amount < minWithdrawAmount) {
+            throw new Error(isDepositUser 
+                ? "অ্যাড মানি ব্যবহারকারীদের জন্য নূন্যতম উইথড্র ৩০ টাকা।" 
+                : "নূন্যতম উত্তোলন ২০ টাকা");
+        }
+
+        // Trade requirement: Deposit users must spend at least 20 TK on buying crypto
+        if (isDepositUser) {
+            const spentAmount = userData.spentSinceLastDeposit || 0;
+            if (spentAmount < 20) {
+                const remaining = (20 - spentAmount).toFixed(0);
+                throw new Error(`অ্যাড মানি করার পর সাথে সাথে ক্যাশআউট করা যাবে না। নূন্যতম ২০ টাকার ক্রিপ্টো ক্রয়/ট্রেড করতে হবে (বাকি আছে ৳${remaining} টাকা)।`);
+            }
         }
 
         // Check daily limit
@@ -2251,7 +2309,10 @@ app.post('/api/miniapp/add-money', async (req, res) => {
 
         const userRef = db.collection('users').doc(userId.toString());
         await userRef.set({
-            balance: FieldValue.increment(amount)
+            balance: FieldValue.increment(amount),
+            hasDepositWithoutTrade: true,
+            spentSinceLastDeposit: 0,
+            lastDepositAt: Date.now()
         }, { merge: true });
 
         // Record completed deposit in database
@@ -2407,9 +2468,16 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         }
 
         // 3. ADMIN WALLET HAS VERIFIED FUNDS: NOW DEDUCT USER BDT BALANCE
-        await userRef.update({
-            balance: FieldValue.increment(-bdtAmount)
-        });
+        const prevSpent = userDoc.data()?.spentSinceLastDeposit || 0;
+        const newSpent = prevSpent + bdtAmount;
+        const buyUpdates = {
+            balance: FieldValue.increment(-bdtAmount),
+            spentSinceLastDeposit: FieldValue.increment(bdtAmount)
+        };
+        if (newSpent >= 20) {
+            buyUpdates.hasDepositWithoutTrade = false;
+        }
+        await userRef.update(buyUpdates);
 
         // 4. BROADCAST ON-CHAIN TRANSACTION!
         // Deduct gas fee from cryptoAmount (0.005 for TON/GRAM, 0.03 for USDT)
@@ -2428,7 +2496,9 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         } catch (txErr) {
             // ON-CHAIN BROADCAST FAILED: IMMEDIATELY ROLLBACK & REFUND BDT!
             await userRef.update({
-                balance: FieldValue.increment(bdtAmount)
+                balance: FieldValue.increment(bdtAmount),
+                spentSinceLastDeposit: FieldValue.increment(-bdtAmount),
+                hasDepositWithoutTrade: userDoc.data()?.hasDepositWithoutTrade ?? true
             });
             console.error("Buy crypto on-chain transfer failed:", txErr.message);
             return res.status(500).json({ 
@@ -2546,7 +2616,10 @@ app.post('/api/miniapp/buy', async (req, res) => {
         // Credit to balance!
         const userRef = db.collection('users').doc(userId.toString());
         await userRef.set({
-            balance: FieldValue.increment(totalBdt)
+            balance: FieldValue.increment(totalBdt),
+            hasDepositWithoutTrade: true,
+            spentSinceLastDeposit: 0,
+            lastDepositAt: Date.now()
         }, { merge: true });
 
         await db.collection('miniapp_buys').doc(trxId).set({

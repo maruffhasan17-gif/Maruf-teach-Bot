@@ -1024,6 +1024,11 @@ export default function App() {
   const [mbsId, setMbsId] = useState(null);
   const [user, setUser] = useState({ id: 0, first_name: 'User', username: '' });
   const [balance, setBalance] = useState(0);
+  const [antiAbuseData, setAntiAbuseData] = useState({
+    hasDepositWithoutTrade: false,
+    hasSellBalance: false,
+    spentSinceLastDeposit: 0
+  });
 
   // Community Join Verification Modal State
   const [showCommunityModal, setShowCommunityModal] = useState(false);
@@ -1041,6 +1046,11 @@ export default function App() {
         setFiatWallet(data.fiatWallet || null);
         setFiatWithdrawPending(data.fiatWithdrawPending || null);
         if (data.mbsId) setMbsId(data.mbsId);
+        setAntiAbuseData({
+          hasDepositWithoutTrade: Boolean(data.hasDepositWithoutTrade),
+          hasSellBalance: Boolean(data.hasSellBalance),
+          spentSinceLastDeposit: parseFloat(data.spentSinceLastDeposit) || 0
+        });
       }
     } catch (e) {
       console.warn("loadData error:", e);
@@ -1323,6 +1333,7 @@ export default function App() {
                   fiatWallet={fiatWallet} 
                   setFiatWallet={setFiatWallet}
                   fiatWithdrawPending={fiatWithdrawPending} 
+                  antiAbuseData={antiAbuseData}
                   setIsModalOpen={setIsModalOpen}
                   onBack={() => setActiveTab('profile')} 
                   reloadData={() => loadData(user?.id || 123456789)} 
@@ -4134,7 +4145,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
 
 
 
-function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWallet, fiatWithdrawPending, setIsModalOpen, onBack, reloadData }) {
+function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWallet, fiatWithdrawPending, antiAbuseData = {}, setIsModalOpen, onBack, reloadData }) {
     const [amount, setAmount] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState('');
@@ -4145,6 +4156,10 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
     const [editNumber, setEditNumber] = useState('');
     const [editName, setEditName] = useState('');
     const [isSavingWallet, setIsSavingWallet] = useState(false);
+
+    const isDepositUser = Boolean(antiAbuseData?.hasDepositWithoutTrade);
+    const spentSinceLastDeposit = parseFloat(antiAbuseData?.spentSinceLastDeposit) || 0;
+    const minAmount = isDepositUser ? 30 : 20;
 
     useEffect(() => {
         if (setIsModalOpen) {
@@ -4201,10 +4216,23 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             const msg = lang === 'bn' ? "সঠিক পরিমাণ লিখুন" : "Invalid amount";
             return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
         }
-        if (amt < 20) {
-            const msg = lang === 'bn' ? "নূন্যতম উত্তোলন ২০ টাকা" : "Minimum withdraw amount is 20 BDT";
+
+        // Anti-Abuse: Deposit users must spend at least 20 TK on crypto before withdrawing
+        if (isDepositUser && spentSinceLastDeposit < 20) {
+            const remaining = (20 - spentSinceLastDeposit).toFixed(0);
+            const msg = lang === 'bn' 
+                ? `অ্যাড মানি করার পর সাথে সাথে ক্যাশআউট করা যাবে না। নূন্যতম ২০ টাকার ক্রিপ্টো ক্রয়/ট্রেড করতে হবে (বাকি আছে ৳${remaining} টাকা)।` 
+                : `After adding money, you must purchase at least 20 BDT crypto before withdrawing (Remaining: ৳${remaining} BDT).`;
             return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
         }
+
+        if (amt < minAmount) {
+            const msg = isDepositUser
+                ? (lang === 'bn' ? "অ্যাড মানি ব্যবহারকারীদের জন্য নূন্যতম উইথড্র ৩০ টাকা" : "Minimum withdraw amount is 30 BDT for deposited funds")
+                : (lang === 'bn' ? "নূন্যতম উত্তোলন ২০ টাকা" : "Minimum withdraw amount is 20 BDT");
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+        }
+
         if (amt > balance) {
             const msg = lang === 'bn' ? "অপর্যাপ্ত ব্যালেন্স" : "Insufficient balance";
             return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
@@ -4287,11 +4315,26 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                 </div>
             )}
 
+            {/* Anti-Abuse Notification Banner for Deposit Users */}
+            {isDepositUser && spentSinceLastDeposit < 20 && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-xs">
+                    <span className="text-base leading-none">⚠️</span>
+                    <div className="space-y-0.5">
+                        <p className="font-bold">{lang === 'bn' ? 'উইথড্র নিরাপত্তা নীতি (Policy)' : 'Withdrawal Policy'}</p>
+                        <p className="opacity-90 leading-relaxed">
+                            {lang === 'bn' 
+                                ? `অ্যাড মানি করার পর উইথড্র চালু করতে নূন্যতম ২০ টাকার ক্রিপ্টো ক্রয় সম্পন্ন করুন। খরচ বাকি: ৳${Math.max(0, 20 - spentSinceLastDeposit)} টাকা।` 
+                                : `Please purchase at least 20 BDT crypto to unlock withdrawals. Remaining: ৳${Math.max(0, 20 - spentSinceLastDeposit)} BDT.`}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Amount Input Card */}
             <CutCornerCard className="p-3.5 space-y-2.5" flower={<WithdrawLilyPattern />}>
                 <label className="flex justify-between items-center mb-2">
                     <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">
-                        {lang === 'bn' ? 'উত্তোলনের পরিমাণ (BDT)' : 'Amount (BDT)'}
+                        {lang === 'bn' ? `উত্তোলনের পরিমাণ (${isDepositUser ? 'মিনিমাম ৩০' : 'মিনিমাম ২০'} BDT)` : `Amount (Min ${minAmount} BDT)`}
                     </span>
                     <span className="text-[12px] font-bold text-[var(--color-text-primary)]">
                         {lang === 'bn' ? `ব্যালেন্স: ৳${balance.toFixed(2)}` : `Bal: ৳${balance.toFixed(2)}`}
@@ -4303,7 +4346,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                         type="number" 
                         value={amount} 
                         onChange={(e) => setAmount(e.target.value)} 
-                        placeholder="0.00" 
+                        placeholder={isDepositUser ? "Min 30.00" : "Min 20.00"} 
                         className="w-full h-[50px] bg-gray-50 border border-gray-100 rounded-xl pl-8 pr-16 font-black text-xl text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--color-brand)]/10 transition-all placeholder:text-gray-300"
                     />
                     <button onClick={handleMax} className="absolute right-2.5 px-2.5 py-1 bg-[var(--color-brand)]/10 text-[var(--color-brand)] font-bold text-[11px] rounded-lg active:scale-95 transition-transform">MAX</button>
@@ -4363,7 +4406,9 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             <div className="bg-blue-50/60 border border-blue-100/70 p-3 rounded-xl flex items-center gap-2.5">
                 <Info size={16} className="text-blue-500 shrink-0" />
                 <p className="text-[11px] text-blue-700 font-medium leading-tight">
-                    {t?.withdrawNote || 'উইথড্র রিকোয়েস্ট সাধারণত ১ থেকে ২ ঘণ্টার মধ্যে এবং সর্বোচ্চ ২৪ ঘণ্টার মধ্যে সম্পন্ন হয়।'}
+                    {lang === 'bn' 
+                        ? 'নূন্যতম উত্তোলন: ক্রিপ্টো বিক্রয় ২০ টাকা | অ্যাড মানি ৩০ টাকা। অ্যাড মানি করার পর ২০ টাকার ক্রিপ্টো ক্রয় করতে হবে।' 
+                        : 'Min Withdraw: Crypto Sell 20 BDT | Deposit 30 BDT. Must trade 20 BDT crypto after deposit.'}
                 </p>
             </div>
 
