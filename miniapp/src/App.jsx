@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut } from 'lucide-react';
+import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -940,18 +940,73 @@ export default function App() {
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   useEffect(() => {
-    const handleFocus = (e) => {
-      if (e.target.tagName === 'INPUT') {
-        setIsKeyboardVisible(true);
-        setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+    let initialHeight = window.innerHeight;
+
+    const checkViewport = () => {
+      if (window.visualViewport) {
+        const heightDiff = window.innerHeight - window.visualViewport.height;
+        if (heightDiff > 140) {
+          setIsKeyboardVisible(true);
+        } else {
+          setIsKeyboardVisible(false);
+        }
+      } else {
+        const heightDiff = initialHeight - window.innerHeight;
+        if (heightDiff > 140) {
+          setIsKeyboardVisible(true);
+        } else {
+          setIsKeyboardVisible(false);
+        }
       }
     };
-    const handleBlur = (e) => {
-      if (e.target.tagName === 'INPUT') setIsKeyboardVisible(false);
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', checkViewport);
+    }
+    window.addEventListener('resize', checkViewport);
+
+    if (window.Telegram?.WebApp?.onEvent) {
+      try {
+        window.Telegram.WebApp.onEvent('viewportChanged', checkViewport);
+      } catch (_) {}
+    }
+
+    const handleFocus = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        setIsKeyboardVisible(true);
+        setTimeout(() => {
+          e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 250);
+      }
     };
+
+    const handleBlur = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        setTimeout(() => {
+          const activeEl = document.activeElement;
+          const isInputStillActive = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+          if (!isInputStillActive) {
+            setIsKeyboardVisible(false);
+          } else {
+            checkViewport();
+          }
+        }, 150);
+      }
+    };
+
     window.addEventListener('focusin', handleFocus);
     window.addEventListener('focusout', handleBlur);
+
     return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', checkViewport);
+      }
+      window.removeEventListener('resize', checkViewport);
+      if (window.Telegram?.WebApp?.offEvent) {
+        try {
+          window.Telegram.WebApp.offEvent('viewportChanged', checkViewport);
+        } catch (_) {}
+      }
       window.removeEventListener('focusin', handleFocus);
       window.removeEventListener('focusout', handleBlur);
     };
@@ -1280,7 +1335,7 @@ export default function App() {
             const navTabs = ['home', 'add-money', 'sell', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
-            <div className="fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none">
+            <div className={`fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none transition-all duration-300 ${isKeyboardVisible ? 'opacity-0 translate-y-32 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
                 <div className="w-full max-w-[380px] bg-white/95 backdrop-blur-2xl rounded-[28px] relative flex justify-between items-center p-1.5 shadow-[0_12px_36px_rgba(15,23,42,0.08)] border border-slate-200/80 pointer-events-auto overflow-hidden">
                     
                     {/* Delicate floral line art in navigation bar corner */}
@@ -3797,6 +3852,35 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
                </div>
             </div>
             <ChevronRight size={15} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+         </div>
+
+         <div className="h-px bg-slate-100 w-full" />
+
+         {/* How to Buy & Sell Video Guide Row */}
+         <div 
+            onClick={() => {
+               if (window.Telegram?.WebApp?.openLink) {
+                  window.Telegram.WebApp.openLink('https://youtu.be/HAn23QoYi34');
+               } else {
+                  window.open('https://youtu.be/HAn23QoYi34', '_blank');
+               }
+            }} 
+            className="p-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+         >
+            <div className="flex items-center gap-3">
+               <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 group-hover:scale-105 transition-transform shrink-0 border border-rose-100">
+                  <PlayCircle size={16} />
+               </div>
+               <div>
+                  <span className="font-bold text-slate-900 block text-[12px] leading-tight">
+                     {lang === 'bn' ? 'কীভাবে বাই-সেল করবেন' : 'How to Buy & Sell'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                     {lang === 'bn' ? 'টিউটোরিয়াল ভিডিও দেখে সহজে শিখুন' : 'Watch step-by-step video tutorial'}
+                  </span>
+               </div>
+            </div>
+            <ChevronRight size={15} className="text-slate-400 group-hover:text-rose-500 transition-colors" />
          </div>
       </CutCornerCard>
 
