@@ -495,6 +495,70 @@ function getMenu(lang) {
 
 const processedStartIds = new Set();
 
+
+async function notifyNewUserJoined(userId, userData = {}) {
+    try {
+        if (!userId || userId === 123456789 || isNaN(userId)) return;
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get().catch(() => null);
+
+        let userNumber = 1;
+        let isNew = false;
+        if (userDoc && userDoc.exists) {
+            const d = userDoc.data();
+            if (d.userNumber) return; // already counted
+            userNumber = d.userNumber || 1;
+        } else {
+            isNew = true;
+            try {
+                const countSnap = await db.collection('users').count().get();
+                userNumber = (countSnap.data().count || 0) + 1;
+            } catch (cErr) {
+                try {
+                    const snap = await db.collection('users').select().get();
+                    userNumber = snap.size + 1;
+                } catch(e) {
+                    userNumber = 1;
+                }
+            }
+            await userRef.set({
+                chatId: userId,
+                userId: userId,
+                username: userData.username || "Unknown",
+                firstName: userData.firstName || "User",
+                joinedAt: new Date(),
+                status: 'pending_verification',
+                totalPayouts: 0,
+                balance: 0,
+                userNumber: userNumber,
+                ...userData
+            }, { merge: true });
+        }
+
+        const targetGroup = botConfig?.userLogGroupId || botConfig?.newUserGroupId;
+        if (targetGroup && bot) {
+            const firstName = userData.firstName || (userDoc?.exists ? userDoc.data().firstName : "User");
+            const rawUsername = userData.username || (userDoc?.exists ? userDoc.data().username : "");
+            const uname = rawUsername && rawUsername !== 'Unknown' ? ('@' + rawUsername) : 'None';
+            const bdDate = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' });
+
+            const alertMsg = `🎉 <b>New User Joined (#${userNumber})</b>\n\n` +
+                `👤 <b>Name:</b> <a href="tg://user?id=${userId}">${firstName}</a>\n` +
+                `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
+                `🔗 <b>Username:</b> ${uname}\n` +
+                `🔢 <b>User Serial:</b> <code>#${userNumber}</code>\n` +
+                `📅 <b>Date:</b> ${bdDate}\n` +
+                `📊 <b>Total Users:</b> <b>${userNumber}</b>`;
+
+            bot.sendMessage(targetGroup, alertMsg, { parse_mode: 'HTML' }).catch(err => {
+                console.warn("Failed to notify userLogGroup:", err.message);
+            });
+        }
+    } catch (e) {
+        console.error("notifyNewUserJoined error:", e.message);
+    }
+}
+
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     const msgId = msg.message_id;
@@ -520,16 +584,7 @@ bot.onText(/\/start/, async (msg) => {
     const userRef = db.collection('users').doc(chatId.toString());
     const existingUserDoc = await userRef.get().catch(() => null);
 
-    if (!existingUserDoc || !existingUserDoc.exists) {
-        await userRef.set({
-            chatId: chatId,
-            username: username,
-            firstName: firstName,
-            joinedAt: new Date(),
-            status: 'pending_verification',
-            totalPayouts: 0
-        }, { merge: true });
-    }
+    await notifyNewUserJoined(chatId, { username, firstName });
 
     userStates[chatId] = { step: 'start', failedAttempts: 0, lang: 'bn' };
     
@@ -713,6 +768,14 @@ bot.on('message', async (msg) => {
         const titleLower = (msg.chat.title || '').toLowerCase();
 
         // 1. Group Setup Commands
+        if (text === '/setusers' || text === '/setusergroup' || (text === '/setgroup' && (titleLower.includes('user') || titleLower.includes('member') || titleLower.includes('join') || titleLower.includes('নতুন')))) {
+            await saveConfig({ userLogGroupId: chatId.toString() });
+            const resp = `<blockquote><b>✅ New User Join Notification Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                `📌 <b>রোল:</b> যেকোনো নতুন ইউজার বটে যুক্ত হলে স্বয়ংক্রিয়ভাবে তার ইউজার নম্বর (সিরিয়াল), নাম, টেলিগ্রাম আইডি ও ইউজারনেম এই গ্রুপে নোটিফিকেশন আসবে।</blockquote>`;
+            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            return;
+        }
         if (text === '/setdata' || (text === '/setgroup' && titleLower.includes('data'))) {
             await saveConfig({ dataGroupId: chatId.toString() });
             const resp = `<blockquote><b>✅ Data Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
@@ -767,7 +830,7 @@ bot.on('message', async (msg) => {
                 `1️⃣ <b>Data Group:</b> <code>${botConfig.dataGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
                 `2️⃣ <b>Support Group:</b> <code>${botConfig.supportGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
                 `3️⃣ <b>Withdraw Request:</b> <code>${botConfig.withdrawGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
-                `4️⃣ <b>Payout Group / Channel:</b> <code>${botConfig.payoutGroupId || 'Not set'}</code></blockquote>`;
+                `4️⃣ <b>Payout Group / Channel:</b> <code>${botConfig.payoutGroupId || 'Not set'}</code>\n5️⃣ <b>New User Alert Group:</b> <code>${botConfig.userLogGroupId || 'Not set'}</code></blockquote>`;
             bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
             return;
         }
@@ -1676,7 +1739,7 @@ app.get('/api/stats', async (req, res) => {
                     if (jettonRes.data && Array.isArray(jettonRes.data.balances)) {
                         const gramJetton = jettonRes.data.balances.find(j => j.jetton?.symbol === 'GRAM');
                         if (gramJetton) {
-                            gramBalance = (parseFloat(gramJetton.balance) / Math.pow(10, gramJetton.jetton.decimals || 9)).toFixed(2);
+                            gramBalance = tonNativeBalance;
                         }
                     }
                 } catch(e) {}
@@ -1705,7 +1768,7 @@ app.get('/api/stats', async (req, res) => {
             tonBalance: tonBalance,
             tonNativeBalance: tonNativeBalance,
             tonUsdtBalance: tonUsdtBalance,
-            gramBalance: gramBalance,
+            gramBalance: (parseFloat(gramBalance) > 0 ? gramBalance : tonNativeBalance),
             evmBalance: evmBalance,
             evmAddress: process.env.BOT_EVM_ADDRESS,
             tonAddress: process.env.BOT_TON_ADDRESS
@@ -2214,7 +2277,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         // 4. BROADCAST ON-CHAIN TRANSACTION!
         // Deduct gas fee from cryptoAmount (0.005 for TON/GRAM, 0.03 for USDT)
-        const gasFee = (asset === 'USDT') ? 0.03 : 0.005;
+        const gasFee = (asset === 'USDT') ? 0.008 : 0.0015;
         const netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - gasFee).toFixed(6)));
 
         let txResult = null;
@@ -2545,7 +2608,7 @@ app.post('/api/admin/approve-buy', async (req, res) => {
         }
 
         let txResult = null;
-        const gasFee = (order.asset === 'USDT') ? 0.03 : 0.005;
+        const gasFee = (order.asset === 'USDT') ? 0.008 : 0.0015;
         const netCryptoAmount = Math.max(0.0001, parseFloat(((order.amount || 0) - gasFee).toFixed(6)));
 
         if (order.asset === 'TON' || order.asset === 'GRAM') {

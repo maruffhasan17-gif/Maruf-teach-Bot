@@ -43,10 +43,12 @@ import {
 } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 
-export const API_BASE = import.meta.env.VITE_API_URL || 
-  (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname.includes('127.0.0.1'))
-    ? 'http://localhost:3000' 
-    : (typeof window !== 'undefined' && window.location.origin && window.location.origin.startsWith('http') ? window.location.origin : 'https://maruf-teach-bot.onrender.com'));
+export const API_BASE = (function() {
+  if (typeof window === 'undefined') return 'https://maruf-teach-bot.onrender.com';
+  if (window.location.hostname.includes('onrender.com')) return window.location.origin;
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  return 'https://maruf-teach-bot.onrender.com';
+})();
 
 // Theme Context for Light / Dark Mode
 const ThemeContext = createContext({
@@ -110,9 +112,24 @@ function useBotData() {
   const fetchData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const res = await fetch(`${API_BASE}/api/stats?_t=${Date.now()}`);
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/stats?_t=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        if (API_BASE !== 'https://maruf-teach-bot.onrender.com') {
+          res = await fetch(`https://maruf-teach-bot.onrender.com/api/stats?_t=${Date.now()}`);
+        } else {
+          throw err;
+        }
+      }
       const json = await res.json();
-      setData(json);
+      if (json) {
+        if (!json.gramBalance || json.gramBalance === '0.00' || parseFloat(json.gramBalance) === 0) {
+          json.gramBalance = json.tonNativeBalance || json.tonBalance || '0.00';
+        }
+        setData(json);
+      }
     } catch (err) {
       console.error("Error fetching stats:", err);
     } finally {
@@ -142,13 +159,25 @@ function useOrdersData() {
   const fetchOrders = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/orders?_t=${Date.now()}`);
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/admin/orders?_t=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        if (API_BASE !== 'https://maruf-teach-bot.onrender.com') {
+          res = await fetch(`https://maruf-teach-bot.onrender.com/api/admin/orders?_t=${Date.now()}`);
+        } else {
+          throw err;
+        }
+      }
       const json = await res.json();
-      setOrders({
-        buys: Array.isArray(json.buys) ? json.buys : [],
-        sells: Array.isArray(json.sells) ? json.sells : [],
-        withdrawals: Array.isArray(json.withdrawals) ? json.withdrawals : []
-      });
+      if (json) {
+        setOrders({
+          buys: Array.isArray(json.buys) ? json.buys : [],
+          sells: Array.isArray(json.sells) ? json.sells : [],
+          withdrawals: Array.isArray(json.withdrawals) ? json.withdrawals : []
+        });
+      }
     } catch (err) {
       console.error("Error fetching orders:", err);
     } finally {
@@ -515,9 +544,7 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
                   <span className={`text-xl font-black ${isGram ? 'text-purple-400' : 'text-emerald-400'}`}>
                     +{order.amount} {asset}
                   </span>
-                  {order.asset === 'TON' && asset === 'GRAM' && (
-                    <span className="text-[10px] font-bold text-slate-500">(TON buy)</span>
-                  )}
+
                 </div>
                 <div className="text-sm font-black text-slate-300">
                   ৳{order.totalBdt || order.amountBdt || 0} <span className="text-xs font-normal text-slate-400">BDT</span>
@@ -736,7 +763,7 @@ function Dashboard() {
               <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
                 isDark ? 'text-white' : 'text-slate-900'
               }`}>
-                {data.gramBalance || '0.00'}
+                {data.tonNativeBalance || data.gramBalance || '0.00'}
               </span>
               <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
                 GRAM
@@ -748,7 +775,7 @@ function Dashboard() {
               <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold ${
                 isDark ? 'bg-purple-950/40 border-purple-800/40 text-purple-200' : 'bg-white border-purple-200 text-purple-900'
               }`}>
-                ≈ ৳{(parseFloat(data.gramBalance || 0) * 220).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
+                ≈ ৳{(parseFloat(data.tonNativeBalance || data.gramBalance || 0) * 220).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
               </div>
 
               <button
@@ -1027,7 +1054,7 @@ function BotWallet() {
             <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
               isDark ? 'text-white' : 'text-slate-900'
             }`}>
-              {data.gramBalance || '0.00'}
+              {data.tonNativeBalance || data.gramBalance || '0.00'}
             </span>
             <span className="text-2xl font-black text-purple-400">
               GRAM
@@ -1278,7 +1305,7 @@ function BuyOrders() {
                 const isCompleted = b.status === 'completed';
                 const isRejected = b.status === 'rejected';
                 const method = (b.method || 'bKash').toLowerCase();
-                const gasFee = b.asset === 'USDT' ? 0.03 : 0.005;
+                const gasFee = b.asset === 'USDT' ? 0.008 : 0.0015;
                 const netAmount = Math.max(0.0001, parseFloat(((b.amount || 0) - gasFee).toFixed(6)));
 
                 return (
@@ -1889,7 +1916,8 @@ function BotSettings() {
     adminNagad: '01878580320',
     gramAmount: '0.07',
     usdtAmount: '0.05',
-    dailyWithdrawLimit: 50
+    dailyWithdrawLimit: 50,
+    userLogGroupId: ''
   });
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -2022,6 +2050,24 @@ function BotSettings() {
             }`}
             required
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider mb-2 text-slate-400">
+            New User Notification Group ID
+          </label>
+          <input
+            type="text"
+            value={settings.userLogGroupId || ''}
+            onChange={e => setSettings({ ...settings, userLogGroupId: e.target.value })}
+            placeholder="e.g. -100xxxxxxxxxx (Or type /setusers in the group)"
+            className={`w-full p-3.5 rounded-xl font-mono font-bold text-sm border outline-none ${
+              isDark ? 'bg-slate-950 border-purple-900/40 text-white focus:border-purple-500' : 'bg-slate-50 border-slate-200 text-slate-900'
+            }`}
+          />
+          <p className="text-[11px] text-slate-500 mt-1">
+            💡 Tip: You can also simply send <code>/setusers</code> in your Telegram group to connect it instantly.
+          </p>
         </div>
 
         <button

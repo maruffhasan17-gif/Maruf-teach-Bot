@@ -1276,7 +1276,7 @@ export default function App() {
         </div>
 
         {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
-        {!isKeyboardVisible && !isModalOpen && activeTab !== 'buy' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && (() => {
+        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && (() => {
             const navTabs = ['home', 'add-money', 'sell', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
@@ -2791,18 +2791,39 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                         </div>
 
                         {/* 4. Calculated Crypto Receive Box */}
-                        <div className="bg-indigo-50/80 border border-indigo-100/90 rounded-xl px-3 py-2 flex justify-between items-center shrink-0">
-                            <div>
-                                <span className="text-[9px] font-black text-indigo-900 uppercase tracking-wider block">
-                                    {t?.youWillReceive || (lang === 'bn' ? 'আপনি পাবেন' : 'You Will Receive')}
-                                </span>
-                                <span className="text-[10px] text-indigo-600 font-semibold">1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-[15px] font-black text-indigo-700">{calculatedCrypto}</span>
-                                <span className="text-[11px] font-black text-indigo-900 ml-1">{selectedAsset}</span>
-                            </div>
-                        </div>
+                        {(() => {
+                            const realFee = selectedAsset === 'USDT' ? 0.008 : 0.0015;
+                            const grossVal = parseFloat(calculatedCrypto) || 0;
+                            const netVal = grossVal > realFee ? (grossVal - realFee).toFixed(4) : (grossVal > 0 ? grossVal.toFixed(4) : '0.0000');
+                            return (
+                                <div className="bg-indigo-50/80 border border-indigo-100/90 rounded-xl px-3 py-2 shrink-0 space-y-1">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <span className="text-[9px] font-black text-indigo-900 uppercase tracking-wider block">
+                                                {t?.youWillReceive || (lang === 'bn' ? 'মোট ক্রয়' : 'Total Purchased')}
+                                            </span>
+                                            <span className="text-[10px] text-indigo-600 font-semibold">1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-[14px] font-black text-slate-800">{calculatedCrypto}</span>
+                                            <span className="text-[10px] font-bold text-slate-600 ml-1">{selectedAsset}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-1 border-t border-indigo-200/60 text-[10px]">
+                                        <span className="text-slate-500 font-medium flex items-center gap-1">
+                                            ⛽ {lang === 'bn' ? 'অন-চেইন রিয়েল গ্যাস ফি (০% লাভ)' : 'Real On-Chain Gas Fee (0% profit)'}:
+                                        </span>
+                                        <span className="font-mono font-bold text-rose-500">-{realFee} {selectedAsset}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-0.5 text-[11px]">
+                                        <span className="text-emerald-700 font-bold">
+                                            ✓ {lang === 'bn' ? 'ওয়ালেটে পৌঁছাবে (নেট)' : 'Net Received in Wallet'}:
+                                        </span>
+                                        <span className="font-black text-[15px] text-emerald-600">{netVal} {selectedAsset}</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         {/* 5. Receive Address Input */}
                         <div className="shrink-0">
