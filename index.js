@@ -2436,93 +2436,202 @@ app.post('/api/miniapp/buy', async (req, res) => {
     }
 });
 
-app.post('/api/macrodroid/webhook', async (req, res) => {
+
+function parsePaymentSms(msg, rawSender) {
+    if (!msg || typeof msg !== 'string') return null;
+    const text = msg.trim();
+    
+    let senderStr = '';
+    if (typeof rawSender === 'string') senderStr = rawSender.trim().toLowerCase();
+    else if (Array.isArray(rawSender) && rawSender.length > 0) senderStr = String(rawSender[0]).trim().toLowerCase();
+    
+    let provider = 'bKash';
+    if (senderStr.includes('nagad') || senderStr.includes('16167') || text.toLowerCase().includes('nagad') || text.toLowerCase().includes('txnid')) {
+        provider = 'nagad';
+    } else if (senderStr.includes('bkash') || senderStr.includes('16247') || text.toLowerCase().includes('bkash') || text.toLowerCase().includes('trxid')) {
+        provider = 'bKash';
+    }
+
+    const trxMatch = text.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|TrxID\s*is|TxnID\s*is)[\s:]*([A-Za-z0-9]{6,16})/i);
+    if (!trxMatch) return null;
+    const trxId = trxMatch[1].toUpperCase();
+
+    let amount = 0;
+    const recvMatch = text.match(/(?:received|cash in|deposit|payment of)[\s:]*Tk\.?\s*([\d,]+(?:\.\d+)?)/i) ||
+                      text.match(/Tk\.?\s*([\d,]+(?:\.\d+)?)\s*(?:from|received|has been)/i) ||
+                      text.match(/Tk\.?\s*([\d,]+(?:\.\d+)?)/i);
+
+    if (recvMatch) {
+        amount = parseFloat(recvMatch[1].replace(/,/g, ''));
+    }
+
+    let senderPhone = '';
+    const phoneMatch = text.match(/(?:from|by)[\s:]*(01[3-9]\d{8})/i);
+    if (phoneMatch) {
+        senderPhone = phoneMatch[1];
+    }
+
+    return { trxId, amount, provider, senderPhone, rawMessage: text };
+}
+
+async function handleIncomingSmsWebhook(req, res) {
     try {
-        await db.collection('debug_logs').add({
+        db.collection('debug_logs').add({
+            method: req.method,
             body: req.body || {},
             query: req.query || {},
+            headers: {
+                'user-agent': req.headers['user-agent'],
+                'content-type': req.headers['content-type']
+            },
             timestamp: FieldValue.serverTimestamp()
+        }).catch(e => console.warn("debug_logs add error:", e.message));
+
+        let rawMessage = req.body?.message || 
+                         req.body?.text || 
+                         req.body?.sms || 
+                         req.body?.body || 
+                         req.query?.message || 
+                         req.query?.text || 
+                         req.query?.sms || 
+                         (typeof req.body === 'string' ? req.body : '');
+
+        let rawSender = req.body?.sender || 
+                        req.body?.from || 
+                        req.query?.sender || 
+                        req.query?.from || 
+                        '';
+
+        if (!rawMessage && typeof req.body === 'object' && Object.keys(req.body).length > 0) {
+            rawMessage = JSON.stringify(req.body);
+        }
+
+        if (!rawMessage || typeof rawMessage !== 'string' || rawMessage.trim().length < 5) {
+            return res.status(400).json({ error: "Missing SMS message content" });
+        }
+
+        const parsed = parsePaymentSms(rawMessage, rawSender);
+        if (!parsed || !parsed.trxId) {
+            console.warn("Could not extract TrxID from SMS:", rawMessage);
+            return res.status(400).json({ error: "No valid TrxID or TxnID found in message" });
+        }
+
+        const { trxId, amount, provider, senderPhone } = parsed;
+
+        // 1. Save to in-memory store immediately
+        const memItem = {
+            id: trxId,
+            trxId: trxId,
+            sender: provider,
+            senderPhone: senderPhone || '',
+            message: rawMessage,
+            amount: amount,
+            claimed: false,
+            timestamp: new Date()
+        };
+        inMemoryVerifiedTrx.set(trxId, memItem);
+        inMemoryMockTrxs.unshift(memItem);
+        if (inMemoryMockTrxs.length > 50) inMemoryMockTrxs.pop();
+
+        // 2. Save to Firestore verified_trx
+        const verifiedRef = db.collection('verified_trx').doc(trxId);
+        await verifiedRef.set({
+            message: rawMessage,
+            amount: amount,
+            sender: provider,
+            senderPhone: senderPhone || '',
+            claimed: false,
+            timestamp: FieldValue.serverTimestamp()
+        }, { merge: true }).catch(err => {
+            console.warn("Firestore verified_trx write warning:", err.message);
         });
-        const sender = (req.body.sender || req.query.sender || 'Unknown').trim();
-        const message = req.body.message || req.query.message || '';
-        
-        const validSenders = ['bkash', 'nagad'];
-        if (!validSenders.includes(sender.toLowerCase())) {
-            console.warn('Blocked fake SMS from ' + sender);
-            return res.status(403).json({ error: "Fraud attempt blocked! Sender must be bKash or Nagad" });
-        }
-        
-        const match = message.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID)[\s:]*([A-Za-z0-9]+)/i);
-        if (!match) {
-            return res.status(400).json({ error: "No TrxID found" });
-        }
-        const trxId = match[1].toUpperCase();
 
-        const amountMatch = message.match(/(?:Tk|Amount)[\s:]*([\d,]+(?:\.\d+)?)/i) || message.match(/([\d,]+(?:\.\d+)?)[\s]*Tk/i);
-        const msgAmount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;
-
+        // 3. Check for matching pending order
         const config = botConfig || {};
         const adminGroupId = config.adminGroupId || null;
 
         const buyRef = db.collection('miniapp_buys').doc(trxId);
-        const doc = await buyRef.get();
+        const buyDoc = await buyRef.get().catch(() => null);
 
-        if (!doc.exists) {
-            // User hasn't submitted yet. Save to verified_trx as unclaimed!
-            await db.collection('verified_trx').doc(trxId).set({
-                message,
-                amount: msgAmount,
-                sender,
-                claimed: false,
-                timestamp: FieldValue.serverTimestamp()
-            });
-            return res.json({ success: true, message: "TrxID cached for future auto-verify" });
-        }
-
-        const order = doc.data();
-        if (order.status === 'pending') {
-            if (msgAmount && Math.abs(msgAmount - order.totalBdt) > 1) {
-                const dataGroup = botConfig.dataGroupId || adminGroupId;
-                if (dataGroup) {
-                    const mismatchAlert = `<blockquote><b>⚠️ টাকার পরিমাণ কম/অসামঞ্জস্য (Amount Mismatch Warning)!</b>\n\n` +
-                        `👤 <b>User:</b> <code>${order.userId}</code>\n` +
-                        `💵 <b>প্রত্যাশিত (Expected):</b> <b>৳${order.totalBdt} BDT</b>\n` +
-                        `📩 <b>SMS প্রাপ্ত:</b> <b>৳${msgAmount} BDT</b>\n` +
-                        `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
-                        `⚠️ <b>স্ট্যাটাস:</b> পেমেন্ট অসম্পূর্ণ থাকায় ভেরিফিকেশন স্থগিত।</blockquote>`;
-                    bot.sendMessage(dataGroup, mismatchAlert, { parse_mode: 'HTML' }).catch(e=>console.error(e));
+        if (buyDoc && buyDoc.exists) {
+            const order = buyDoc.data();
+            if (order.status === 'pending') {
+                if (amount && order.totalBdt && Math.abs(amount - order.totalBdt) > 1) {
+                    const dataGroup = botConfig.dataGroupId || adminGroupId;
+                    if (dataGroup && bot) {
+                        const mismatchAlert = `<blockquote><b>⚠️ টাকার পরিমাণ কম/অসামঞ্জস্য (Amount Mismatch Warning)!</b>\n\n` +
+                            `👤 <b>User:</b> <code>${order.userId}</code>\n` +
+                            `💵 <b>প্রত্যাশিত (Expected):</b> <b>৳${order.totalBdt} BDT</b>\n` +
+                            `📩 <b>SMS প্রাপ্ত:</b> <b>৳${amount} BDT</b>\n` +
+                            `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
+                            `⚠️ <b>স্ট্যাটাস:</b> পেমেন্ট অসম্পূর্ণ থাকায় ভেরিফিকেশন স্থগিত।</blockquote>`;
+                        bot.sendMessage(dataGroup, mismatchAlert, { parse_mode: 'HTML' }).catch(() => {});
+                    }
+                    return res.json({ success: true, message: "TrxID saved. Amount mismatch with pending order.", trxId, amount });
                 }
-                return res.json({ success: true, message: "Amount mismatch, left as pending" });
-            }
 
-            // AUTO-VERIFY!
-            await buyRef.update({ 
-                status: 'verified',
-                autoVerified: true,
-                smsVerifiedAt: FieldValue.serverTimestamp()
-            });
-            await db.collection('verified_trx').doc(trxId).set({
-                message,
-                amount: msgAmount,
-                sender,
-                claimed: true,
-                claimedBy: order.userId,
-                timestamp: FieldValue.serverTimestamp()
-            });
+                // AUTO-VERIFY order!
+                await buyRef.update({ 
+                    status: 'verified',
+                    autoVerified: true,
+                    smsVerifiedAt: FieldValue.serverTimestamp()
+                }).catch(() => {});
 
-            bot.sendMessage(order.userId, `🎉 <b>Payment Auto-Verified!</b>\n\nYour payment for <b>${order.amount} ${order.asset}</b> (TrxID: <code>${trxId}</code>) has been automatically verified via SMS!\n\nAdmin will dispatch your ${order.asset} shortly.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            
-            if (adminGroupId) {
-                const autoMsg = `<blockquote><b>⚡ Buy Order Auto-Verified via SMS!</b></blockquote>\n\n👤 User: <code>${order.userId}</code>\n💰 Asset: <b>${order.amount} ${order.asset}</b>\n💵 Paid: <b>৳${order.totalBdt} BDT</b>\n#️⃣ TrxID: <code>${trxId}</code>\n🏷 Wallet: <code>${order.receiveAddress}</code>\n\n⚙️ <b>Actions (Reply to this message):</b>\n- <code>ok</code> or <code>accept</code> to send ${order.asset} on-chain\n- <code>reject</code> to refund ৳${order.totalBdt} to user balance`;
-                bot.sendMessage(adminGroupId, autoMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                await verifiedRef.set({
+                    claimed: true,
+                    claimedBy: order.userId,
+                    claimedAt: FieldValue.serverTimestamp()
+                }, { merge: true }).catch(() => {});
+
+                memItem.claimed = true;
+                memItem.claimedBy = order.userId;
+
+                if (bot && order.userId) {
+                    bot.sendMessage(order.userId, `🎉 <b>Payment Auto-Verified!</b>\n\nYour payment for <b>${order.amount} ${order.asset}</b> (TrxID: <code>${trxId}</code>) has been automatically verified via SMS!\n\nAdmin will dispatch your ${order.asset} shortly.`, { parse_mode: 'HTML' }).catch(() => {});
+                }
+
+                if (bot && adminGroupId) {
+                    const autoMsg = `<blockquote><b>⚡ Buy Order Auto-Verified via SMS!</b></blockquote>\n\n👤 User: <code>${order.userId}</code>\n💰 Asset: <b>${order.amount} ${order.asset}</b>\n💵 Paid: <b>৳${order.totalBdt} BDT</b>\n#️⃣ TrxID: <code>${trxId}</code>\n🏷 Wallet: <code>${order.receiveAddress}</code>\n\n⚙️ <b>Actions (Reply to this message):</b>\n- <code>ok</code> or <code>accept</code> to send ${order.asset} on-chain\n- <code>reject</code> to refund ৳${order.totalBdt} to user balance`;
+                    bot.sendMessage(adminGroupId, autoMsg, { parse_mode: 'HTML' }).catch(() => {});
+                }
             }
         }
-        res.json({ success: true });
-    } catch(e) {
-        console.error(e);
-        res.status(500).json({ error: e.message });
+
+        // Notify Data Group on Telegram
+        const dataGroup = botConfig.dataGroupId || config.adminGroupId;
+        if (dataGroup && bot) {
+            const smsAlert = `<blockquote><b>📩 New SMS Captured & Verified in Database!</b></blockquote>\n\n` +
+                `🏦 <b>Provider:</b> <b>${provider.toUpperCase()}</b>\n` +
+                `💰 <b>Amount:</b> <b>৳${amount} BDT</b>\n` +
+                `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
+                (senderPhone ? `📱 <b>Sender:</b> <code>${senderPhone}</code>\n` : '') +
+                `⏱ <b>Status:</b> Ready in database for instant auto-verify.`;
+            bot.sendMessage(dataGroup, smsAlert, { parse_mode: 'HTML' }).catch(() => {});
+        }
+
+        return res.json({
+            success: true,
+            message: `SMS parsed and saved in database for TrxID ${trxId}`,
+            trxId,
+            amount,
+            provider,
+            senderPhone: senderPhone || null
+        });
+    } catch (e) {
+        console.error("SMS Webhook Error:", e);
+        return res.status(500).json({ error: e.message });
     }
-});
+}
+
+app.post('/api/macrodroid/webhook', handleIncomingSmsWebhook);
+app.get('/api/macrodroid/webhook', handleIncomingSmsWebhook);
+app.post('/api/webhook', handleIncomingSmsWebhook);
+app.get('/api/webhook', handleIncomingSmsWebhook);
+app.post('/webhook', handleIncomingSmsWebhook);
+app.get('/webhook', handleIncomingSmsWebhook);
+app.post('/api/sms', handleIncomingSmsWebhook);
+app.get('/api/sms', handleIncomingSmsWebhook);
+
 
 
 app.get('/api/admin/orders', async (req, res) => {
