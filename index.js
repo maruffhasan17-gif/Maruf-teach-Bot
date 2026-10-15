@@ -932,16 +932,17 @@ bot.on('message', async (msg) => {
                         }
                     }
 
-                    // Also check fiat_withdrawals collection in case it was missing in user doc
-                    try {
-                        const pendSnaps = await db.collection('fiat_withdrawals')
-                            .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
-                            .where('status', '==', 'pending').get();
-                        for (const doc of pendSnaps.docs) {
-                            if (!pend) pend = doc.data();
-                            await doc.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
-                        }
-                    } catch(e) {}
+                    if (!pend?.id) {
+                        try {
+                            const pendSnaps = await db.collection('fiat_withdrawals')
+                                .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
+                                .where('status', '==', 'pending').limit(1).get();
+                            if (!pendSnaps.empty) {
+                                if (!pend) pend = pendSnaps.docs[0].data();
+                                await pendSnaps.docs[0].ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
+                            }
+                        } catch(e) {}
+                    }
 
                     await uRef.update({
                         'fiatWithdrawPending.status': 'completed',
@@ -1015,8 +1016,8 @@ bot.on('message', async (msg) => {
                         const pendSnaps = await db.collection('fiat_withdrawals')
                             .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
                             .where('status', '==', 'pending').get();
-                        for (const doc of pendSnaps.docs) {
-                            await doc.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
+                        if (!pend?.id && !pendSnaps.empty) {
+                            await pendSnaps.docs[0].ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
                         }
                     } catch(e) {}
 
@@ -3341,28 +3342,42 @@ const formatSendAmount = (val) => {
     return (num % 1 === 0) ? num.toFixed(0) : num.toFixed(2);
 };
 
+// Strict Bangladeshi phone number formatter - ALWAYS preserves/prepends leading 0 (01...)
+const formatBdPhone = (num) => {
+    if (!num) return '01XXXXXXXXX';
+    let s = String(num).trim().replace(/[^\d+]/g, '');
+    if (s.startsWith('+88')) s = s.slice(3);
+    if (s.startsWith('88')) s = s.slice(2);
+    if (s.length === 10 && !s.startsWith('0')) {
+        s = '0' + s;
+    }
+    if (!s.startsWith('0') && s.length < 11) {
+        s = '0' + s;
+    }
+    return s;
+};
+
 let withdrawBot;
 try {
     withdrawBot = new TelegramBot(WITHDRAW_BOT_TOKEN, { polling: true });
-    console.log('[WithdrawBot] ✅ Withdraw Manager Bot started successfully');
+    console.log('[WithdrawBot] ✓ Withdraw Manager Bot started successfully');
 
     withdrawBot.setMyCommands([
-        { command: 'withdraw', description: 'পেন্ডিং ক্যাশআউট সিরিয়াল অনুযায়ী শুরু করুন' },
+        { command: 'withdraw', description: 'ক্যাশআউট সিরিয়াল অনুযায়ী শুরু করুন' },
         { command: 'list', description: 'সকল পেন্ডিং রিকোয়েস্টের তালিকা' },
         { command: 'help', description: 'সাহায্য ও নিয়মাবলী' }
     ]).catch(() => {});
 } catch(e) {
-    console.error('[WithdrawBot] ❌ Failed to start Withdraw Bot:', e.message);
+    console.error('[WithdrawBot] ✗ Failed to start Withdraw Bot:', e.message);
 }
 
-// In-memory queue
-let withdrawQueue = [];
+// In-memory navigation index
 let withdrawQueueIndex = 0;
 
-// Persistent keyboard for easy 1-tap start
+// Persistent keyboard with clean text
 const adminReplyKeyboard = {
     keyboard: [
-        [{ text: '💳 Withdraw Requests (ক্যাশআউট শুরু করুন)' }]
+        [{ text: 'Withdraw Requests' }]
     ],
     resize_keyboard: true,
     persistent: true
@@ -3374,9 +3389,9 @@ const fetchPendingWithdrawals = async () => {
     const seenIds = new Set();
 
     try {
+        // Query without composite orderBy to avoid Firestore index requirement error
         const fwSnap = await db.collection('fiat_withdrawals')
             .where('status', '==', 'pending')
-            .orderBy('createdAt', 'asc')
             .get();
 
         fwSnap.forEach(doc => {
@@ -3399,6 +3414,7 @@ const fetchPendingWithdrawals = async () => {
                 receiveAmount,
                 name: d.name || 'User',
                 serial: d.serial || '?',
+                createdAt: d.createdAt || (d.timestamp?._seconds ? d.timestamp._seconds * 1000 : (typeof d.timestamp === 'number' ? d.timestamp : 0)) || 0,
                 source: 'fiat_withdrawals'
             });
         });
@@ -3431,6 +3447,7 @@ const fetchPendingWithdrawals = async () => {
                 receiveAmount,
                 name: p.name || data.first_name || 'User',
                 serial: p.serial || '?',
+                createdAt: p.createdAt || (p.timestamp ? (typeof p.timestamp === 'number' ? p.timestamp : new Date(p.timestamp).getTime()) : 0) || 0,
                 source: 'users'
             });
         });
@@ -3438,104 +3455,108 @@ const fetchPendingWithdrawals = async () => {
         console.error('[WithdrawBot] users fetch error:', e.message);
     }
 
+    // Sort chronologically (earliest first - FIFO)
+    results.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
     return results;
 };
 
-// Build the message card with copyable code and inline buttons
+// Build the message card with copyable code and clean icon buttons (NO colorful emojis)
 const buildWithdrawCard = (w, index, total) => {
+    const formattedNumber = formatBdPhone(w.number);
     const formattedSend = formatSendAmount(w.receiveAmount);
-    const feeText = w.fee > 0 ? `\n💸 <b>ফি (Fee):</b> ৳${w.fee.toFixed(2)} BDT` : '\n💸 <b>ফি:</b> ৳০ (সম্পূর্ণ ফ্রি)';
-    const methodEmoji = w.method?.toLowerCase() === 'nagad' ? '🟠' : '🩷';
-    const copyString = `${w.number} ${formattedSend}`;
+    const feeText = w.fee > 0 ? `\n• <b>ফি:</b> ৳${w.fee.toFixed(2)} BDT` : '\n• <b>ফি:</b> ৳০ (সম্পূর্ণ ফ্রি)';
+    const copyString = `${formattedNumber} ${formattedSend}`;
 
     const msgText = 
-`<blockquote><b>💳 ক্যাশআউট রিকোয়েস্ট (#${index + 1}/${total})</b></blockquote>
+`<blockquote><b>ক্যাশআউট রিকোয়েস্ট (${index + 1}/${total})</b></blockquote>
 
-👤 <b>গ্রাহক:</b> ${w.name} (<code>${w.userId}</code>)
-${methodEmoji} <b>মেথড:</b> <b>${w.method?.toUpperCase()}</b>
-📱 <b>নম্বর:</b> <code>${w.number}</code>
-💰 <b>রিকোয়েস্ট:</b> ৳${w.amount.toFixed(2)} BDT${feeText}
-✅ <b>পাঠাবেন:</b> <b>৳${formattedSend} BDT</b>
-🔢 <b>সিরিয়াল:</b> #${w.serial}
+• <b>গ্রাহক:</b> ${w.name} (<code>${w.userId}</code>)
+• <b>মেথড:</b> <b>${w.method?.toUpperCase()}</b>
+• <b>নম্বর:</b> <code>${formattedNumber}</code>
+• <b>রিকোয়েস্ট:</b> ৳${w.amount.toFixed(2)} BDT${feeText}
+• <b>পাঠাবেন:</b> <b>৳${formattedSend} BDT</b>
+• <b>সিরিয়াল:</b> #${w.serial}
 
 ━━━━━━━━━━━━━━━━━━
-📋 <b>কপি করতে নিচের নম্বরে চাপুন:</b>
+<b>কপি করতে চাপুন:</b>
 <code>${copyString}</code>
 ━━━━━━━━━━━━━━━━━━
-👆 <i>উপরের কোডে চাপ দিলে নম্বর ও টাকা একসাথে কপি হবে।</i>`;
+👆 <i>কোডে চাপ দিলে "${copyString}" কপি হবে।</i>`;
 
     const keyboard = {
         inline_keyboard: [
             [
-                { text: `📋 ${copyString} (কপি)`, copy_text: { text: copyString } }
+                { text: `⎘ ${copyString}`, copy_text: { text: copyString } }
             ],
             [
-                { text: `✅ কনফার্ম (Confirm) — ৳${formattedSend}`, callback_data: `wd_confirm:${w.docId}:${w.userId}` }
+                { text: `✓ Confirm (৳${formattedSend})`, callback_data: `wd_confirm:${w.docId}:${w.userId}` }
             ],
             [
-                { text: `❌ রিজেক্ট ও রিফান্ড (Reject)`, callback_data: `wd_reject:${w.docId}:${w.userId}:${w.amount}` }
+                { text: `✕ Reject & Refund`, callback_data: `wd_reject:${w.docId}:${w.userId}:${w.amount}` }
             ],
             [
-                { text: `⏭ স্কিপ (${index + 1}/${total})`, callback_data: `wd_next` },
-                { text: `🔄 রিফ্রেশ`, callback_data: `wd_refresh` }
+                { text: `➔ Next (${index + 1}/${total})`, callback_data: `wd_next` },
+                { text: `⟳ Refresh`, callback_data: `wd_refresh` }
             ]
         ]
     };
 
-    return { msgText, keyboard };
+    return { msgText, keyboard, copyString };
 };
 
 // Approve a withdrawal in Firestore, notify user & payout channel
 const doApproveWithdraw = async (docId, userId) => {
     const targetUser = String(userId);
+    let withdrawItem = null;
 
     try {
         const fwRef = db.collection('fiat_withdrawals').doc(docId);
         const fwDoc = await fwRef.get();
         if (fwDoc.exists) {
+            withdrawItem = fwDoc.data();
             await fwRef.update({ status: 'completed', completedAt: Date.now() });
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error('[WithdrawBot] approve doc error:', e.message);
+    }
 
-    let pend = null;
     try {
         const userRef = db.collection('users').doc(targetUser);
         const doc = await userRef.get();
         if (doc.exists) {
-            pend = doc.data()?.fiatWithdrawPending;
-            await userRef.update({
-                'fiatWithdrawPending.status': 'completed',
-                'fiatWithdrawPending.completedAt': Date.now()
-            });
+            const userData = doc.data();
+            if (!withdrawItem) {
+                withdrawItem = userData?.fiatWithdrawPending;
+            }
+            if (userData?.fiatWithdrawPending?.id === docId || !userData?.fiatWithdrawPending?.id) {
+                await userRef.update({
+                    'fiatWithdrawPending.status': 'completed',
+                    'fiatWithdrawPending.completedAt': Date.now()
+                });
+            }
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error('[WithdrawBot] approve user error:', e.message);
+    }
 
-    try {
-        const pendSnaps = await db.collection('fiat_withdrawals')
-            .where('userId', 'in', [parseInt(targetUser), targetUser].filter(Boolean))
-            .where('status', '==', 'pending').get();
-        for (const d of pendSnaps.docs) {
-            await d.ref.update({ status: 'completed', completedAt: Date.now() }).catch(() => {});
-        }
-    } catch(e) {}
-
-    if (pend && bot) {
+    if (withdrawItem && bot) {
         const userMsg = `<blockquote><b>✅ আপনার ক্যাশআউট সফল হয়েছে! (Withdrawal Successful!)</b>\n\n` +
-            `💰 <b>রিকোয়েস্ট করা:</b> ৳${pend?.amount || 0} BDT\n` +
-            `💸 <b>কাটা ফি:</b> ৳${pend?.fee || 0} BDT\n` +
-            `✅ <b>পাঠানো হয়েছে:</b> ৳${pend?.receiveAmount || pend?.amount || 0} BDT\n` +
-            `📱 <b>পদ্ধতি:</b> ${pend?.method || 'bKash'} (<code>${pend?.number || ''}</code>)\n\n` +
-            `আপনার ${pend?.method || 'bKash'} নম্বরে টাকা পৌঁছে যাবে কিছুক্ষণের মধ্যে। ধন্যবাদ!</blockquote>`;
+            `💰 <b>রিকোয়েস্ট করা:</b> ৳${withdrawItem?.amount || 0} BDT\n` +
+            `💸 <b>কাটা ফি:</b> ৳${withdrawItem?.fee || 0} BDT\n` +
+            `✅ <b>পাঠানো হয়েছে:</b> ৳${withdrawItem?.receiveAmount || withdrawItem?.amount || 0} BDT\n` +
+            `📱 <b>পদ্ধতি:</b> ${withdrawItem?.method || 'bKash'} (<code>${formatBdPhone(withdrawItem?.number)}</code>)\n\n` +
+            `আপনার ${withdrawItem?.method || 'bKash'} নম্বরে টাকা পৌঁছে যাবে কিছুক্ষণের মধ্যে। ধন্যবাদ!</blockquote>`;
         bot.sendMessage(targetUser, userMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
 
         await notifyPayoutGroup({
             type: 'fiat',
             userId: targetUser,
-            name: pend?.name || 'User',
-            amount: pend?.amount || 0,
-            receiveAmount: pend?.receiveAmount || pend?.amount || 0,
-            method: pend?.method || 'bKash',
-            number: pend?.number || ''
+            name: withdrawItem?.name || 'User',
+            amount: withdrawItem?.amount || 0,
+            receiveAmount: withdrawItem?.receiveAmount || withdrawItem?.amount || 0,
+            method: withdrawItem?.method || 'bKash',
+            number: formatBdPhone(withdrawItem?.number)
         });
     }
 };
@@ -3544,29 +3565,37 @@ const doApproveWithdraw = async (docId, userId) => {
 const doRejectWithdraw = async (docId, userId, refundAmt) => {
     const targetUser = String(userId);
     const reason = 'বাতিল করেছেন এডমিন (Rejected by admin)';
+    let actualRefund = refundAmt || 0;
 
     try {
         const fwRef = db.collection('fiat_withdrawals').doc(docId);
         const fwDoc = await fwRef.get();
         if (fwDoc.exists) {
             const fwData = fwDoc.data();
-            const actualRefund = refundAmt || parseFloat(fwData.amount) || 0;
+            actualRefund = refundAmt || parseFloat(fwData.amount) || 0;
             await fwRef.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() });
         }
-    } catch(e) {}
+    } catch(e) {
+        console.error('[WithdrawBot] reject doc error:', e.message);
+    }
 
     try {
         const userRef = db.collection('users').doc(targetUser);
         const doc = await userRef.get();
         if (doc.exists) {
             const userData = doc.data();
-            const actualRefund = refundAmt || parseFloat(userData.fiatWithdrawPending?.amount) || 0;
-            await userRef.update({
-                'fiatWithdrawPending.status': 'rejected',
-                'fiatWithdrawPending.rejectReason': reason,
-                'fiatWithdrawPending.rejectedAt': Date.now(),
+            if (!actualRefund) {
+                actualRefund = parseFloat(userData.fiatWithdrawPending?.amount) || 0;
+            }
+            const updatePayload = {
                 balance: FieldValue.increment(actualRefund)
-            });
+            };
+            if (userData?.fiatWithdrawPending?.id === docId || !userData?.fiatWithdrawPending?.id) {
+                updatePayload['fiatWithdrawPending.status'] = 'rejected';
+                updatePayload['fiatWithdrawPending.rejectReason'] = reason;
+                updatePayload['fiatWithdrawPending.rejectedAt'] = Date.now();
+            }
+            await userRef.update(updatePayload);
 
             if (bot) {
                 const userRejectMsg = `<blockquote><b>❌ আপনার ক্যাশআউট রিকোয়েস্ট বাতিল করা হয়েছে (Withdrawal Rejected)!</b>\n\n` +
@@ -3577,35 +3606,23 @@ const doRejectWithdraw = async (docId, userId, refundAmt) => {
             }
         }
     } catch(e) { console.error('[WithdrawBot] reject user error:', e.message); }
-
-    try {
-        const pendSnaps = await db.collection('fiat_withdrawals')
-            .where('userId', 'in', [parseInt(targetUser), targetUser].filter(Boolean))
-            .where('status', '==', 'pending').get();
-        for (const d of pendSnaps.docs) {
-            await d.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(() => {});
-        }
-    } catch(e) {}
 };
 
-// Send the next withdrawal from queue (or check DB if empty)
-const sendNextWithdrawal = async (chatId) => {
-    if (withdrawQueue.length === 0) {
-        withdrawQueue = await fetchPendingWithdrawals();
-        withdrawQueueIndex = 0;
-    }
+// Send the next withdrawal from DB
+const sendNextWithdrawal = async (chatId, targetIndex = 0) => {
+    const pending = await fetchPendingWithdrawals();
 
-    if (withdrawQueue.length === 0) {
+    if (pending.length === 0) {
         await withdrawBot.sendMessage(chatId, 
-            `<blockquote><b>✅ সকল ক্যাশআউট রিকোয়েস্ট সম্পন্ন!</b>\n\n🎉 ডেটাবেসে আর কোনো পেন্ডিং উইথড্র রিকোয়েস্ট নেই। সব শেষ!</blockquote>`, 
+            `<blockquote><b>✓ সকল ক্যাশআউট রিকোয়েস্ট সম্পন্ন!</b>\n\nডেটাবেসে আর কোনো পেন্ডিং উইথড্র রিকোয়েস্ট নেই। সব শেষ!</blockquote>`, 
             { parse_mode: 'HTML', reply_markup: adminReplyKeyboard }
         ).catch(() => {});
         return;
     }
 
-    if (withdrawQueueIndex >= withdrawQueue.length) withdrawQueueIndex = 0;
-    const w = withdrawQueue[withdrawQueueIndex];
-    const { msgText, keyboard } = buildWithdrawCard(w, withdrawQueueIndex, withdrawQueue.length);
+    const idx = (targetIndex >= 0 && targetIndex < pending.length) ? targetIndex : 0;
+    const w = pending[idx];
+    const { msgText, keyboard } = buildWithdrawCard(w, idx, pending.length);
 
     await withdrawBot.sendMessage(chatId, msgText, {
         parse_mode: 'HTML',
@@ -3615,7 +3632,7 @@ const sendNextWithdrawal = async (chatId) => {
 
 if (withdrawBot) {
     // ─────────────────────────────────────────────────────────
-    // Incoming Message Handler (/start, /withdrawals, /w, button)
+    // Incoming Message Handler (/start, /withdraw, /w, button)
     // ─────────────────────────────────────────────────────────
     withdrawBot.on('message', async (msg) => {
         const text = (msg.text || '').trim();
@@ -3624,16 +3641,16 @@ if (withdrawBot) {
         if (text.startsWith('/list')) {
             const pending = await fetchPendingWithdrawals();
             if (pending.length === 0) {
-                withdrawBot.sendMessage(chatId, '✅ কোনো পেন্ডিং ক্যাশআউট রিকোয়েস্ট নেই।', { reply_markup: adminReplyKeyboard }).catch(() => {});
+                withdrawBot.sendMessage(chatId, '✓ কোনো পেন্ডিং ক্যাশআউট রিকোয়েস্ট নেই।', { reply_markup: adminReplyKeyboard }).catch(() => {});
                 return;
             }
             let listMsg = `<b>📋 পেন্ডিং ক্যাশআউট তালিকা (${pending.length}টি):</b>\n\n`;
             pending.forEach((w, i) => {
-                const methodEmoji = w.method?.toLowerCase() === 'nagad' ? '🟠' : '🩷';
-                listMsg += `<b>${i + 1}.</b> ${methodEmoji} <code>${w.number}</code> → ৳${formatSendAmount(w.receiveAmount)}\n` +
+                const num = formatBdPhone(w.number);
+                listMsg += `<b>${i + 1}.</b> [${w.method?.toUpperCase()}] <code>${num}</code> → ৳${formatSendAmount(w.receiveAmount)}\n` +
                            `    👤 ${w.name} (ID: <code>${w.userId}</code>)\n\n`;
             });
-            listMsg += `👇 নিচে <b>"💳 Withdraw Requests"</b> বাটনে চাপুন অথবা /w লিখে একে একে শুরু করুন।`;
+            listMsg += `👇 নিচে <b>"Withdraw Requests"</b> বাটনে চাপুন অথবা /w লিখে শুরু করুন।`;
             withdrawBot.sendMessage(chatId, listMsg, { parse_mode: 'HTML', reply_markup: adminReplyKeyboard }).catch(() => {});
             return;
         }
@@ -3642,12 +3659,12 @@ if (withdrawBot) {
             withdrawBot.sendMessage(chatId,
 `<b>📌 Trust Pay Withdraw Bot — সাহায্য:</b>
 
-১. <b>"💳 Withdraw Requests"</b> বাটনে চাপুন অথবা /w কমান্ড দিন।
+১. <b>"Withdraw Requests"</b> বাটনে চাপুন অথবা /w কমান্ড দিন।
 ২. সাথে সাথে বটের প্রথম রিকোয়েস্ট আসবে।
 ৩. কোডে চাপ দিলে নম্বর ও টাকা সাথে সাথে কপি হবে।
-৪. টাকা পাঠানোর পর <b>✅ কনফার্ম</b> চাপলে আগের মেসেজ মুছে গিয়ে স্বয়ংক্রিয়ভাবে পরের রিকোয়েস্ট আসবে।
-৫. এভাবে সিরিয়াল অনুযায়ী সবগুলো শেষ না হওয়া পর্যন্ত আসতে থাকবে।
-৬. সব শেষ হলে বট জানিয়ে দেবে সব কমপ্লিট!
+৪. টাকা পাঠানোর পর <b>✓ Confirm</b> চাপলে আগের মেসেজ মুছে গিয়ে স্বয়ংক্রিয়ভাবে পরের রিকোয়েস্ট চলে আসবে।
+৫. এভাবে সিরিয়াল অনুযায়ী সবগুলো শেষ না হওয়া পর্যন্ত একটির পর একটি আসতে থাকবে।
+৬. সব শেষ হলে বট জানিয়ে দেবে সব শেষ!
 
 <b>📋 ফি নীতি:</b>
 • ২০ থেকে ৩০ টাকা পর্যন্ত: সম্পূর্ণ ফ্রি (০ টাকা ফি)
@@ -3655,34 +3672,20 @@ if (withdrawBot) {
             return;
         }
 
-        // For /start, /withdrawals, /withdraw, /w, or tapping the keyboard button
-        withdrawQueue = await fetchPendingWithdrawals();
+        // For /start, /withdraw, /w, or tapping the keyboard button
         withdrawQueueIndex = 0;
-
-        if (withdrawQueue.length === 0) {
-            withdrawBot.sendMessage(chatId,
-                `<blockquote><b>✅ কোনো পেন্ডিং ক্যাশআউট নেই!</b>\n\nএই মুহূর্তে ডেটাবেসে কোনো উইথড্র রিকোয়েস্ট বাকি নেই।</blockquote>`,
-                { parse_mode: 'HTML', reply_markup: adminReplyKeyboard }
-            ).catch(() => {});
-            return;
-        }
-
-        await withdrawBot.sendMessage(chatId,
-            `<blockquote><b>📋 মোট ${withdrawQueue.length}টি পেন্ডিং ক্যাশআউট পাওয়া গেছে।</b>\nসিরিয়াল অনুযায়ী একে একে আসছে...</blockquote>`,
-            { parse_mode: 'HTML', reply_markup: adminReplyKeyboard }
-        ).catch(() => {});
-
-        await sendNextWithdrawal(chatId);
+        await sendNextWithdrawal(chatId, 0);
     });
 
     // ─────────────────────────────────────────────────────────
     // Callback Query Handler: Confirm / Reject / Next / Refresh
-    // When completed: DELETES current message, sends the next one!
+    // When completed: DELETES current message, sends the next one automatically!
     // ─────────────────────────────────────────────────────────
     withdrawBot.on('callback_query', async (query) => {
-        const chatId = query.message.chat.id;
-        const messageId = query.message.message_id;
+        const chatId = query.message?.chat?.id;
+        const messageId = query.message?.message_id;
         const data = query.data;
+        if (!chatId || !data) return;
 
         // ─── 1. CONFIRM ──────────────────────────────────────────
         if (data.startsWith('wd_confirm:')) {
@@ -3690,20 +3693,18 @@ if (withdrawBot) {
             const docId = parts[1];
             const userId = parts[2];
 
-            await withdrawBot.answerCallbackQuery(query.id, { text: '✅ কনফার্ম সম্পন্ন! পরেরটি আসছে...', show_alert: false }).catch(() => {});
+            await withdrawBot.answerCallbackQuery(query.id, { text: '✓ Confirming...', show_alert: false }).catch(() => {});
 
-            // DELETE the current withdrawal message from chat
-            await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
+            // DELETE the current withdrawal message immediately
+            if (messageId) {
+                await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
+            }
 
             // Process approval in Firestore, notify user and payout channel
             await doApproveWithdraw(docId, userId);
 
-            // Remove approved item from queue
-            withdrawQueue = withdrawQueue.filter(w => w.docId !== docId);
-            if (withdrawQueueIndex >= withdrawQueue.length) withdrawQueueIndex = 0;
-
             // Automatically send the next pending withdrawal!
-            await sendNextWithdrawal(chatId);
+            await sendNextWithdrawal(chatId, 0);
             return;
         }
 
@@ -3714,48 +3715,53 @@ if (withdrawBot) {
             const userId = parts[2];
             const refundAmt = parseFloat(parts[3]) || 0;
 
-            await withdrawBot.answerCallbackQuery(query.id, { text: '❌ বাতিল ও রিফান্ড সম্পন্ন!', show_alert: false }).catch(() => {});
+            await withdrawBot.answerCallbackQuery(query.id, { text: '✕ Rejecting...', show_alert: false }).catch(() => {});
 
-            // DELETE the current withdrawal message from chat
-            await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
+            // DELETE the current withdrawal message immediately
+            if (messageId) {
+                await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
+            }
 
             // Process refund in Firestore and notify user
             await doRejectWithdraw(docId, userId, refundAmt);
 
-            // Remove rejected item from queue
-            withdrawQueue = withdrawQueue.filter(w => w.docId !== docId);
-            if (withdrawQueueIndex >= withdrawQueue.length) withdrawQueueIndex = 0;
-
             // Automatically send the next pending withdrawal!
-            await sendNextWithdrawal(chatId);
+            await sendNextWithdrawal(chatId, 0);
             return;
         }
 
         // ─── 3. NEXT / SKIP ──────────────────────────────────────
         if (data === 'wd_next') {
             await withdrawBot.answerCallbackQuery(query.id).catch(() => {});
-            // DELETE current message and show next
-            await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
-            if (withdrawQueue.length > 0) {
-                withdrawQueueIndex = (withdrawQueueIndex + 1) % withdrawQueue.length;
+            if (messageId) {
+                await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
             }
-            await sendNextWithdrawal(chatId);
+            const pending = await fetchPendingWithdrawals();
+            if (pending.length === 0) {
+                await withdrawBot.sendMessage(chatId,
+                    `<blockquote><b>✓ সকল ক্যাশআউট রিকোয়েস্ট সম্পন্ন!</b></blockquote>`,
+                    { parse_mode: 'HTML', reply_markup: adminReplyKeyboard }
+                ).catch(() => {});
+                return;
+            }
+            withdrawQueueIndex = (withdrawQueueIndex + 1) % pending.length;
+            await sendNextWithdrawal(chatId, withdrawQueueIndex);
             return;
         }
 
         // ─── 4. REFRESH ──────────────────────────────────────────
         if (data === 'wd_refresh') {
-            await withdrawBot.answerCallbackQuery(query.id, { text: '🔄 রিফ্রেশ করা হচ্ছে...' }).catch(() => {});
-            await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
-            withdrawQueue = await fetchPendingWithdrawals();
+            await withdrawBot.answerCallbackQuery(query.id, { text: '⟳ Refreshing...' }).catch(() => {});
+            if (messageId) {
+                await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
+            }
             withdrawQueueIndex = 0;
-            await sendNextWithdrawal(chatId);
+            await sendNextWithdrawal(chatId, 0);
             return;
         }
     });
 
     console.log('[WithdrawBot] 📋 All handlers registered successfully.');
 }
-// ============================================================
 // END OF WITHDRAW MANAGER BOT
 // ============================================================
