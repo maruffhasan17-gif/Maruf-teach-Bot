@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
@@ -993,11 +993,11 @@ export default function App() {
   };
 
   const [appLoading, setAppLoading] = useState(true);
+  // appLoading is cleared by loadData after first successful fetch
+  // Safety fallback: if loadData never fires for some reason, clear after 4s
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setAppLoading(false);
-    }, 450);
-    return () => clearTimeout(timer);
+    const fallbackTimer = setTimeout(() => setAppLoading(false), 4000);
+    return () => clearTimeout(fallbackTimer);
   }, []);
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -1100,11 +1100,16 @@ export default function App() {
   const [communitySuccess, setCommunitySuccess] = useState(false);
 
   window.reloadGlobalData = () => loadData(user.id || 123456789);
+  const isFirstLoad = useRef(true);
   const loadData = async (userId) => {
     try {
       const data = await fetchUserData(userId);
       // data is null when both fetch attempts failed — keep existing balance, don't flash 0
-      if (!data) return;
+      if (!data) {
+        // Even on failure, unblock the UI after first attempt
+        if (isFirstLoad.current) { isFirstLoad.current = false; setAppLoading(false); }
+        return;
+      }
       if (data.balance !== undefined) setBalance(data.balance);
       setFiatWallet(data.fiatWallet || null);
       setFiatWithdrawPending(data.fiatWithdrawPending || null);
@@ -1114,8 +1119,11 @@ export default function App() {
         hasSellBalance: Boolean(data.hasSellBalance),
         spentSinceLastDeposit: parseFloat(data.spentSinceLastDeposit) || 0
       });
+      // Clear loading screen once real data has arrived
+      if (isFirstLoad.current) { isFirstLoad.current = false; setAppLoading(false); }
     } catch (e) {
       console.warn("loadData error:", e);
+      if (isFirstLoad.current) { isFirstLoad.current = false; setAppLoading(false); }
     }
   };
 
