@@ -3167,11 +3167,14 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000 && parsed.rates?.USDT) {
-                    return parsed.rates;
+                    return {
+                        ...parsed.rates,
+                        GRAM: Math.min(160, parsed.rates.GRAM || 160)
+                    };
                 }
             }
         } catch(e) {}
-        return { GRAM: 165, USDT: 115 };
+        return { GRAM: 160, USDT: 115 };
     });
 
     // Fetch live market rates
@@ -3180,10 +3183,10 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
         fetchMarketRates().then(data => {
             if (!isMounted || !data) return;
             if (data.sellRates && data.sellRates.USDT) {
-                // Ensure 10 TK profit and max 170 TK ceiling
+                // Ensure 10 TK profit and max 160 TK ceiling
                 const gramRate = data.sellRates.GRAM 
-                    ? Math.min(170, data.sellRates.GRAM) 
-                    : (data.realGramBdt ? Math.min(170, Math.round(data.realGramBdt - 10)) : 165);
+                    ? Math.min(160, data.sellRates.GRAM) 
+                    : (data.realGramBdt ? Math.min(160, Math.round(data.realGramBdt - 10)) : 160);
                 const newRates = {
                     GRAM: gramRate,
                     USDT: data.sellRates.USDT
@@ -3203,7 +3206,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
     const currentRate = asset === 'USDT' 
         ? (liveRates?.USDT || 115) 
-        : Math.min(170, (liveRates?.GRAM || 165));
+        : Math.min(160, (liveRates?.GRAM || 160));
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
 
@@ -3421,7 +3424,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                                 <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-5 h-5 object-contain shrink-0" alt="GRAM" />
                                 <div className="text-left">
                                     <span className="font-extrabold text-[11px] text-slate-900 block leading-tight">GRAM</span>
-                                    <span className="text-[9px] text-indigo-600 font-bold block">≈ ৳{liveRates?.GRAM || 165} TK</span>
+                                    <span className="text-[9px] text-indigo-600 font-bold block">≈ ৳{liveRates?.GRAM || 160} TK</span>
                                 </div>
                             </button>
 

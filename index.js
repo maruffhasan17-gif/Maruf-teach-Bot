@@ -1571,7 +1571,7 @@ let cachedMarketRates = {
     },
     sellRates: {
         USDT: 115, // 120 - 5
-        GRAM: 165  // 175.2 - 10 = 165 (max 170 TK cap)
+        GRAM: 160  // Max 160 TK (per user instruction)
     },
     lastUpdated: 0
 };
@@ -1627,10 +1627,10 @@ async function updateMarketRates() {
 
         // GRAM Seller Price Rule:
         // Platform keeps 10 TK profit: (realGramBdt - 10 TK).
-        // Cap rule: Maximum 170 TK (even if GRAM price is 200+ TK, platform pays max 170 TK).
+        // Cap rule: Maximum 160 TK (per user instruction from 170 to 160 TK).
         // If price is low, it dynamically follows (realGramBdt - 10 TK).
         const calculatedSellGram = Math.round(realGramBdt - 10);
-        const sellGram = Math.max(1, Math.min(170, calculatedSellGram));
+        const sellGram = Math.max(1, Math.min(160, calculatedSellGram));
 
         cachedMarketRates = {
             realUsdtBdt,
