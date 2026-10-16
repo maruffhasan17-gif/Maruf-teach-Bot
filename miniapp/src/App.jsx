@@ -1293,7 +1293,37 @@ export default function App() {
     }
   }, []);
 
-  const manifestUrl = typeof window !== 'undefined' && window.location.origin ? (window.location.origin + '/tonconnect-manifest.json?v=20261014v12') : 'https://maruf-teach-bot.onrender.com/tonconnect-manifest.json?v=20261014v12';
+  // Server Maintenance Mode requested by user
+  return (
+    <div className="fixed inset-0 bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#eef2ff] z-[99999] flex flex-col items-center justify-center font-sans select-none p-6 text-center">
+      <BloomingFlowerGraphic size={180} />
+
+      <h2 className="text-[#0f172a] font-black text-2xl mt-6 tracking-tight flex items-center justify-center gap-2">
+        <span>Server Maintenance</span>
+        <span className="text-xl">🛠️</span>
+      </h2>
+
+      <div className="flex items-center gap-2 mt-3 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30">
+        <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+        <span className="text-[13px] font-black text-amber-600">
+          সার্ভার রক্ষণাবেক্ষণ ও আপগ্রেড চলছে
+        </span>
+      </div>
+
+      <p className="text-xs text-slate-500 font-medium max-w-[290px] mt-3 leading-relaxed">
+        আমাদের সিস্টেম আপডেট করা হচ্ছে। সাময়িক অসুবিধার জন্য আন্তরিকভাবে দুঃখিত, খুব শীঘ্রই বট পুনরায় সচল হবে।
+      </p>
+
+      {/* Shimmer Progress Line */}
+      <div className="w-44 h-1.5 bg-slate-200/90 rounded-full mt-6 overflow-hidden relative shadow-inner">
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 rounded-full animate-pulse" />
+      </div>
+
+      <div className="mt-8 text-[11px] font-bold text-slate-400">
+        Trust Pay • Official System Update
+      </div>
+    </div>
+  );
 
   if (appLoading) {
     return <BloomingFlowerLoader lang={lang} />;
