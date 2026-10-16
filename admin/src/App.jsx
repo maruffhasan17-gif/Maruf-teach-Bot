@@ -320,6 +320,14 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       icon: <Users size={19} /> 
     },
     { 
+      path: '/broadcast', 
+      name: 'Broadcast Center', 
+      sub: '20 Templates & Bot DM', 
+      icon: <Send size={19} />,
+      badge: '20',
+      badgeColor: 'bg-purple-600 text-white'
+    },
+    { 
       path: '/bot-settings', 
       name: 'Bot Settings', 
       sub: 'Rates & Accounts', 
@@ -4766,6 +4774,1002 @@ function MobileBlockedScreen() {
 }
 
 // =========================================================================
+// BROADCAST CENTER — 20 CUSTOM EDITABLE TEMPLATES & ANIMATED EMOJI BOT DM
+// =========================================================================
+const INITIAL_20_TEMPLATES = [
+  {
+    id: 'tpl_1',
+    number: 1,
+    category: 'Rate & Promo',
+    badge: '🔥 Hot Rate',
+    title: '🔥 ১. আজকের সেরা ক্রিপ্টো রেট আপডেট (Best Rate Alert)',
+    message: `<b>🔥 আজকের সেরা ক্রিপ্টো রেট আপডেট! (Market Update)</b>\n\n<blockquote>💎 <b>Asset:</b> <code>TON / USDT / GRAM</code>\n📈 <b>Buy &amp; Sell:</b> <code>সর্বোচ্চ মার্কেট রেট চালু!</code>\n🏦 <b>Gateway:</b> <code>bKash &amp; Nagad (Personal)</code>\n⚡️ <b>Delivery:</b> <code>Instant Auto Transfer</code></blockquote>\n\n🚀 <i>আজই সেরা রেটে ক্রিপ্টো ক্রয়-বিক্রয় করতে নিচের বাটনে ক্লিক করে ওয়েব অ্যাপ ওপেন করুন!</i>`
+  },
+  {
+    id: 'tpl_2',
+    number: 2,
+    category: 'Instant Cashout',
+    badge: '⚡️ Instant Payout',
+    title: '⚡️ ২. ইনস্ট্যান্ট বিকাশ ও নগদ উইথড্র চালু (Instant Cashout Live)',
+    message: `<b>⚡️ ইনস্ট্যান্ট বিকাশ ও নগদ ক্যাশআউট চালু! (Fast Payout)</b>\n\n<blockquote>💰 <b>Service:</b> <code>Instant Fiat Withdrawal</code>\n🏦 <b>Gateway:</b> <code>bKash &amp; Nagad</code>\n⏰ <b>Processing Time:</b> <code>১ – ৫ মিনিট</code>\n✅ <b>Status:</b> <code>100% Active &amp; Online</code></blockquote>\n\n💸 <i>আপনার ওয়ালেট ব্যালেন্স এখনই দ্রুত বিকাশ বা নগদে উত্তোলন করে নিন!</i>`
+  },
+  {
+    id: 'tpl_3',
+    number: 3,
+    category: 'Crypto Buy/Sell',
+    badge: '💎 Auto Crypto',
+    title: '💎 ৩. TON ও USDT ইনস্ট্যান্ট অন-চেইন বাই (Instant Crypto Buy)',
+    message: `<b>💎 ওয়েব অ্যাপ ব্যালেন্স দিয়ে ১ ক্লিকে ক্রিপ্টো কিনুন!</b>\n\n<blockquote>🪙 <b>Available Coins:</b> <code>TON, USDT &amp; GRAM</code>\n⚡️ <b>Transfer Mode:</b> <code>Direct On-Chain Auto Send</code>\n📩 <b>Receiver:</b> <code>Any TON / Tonkeeper Wallet</code>\n🌐 <b>Confirmation:</b> <code>Within Seconds!</code></blockquote>\n\n🚀 <i>অ্যাড মানি করে অ্যাপ ব্যালেন্স থেকে সরাসরি আপনার ওয়ালেটে ক্রিপ্টো নিয়ে নিন!</i>`
+  },
+  {
+    id: 'tpl_4',
+    number: 4,
+    category: 'Deposit & Bonus',
+    badge: '💰 Auto Deposit',
+    title: '💰 ৪. অটোমেটিক অ্যাড মানি চালু (1-Second Auto Deposit)',
+    message: `<b>💰 অটোমেটিক ব্যালেন্স ডিপোজিট চালু আছে! (Auto Add Money)</b>\n\n<blockquote>🏦 <b>Payment Methods:</b> <code>bKash &amp; Nagad Send Money</code>\n📝 <b>Verification:</b> <code>SMS TrxID Auto-Verify</code>\n⚡️ <b>Credit Speed:</b> <code>মাত্র ১ সেকেন্ডে ব্যালেন্স যুক্ত!</code>\n🛡 <b>Security:</b> <code>100% Safe &amp; Protected</code></blockquote>\n\n✨ <i>টাকা পাঠিয়ে সঠিক TrxID সাবমিট করলেই স্বয়ংক্রিয়ভাবে আপনার ব্যালেন্সে টাকা জমা হয়ে যাবে!</i>`
+  },
+  {
+    id: 'tpl_5',
+    number: 5,
+    category: 'Deposit & Bonus',
+    badge: '🎁 Special Bonus',
+    title: '🎉 ৫. স্পেশাল বোনাস ও ক্যাশব্যাক অফার (Bonus Announcement)',
+    message: `<b>🎉 ধামাকা বোনাস ও স্পেশাল অফার! (Special Reward!)</b>\n\n<blockquote>🎁 <b>Offer Type:</b> <code>Active Trader Bonus</code>\n💲 <b>Reward:</b> <code>স্পেশাল ব্যালেন্স রিওয়ার্ড</code>\n💎 <b>Eligible For:</b> <code>TON, USDT &amp; GRAM Traders</code>\n🔥 <b>Validity:</b> <code>সীমিত সময়ের জন্য!</code></blockquote>\n\n👑 <i>এখনই লেনদেন সম্পন্ন করে আপনার স্পেশাল বোনাস লুফে নিন!</i>`
+  },
+  {
+    id: 'tpl_6',
+    number: 6,
+    category: 'System & Security',
+    badge: '🚀 System Update',
+    title: '🚀 ৬. ওয়েব অ্যাপ সুপার-ফাস্ট আপডেট (Web App Speed Upgrade)',
+    message: `<b>🚀 Trust Pay ওয়েব অ্যাপ এখন আরও সুপার-ফাস্ট!</b>\n\n<blockquote>✨ <b>UI Experience:</b> <code>Ultra-Smooth &amp; Fast Loading</code>\n⚡️ <b>Wallet Sync:</b> <code>Real-Time Instant Balance</code>\n🔄 <b>Blockchain Engine:</b> <code>Upgraded Auto-Detection</code>\n✅ <b>System Status:</b> <code>All Services 100% Online</code></blockquote>\n\n💎 <i>নতুন অভিজ্ঞতা পেতে এখনই নিচের বাটনে ট্যাপ করে অ্যাপে প্রবেশ করুন!</i>`
+  },
+  {
+    id: 'tpl_7',
+    number: 7,
+    category: 'Rate & Promo',
+    badge: '📈 High Sell Rate',
+    title: '📈 ৭. ক্রিপ্টো বিক্রিতে বাড়তি রেট! (High Crypto Sell Rate)',
+    message: `<b>📈 আপনার USDT, TON ও GRAM বিক্রি করুন সর্বোচ্চ দামে!</b>\n\n<blockquote>💲 <b>Sell Rate:</b> <code>আজকের মার্কেটে সর্বোচ্চ দাম!</code>\n📩 <b>Method:</b> <code>1-Click TonConnect / Direct Send</code>\n💰 <b>Balance Credit:</b> <code>সাথে সাথে টাকা যুক্ত হয়</code>\n🏦 <b>Cashout:</b> <code>bKash &amp; Nagad Instant</code></blockquote>\n\n🔥 <i>দেরি না করে আপনার ওয়ালেটের ক্রিপ্টো বিক্রি করে সেরা মূল্যে ক্যাশআউট করে নিন!</i>`
+  },
+  {
+    id: 'tpl_8',
+    number: 8,
+    category: 'Instant Cashout',
+    badge: '🏦 All Paid',
+    title: '🏦 ৮. সকল পেন্ডিং উইথড্র পেমেন্ট সম্পন্ন (All Withdrawals Cleared)',
+    message: `<b>💰 সকল পেন্ডিং উইথড্র সফলভাবে পেমেন্ট করা হয়েছে!</b>\n\n<blockquote>✅ <b>Payout Status:</b> <code>All Pending Cashouts Cleared!</code>\n🏦 <b>Gateways:</b> <code>bKash &amp; Nagad</code>\n🌐 <b>Live Proofs:</b> <code>@bd_trust_pay_payout</code>\n⚡️ <b>Next Batch:</b> <code>Instant Processing Active</code></blockquote>\n\n🎉 <i>যারা উইথড্র দিয়েছিলেন অনুগ্রহ করে নিজের বিকাশ/নগদ অ্যাকাউন্ট চেক করুন এবং নতুন উইথড্র দিন!</i>`
+  },
+  {
+    id: 'tpl_9',
+    number: 9,
+    category: 'Support & Community',
+    badge: '🔔 Payout Channel',
+    title: '🔔 ৯. লাইভ পেআউট প্রুফ চ্যানেল আপডেট (Join Payout Channel)',
+    message: `<b>🔔 প্রতিদিনের লাইভ পেমেন্ট প্রুফ দেখুন আমাদের অফিসিয়াল চ্যানেলে!</b>\n\n<blockquote>🌐 <b>Payout Channel:</b> <code>@bd_trust_pay_payout</code>\n💸 <b>Updates:</b> <code>প্রতিটি উইথড্র ও ক্রিপ্টো ডেলিভারির লাইভ প্রুফ</code>\n🛡 <b>Transparency:</b> <code>১০০% স্বচ্ছ ও বিশ্বস্ত লেনদেন</code>\n⭐️ <b>Community:</b> <code>হাজারো সন্তুষ্ট ট্রেডার</code></blockquote>\n\n🚀 <i>আমাদের সকল লাইভ পেমেন্ট আপডেট দেখতে পেআউট চ্যানেলে যুক্ত থাকুন!</i>`
+  },
+  {
+    id: 'tpl_10',
+    number: 10,
+    category: 'Crypto Buy/Sell',
+    badge: '🪙 GRAM Special',
+    title: '🪙 ১০. GRAM ও TON গ্যাস ফি অফার (GRAM & TON Gas Promo)',
+    message: `<b>🪙 আপনার ওয়ালেটে TON গ্যাস ফি বা GRAM প্রয়োজন?</b>\n\n<blockquote>💎 <b>Minimum Buy:</b> <code>মাত্র ২০ টাকা থেকে শুরু!</code>\n⚡️ <b>On-Chain Speed:</b> <code>৫ সেকেন্ডে ওয়ালেটে জমা</code>\n📩 <b>Supported Wallets:</b> <code>Tonkeeper, MyTonWallet, Telegram Wallet</code>\n✅ <b>Availability:</b> <code>২৪ ঘণ্টা অটোমেটিক ডেলিভারি</code></blockquote>\n\n🚀 <i>যেকোনো এয়ারড্রপ বা ট্রানজেকশনের জন্য মুহূর্তেই TON ও GRAM কিনে নিন!</i>`
+  },
+  {
+    id: 'tpl_11',
+    number: 11,
+    category: 'System & Security',
+    badge: '🛡 Security Alert',
+    title: '🛡 ১১. অ্যাকাউন্ট নিরাপত্তা ও সতর্কবার্তা (Security Notice)',
+    message: `<b>🛡 আপনার অ্যাকাউন্ট ও ওয়ালেট নিরাপত্তার জরুরি বার্তা!</b>\n\n<blockquote>⚠️ <b>সতর্কতা ১:</b> <code>আমাদের কোনো অ্যাডমিন কখনো আপনার ওয়ালেটের Secret Phrase চায় না।</code>\n🔒 <b>সতর্কতা ২:</b> <code>সবসময় আমাদের অফিসিয়াল বট ও ওয়েব অ্যাপের মাধ্যমে লেনদেন করুন।</code>\n✅ <b>সাপোর্ট:</b> <code>যেকোনো প্রয়োজনে অ্যাপের ভেতরের সাপোর্ট অপশন ব্যবহার করুন।</code></blockquote>\n\n🛡 <i>নিরাপদে লেনদেন করুন, Trust Pay সবসময় আপনার পাশে আছে!</i>`
+  },
+  {
+    id: 'tpl_12',
+    number: 12,
+    category: 'System & Security',
+    badge: '⏰ Maintenance',
+    title: '⏰ ১২. সাময়িক সার্ভার রক্ষণাবেক্ষণ নোটিশ (Maintenance Notice)',
+    message: `<b>⏰ জরুরি সার্ভার আপগ্রেড ও রক্ষণাবেক্ষণ নোটিশ!</b>\n\n<blockquote>⏳ <b>Status:</b> <code>Scheduled Server Upgrade</code>\n🔄 <b>Purpose:</b> <code>ব্লকচেইন ও পেমেন্ট গেটওয়ে ফাস্ট করার কাজ চলছে</code>\n🛡 <b>User Balance:</b> <code>সকল ইউজারের ব্যালেন্স ১০০% নিরাপদ ও অক্ষত আছে</code></blockquote>\n\n✨ <i>খুব অল্প সময়ের মধ্যেই কাজ শেষ করে আমরা আবার লাইভ হচ্ছি। সাথে থাকার জন্য ধন্যবাদ!</i>`
+  },
+  {
+    id: 'tpl_13',
+    number: 13,
+    category: 'System & Security',
+    badge: '✅ Back Online',
+    title: '✅ ১৩. সার্ভার মেইনটেন্যান্স শেষ — বট আবার লাইভ! (Back Online)',
+    message: `<b>🎉 সার্ভার আপগ্রেড সম্পন্ন — আমরা আবার পুরোপুরি লাইভ!</b>\n\n<blockquote>✅ <b>Web App:</b> <code>100% Online &amp; Active</code>\n⚡️ <b>Auto Deposit:</b> <code>Instant SMS Verification Ready</code>\n💎 <b>Crypto Buy/Sell:</b> <code>Instant On-Chain Active</code>\n🏦 <b>Withdrawals:</b> <code>bKash &amp; Nagad Open</code></blockquote>\n\n🚀 <i>আপনাদের ধৈর্যের জন্য ধন্যবাদ! এখনই ওয়েব অ্যাপ ওপেন করে নির্বিঘ্নে লেনদেন করুন।</i>`
+  },
+  {
+    id: 'tpl_14',
+    number: 14,
+    category: 'Support & Community',
+    badge: '🎁 User Guide',
+    title: '🎁 ১৪. নতুন ইউজারদের জন্য সহজ লেনদেন গাইড (Quick Trading Guide)',
+    message: `<b>🎁 Trust Pay-তে কীভাবে সহজে লেনদেন করবেন? (Quick Guide)</b>\n\n<blockquote>💰 <b>১. Add Money:</b> <code>বিকাশ/নগদে সেন্ড মানি করে TrxID দিলেই অটো ব্যালেন্স যোগ হবে।</code>\n💎 <b>২. Buy Crypto:</b> <code>ব্যালেন্স দিয়ে TON, USDT বা GRAM কিনলে সরাসরি ওয়ালেটে যাবে।</code>\n🔄 <b>৩. Sell Crypto:</b> <code>ওয়ালেট কানেক্ট করে ক্রিপ্টো সেন্ড করলেই ব্যালেন্সে টাকা যোগ হবে।</code>\n💸 <b>৪. Withdraw:</b> <code>যেকোনো সময় বিকাশ বা নগদে ক্যাশআউট করে নিন!</code></blockquote>\n\n🚀 <i>আজই আপনার প্রথম লেনদেন শুরু করুন!</i>`
+  },
+  {
+    id: 'tpl_15',
+    number: 15,
+    category: 'Support & Community',
+    badge: '📞 24/7 Support',
+    title: '📞 ১৫. ২৪/৭ লাইভ কাস্টমার সাপোর্ট চালু (24/7 Customer Support)',
+    message: `<b>📞 যেকোনো প্রয়োজনে আমাদের ২৪/৭ কাস্টমার সাপোর্ট আপনার পাশে!</b>\n\n<blockquote>🎧 <b>Support Mode:</b> <code>In-App Live Ticket &amp; Direct Reply</code>\n⏰ <b>Response Time:</b> <code>খুবই দ্রুত সমাধান</code>\n📝 <b>Help Topics:</b> <code>TrxID, Deposit, Buy/Sell ও Withdrawal</code></blockquote>\n\n✨ <i>লেনদেন সংক্রান্ত যেকোনো প্রশ্ন থাকলে ওয়েব অ্যাপের Support অপশন থেকে মেসেজ দিন, অ্যাডমিন সরাসরি আপনার বটে উত্তর দেবেন!</i>`
+  },
+  {
+    id: 'tpl_16',
+    number: 16,
+    category: 'Rate & Promo',
+    badge: '💸 Low Minimum',
+    title: '💸 ১৬. মাত্র ২০ টাকা থেকে ক্রিপ্টো ক্রয় চালু! (Low Minimum Buy)',
+    message: `<b>💸 এখন মাত্র ২০ টাকা থেকেই ক্রিপ্টো কেনা-বেচা শুরু করুন!</b>\n\n<blockquote>💲 <b>Minimum Crypto Buy:</b> <code>মাত্র ৳২০ BDT!</code>\n💎 <b>Assets:</b> <code>TON, USDT &amp; GRAM</code>\n⚡️ <b>Delivery:</b> <code>Instant On-Chain Transfer</code>\n🏦 <b>Payment:</b> <code>bKash &amp; Nagad</code></blockquote>\n\n🔥 <i>ছোট বা বড় যেকোনো অ্যামাউন্টের ক্রিপ্টো লেনদেন করুন সম্পূর্ণ অটোমেটিক সিস্টেমে!</i>`
+  },
+  {
+    id: 'tpl_17',
+    number: 17,
+    category: 'Support & Community',
+    badge: '⭐️ Thank You',
+    title: '⭐️ ১৭. সম্মানিত ইউজারদের প্রতি ধন্যবাদ বার্তা (Thank You Traders)',
+    message: `<b>👑 Trust Pay পরিবারের সকল সদস্যকে আন্তরিক ধন্যবাদ!</b>\n\n<blockquote>⭐️ <b>Milestone:</b> <code>হাজারো সফল অটোমেটিক লেনদেন সম্পন্ন!</code>\n💎 <b>Our Promise:</b> <code>সবচেয়ে দ্রুত পেমেন্ট এবং সেরা মার্কেট রেট</code>\n🛡 <b>Trust &amp; Safety:</b> <code>১০০% অটোমেটেড ও নিরাপদ প্ল্যাটফর্ম</code></blockquote>\n\n🎉 <i>আপনাদের আস্থা ও ভালোবাসাই আমাদের এগিয়ে যাওয়ার অনুপ্রেরণা। সাথে থাকার জন্য ধন্যবাদ!</i>`
+  },
+  {
+    id: 'tpl_18',
+    number: 18,
+    category: 'Crypto Buy/Sell',
+    badge: '🔄 TonConnect',
+    title: '🔄 ১৮. ১-ক্লিক Tonkeeper ওয়ালেট কানেক্ট সেল (1-Click Wallet Sell)',
+    message: `<b>🔄 Tonkeeper বা Telegram Wallet কানেক্ট করে ১ ক্লিকে ক্রিপ্টো বিক্রি করুন!</b>\n\n<blockquote>📩 <b>Feature:</b> <code>1-Click TonConnect Auto Sell</code>\n💎 <b>Supported:</b> <code>TON, USDT (Jetton) &amp; GRAM</code>\n⚡️ <b>Verification:</b> <code>অটোমেটিক অন-চেইন ভেরিফিকেশন</code>\n💰 <b>Instant Credit:</b> <code>সাথে সাথে BDT ব্যালেন্সে টাকা জমা!</code></blockquote>\n\n🚀 <i>কপি-পেস্টের ঝামেলা ছাড়াই ওয়ালেট কানেক্ট করে মুহূর্তেই ক্রিপ্টো সেল করুন!</i>`
+  },
+  {
+    id: 'tpl_19',
+    number: 19,
+    category: 'System & Security',
+    badge: '⚠️ Info Notice',
+    title: '⚠️ ১৯. সঠিক TrxID ও নাম্বার ব্যবহারের অনুরোধ (Accurate Info Tip)',
+    message: `<b>⚠️ দ্রুত ও নির্ভুল লেনদেনের জন্য জরুরি নির্দেশনা!</b>\n\n<blockquote>📝 <b>Add Money:</b> <code>টাকা পাঠানোর পর এসএমএস থেকে সঠিক TrxID ও সঠিক টাকার পরিমাণ লিখুন।</code>\n🏦 <b>Withdraw:</b> <code>ক্যাশআউট করার সময় আপনার সচল বিকাশ বা নগদ পার্সোনাল নাম্বারটি পুনরায় চেক করুন।</code>\n⚡️ <b>Result:</b> <code>সঠিক তথ্য দিলে ১ সেকেন্ডেই কাজ সম্পন্ন হবে!</code></blockquote>\n\n✅ <i>নির্ভুল তথ্য দিন, সুপার-ফাস্ট সার্ভিস উপভোগ করুন!</i>`
+  },
+  {
+    id: 'tpl_20',
+    number: 20,
+    category: 'Rate & Promo',
+    badge: '👑 Weekend Promo',
+    title: '👑 ২০. উইকেন্ড ধামাকা ট্রেডিং অফার! (Weekend Special Offer)',
+    message: `<b>👑 উইকেন্ড স্পেশাল ধামাকা! আনলিমিটেড ক্রিপ্টো এক্সচেঞ্জ চালু!</b>\n\n<blockquote>🔥 <b>Special Offer:</b> <code>উইকেন্ড ভিআইপি রেট ও ফাস্ট ক্যাশআউট</code>\n💎 <b>Coins Ready:</b> <code>Full Reserve of TON, USDT &amp; GRAM</code>\n💸 <b>Payouts:</b> <code>Instant bKash &amp; Nagad Cashout</code>\n🎉 <b>Service:</b> <code>২৪ ঘণ্টা নন-স্টপ অটোমেটিক সার্ভিস</code></blockquote>\n\n🚀 <i>এখনই নিচের বাটনে ক্লিক করে ওয়েব অ্যাপে ঢুকে আজকের সেরা রেট দেখে নিন!</i>`
+  }
+];
+
+const ANIMATED_EMOJI_PALETTE = [
+  { char: '⚡️', label: 'Zap' },
+  { char: '🔥', label: 'Fire' },
+  { char: '💎', label: 'Gem' },
+  { char: '💰', label: 'Money Bag' },
+  { char: '💲', label: 'Dollar' },
+  { char: '💸', label: 'Flying Cash' },
+  { char: '🪙', label: 'Coin' },
+  { char: '🚀', label: 'Rocket' },
+  { char: '🏦', label: 'Bank' },
+  { char: '📩', label: 'Wallet/Addr' },
+  { char: '🌐', label: 'Globe' },
+  { char: '✅', label: 'Check' },
+  { char: '❌', label: 'Cross' },
+  { char: '⏳', label: 'Hourglass' },
+  { char: '⏰', label: 'Clock' },
+  { char: '🔔', label: 'Bell' },
+  { char: '📢', label: 'Megaphone' },
+  { char: '🎁', label: 'Gift' },
+  { char: '🎉', label: 'Party' },
+  { char: '✨', label: 'Sparkles' },
+  { char: '👤', label: 'User' },
+  { char: '🪪', label: 'ID Card' },
+  { char: '📞', label: 'Support' },
+  { char: '📝', label: 'Note' },
+  { char: '📉', label: 'Fee/Down' },
+  { char: '📈', label: 'Rate Up' },
+  { char: '🔄', label: 'Swap' },
+  { char: '🛡', label: 'Shield' },
+  { char: '⚠️', label: 'Warning' },
+  { char: '⭐️', label: 'Star' },
+  { char: '👑', label: 'Crown' }
+];
+
+function BroadcastCenter() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const { data: botStats } = useBotData();
+
+  const [templates, setTemplates] = useState(INITIAL_20_TEMPLATES);
+  const [selectedId, setSelectedId] = useState('tpl_1');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [editorTitle, setEditorTitle] = useState(INITIAL_20_TEMPLATES[0].title);
+  const [editorBadge, setEditorBadge] = useState(INITIAL_20_TEMPLATES[0].badge);
+  const [editorMessage, setEditorMessage] = useState(INITIAL_20_TEMPLATES[0].message);
+
+  const [target, setTarget] = useState('all');
+  const [targetUserId, setTargetUserId] = useState('');
+  const [includeWebAppButton, setIncludeWebAppButton] = useState(true);
+  const [includePayoutButton, setIncludePayoutButton] = useState(false);
+  const [alsoSendToPayoutChannel, setAlsoSendToPayoutChannel] = useState(false);
+  const [customButtonText, setCustomButtonText] = useState('');
+  const [customButtonUrl, setCustomButtonUrl] = useState('');
+
+  const [sending, setSending] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [toast, setToast] = useState({ show: false, type: 'success', message: '' });
+
+  const showToast = (type, message) => {
+    setToast({ show: true, type, message });
+    setTimeout(() => setToast({ show: false, type: 'success', message: '' }), 4500);
+  };
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/broadcast/templates?_t=${Date.now()}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.templates) && json.templates.length > 0) {
+            setTemplates(json.templates);
+            const first = json.templates.find(t => t.id === selectedId) || json.templates[0];
+            if (first) {
+              setEditorTitle(first.title);
+              setEditorBadge(first.badge);
+              setEditorMessage(first.message);
+            }
+          }
+          if (Array.isArray(json.logs)) {
+            setLogs(json.logs);
+          }
+        }
+      } catch (e) {
+        console.warn('Template fetch fallback to built-in 20 templates:', e.message);
+      }
+    };
+    loadTemplates();
+  }, []);
+
+  const handleSelectTemplate = (tpl) => {
+    setSelectedId(tpl.id);
+    setEditorTitle(tpl.title);
+    setEditorBadge(tpl.badge);
+    setEditorMessage(tpl.message);
+    setBroadcastResult(null);
+  };
+
+  const handleInsertEmoji = (emojiChar) => {
+    const textarea = document.getElementById('broadcast-msg-editor');
+    if (textarea) {
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+      const nextMsg = editorMessage.slice(0, start) + emojiChar + editorMessage.slice(end);
+      setEditorMessage(nextMsg);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + emojiChar.length, start + emojiChar.length);
+      }, 10);
+    } else {
+      setEditorMessage(prev => prev + ' ' + emojiChar);
+    }
+  };
+
+  const handleWrapTag = (openTag, closeTag) => {
+    const textarea = document.getElementById('broadcast-msg-editor');
+    if (!textarea) {
+      setEditorMessage(prev => `${prev}\n${openTag}Text${closeTag}`);
+      return;
+    }
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+    const selected = editorMessage.slice(start, end) || 'লেখা লিখুন';
+    const nextMsg = editorMessage.slice(0, start) + openTag + selected + closeTag + editorMessage.slice(end);
+    setEditorMessage(nextMsg);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + openTag.length, start + openTag.length + selected.length);
+    }, 10);
+  };
+
+  const handleSaveCurrentTemplate = async () => {
+    setSavingTemplate(true);
+    try {
+      const updatedList = templates.map(t =>
+        t.id === selectedId
+          ? { ...t, title: editorTitle, badge: editorBadge, message: editorMessage }
+          : t
+      );
+      setTemplates(updatedList);
+
+      const res = await fetch(`${API_BASE}/api/admin/broadcast/templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templates: updatedList })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to save template');
+      showToast('success', `Template #${ updatedList.find(t => t.id === selectedId)?.number || '' } saved to database!`);
+    } catch (e) {
+      showToast('error', e.message);
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleResetTemplates = async () => {
+    if (!window.confirm('আপনি কি ২০টি কাস্টম মেসেজ টেমপ্লেট ডিফল্ট অবস্থায় রিসেট করতে চান?')) return;
+    setSavingTemplate(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/broadcast/templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resetAll: true })
+      });
+      const json = await res.json();
+      if (res.ok && Array.isArray(json.templates)) {
+        setTemplates(json.templates);
+        const curr = json.templates.find(t => t.id === selectedId) || json.templates[0];
+        if (curr) {
+          setEditorTitle(curr.title);
+          setEditorBadge(curr.badge);
+          setEditorMessage(curr.message);
+        }
+        showToast('success', 'All 20 templates restored to default!');
+      }
+    } catch (e) {
+      showToast('error', e.message);
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleSendBroadcast = async () => {
+    if (!editorMessage.trim()) {
+      showToast('error', 'মেসেজ খালি রাখা যাবে না!');
+      return;
+    }
+    if (target === 'single' && !targetUserId.trim()) {
+      showToast('error', 'সিঙ্গেল ইউজারের জন্য সঠিক Telegram User ID দিন!');
+      return;
+    }
+
+    const confirmText = target === 'single'
+      ? `আপনি কি ইউজার আইডি (${targetUserId.trim()})-তে এই অ্যানিমেটেড মেসেজটি পাঠাতে চান?`
+      : `আপনি কি বটের সকল ইউজারের কাছে এই অ্যানিমেটেড ব্রডকাস্ট মেসেজটি পাঠাতে চান?`;
+    if (!window.confirm(confirmText)) return;
+
+    setSending(true);
+    setBroadcastResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/broadcast/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: editorMessage,
+          target,
+          targetUserId: targetUserId.trim(),
+          includeWebAppButton,
+          includePayoutButton,
+          customButtonText: customButtonText.trim(),
+          customButtonUrl: customButtonUrl.trim(),
+          alsoSendToPayoutChannel,
+          templateTitle: editorTitle
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Broadcast failed');
+      }
+      setBroadcastResult(json);
+      if (json.log) {
+        setLogs(prev => [json.log, ...prev.slice(0, 14)]);
+      }
+      showToast('success', `সফলভাবে ${json.sentCount} জন ইউজারের কাছে প্রিমিয়াম অ্যানিমেটেড মেসেজ পাঠানো হয়েছে!`);
+    } catch (e) {
+      showToast('error', e.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Count how many animated emojis are in editorMessage
+  const animatedEmojiCount = useMemo(() => {
+    let count = 0;
+    for (const item of ANIMATED_EMOJI_PALETTE) {
+      const base = item.char.replace(/\uFE0F/g, '');
+      const matches = editorMessage.split(base).length - 1;
+      if (matches > 0) count += matches;
+    }
+    return count;
+  }, [editorMessage]);
+
+  const categories = ['All', 'Rate & Promo', 'Instant Cashout', 'Crypto Buy/Sell', 'Deposit & Bonus', 'System & Security', 'Support & Community'];
+
+  const filteredTemplates = useMemo(() => {
+    return templates.filter(t => {
+      const matchCat = selectedCategory === 'All' || t.category === selectedCategory;
+      const q = searchQuery.trim().toLowerCase();
+      const matchSearch = !q || t.title.toLowerCase().includes(q) || t.message.toLowerCase().includes(q) || t.badge.toLowerCase().includes(q);
+      return matchCat && matchSearch;
+    });
+  }, [templates, selectedCategory, searchQuery]);
+
+  const totalUsersCount = Array.isArray(botStats?.users) ? botStats.users.filter(u => u.id !== '12345' && u.id !== '123456789').length : 0;
+  const withBalanceUsersCount = Array.isArray(botStats?.users) ? botStats.users.filter(u => (parseFloat(u.balance) || 0) > 0).length : 0;
+
+  return (
+    <div className="space-y-6">
+      <Toast show={toast.show} type={toast.type} message={toast.message} onClose={() => setToast({ ...toast, show: false })} />
+
+      {/* Top Executive Header */}
+      <div className={`rounded-3xl p-6 border flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 ${
+        isDark
+          ? 'bg-gradient-to-r from-[#130d2e] via-[#171136] to-[#0f0c24] border-purple-500/30 shadow-2xl shadow-purple-950/30'
+          : 'bg-white border-slate-200 shadow-md'
+      }`}>
+        <div className="flex items-start gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/30 shrink-0">
+            <Send size={26} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                Telegram Bot Broadcast Studio
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-gradient-to-r from-purple-600 to-indigo-600 text-white uppercase tracking-wider flex items-center gap-1">
+                <Sparkles size={12} /> Premium Animated Emojis
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 font-medium">
+              ২০টি রেডি কাস্টম মেসেজ টেমপ্লেট (এডিটযোগ্য) — যেকোনো ইমোজি দিলেই বট স্বয়ংক্রিয়ভাবে Telegram Premium Animated Emoji সহ ইউজারদের মেসেজ পাঠাবে!
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className={`px-4 py-2.5 rounded-2xl border flex items-center gap-2.5 ${
+            isDark ? 'bg-purple-950/40 border-purple-500/30' : 'bg-indigo-50 border-indigo-200'
+          }`}>
+            <Users size={18} className="text-purple-400" />
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase">Total Bot Users</div>
+              <div className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{totalUsersCount} Users</div>
+            </div>
+          </div>
+
+          <div className={`px-4 py-2.5 rounded-2xl border flex items-center gap-2.5 ${
+            isDark ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
+          }`}>
+            <Sparkles size={18} className="text-emerald-400" />
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase">Animated Emojis in Msg</div>
+              <div className="text-sm font-black text-emerald-400">{animatedEmojiCount} Active Emojis</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main 2-Column Studio Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+        
+        {/* LEFT COLUMN (5 Cols): 20 Custom Templates Library */}
+        <div className={`xl:col-span-5 rounded-3xl border p-5 flex flex-col ${
+          isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
+        }`}>
+          <div className="flex items-center justify-between gap-2 pb-4 border-b border-purple-900/20 mb-4">
+            <div>
+              <h2 className={`font-black text-base flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <Sparkles size={17} className="text-purple-400" />
+                <span>২০টি রেডি কাস্টম মেসেজ (20 Templates)</span>
+              </h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                যেকোনো মেসেজে ক্লিক করে ডানপাশে এডিট করুন এবং সেন্ড করুন
+              </p>
+            </div>
+            <button
+              onClick={handleResetTemplates}
+              disabled={savingTemplate}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                isDark
+                  ? 'bg-purple-950/40 border-purple-800/40 text-purple-300 hover:bg-purple-900/50'
+                  : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+              }`}
+              title="Reset all 20 templates to default"
+            >
+              <RefreshCw size={12} />
+              <span>Reset Default</span>
+            </button>
+          </div>
+
+          {/* Search & Category Filter */}
+          <div className="space-y-3 mb-4">
+            <div className="relative">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="টেমপ্লেট খুঁজুন (যেমন: রেট, উইথড্র, বোনাস, মেইনটেন্যান্স)..."
+                className={`w-full pl-9 pr-4 py-2.5 rounded-xl text-xs font-bold border focus:outline-none transition-colors ${
+                  isDark
+                    ? 'bg-[#161230] border-purple-800/40 text-white placeholder-slate-500 focus:border-purple-500'
+                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-indigo-500'
+                }`}
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    selectedCategory === cat
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/20'
+                      : isDark
+                        ? 'bg-[#161230] text-slate-400 hover:text-white border border-purple-900/30'
+                        : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Scrollable List of 20 Templates */}
+          <div className="space-y-2.5 max-h-[680px] overflow-y-auto pr-1 custom-scrollbar">
+            {filteredTemplates.map((tpl) => {
+              const isSelected = tpl.id === selectedId;
+              const cleanPreview = tpl.message.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').slice(0, 125);
+              return (
+                <div
+                  key={tpl.id}
+                  onClick={() => handleSelectTemplate(tpl)}
+                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                    isSelected
+                      ? isDark
+                        ? 'bg-gradient-to-r from-purple-900/45 to-indigo-900/35 border-purple-500 shadow-lg shadow-purple-950/40'
+                        : 'bg-indigo-50 border-indigo-500 shadow-sm'
+                      : isDark
+                        ? 'bg-[#14102a]/90 border-purple-900/25 hover:border-purple-600/40 hover:bg-[#191436]'
+                        : 'bg-slate-50/80 border-slate-200 hover:border-indigo-300 hover:bg-slate-100/70'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                      isSelected
+                        ? 'bg-purple-600 text-white'
+                        : isDark
+                          ? 'bg-purple-950/70 text-purple-300 border border-purple-700/30'
+                          : 'bg-indigo-100 text-indigo-700'
+                    }`}>
+                      Template #{tpl.number} • {tpl.badge}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400">{tpl.category}</span>
+                  </div>
+                  <h4 className={`font-black text-xs mb-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    {tpl.title}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">
+                    {cleanPreview}...
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN (7 Cols): Message Editor, Animated Emoji Bar, Target Controls & Live Preview */}
+        <div className="xl:col-span-7 space-y-6">
+          
+          {/* Composer Card */}
+          <div className={`rounded-3xl border p-6 space-y-5 ${
+            isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
+          }`}>
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black bg-purple-600 text-white">
+                    Editing #{templates.find(t => t.id === selectedId)?.number || 1}
+                  </span>
+                  <h3 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    কাস্টম মেসেজ এডিটর ও অ্যানিমেটেড ইমোজি স্টুডিও
+                  </h3>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  মেসেজের যেকোনো লেখা বা রেট পরিবর্তন করুন — নিচের ইমোজিগুলোতে ক্লিক করলে মেসেজে যুক্ত হবে এবং বটে অ্যানিমেটেড দেখাবে
+                </p>
+              </div>
+
+              <button
+                onClick={handleSaveCurrentTemplate}
+                disabled={savingTemplate}
+                className="px-3.5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Check size={14} />
+                <span>{savingTemplate ? 'Saving...' : 'Save Template Edit'}</span>
+              </button>
+            </div>
+
+            {/* Template Title Input */}
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                Template Title (For Admin Reference)
+              </label>
+              <input
+                type="text"
+                value={editorTitle}
+                onChange={(e) => setEditorTitle(e.target.value)}
+                className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold border focus:outline-none ${
+                  isDark
+                    ? 'bg-[#161230] border-purple-800/40 text-white focus:border-purple-500'
+                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500'
+                }`}
+              />
+            </div>
+
+            {/* Official Telegram Premium Animated Emoji Picker Bar */}
+            <div className={`p-3.5 rounded-2xl border ${
+              isDark ? 'bg-[#15102c] border-purple-800/30' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black text-purple-300 flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-yellow-400 animate-spin" />
+                  <span>Click to Insert Official Telegram Premium Animated Emoji:</span>
+                </span>
+                <span className="text-[10px] font-bold text-emerald-400">
+                  Auto-Upgrades to &lt;tg-emoji&gt;
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {ANIMATED_EMOJI_PALETTE.map((item) => (
+                  <button
+                    key={item.char}
+                    type="button"
+                    onClick={() => handleInsertEmoji(item.char)}
+                    title={`Insert Animated ${item.label} (${item.char})`}
+                    className={`px-2.5 py-1.5 rounded-xl text-sm border transition-all hover:scale-110 active:scale-95 cursor-pointer flex items-center gap-1 ${
+                      isDark
+                        ? 'bg-[#1d173b] border-purple-700/30 hover:border-purple-400 hover:bg-purple-900/50'
+                        : 'bg-white border-slate-200 hover:border-indigo-400 shadow-xs'
+                    }`}
+                  >
+                    <span>{item.char}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* HTML Formatting Toolbar + Message Textarea */}
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                  Broadcast Message Content (Supports Telegram HTML &amp; Emojis)
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleWrapTag('<b>', '</b>')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-black border cursor-pointer ${
+                      isDark ? 'bg-purple-950/50 border-purple-700/40 text-purple-200 hover:bg-purple-900/60' : 'bg-slate-100 border-slate-300 text-slate-800'
+                    }`}
+                  >
+                    <b>B</b> Bold
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWrapTag('<blockquote>', '</blockquote>')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer ${
+                      isDark ? 'bg-purple-950/50 border-purple-700/40 text-purple-200 hover:bg-purple-900/60' : 'bg-slate-100 border-slate-300 text-slate-800'
+                    }`}
+                  >
+                    ❝ Card Box
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWrapTag('<code>', '</code>')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold border cursor-pointer ${
+                      isDark ? 'bg-purple-950/50 border-purple-700/40 text-purple-200 hover:bg-purple-900/60' : 'bg-slate-100 border-slate-300 text-slate-800'
+                    }`}
+                  >
+                    &lt;/&gt; Mono
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleWrapTag('<i>', '</i>')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] italic font-bold border cursor-pointer ${
+                      isDark ? 'bg-purple-950/50 border-purple-700/40 text-purple-200 hover:bg-purple-900/60' : 'bg-slate-100 border-slate-300 text-slate-800'
+                    }`}
+                  >
+                    I Italic
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                id="broadcast-msg-editor"
+                rows={8}
+                value={editorMessage}
+                onChange={(e) => setEditorMessage(e.target.value)}
+                placeholder="আপনার ব্রডকাস্ট মেসেজ এখানে লিখুন অথবা বাম পাশ থেকে যেকোনো রেডি মেসেজ সিলেক্ট করুন..."
+                className={`w-full p-4 rounded-2xl text-xs font-semibold leading-relaxed border focus:outline-none font-mono ${
+                  isDark
+                    ? 'bg-[#14102a] border-purple-800/40 text-slate-100 focus:border-purple-500'
+                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500'
+                }`}
+              />
+            </div>
+
+            {/* Audience & Inline Buttons Configuration */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              {/* Target Audience */}
+              <div className={`p-4 rounded-2xl border space-y-3 ${
+                isDark ? 'bg-[#14102a] border-purple-900/30' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="text-xs font-black uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                  <Users size={14} /> Target Audience
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2.5 text-xs font-bold cursor-pointer">
+                    <input
+                      type="radio"
+                      name="bc_target"
+                      checked={target === 'all'}
+                      onChange={() => setTarget('all')}
+                      className="accent-purple-600"
+                    />
+                    <span>All Registered Bot Users ({totalUsersCount} Users)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 text-xs font-bold cursor-pointer">
+                    <input
+                      type="radio"
+                      name="bc_target"
+                      checked={target === 'with_balance'}
+                      onChange={() => setTarget('with_balance')}
+                      className="accent-purple-600"
+                    />
+                    <span>Users With Balance &gt; ৳0 ({withBalanceUsersCount} Users)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2.5 text-xs font-bold cursor-pointer">
+                    <input
+                      type="radio"
+                      name="bc_target"
+                      checked={target === 'single'}
+                      onChange={() => setTarget('single')}
+                      className="accent-purple-600"
+                    />
+                    <span>Single User ID (Test / Direct DM)</span>
+                  </label>
+                </div>
+
+                {target === 'single' && (
+                  <input
+                    type="text"
+                    value={targetUserId}
+                    onChange={(e) => setTargetUserId(e.target.value)}
+                    placeholder="Enter Telegram User ID (e.g. 684291042)"
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-bold border ${
+                      isDark ? 'bg-[#0b091a] border-purple-700/50 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                )}
+              </div>
+
+              {/* Inline Buttons & Channel Options */}
+              <div className={`p-4 rounded-2xl border space-y-2.5 ${
+                isDark ? 'bg-[#14102a] border-purple-900/30' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="text-xs font-black uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                  <Zap size={14} /> Inline Buttons &amp; Channel Post
+                </div>
+
+                <label className="flex items-center gap-2.5 text-xs font-bold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeWebAppButton}
+                    onChange={(e) => setIncludeWebAppButton(e.target.checked)}
+                    className="accent-purple-600 w-4 h-4 rounded"
+                  />
+                  <span>Add &ldquo;🚀 Trust Pay ওপেন করুন&rdquo; Button</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 text-xs font-bold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includePayoutButton}
+                    onChange={(e) => setIncludePayoutButton(e.target.checked)}
+                    className="accent-purple-600 w-4 h-4 rounded"
+                  />
+                  <span>Add &ldquo;📢 পেআউট চ্যানেল&rdquo; Button</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 text-xs font-bold text-emerald-400 cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={alsoSendToPayoutChannel}
+                    onChange={(e) => setAlsoSendToPayoutChannel(e.target.checked)}
+                    className="accent-emerald-500 w-4 h-4 rounded"
+                  />
+                  <span>Also Post to Payout Channel (@bd_trust_pay_payout)</span>
+                </label>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={customButtonText}
+                    onChange={(e) => setCustomButtonText(e.target.value)}
+                    placeholder="Custom Btn Text (Optional)"
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${
+                      isDark ? 'bg-[#0b091a] border-purple-800/40 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                  <input
+                    type="url"
+                    value={customButtonUrl}
+                    onChange={(e) => setCustomButtonUrl(e.target.value)}
+                    placeholder="https://t.me/..."
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${
+                      isDark ? 'bg-[#0b091a] border-purple-800/40 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Live Telegram Bot Dark Preview + Send Button */}
+            <div className="p-5 rounded-2xl bg-[#0e1621] border border-sky-500/30 text-white space-y-3 shadow-inner">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-xs font-black text-sky-400">
+                    Live Telegram Bot Preview (Shards Style + Premium Animated Emojis)
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/20 text-sky-300">
+                  {animatedEmojiCount} Animated &lt;tg-emoji&gt; Ready
+                </span>
+              </div>
+
+              <style>{`
+                .tg-preview-bubble blockquote {
+                  border-left: 3px solid #38bdf8;
+                  background: rgba(56, 189, 248, 0.1);
+                  padding: 8px 12px;
+                  border-radius: 8px;
+                  margin: 8px 0;
+                }
+                .tg-preview-bubble code {
+                  background: rgba(15, 23, 42, 0.75);
+                  color: #7dd3fc;
+                  padding: 1px 5px;
+                  border-radius: 4px;
+                  font-family: monospace;
+                }
+              `}</style>
+
+              <div className="max-w-lg bg-[#182533] border border-slate-700/60 rounded-2xl p-4 shadow-lg">
+                <div
+                  className="tg-preview-bubble text-xs leading-relaxed whitespace-pre-wrap break-words text-slate-100"
+                  dangerouslySetInnerHTML={{ __html: editorMessage }}
+                />
+              </div>
+
+              {/* Inline Keyboard Preview */}
+              {(includeWebAppButton || includePayoutButton || (customButtonText && customButtonUrl)) && (
+                <div className="max-w-lg space-y-1.5">
+                  {(includeWebAppButton || includePayoutButton) && (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {includeWebAppButton && (
+                        <div className="py-2 px-3 rounded-xl bg-[#2b5278]/80 text-center text-xs font-bold text-white border border-sky-400/20">
+                          🚀 Trust Pay ওপেন করুন
+                        </div>
+                      )}
+                      {includePayoutButton && (
+                        <div className="py-2 px-3 rounded-xl bg-[#2b5278]/80 text-center text-xs font-bold text-white border border-sky-400/20">
+                          📢 পেআউট চ্যানেল
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {customButtonText && customButtonUrl && (
+                    <div className="py-2 px-3 rounded-xl bg-[#2b5278]/80 text-center text-xs font-bold text-white border border-sky-400/20">
+                      {customButtonText}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Broadcast Status Banner */}
+            {broadcastResult && (
+              <div className="p-4 rounded-2xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 size={22} className="text-emerald-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-black text-white">{broadcastResult.message}</div>
+                    <div className="text-[11px] text-emerald-300 mt-0.5">
+                      Targeted: <b>{broadcastResult.totalTargeted}</b> • Delivered: <b>{broadcastResult.sentCount}</b> • Unreachable/Blocked: <b>{broadcastResult.failedCount}</b>
+                      {broadcastResult.payoutChannelSent ? ' • Posted to Payout Channel ✅' : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Main Send Broadcast Button */}
+            <button
+              type="button"
+              onClick={handleSendBroadcast}
+              disabled={sending}
+              className="w-full py-4 px-6 rounded-2xl font-black text-sm uppercase tracking-wider bg-gradient-to-r from-purple-600 via-indigo-600 to-sky-600 hover:from-purple-500 hover:to-sky-500 text-white shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2.5 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+            >
+              {sending ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin" />
+                  <span>Broadcasting Animated Message to Bot Users...</span>
+                </>
+              ) : (
+                <>
+                  <Send size={18} />
+                  <span>
+                    {target === 'single'
+                      ? `Send Animated Test Message to User (${targetUserId || '...'})`
+                      : target === 'with_balance'
+                        ? `Broadcast Animated Message to ${withBalanceUsersCount} Users With Balance`
+                        : `Broadcast Animated Message to All ${totalUsersCount} Bot Users`}
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Broadcast History Log Card */}
+          <div className={`rounded-3xl border p-6 ${
+            isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
+          }`}>
+            <h3 className={`font-black text-sm mb-3 flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              <Clock size={16} className="text-purple-400" />
+              <span>Recent Broadcast Delivery Logs</span>
+            </h3>
+            {logs.length === 0 ? (
+              <p className="text-xs text-slate-400 py-4 text-center">No broadcasts sent in this session yet.</p>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                {logs.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+                      isDark ? 'bg-[#14102a] border-purple-900/30' : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div>
+                      <div className={`font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.templateTitle}</div>
+                      <div className="text-[11px] text-slate-400">
+                        Target: <span className="text-purple-400 font-bold uppercase">{item.target}</span> • Delivered: <b className="text-emerald-400">{item.sentCount}</b> / {item.totalTargeted}
+                        {item.payoutChannelSent ? ' • Channel ✅' : ''}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                      {formatTimestamp(item.timestamp)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =========================================================================
 // EXECUTIVE ADMIN LOGIN SCREEN (DATABASE-BACKED GMAIL & PASSWORD)
 // =========================================================================
 function AdminLoginScreen({ onLoginSuccess }) {
@@ -5041,6 +6045,7 @@ export default function App() {
               <Route path="/withdraw" element={<FiatWithdrawals />} />
               <Route path="/withdrawals" element={<FiatWithdrawals />} />
               <Route path="/users" element={<UsersManagement />} />
+              <Route path="/broadcast" element={<BroadcastCenter />} />
               <Route path="/bot-settings" element={<BotSettings />} />
               <Route path="/fraud" element={<FraudLogs />} />
               <Route path="/mock-tool" element={<MockTrxTool />} />

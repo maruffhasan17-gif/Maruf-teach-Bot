@@ -122,6 +122,88 @@ const PE = {
     crown: '<tg-emoji emoji-id="5467406098367521267">👑</tg-emoji>'
 };
 
+// Automatic Unicode-to-Telegram-Premium Animated Emoji Converter
+const EMOJI_TO_PREMIUM_PAIRS = [
+    ['⚡️', '5431449001532594346', '⚡️'],
+    ['⚡', '5431449001532594346', '⚡️'],
+    ['💰', '5375296873982604963', '💰'],
+    ['💲', '5409048419211682843', '💲'],
+    ['💵', '5409048419211682843', '💵'],
+    ['💸', '5472030678633684592', '💸'],
+    ['🪙', '5379600444098093058', '🪙'],
+    ['💎', '5471952986970267163', '💎'],
+    ['🚀', '5445284980978621387', '🚀'],
+    ['🏦', '5264895611517300926', '🏦'],
+    ['📩', '5472363448404809929', '📩'],
+    ['🏷️', '5472363448404809929', '🏷️'],
+    ['🏷', '5472363448404809929', '🏷'],
+    ['🌐', '5447410659077661506', '🌐'],
+    ['✅', '5427009714745517609', '✅'],
+    ['☑️', '5427009714745517609', '☑️'],
+    ['✔️', '5427009714745517609', '✔️'],
+    ['❌', '5465665476971471368', '❌'],
+    ['🚫', '5465665476971471368', '🚫'],
+    ['⏳', '5451732530048802485', '⏳'],
+    ['⌛', '5451732530048802485', '⌛'],
+    ['⏰', '5413704112220949842', '⏰'],
+    ['⏱️', '5413704112220949842', '⏱️'],
+    ['⏱', '5413704112220949842', '⏱'],
+    ['🔔', '5458603043203327669', '🔔'],
+    ['📢', '5458603043203327669', '📢'],
+    ['📣', '5458603043203327669', '📣'],
+    ['🎁', '5199749070830197566', '🎁'],
+    ['🎉', '5436040291507247633', '🎉'],
+    ['🥳', '5436040291507247633', '🥳'],
+    ['✨', '5472164874886846699', '✨'],
+    ['🔥', '5420315771991497307', '🔥'],
+    ['💥', '5420315771991497307', '💥'],
+    ['👤', '5373012449597335010', '👤'],
+    ['👥', '5373012449597335010', '👥'],
+    ['🪪', '5422683699130933153', '🪪'],
+    ['🆔', '5422683699130933153', '🆔'],
+    ['📞', '5467539229468793355', '📞'],
+    ['📱', '5467539229468793355', '📱'],
+    ['🎧', '5467539229468793355', '🎧'],
+    ['📝', '5334882760735598374', '📝'],
+    ['📋', '5334882760735598374', '📋'],
+    ['📉', '5361748661640372834', '📉'],
+    ['📈', '5373001317042101552', '📈'],
+    ['📊', '5373001317042101552', '📊'],
+    ['🔄', '5264727218734524899', '🔄'],
+    ['🔁', '5264727218734524899', '🔁'],
+    ['🛡️', '5251203410396458957', '🛡️'],
+    ['🛡', '5251203410396458957', '🛡'],
+    ['🔒', '5251203410396458957', '🔒'],
+    ['⚠️', '5447644880824181073', '⚠️'],
+    ['⚠', '5447644880824181073', '⚠️'],
+    ['⭐️', '5435957248314579621', '⭐️'],
+    ['⭐', '5435957248314579621', '⭐️'],
+    ['🌟', '5435957248314579621', '🌟'],
+    ['👑', '5467406098367521267', '👑'],
+    ['🏆', '5467406098367521267', '🏆']
+];
+
+const upgradeToPremiumEmojis = (rawText) => {
+    if (!rawText || typeof rawText !== 'string') return '';
+    const savedTags = [];
+    let text = rawText.replace(/<tg-emoji[\s\S]*?<\/tg-emoji>/gi, (match) => {
+        const token = `__TG_EMOJI_PROTECTED_${savedTags.length}__`;
+        savedTags.push(match);
+        return token;
+    });
+
+    for (const [emojiChar, emojiId, fallbackChar] of EMOJI_TO_PREMIUM_PAIRS) {
+        if (text.includes(emojiChar)) {
+            const replacementToken = `__TG_EMOJI_PROTECTED_${savedTags.length}__`;
+            savedTags.push(`<tg-emoji emoji-id="${emojiId}">${fallbackChar}</tg-emoji>`);
+            text = text.split(emojiChar).join(replacementToken);
+        }
+    }
+
+    text = text.replace(/__TG_EMOJI_PROTECTED_(\d+)__/g, (_, idx) => savedTags[Number(idx)] || '');
+    return text;
+};
+
 // Helper: Post live payout confirmation to public Payout Group / Channel with Premium Animated Emojis
 const notifyPayoutGroup = async (payoutData) => {
     try {
@@ -3847,6 +3929,418 @@ app.post('/api/settings', requireAdminAuth, async (req, res) => {
         await saveConfig(req.body);
         res.json({ success: true, message: 'Deployed!' });
     } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ============================================================================
+// ADMIN BROADCAST SYSTEM — 20 CUSTOM EDITABLE TEMPLATES + ANIMATED BOT DM
+// ============================================================================
+const DEFAULT_BROADCAST_TEMPLATES = [
+    {
+        id: 'tpl_1',
+        number: 1,
+        category: 'Rate & Promo',
+        badge: '🔥 Hot Rate',
+        title: '🔥 ১. আজকের সেরা ক্রিপ্টো রেট আপডেট (Best Rate Alert)',
+        message: `<b>🔥 আজকের সেরা ক্রিপ্টো রেট আপডেট! (Market Update)</b>\n\n<blockquote>💎 <b>Asset:</b> <code>TON / USDT / GRAM</code>\n📈 <b>Buy &amp; Sell:</b> <code>সর্বোচ্চ মার্কেট রেট চালু!</code>\n🏦 <b>Gateway:</b> <code>bKash &amp; Nagad (Personal)</code>\n⚡️ <b>Delivery:</b> <code>Instant Auto Transfer</code></blockquote>\n\n🚀 <i>আজই সেরা রেটে ক্রিপ্টো ক্রয়-বিক্রয় করতে নিচের বাটনে ক্লিক করে ওয়েব অ্যাপ ওপেন করুন!</i>`
+    },
+    {
+        id: 'tpl_2',
+        number: 2,
+        category: 'Instant Cashout',
+        badge: '⚡️ Instant Payout',
+        title: '⚡️ ২. ইনস্ট্যান্ট বিকাশ ও নগদ উইথড্র চালু (Instant Cashout Live)',
+        message: `<b>⚡️ ইনস্ট্যান্ট বিকাশ ও নগদ ক্যাশআউট চালু! (Fast Payout)</b>\n\n<blockquote>💰 <b>Service:</b> <code>Instant Fiat Withdrawal</code>\n🏦 <b>Gateway:</b> <code>bKash &amp; Nagad</code>\n⏰ <b>Processing Time:</b> <code>১ – ৫ মিনিট</code>\n✅ <b>Status:</b> <code>100% Active &amp; Online</code></blockquote>\n\n💸 <i>আপনার ওয়ালেট ব্যালেন্স এখনই দ্রুত বিকাশ বা নগদে উত্তোলন করে নিন!</i>`
+    },
+    {
+        id: 'tpl_3',
+        number: 3,
+        category: 'Crypto Buy/Sell',
+        badge: '💎 Auto Crypto',
+        title: '💎 ৩. TON ও USDT ইনস্ট্যান্ট অন-চেইন বাই (Instant Crypto Buy)',
+        message: `<b>💎 ওয়েব অ্যাপ ব্যালেন্স দিয়ে ১ ক্লিকে ক্রিপ্টো কিনুন!</b>\n\n<blockquote>🪙 <b>Available Coins:</b> <code>TON, USDT &amp; GRAM</code>\n⚡️ <b>Transfer Mode:</b> <code>Direct On-Chain Auto Send</code>\n📩 <b>Receiver:</b> <code>Any TON / Tonkeeper Wallet</code>\n🌐 <b>Confirmation:</b> <code>Within Seconds!</code></blockquote>\n\n🚀 <i>অ্যাড মানি করে অ্যাপ ব্যালেন্স থেকে সরাসরি আপনার ওয়ালেটে ক্রিপ্টো নিয়ে নিন!</i>`
+    },
+    {
+        id: 'tpl_4',
+        number: 4,
+        category: 'Deposit & Bonus',
+        badge: '💰 Auto Deposit',
+        title: '💰 ৪. অটোমেটিক অ্যাড মানি চালু (1-Second Auto Deposit)',
+        message: `<b>💰 অটোমেটিক ব্যালেন্স ডিপোজিট চালু আছে! (Auto Add Money)</b>\n\n<blockquote>🏦 <b>Payment Methods:</b> <code>bKash &amp; Nagad Send Money</code>\n📝 <b>Verification:</b> <code>SMS TrxID Auto-Verify</code>\n⚡️ <b>Credit Speed:</b> <code>মাত্র ১ সেকেন্ডে ব্যালেন্স যুক্ত!</code>\n🛡 <b>Security:</b> <code>100% Safe &amp; Protected</code></blockquote>\n\n✨ <i>টাকা পাঠিয়ে সঠিক TrxID সাবমিট করলেই স্বয়ংক্রিয়ভাবে আপনার ব্যালেন্সে টাকা জমা হয়ে যাবে!</i>`
+    },
+    {
+        id: 'tpl_5',
+        number: 5,
+        category: 'Deposit & Bonus',
+        badge: '🎁 Special Bonus',
+        title: '🎉 ৫. স্পেশাল বোনাস ও ক্যাশব্যাক অফার (Bonus Announcement)',
+        message: `<b>🎉 ধামাকা বোনাস ও স্পেশাল অফার! (Special Reward!)</b>\n\n<blockquote>🎁 <b>Offer Type:</b> <code>Active Trader Bonus</code>\n💲 <b>Reward:</b> <code>স্পেশাল ব্যালেন্স রিওয়ার্ড</code>\n💎 <b>Eligible For:</b> <code>TON, USDT &amp; GRAM Traders</code>\n🔥 <b>Validity:</b> <code>সীমিত সময়ের জন্য!</code></blockquote>\n\n👑 <i>এখনই লেনদেন সম্পন্ন করে আপনার স্পেশাল বোনাস লুফে নিন!</i>`
+    },
+    {
+        id: 'tpl_6',
+        number: 6,
+        category: 'System & Security',
+        badge: '🚀 System Update',
+        title: '🚀 ৬. ওয়েব অ্যাপ সুপার-ফাস্ট আপডেট (Web App Speed Upgrade)',
+        message: `<b>🚀 Trust Pay ওয়েব অ্যাপ এখন আরও সুপার-ফাস্ট!</b>\n\n<blockquote>✨ <b>UI Experience:</b> <code>Ultra-Smooth &amp; Fast Loading</code>\n⚡️ <b>Wallet Sync:</b> <code>Real-Time Instant Balance</code>\n🔄 <b>Blockchain Engine:</b> <code>Upgraded Auto-Detection</code>\n✅ <b>System Status:</b> <code>All Services 100% Online</code></blockquote>\n\n💎 <i>নতুন অভিজ্ঞতা পেতে এখনই নিচের বাটনে ট্যাপ করে অ্যাপে প্রবেশ করুন!</i>`
+    },
+    {
+        id: 'tpl_7',
+        number: 7,
+        category: 'Rate & Promo',
+        badge: '📈 High Sell Rate',
+        title: '📈 ৭. ক্রিপ্টো বিক্রিতে বাড়তি রেট! (High Crypto Sell Rate)',
+        message: `<b>📈 আপনার USDT, TON ও GRAM বিক্রি করুন সর্বোচ্চ দামে!</b>\n\n<blockquote>💲 <b>Sell Rate:</b> <code>আজকের মার্কেটে সর্বোচ্চ দাম!</code>\n📩 <b>Method:</b> <code>1-Click TonConnect / Direct Send</code>\n💰 <b>Balance Credit:</b> <code>সাথে সাথে টাকা যুক্ত হয়</code>\n🏦 <b>Cashout:</b> <code>bKash &amp; Nagad Instant</code></blockquote>\n\n🔥 <i>দেরি না করে আপনার ওয়ালেটের ক্রিপ্টো বিক্রি করে সেরা মূল্যে ক্যাশআউট করে নিন!</i>`
+    },
+    {
+        id: 'tpl_8',
+        number: 8,
+        category: 'Instant Cashout',
+        badge: '🏦 All Paid',
+        title: '🏦 ৮. সকল পেন্ডিং উইথড্র পেমেন্ট সম্পন্ন (All Withdrawals Cleared)',
+        message: `<b>💰 সকল পেন্ডিং উইথড্র সফলভাবে পেমেন্ট করা হয়েছে!</b>\n\n<blockquote>✅ <b>Payout Status:</b> <code>All Pending Cashouts Cleared!</code>\n🏦 <b>Gateways:</b> <code>bKash &amp; Nagad</code>\n🌐 <b>Live Proofs:</b> <code>@bd_trust_pay_payout</code>\n⚡️ <b>Next Batch:</b> <code>Instant Processing Active</code></blockquote>\n\n🎉 <i>যারা উইথড্র দিয়েছিলেন অনুগ্রহ করে নিজের বিকাশ/নগদ অ্যাকাউন্ট চেক করুন এবং নতুন উইথড্র দিন!</i>`
+    },
+    {
+        id: 'tpl_9',
+        number: 9,
+        category: 'Support & Community',
+        badge: '🔔 Payout Channel',
+        title: '🔔 ৯. লাইভ পেআউট প্রুফ চ্যানেল আপডেট (Join Payout Channel)',
+        message: `<b>🔔 প্রতিদিনের লাইভ পেমেন্ট প্রুফ দেখুন আমাদের অফিসিয়াল চ্যানেলে!</b>\n\n<blockquote>🌐 <b>Payout Channel:</b> <code>@bd_trust_pay_payout</code>\n💸 <b>Updates:</b> <code>প্রতিটি উইথড্র ও ক্রিপ্টো ডেলিভারির লাইভ প্রুফ</code>\n🛡 <b>Transparency:</b> <code>১০০% স্বচ্ছ ও বিশ্বস্ত লেনদেন</code>\n⭐️ <b>Community:</b> <code>হাজারো সন্তুষ্ট ট্রেডার</code></blockquote>\n\n🚀 <i>আমাদের সকল লাইভ পেমেন্ট আপডেট দেখতে পেআউট চ্যানেলে যুক্ত থাকুন!</i>`
+    },
+    {
+        id: 'tpl_10',
+        number: 10,
+        category: 'Crypto Buy/Sell',
+        badge: '🪙 GRAM Special',
+        title: '🪙 ১০. GRAM ও TON গ্যাস ফি অফার (GRAM & TON Gas Promo)',
+        message: `<b>🪙 আপনার ওয়ালেটে TON গ্যাস ফি বা GRAM প্রয়োজন?</b>\n\n<blockquote>💎 <b>Minimum Buy:</b> <code>মাত্র ২০ টাকা থেকে শুরু!</code>\n⚡️ <b>On-Chain Speed:</b> <code>৫ সেকেন্ডে ওয়ালেটে জমা</code>\n📩 <b>Supported Wallets:</b> <code>Tonkeeper, MyTonWallet, Telegram Wallet</code>\n✅ <b>Availability:</b> <code>২৪ ঘণ্টা অটোমেটিক ডেলিভারি</code></blockquote>\n\n🚀 <i>যেকোনো এয়ারড্রপ বা ট্রানজেকশনের জন্য মুহূর্তেই TON ও GRAM কিনে নিন!</i>`
+    },
+    {
+        id: 'tpl_11',
+        number: 11,
+        category: 'System & Security',
+        badge: '🛡 Security Alert',
+        title: '🛡 ১১. অ্যাকাউন্ট নিরাপত্তা ও সতর্কবার্তা (Security Notice)',
+        message: `<b>🛡 আপনার অ্যাকাউন্ট ও ওয়ালেট নিরাপত্তার জরুরি বার্তা!</b>\n\n<blockquote>⚠️ <b>সতর্কতা ১:</b> <code>আমাদের কোনো অ্যাডমিন কখনো আপনার ওয়ালেটের Secret Phrase চায় না।</code>\n🔒 <b>সতর্কতা ২:</b> <code>সবসময় আমাদের অফিসিয়াল বট ও ওয়েব অ্যাপের মাধ্যমে লেনদেন করুন।</code>\n✅ <b>সাপোর্ট:</b> <code>যেকোনো প্রয়োজনে অ্যাপের ভেতরের সাপোর্ট অপশন ব্যবহার করুন।</code></blockquote>\n\n🛡 <i>নিরাপদে লেনদেন করুন, Trust Pay সবসময় আপনার পাশে আছে!</i>`
+    },
+    {
+        id: 'tpl_12',
+        number: 12,
+        category: 'System & Security',
+        badge: '⏰ Maintenance',
+        title: '⏰ ১২. সাময়িক সার্ভার রক্ষণাবেক্ষণ নোটিশ (Maintenance Notice)',
+        message: `<b>⏰ জরুরি সার্ভার আপগ্রেড ও রক্ষণাবেক্ষণ নোটিশ!</b>\n\n<blockquote>⏳ <b>Status:</b> <code>Scheduled Server Upgrade</code>\n🔄 <b>Purpose:</b> <code>ব্লকচেইন ও পেমেন্ট গেটওয়ে ফাস্ট করার কাজ চলছে</code>\n🛡 <b>User Balance:</b> <code>সকল ইউজারের ব্যালেন্স ১০০% নিরাপদ ও অক্ষত আছে</code></blockquote>\n\n✨ <i>খুব অল্প সময়ের মধ্যেই কাজ শেষ করে আমরা আবার লাইভ হচ্ছি। সাথে থাকার জন্য ধন্যবাদ!</i>`
+    },
+    {
+        id: 'tpl_13',
+        number: 13,
+        category: 'System & Security',
+        badge: '✅ Back Online',
+        title: '✅ ১৩. সার্ভার মেইনটেন্যান্স শেষ — বট আবার লাইভ! (Back Online)',
+        message: `<b>🎉 সার্ভার আপগ্রেড সম্পন্ন — আমরা আবার পুরোপুরি লাইভ!</b>\n\n<blockquote>✅ <b>Web App:</b> <code>100% Online &amp; Active</code>\n⚡️ <b>Auto Deposit:</b> <code>Instant SMS Verification Ready</code>\n💎 <b>Crypto Buy/Sell:</b> <code>Instant On-Chain Active</code>\n🏦 <b>Withdrawals:</b> <code>bKash &amp; Nagad Open</code></blockquote>\n\n🚀 <i>আপনাদের ধৈর্যের জন্য ধন্যবাদ! এখনই ওয়েব অ্যাপ ওপেন করে নির্বিঘ্নে লেনদেন করুন।</i>`
+    },
+    {
+        id: 'tpl_14',
+        number: 14,
+        category: 'Support & Community',
+        badge: '🎁 User Guide',
+        title: '🎁 ১৪. নতুন ইউজারদের জন্য সহজ লেনদেন গাইড (Quick Trading Guide)',
+        message: `<b>🎁 Trust Pay-তে কীভাবে সহজে লেনদেন করবেন? (Quick Guide)</b>\n\n<blockquote>💰 <b>১. Add Money:</b> <code>বিকাশ/নগদে সেন্ড মানি করে TrxID দিলেই অটো ব্যালেন্স যোগ হবে।</code>\n💎 <b>২. Buy Crypto:</b> <code>ব্যালেন্স দিয়ে TON, USDT বা GRAM কিনলে সরাসরি ওয়ালেটে যাবে।</code>\n🔄 <b>৩. Sell Crypto:</b> <code>ওয়ালেট কানেক্ট করে ক্রিপ্টো সেন্ড করলেই ব্যালেন্সে টাকা যোগ হবে।</code>\n💸 <b>৪. Withdraw:</b> <code>যেকোনো সময় বিকাশ বা নগদে ক্যাশআউট করে নিন!</code></blockquote>\n\n🚀 <i>আজই আপনার প্রথম লেনদেন শুরু করুন!</i>`
+    },
+    {
+        id: 'tpl_15',
+        number: 15,
+        category: 'Support & Community',
+        badge: '📞 24/7 Support',
+        title: '📞 ১৫. ২৪/৭ লাইভ কাস্টমার সাপোর্ট চালু (24/7 Customer Support)',
+        message: `<b>📞 যেকোনো প্রয়োজনে আমাদের ২৪/৭ কাস্টমার সাপোর্ট আপনার পাশে!</b>\n\n<blockquote>🎧 <b>Support Mode:</b> <code>In-App Live Ticket &amp; Direct Reply</code>\n⏰ <b>Response Time:</b> <code>খুবই দ্রুত সমাধান</code>\n📝 <b>Help Topics:</b> <code>TrxID, Deposit, Buy/Sell ও Withdrawal</code></blockquote>\n\n✨ <i>লেনদেন সংক্রান্ত যেকোনো প্রশ্ন থাকলে ওয়েব অ্যাপের Support অপশন থেকে মেসেজ দিন, অ্যাডমিন সরাসরি আপনার বটে উত্তর দেবেন!</i>`
+    },
+    {
+        id: 'tpl_16',
+        number: 16,
+        category: 'Rate & Promo',
+        badge: '💸 Low Minimum',
+        title: '💸 ১৬. মাত্র ২০ টাকা থেকে ক্রিপ্টো ক্রয় চালু! (Low Minimum Buy)',
+        message: `<b>💸 এখন মাত্র ২০ টাকা থেকেই ক্রিপ্টো কেনা-বেচা শুরু করুন!</b>\n\n<blockquote>💲 <b>Minimum Crypto Buy:</b> <code>মাত্র ৳২০ BDT!</code>\n💎 <b>Assets:</b> <code>TON, USDT &amp; GRAM</code>\n⚡️ <b>Delivery:</b> <code>Instant On-Chain Transfer</code>\n🏦 <b>Payment:</b> <code>bKash &amp; Nagad</code></blockquote>\n\n🔥 <i>ছোট বা বড় যেকোনো অ্যামাউন্টের ক্রিপ্টো লেনদেন করুন সম্পূর্ণ অটোমেটিক সিস্টেমে!</i>`
+    },
+    {
+        id: 'tpl_17',
+        number: 17,
+        category: 'Support & Community',
+        badge: '⭐️ Thank You',
+        title: '⭐️ ১৭. সম্মানিত ইউজারদের প্রতি ধন্যবাদ বার্তা (Thank You Traders)',
+        message: `<b>👑 Trust Pay পরিবারের সকল সদস্যকে আন্তরিক ধন্যবাদ!</b>\n\n<blockquote>⭐️ <b>Milestone:</b> <code>হাজারো সফল অটোমেটিক লেনদেন সম্পন্ন!</code>\n💎 <b>Our Promise:</b> <code>সবচেয়ে দ্রুত পেমেন্ট এবং সেরা মার্কেট রেট</code>\n🛡 <b>Trust &amp; Safety:</b> <code>১০০% অটোমেটেড ও নিরাপদ প্ল্যাটফর্ম</code></blockquote>\n\n🎉 <i>আপনাদের আস্থা ও ভালোবাসাই আমাদের এগিয়ে যাওয়ার অনুপ্রেরণা। সাথে থাকার জন্য ধন্যবাদ!</i>`
+    },
+    {
+        id: 'tpl_18',
+        number: 18,
+        category: 'Crypto Buy/Sell',
+        badge: '🔄 TonConnect',
+        title: '🔄 ১৮. ১-ক্লিক Tonkeeper ওয়ালেট কানেক্ট সেল (1-Click Wallet Sell)',
+        message: `<b>🔄 Tonkeeper বা Telegram Wallet কানেক্ট করে ১ ক্লিকে ক্রিপ্টো বিক্রি করুন!</b>\n\n<blockquote>📩 <b>Feature:</b> <code>1-Click TonConnect Auto Sell</code>\n💎 <b>Supported:</b> <code>TON, USDT (Jetton) &amp; GRAM</code>\n⚡️ <b>Verification:</b> <code>অটোমেটিক অন-চেইন ভেরিফিকেশন</code>\n💰 <b>Instant Credit:</b> <code>সাথে সাথে BDT ব্যালেন্সে টাকা জমা!</code></blockquote>\n\n🚀 <i>কপি-পেস্টের ঝামেলা ছাড়াই ওয়ালেট কানেক্ট করে মুহূর্তেই ক্রিপ্টো সেল করুন!</i>`
+    },
+    {
+        id: 'tpl_19',
+        number: 19,
+        category: 'System & Security',
+        badge: '⚠️ Info Notice',
+        title: '⚠️ ১৯. সঠিক TrxID ও নাম্বার ব্যবহারের অনুরোধ (Accurate Info Tip)',
+        message: `<b>⚠️ দ্রুত ও নির্ভুল লেনদেনের জন্য জরুরি নির্দেশনা!</b>\n\n<blockquote>📝 <b>Add Money:</b> <code>টাকা পাঠানোর পর এসএমএস থেকে সঠিক TrxID ও সঠিক টাকার পরিমাণ লিখুন।</code>\n🏦 <b>Withdraw:</b> <code>ক্যাশআউট করার সময় আপনার সচল বিকাশ বা নগদ পার্সোনাল নাম্বারটি পুনরায় চেক করুন।</code>\n⚡️ <b>Result:</b> <code>সঠিক তথ্য দিলে ১ সেকেন্ডেই কাজ সম্পন্ন হবে!</code></blockquote>\n\n✅ <i>নির্ভুল তথ্য দিন, সুপার-ফাস্ট সার্ভিস উপভোগ করুন!</i>`
+    },
+    {
+        id: 'tpl_20',
+        number: 20,
+        category: 'Rate & Promo',
+        badge: '👑 Weekend Promo',
+        title: '👑 ২০. উইকেন্ড ধামাকা ট্রেডিং অফার! (Weekend Special Offer)',
+        message: `<b>👑 উইকেন্ড স্পেশাল ধামাকা! আনলিমিটেড ক্রিপ্টো এক্সচেঞ্জ চালু!</b>\n\n<blockquote>🔥 <b>Special Offer:</b> <code>উইকেন্ড ভিআইপি রেট ও ফাস্ট ক্যাশআউট</code>\n💎 <b>Coins Ready:</b> <code>Full Reserve of TON, USDT &amp; GRAM</code>\n💸 <b>Payouts:</b> <code>Instant bKash &amp; Nagad Cashout</code>\n🎉 <b>Service:</b> <code>২৪ ঘণ্টা নন-স্টপ অটোমেটিক সার্ভিস</code></blockquote>\n\n🚀 <i>এখনই নিচের বাটনে ক্লিক করে ওয়েব অ্যাপে ঢুকে আজকের সেরা রেট দেখে নিন!</i>`
+    }
+];
+
+let inMemoryCustomTemplates = null;
+const inMemoryBroadcastLogs = [];
+
+async function getBroadcastTemplates() {
+    if (inMemoryCustomTemplates && Array.isArray(inMemoryCustomTemplates) && inMemoryCustomTemplates.length === 20) {
+        return inMemoryCustomTemplates;
+    }
+    try {
+        const doc = await db.collection('settings').doc('broadcast_templates').get();
+        if (doc.exists && Array.isArray(doc.data()?.templates) && doc.data().templates.length > 0) {
+            const savedMap = new Map(doc.data().templates.map(t => [t.id, t]));
+            inMemoryCustomTemplates = DEFAULT_BROADCAST_TEMPLATES.map(def => {
+                const saved = savedMap.get(def.id);
+                return saved ? { ...def, ...saved, number: def.number } : { ...def };
+            });
+            return inMemoryCustomTemplates;
+        }
+    } catch (e) {
+        console.warn('Firestore broadcast_templates read warning:', e.message);
+    }
+    inMemoryCustomTemplates = DEFAULT_BROADCAST_TEMPLATES.map(t => ({ ...t }));
+    return inMemoryCustomTemplates;
+}
+
+app.get('/api/admin/broadcast/templates', requireAdminAuth, async (req, res) => {
+    try {
+        const templates = await getBroadcastTemplates();
+        let logs = [...inMemoryBroadcastLogs];
+        try {
+            const snap = await db.collection('broadcast_logs').orderBy('timestamp', 'desc').limit(15).get();
+            const dbLogs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            const seen = new Set(logs.map(l => l.id));
+            for (const item of dbLogs) {
+                if (!seen.has(item.id)) {
+                    seen.add(item.id);
+                    logs.push(item);
+                }
+            }
+        } catch (e) {}
+        res.json({
+            success: true,
+            templates,
+            defaultTemplates: DEFAULT_BROADCAST_TEMPLATES,
+            logs: logs.slice(0, 15)
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/broadcast/templates', requireAdminAuth, async (req, res) => {
+    try {
+        const { templates, resetAll } = req.body || {};
+        if (resetAll) {
+            inMemoryCustomTemplates = DEFAULT_BROADCAST_TEMPLATES.map(t => ({ ...t }));
+        } else if (Array.isArray(templates)) {
+            const savedMap = new Map(templates.map(t => [t.id, t]));
+            inMemoryCustomTemplates = DEFAULT_BROADCAST_TEMPLATES.map(def => {
+                const saved = savedMap.get(def.id);
+                return saved ? {
+                    ...def,
+                    title: saved.title || def.title,
+                    badge: saved.badge || def.badge,
+                    category: saved.category || def.category,
+                    message: typeof saved.message === 'string' ? saved.message : def.message
+                } : { ...def };
+            });
+        } else {
+            return res.status(400).json({ error: 'Invalid templates payload' });
+        }
+
+        try {
+            await db.collection('settings').doc('broadcast_templates').set({
+                templates: inMemoryCustomTemplates,
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch (e) {
+            console.warn('Firestore broadcast_templates save warning:', e.message);
+        }
+
+        res.json({
+            success: true,
+            message: resetAll ? 'All 20 templates reset to default!' : 'Custom template saved successfully!',
+            templates: inMemoryCustomTemplates
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/broadcast/send', requireAdminAuth, async (req, res) => {
+    try {
+        if (!bot) {
+            return res.status(500).json({ error: 'Telegram Bot is not initialized on server.' });
+        }
+
+        const {
+            message,
+            target = 'all',
+            targetUserId = '',
+            includeWebAppButton = true,
+            includePayoutButton = false,
+            customButtonText = '',
+            customButtonUrl = '',
+            alsoSendToPayoutChannel = false,
+            templateTitle = 'Custom Broadcast'
+        } = req.body || {};
+
+        if (!message || !String(message).trim()) {
+            return res.status(400).json({ error: 'Broadcast message cannot be empty!' });
+        }
+
+        const rawMessage = String(message).trim();
+        // Upgrade all standard emojis in the message to Telegram Premium Animated <tg-emoji> tags!
+        const finalHtmlMessage = upgradeToPremiumEmojis(rawMessage);
+
+        // Build inline keyboard markup
+        const inlineKeyboard = [];
+        const row1 = [];
+        if (includeWebAppButton) {
+            row1.push({ text: '🚀 Trust Pay ওপেন করুন', web_app: { url: WEB_APP_URL } });
+        }
+        if (includePayoutButton) {
+            row1.push({ text: '📢 পেআউট চ্যানেল', url: 'https://t.me/bd_trust_pay_payout' });
+        }
+        if (row1.length > 0) inlineKeyboard.push(row1);
+
+        if (customButtonText && customButtonUrl && /^https?:\/\//i.test(customButtonUrl.trim())) {
+            inlineKeyboard.push([{ text: customButtonText.trim(), url: customButtonUrl.trim() }]);
+        }
+
+        const sendOpts = {
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
+            ...(inlineKeyboard.length > 0 ? { reply_markup: { inline_keyboard: inlineKeyboard } } : {})
+        };
+
+        // Determine recipient chatIds
+        let recipientIds = [];
+        if (target === 'single') {
+            const cleanTarget = String(targetUserId || '').trim();
+            if (!cleanTarget) {
+                return res.status(400).json({ error: 'Please provide a valid Telegram User ID for single user test!' });
+            }
+            recipientIds = [cleanTarget];
+        } else {
+            const snapshot = await db.collection('users').get();
+            const uniqueSet = new Set();
+            snapshot.forEach(doc => {
+                const d = doc.data() || {};
+                const uid = String(d.chatId || doc.id || '').trim();
+                // Skip dummy/test IDs or non-numeric IDs
+                if (!uid || !/^\d+$/.test(uid) || uid === '12345' || uid === '123456789') return;
+                if (d.status === 'banned') return;
+                if (target === 'with_balance' && (parseFloat(d.balance) || 0) <= 0) return;
+                uniqueSet.add(uid);
+            });
+            recipientIds = Array.from(uniqueSet);
+        }
+
+        if (recipientIds.length === 0 && !alsoSendToPayoutChannel) {
+            return res.status(400).json({ error: 'No eligible users found for the selected target audience.' });
+        }
+
+        let sentCount = 0;
+        let failedCount = 0;
+        const BATCH_SIZE = 15;
+
+        const sendToSingleChat = async (chatId) => {
+            try {
+                await bot.sendMessage(chatId, finalHtmlMessage, sendOpts);
+                return true;
+            } catch (err) {
+                // Fallback if admin wrote unclosed HTML tags: strip <tg-emoji> and send plain/safe HTML
+                if (err.message && err.message.includes('can\'t parse entities')) {
+                    try {
+                        await bot.sendMessage(chatId, rawMessage.replace(/<[^>]+>/g, ''), {
+                            ...(inlineKeyboard.length > 0 ? { reply_markup: { inline_keyboard: inlineKeyboard } } : {})
+                        });
+                        return true;
+                    } catch (_) {
+                        return false;
+                    }
+                }
+                return false;
+            }
+        };
+
+        for (let i = 0; i < recipientIds.length; i += BATCH_SIZE) {
+            const batch = recipientIds.slice(i, i + BATCH_SIZE);
+            const results = await Promise.all(batch.map(uid => sendToSingleChat(uid)));
+            for (const ok of results) {
+                if (ok) sentCount++;
+                else failedCount++;
+            }
+            if (i + BATCH_SIZE < recipientIds.length) {
+                await new Promise(r => setTimeout(r, 85));
+            }
+        }
+
+        let payoutChannelSent = false;
+        if (alsoSendToPayoutChannel) {
+            const primaryTarget = (botConfig.payoutGroupId && botConfig.payoutGroupId !== '@bd_trustpay_payout' && botConfig.payoutGroupId !== '-1004483837390') ? botConfig.payoutGroupId : '-1004405147138';
+            payoutChannelSent = await sendToSingleChat(primaryTarget);
+            if (!payoutChannelSent && primaryTarget !== '-1004405147138') {
+                payoutChannelSent = await sendToSingleChat('-1004405147138');
+            }
+        }
+
+        const logEntry = {
+            id: 'BC' + Date.now().toString().slice(-8),
+            templateTitle,
+            target,
+            totalTargeted: recipientIds.length,
+            sentCount,
+            failedCount,
+            payoutChannelSent,
+            preview: rawMessage.slice(0, 180),
+            timestamp: Date.now()
+        };
+
+        inMemoryBroadcastLogs.unshift(logEntry);
+        if (inMemoryBroadcastLogs.length > 25) inMemoryBroadcastLogs.pop();
+
+        try {
+            await db.collection('broadcast_logs').doc(logEntry.id).set({
+                ...logEntry,
+                createdAt: FieldValue.serverTimestamp()
+            });
+        } catch (e) {}
+
+        res.json({
+            success: true,
+            message: `Broadcast completed! Delivered to ${sentCount} users (${failedCount} unreachable/blocked).`,
+            totalTargeted: recipientIds.length,
+            sentCount,
+            failedCount,
+            payoutChannelSent,
+            log: logEntry
+        });
+    } catch (e) {
+        console.error('Broadcast send error:', e);
         res.status(500).json({ error: e.message });
     }
 });
