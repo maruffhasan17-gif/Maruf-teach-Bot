@@ -1838,6 +1838,171 @@ app.post('/api/miniapp/sell', async (req, res) => {
     }
 });
 // =======================================================
+// ADMIN PANEL SECURITY: DESKTOP-ONLY + FIRESTORE AUTH
+// =======================================================
+const crypto = require('crypto');
+const ADMIN_DEFAULT_EMAIL = 'trustpaybot@gmail.com';
+const ADMIN_DEFAULT_PASS = 'Maruf1232#+';
+const ADMIN_TOKEN_SECRET = crypto
+    .createHash('sha256')
+    .update((serviceAccount?.private_key || 'trustpay-secret-key') + '::admin_portal_v1')
+    .digest('hex');
+
+let cachedAdminCreds = {
+    email: ADMIN_DEFAULT_EMAIL,
+    password: ADMIN_DEFAULT_PASS
+};
+
+async function ensureAdminCredentialsInDb() {
+    try {
+        const authRef = db.collection('settings').doc('admin_auth');
+        const doc = await authRef.get();
+        if (!doc.exists || !doc.data()?.email || !doc.data()?.password) {
+            await authRef.set({
+                email: ADMIN_DEFAULT_EMAIL,
+                password: ADMIN_DEFAULT_PASS,
+                desktopOnly: true,
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            console.log('[AdminSecurity] Seeded default admin credentials into Firestore (settings/admin_auth).');
+        } else {
+            const data = doc.data();
+            // Ensure requested credentials are synced in Firestore
+            if (data.email !== ADMIN_DEFAULT_EMAIL || data.password !== ADMIN_DEFAULT_PASS) {
+                await authRef.set({
+                    email: ADMIN_DEFAULT_EMAIL,
+                    password: ADMIN_DEFAULT_PASS,
+                    desktopOnly: true,
+                    updatedAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+            cachedAdminCreds = {
+                email: ADMIN_DEFAULT_EMAIL,
+                password: ADMIN_DEFAULT_PASS
+            };
+        }
+    } catch (err) {
+        console.warn('[AdminSecurity] Firestore admin_auth sync warning (using fallback):', err.message);
+    }
+}
+ensureAdminCredentialsInDb();
+
+function isMobileRequest(req) {
+    const ua = String(req.headers['user-agent'] || '');
+    const chMobile = String(req.headers['sec-ch-ua-mobile'] || '');
+    if (chMobile === '?1') return true;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Telegram/i.test(ua);
+}
+
+function createAdminToken(email) {
+    const payload = Buffer.from(JSON.stringify({
+        email,
+        iat: Date.now(),
+        exp: Date.now() + 7 * 24 * 60 * 60 * 1000
+    })).toString('base64url');
+    const sig = crypto.createHmac('sha256', ADMIN_TOKEN_SECRET).update(payload).digest('base64url');
+    return `${payload}.${sig}`;
+}
+
+function verifyAdminToken(req) {
+    try {
+        const authHeader = req.headers['authorization'] || '';
+        const token = authHeader.startsWith('Bearer ')
+            ? authHeader.slice(7).trim()
+            : (req.headers['x-admin-token'] || req.query?.token || '');
+        if (!token || !token.includes('.')) return null;
+        const [payloadB64, sig] = token.split('.');
+        const expectedSig = crypto.createHmac('sha256', ADMIN_TOKEN_SECRET).update(payloadB64).digest('base64url');
+        if (sig !== expectedSig) return null;
+        const data = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+        if (!data || !data.exp || Date.now() > data.exp) return null;
+        return data;
+    } catch (_) {
+        return null;
+    }
+}
+
+function requireAdminAuth(req, res, next) {
+    if (isMobileRequest(req)) {
+        return res.status(403).json({
+            error: 'মোবাইল ডিভাইস থেকে অ্যাডমিন প্যানেলে প্রবেশ সম্পূর্ণ নিষিদ্ধ! শুধুমাত্র ডেস্কটপ (PC/Laptop) ব্যবহার করুন।',
+            mobileBlocked: true
+        });
+    }
+    const verified = verifyAdminToken(req);
+    if (!verified) {
+        return res.status(401).json({
+            error: 'Unauthorized: অনুগ্রহ করে অ্যাডমিন ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করুন।',
+            unauthorized: true
+        });
+    }
+    req.adminUser = verified;
+    next();
+}
+
+app.post('/api/admin/login', async (req, res) => {
+    try {
+        if (isMobileRequest(req)) {
+            return res.status(403).json({
+                error: 'মোবাইল ডিভাইস থেকে অ্যাডমিন প্যানেলে প্রবেশ সম্পূর্ণ নিষিদ্ধ! শুধুমাত্র ডেস্কটপ (PC/Laptop) ব্যবহার করুন।',
+                mobileBlocked: true
+            });
+        }
+        const { email, password } = req.body || {};
+        if (!email || !password) {
+            return res.status(400).json({ error: 'ইমেইল এবং পাসওয়ার্ড প্রদান করুন।' });
+        }
+
+        // Fetch latest credentials from Firestore settings/admin_auth
+        try {
+            const doc = await db.collection('settings').doc('admin_auth').get();
+            if (doc.exists && doc.data()?.email && doc.data()?.password) {
+                cachedAdminCreds = {
+                    email: doc.data().email,
+                    password: doc.data().password
+                };
+            }
+        } catch (_) {}
+
+        const inputEmail = String(email).trim().toLowerCase();
+        const inputPass = String(password);
+
+        if (
+            inputEmail === cachedAdminCreds.email.trim().toLowerCase() &&
+            inputPass === cachedAdminCreds.password
+        ) {
+            const token = createAdminToken(cachedAdminCreds.email);
+            return res.json({
+                success: true,
+                token,
+                email: cachedAdminCreds.email
+            });
+        }
+
+        return res.status(401).json({
+            error: 'ভুল ইমেইল অথবা পাসওয়ার্ড! সঠিক অ্যাডমিন তথ্য দিয়ে আবার চেষ্টা করুন।'
+        });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/admin/session', requireAdminAuth, (req, res) => {
+    res.json({
+        success: true,
+        authenticated: true,
+        email: req.adminUser.email
+    });
+});
+
+// Protect all /api/admin/* routes (except login and avatar image redirect) and admin action endpoints
+app.use('/api/admin', (req, res, next) => {
+    if (req.path === '/login' || req.path.startsWith('/user-avatar/')) {
+        return next();
+    }
+    return requireAdminAuth(req, res, next);
+});
+app.use(['/api/stats', '/api/withdraw', '/api/approve-fraud', '/api/transactions'], requireAdminAuth);
 
 app.get('/api/stats', async (req, res) => {
     const now = Date.now();
@@ -3602,7 +3767,7 @@ app.get('/api/admin/mock-trxs', async (req, res) => {
     }
 });
 
-app.post('/api/settings', async (req, res) => {
+app.post('/api/settings', requireAdminAuth, async (req, res) => {
     try {
         await saveConfig(req.body);
         res.json({ success: true, message: 'Deployed!' });
@@ -3838,7 +4003,105 @@ app.use('/app', (req, res) => {
     else res.send("MiniApp is not built yet.");
 });
 
-// Serve Admin on / with anti-cache headers for HTML
+// Block Mobile Devices from accessing Admin Panel at the server level
+const MOBILE_BLOCKED_HTML = `<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trust Pay — Security Restricted</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #1e1b4b 0%, #090d16 70%);
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    .card {
+      max-width: 380px;
+      width: 100%;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      border-radius: 24px;
+      padding: 32px 24px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65);
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 18px;
+      font-size: 30px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 99px;
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 900;
+      margin: 0 0 10px;
+      color: #ffffff;
+    }
+    p {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #94a3b8;
+      margin: 0 0 22px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 13px 16px;
+      border-radius: 14px;
+      background: linear-gradient(90deg, #4f46e5, #7c3aed);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 13px;
+      text-decoration: none;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔒</div>
+    <div class="badge">Desktop Access Only</div>
+    <h1>মোবাইল ডিভাইসে প্রবেশ নিষিদ্ধ</h1>
+    <p>নিরাপত্তার স্বার্থে মোবাইল বা ট্যাব থেকে অ্যাডমিন প্যানেল সম্পূর্ণরূপে লক করা হয়েছে। শুধুমাত্র ডেস্কটপ কম্পিউটার (PC/Laptop) থেকে অনুমোদিত ইমেইল ও পাসওয়ার্ড দিয়ে প্রবেশ করা যাবে।</p>
+    <a href="/app" class="btn">🚀 Trust Pay ওয়েব বটে ফিরে যান</a>
+  </div>
+</body>
+</html>`;
+
+// Serve Admin on / with anti-cache headers for HTML (Desktop Only)
+app.use((req, res, next) => {
+    if (isMobileRequest(req) && (req.path === '/' || req.path === '/index.html' || req.path.startsWith('/admin') || !path.extname(req.path))) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        return res.status(403).send(MOBILE_BLOCKED_HTML);
+    }
+    next();
+});
 app.use(express.static(path.join(__dirname, 'admin/dist'), {
     maxAge: '1d',
     etag: true,
@@ -3851,6 +4114,10 @@ app.use(express.static(path.join(__dirname, 'admin/dist'), {
     }
 }));
 app.use((req, res) => {
+    if (isMobileRequest(req)) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        return res.status(403).send(MOBILE_BLOCKED_HTML);
+    }
     const p = path.join(__dirname, 'admin/dist/index.html');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');

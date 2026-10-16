@@ -9,19 +9,31 @@ const API_URL = isLocal
 // Default axios config with timeout to prevent hanging on mobile networks
 axios.defaults.timeout = 12000;
 
-export const fetchUserData = async (userId, retrying = false) => {
+export const fetchUserData = async (userId, attempt = 1) => {
     try {
-        const res = await axios.get(`${API_URL}/api/miniapp/user/${userId}?_t=${Date.now()}`);
+        const res = await axios.get(`${API_URL}/api/miniapp/user/${userId}?_t=${Date.now()}`, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+            }
+        });
         return res.data;
     } catch (e) {
-        console.warn('fetchUserData error (attempt ' + (retrying ? '2' : '1') + '):', e?.message || e);
-        if (!retrying) {
-            // Auto-retry once after 1.5s (handles cold start / brief network hiccup)
+        console.warn(`fetchUserData error (attempt ${attempt}):`, e?.message || e);
+        if (attempt < 3) {
             return new Promise(resolve =>
-                setTimeout(() => resolve(fetchUserData(userId, true)), 1500)
+                setTimeout(() => resolve(fetchUserData(userId, attempt + 1)), 1000)
             );
         }
-        // After both attempts fail: return null so callers keep the old balance
+        return null;
+    }
+};
+
+export const syncUserProfile = async (payload) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/sync-profile`, payload);
+        return res.data;
+    } catch (e) {
         return null;
     }
 };

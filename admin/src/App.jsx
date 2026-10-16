@@ -69,6 +69,43 @@ export const API_BASE = (function() {
   return 'https://maruf-teach-bot.onrender.com';
 })();
 
+export const ADMIN_TOKEN_KEY = 'trustpay_admin_token';
+export const ADMIN_EMAIL_KEY = 'trustpay_admin_email';
+
+export function isMobileDevice() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || navigator.vendor || window.opera || '';
+  const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS|FxiOS|Telegram/i;
+  if (mobileRegex.test(ua)) return true;
+  if (window.Telegram?.WebApp?.initData) return true;
+  if (window.innerWidth < 900 && ('ontouchstart' in window || navigator.maxTouchPoints > 1)) return true;
+  return false;
+}
+
+// Automatically attach Admin Bearer Token to all backend API requests
+if (typeof window !== 'undefined' && !window.__trustpayFetchWrapped) {
+  window.__trustpayFetchWrapped = true;
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input, init = {}) => {
+    const urlStr = typeof input === 'string' ? input : (input?.url || '');
+    const isApiCall = urlStr.startsWith(API_BASE) || urlStr.includes('/api/');
+    if (isApiCall) {
+      const token = localStorage.getItem(ADMIN_TOKEN_KEY);
+      const headers = new Headers(init.headers || (typeof input !== 'string' ? input?.headers : undefined) || {});
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      init = { ...init, headers };
+    }
+    const response = await originalFetch(input, init);
+    if (isApiCall && response.status === 401 && !urlStr.includes('/api/admin/login')) {
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      window.dispatchEvent(new CustomEvent('trustpay-admin-unauth'));
+    }
+    return response;
+  };
+}
+
 // Theme Context for Light / Dark Mode
 const ThemeContext = createContext({
   theme: 'dark',
@@ -236,7 +273,7 @@ function Toast({ show, type = 'success', message, onClose }) {
 }
 
 // Sidebar Component (All English)
-function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount }) {
+function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLogout }) {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
@@ -414,26 +451,40 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount }) {
           <span>Create TrxID</span>
         </button>
 
-        <a
-          href="https://t.me/bd_trust_pay_bot"
-          target="_blank"
-          rel="noreferrer"
-          className={`w-full py-2 px-3 rounded-xl font-bold text-[11px] border flex items-center justify-center gap-1.5 transition-all ${
-            isDark 
-              ? 'bg-purple-950/30 border-purple-800/30 text-purple-300 hover:bg-purple-900/40' 
-              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <ExternalLink size={13} />
-          <span>Open Telegram Bot</span>
-        </a>
+        <div className="grid grid-cols-2 gap-2">
+          <a
+            href="https://t.me/bd_trust_pay_bot"
+            target="_blank"
+            rel="noreferrer"
+            className={`py-2 px-2.5 rounded-xl font-bold text-[11px] border flex items-center justify-center gap-1.5 transition-all ${
+              isDark 
+                ? 'bg-purple-950/30 border-purple-800/30 text-purple-300 hover:bg-purple-900/40' 
+                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <ExternalLink size={12} />
+            <span>Open Bot</span>
+          </a>
+
+          <button
+            onClick={onLogout}
+            className={`py-2 px-2.5 rounded-xl font-bold text-[11px] border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              isDark
+                ? 'bg-rose-950/30 border-rose-500/30 text-rose-400 hover:bg-rose-900/40 hover:text-rose-200'
+                : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
+            }`}
+          >
+            <LogOut size={12} />
+            <span>Lock Panel</span>
+          </button>
+        </div>
       </div>
     </aside>
   );
 }
 
 // Layout Wrapper
-function Layout({ children, onOpenCreateTrx }) {
+function Layout({ children, onOpenCreateTrx, onLogout }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { orders } = useOrdersData();
@@ -447,6 +498,7 @@ function Layout({ children, onOpenCreateTrx }) {
         onOpenCreateTrx={onOpenCreateTrx} 
         pendingBuysCount={pendingBuysCount}
         pendingWithdrawCount={pendingWithdrawCount}
+        onLogout={onLogout}
       />
       <main className="flex-1 ml-72 p-6 md:p-8 transition-colors duration-200">
         <div className="max-w-[1780px] w-full mx-auto">
@@ -4668,6 +4720,212 @@ function CreateTrxModal({ isOpen, onClose }) {
 }
 
 // =========================================================================
+// MOBILE DEVICE BLOCK SCREEN (DESKTOP ONLY ENFORCEMENT)
+// =========================================================================
+function MobileBlockedScreen() {
+  return (
+    <div className="min-h-screen bg-[#070510] text-slate-100 flex items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-rose-600/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="max-w-md w-full bg-[#110d24]/95 border border-rose-500/35 rounded-3xl p-8 text-center shadow-2xl shadow-rose-950/30 backdrop-blur-xl relative z-10">
+        <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-rose-500/15 border border-rose-500/40 flex items-center justify-center text-rose-400 shadow-lg shadow-rose-500/10">
+          <ShieldAlert size={32} />
+        </div>
+
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-400 text-[10px] font-black uppercase tracking-widest mb-3">
+          <Lock size={11} /> Security Policy Enforced
+        </div>
+
+        <h1 className="text-xl font-black text-white tracking-tight mb-2">
+          Desktop Access Only
+        </h1>
+        <p className="text-xs text-slate-400 leading-relaxed mb-6">
+          For strict security reasons, the <span className="text-purple-300 font-bold">Trust Pay Admin Control Center</span> is permanently disabled on mobile phones, tablets, and wallet WebViews. Please sign in from an authorized desktop computer.
+        </p>
+
+        <div className="space-y-2.5">
+          <a
+            href="/app"
+            className="w-full py-3 px-4 rounded-xl font-black text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition-all"
+          >
+            <Zap size={14} />
+            <span>Open Trust Pay Web App</span>
+          </a>
+          <a
+            href="https://t.me/bd_trust_pay_bot"
+            className="w-full py-2.5 px-4 rounded-xl font-bold text-xs bg-purple-950/40 border border-purple-800/40 text-purple-300 hover:bg-purple-900/40 flex items-center justify-center gap-2 transition-all"
+          >
+            <ExternalLink size={13} />
+            <span>Return to Telegram Bot</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =========================================================================
+// EXECUTIVE ADMIN LOGIN SCREEN (DATABASE-BACKED GMAIL & PASSWORD)
+// =========================================================================
+function AdminLoginScreen({ onLoginSuccess }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (isMobileDevice()) {
+      setError('Mobile devices are strictly forbidden from accessing the Admin Panel.');
+      return;
+    }
+    if (!email.trim() || !password) {
+      setError('Please enter both Admin Gmail and Password.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          password
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.token) {
+        setError(data.error || 'Invalid Admin Gmail or Password. Access denied.');
+      } else {
+        localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+        localStorage.setItem(ADMIN_EMAIL_KEY, data.email || email.trim());
+        onLoginSuccess(data.token);
+      }
+    } catch (err) {
+      setError('Failed to connect to security server. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#070510] text-slate-100 flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Ambient Background Glows */}
+      <div className="absolute -top-40 -left-40 w-[480px] h-[480px] bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -right-40 w-[480px] h-[480px] bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="max-w-md w-full bg-[#0d0a1f]/95 border border-purple-500/30 rounded-3xl p-8 shadow-2xl shadow-purple-950/50 backdrop-blur-xl relative z-10">
+        {/* Brand Header */}
+        <div className="flex flex-col items-center text-center mb-7">
+          <div className="relative mb-3.5">
+            <img
+              src="/logo.png"
+              alt="Trust Pay Logo"
+              onError={(e) => { e.target.onerror = null; e.target.src = '/app/trustpaylogo.png'; }}
+              className="w-16 h-16 rounded-2xl object-cover shadow-xl shadow-purple-600/35 border border-purple-500/40"
+            />
+            <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-[#0d0a1f] flex items-center justify-center">
+              <ShieldCheck size={11} className="text-white" />
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-white tracking-tight">Trust Pay</h1>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-widest">
+              PRO ADMIN
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1 font-medium">
+            Protected Executive Treasury & Order Control Center
+          </p>
+          <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-[10px] font-bold text-purple-300">
+            <Lock size={11} className="text-purple-400" />
+            <span>Database-Verified Desktop Security</span>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-5 p-3.5 rounded-2xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs font-bold flex items-center gap-2.5">
+            <AlertTriangle size={16} className="text-rose-400 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
+              Admin Gmail Address
+            </label>
+            <input
+              type="email"
+              required
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="trustpaybot@gmail.com"
+              className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Master Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="text-[10px] font-bold text-purple-400 hover:text-purple-300 cursor-pointer"
+              >
+                {showPass ? 'Hide' : 'Show'}
+              </button>
+            </div>
+            <input
+              type={showPass ? 'text' : 'password'}
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••••••"
+              className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <RefreshCw size={15} className="animate-spin" />
+                <span>Verifying Credentials...</span>
+              </>
+            ) : (
+              <>
+                <Unlock size={15} />
+                <span>Unlock Admin Control Center</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="mt-6 pt-5 border-t border-purple-900/30 flex items-center justify-between text-[11px] text-slate-500 font-semibold">
+          <span className="flex items-center gap-1.5">
+            <Shield size={12} className="text-emerald-400" /> Firestore Auth Guard
+          </span>
+          <span>Desktop Only Mode</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =========================================================================
 // MAIN EXPORT
 // =========================================================================
 export default function App() {
@@ -4675,21 +4933,105 @@ export default function App() {
     return localStorage.getItem('trustpay_admin_theme') || 'dark';
   });
   const [isCreateTrxOpen, setIsCreateTrxOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => isMobileDevice());
+  const [adminToken, setAdminToken] = useState(() => localStorage.getItem(ADMIN_TOKEN_KEY) || '');
+  const [authChecking, setAuthChecking] = useState(true);
 
   useEffect(() => {
     localStorage.setItem('trustpay_admin_theme', theme);
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
 
+  useEffect(() => {
+    const checkMobile = () => {
+      if (isMobileDevice()) setIsMobile(true);
+    };
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    const handleUnauth = () => {
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      setAdminToken('');
+    };
+    window.addEventListener('trustpay-admin-unauth', handleUnauth);
+    return () => window.removeEventListener('trustpay-admin-unauth', handleUnauth);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const verifyExistingSession = async () => {
+      if (isMobileDevice()) {
+        if (active) setAuthChecking(false);
+        return;
+      }
+      const savedToken = localStorage.getItem(ADMIN_TOKEN_KEY);
+      if (!savedToken) {
+        if (active) {
+          setAdminToken('');
+          setAuthChecking(false);
+        }
+        return;
+      }
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/session`, {
+          headers: { Authorization: `Bearer ${savedToken}` }
+        });
+        if (!res.ok) {
+          localStorage.removeItem(ADMIN_TOKEN_KEY);
+          if (active) setAdminToken('');
+        } else {
+          if (active) setAdminToken(savedToken);
+        }
+      } catch (e) {
+        // Keep token on transient network glitch, backend still validates every request
+      } finally {
+        if (active) setAuthChecking(false);
+      }
+    };
+    verifyExistingSession();
+    return () => { active = false; };
+  }, []);
+
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_EMAIL_KEY);
+    setAdminToken('');
+  };
+
+  // 1. Strict Mobile Block (Desktop-Only Admin Panel)
+  if (isMobile) {
+    return <MobileBlockedScreen />;
+  }
+
+  // 2. Initial Auth Verification Spinner
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-[#070510] text-slate-200 flex flex-col items-center justify-center gap-3">
+        <RefreshCw size={28} className="animate-spin text-purple-400" />
+        <p className="text-xs font-bold text-slate-400 tracking-wider uppercase">Verifying Admin Security Session...</p>
+      </div>
+    );
+  }
+
+  // 3. Require Admin Login (Database-backed Gmail & Password)
+  if (!adminToken) {
+    return <AdminLoginScreen onLoginSuccess={(token) => setAdminToken(token)} />;
+  }
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       <TonConnectUIProvider manifestUrl={`${API_BASE}/tonconnect-manifest.json`}>
         <Router>
-          <Layout onOpenCreateTrx={() => setIsCreateTrxOpen(true)}>
+          <Layout
+            onOpenCreateTrx={() => setIsCreateTrxOpen(true)}
+            onLogout={handleLogout}
+          >
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/admin" element={<Dashboard />} />

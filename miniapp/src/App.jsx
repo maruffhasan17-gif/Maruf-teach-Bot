@@ -4,7 +4,7 @@ import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, 
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership } from './api';
 import brandLogo from './assets/trustpaylogo.png';
 
 const initialGraphData = [
@@ -237,6 +237,37 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
   const outerSize = size;
   const innerSize = Math.round(size * (125 / 170)); // proportional inner petals (~106px)
   const logoSize = Math.round(size * (90 / 170));   // proportional 3D logo (~76px)
+  const outerRef = useRef(null);
+  const innerRef = useRef(null);
+
+  useEffect(() => {
+    let rafId;
+    let degOuter = 0;
+    let degInner = 0;
+    let lastTime = performance.now();
+
+    const animate = (time) => {
+      let dt = (time - lastTime) / 1000;
+      lastTime = time;
+      if (dt > 0.3 || dt < 0) dt = 0.016;
+      degOuter = (degOuter + dt * 45) % 360;
+      degInner = (degInner - dt * 60) % 360;
+      if (outerRef.current) {
+        outerRef.current.style.webkitTransform = `rotate(${degOuter.toFixed(2)}deg)`;
+        outerRef.current.style.transform = `rotate(${degOuter.toFixed(2)}deg)`;
+      }
+      if (innerRef.current) {
+        innerRef.current.style.webkitTransform = `rotate(${degInner.toFixed(2)}deg)`;
+        innerRef.current.style.transform = `rotate(${degInner.toFixed(2)}deg)`;
+      }
+      rafId = requestAnimationFrame(animate);
+    };
+
+    rafId = requestAnimationFrame(animate);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   return (
     <div 
@@ -244,22 +275,6 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
       style={{ width: `${outerSize}px`, height: `${outerSize}px` }}
     >
       <style>{`
-        @-webkit-keyframes tpFlowerSpin {
-          0% { -webkit-transform: rotate(0.05deg); transform: rotate(0.05deg); }
-          100% { -webkit-transform: rotate(360.05deg); transform: rotate(360.05deg); }
-        }
-        @keyframes tpFlowerSpin {
-          0% { -webkit-transform: rotate(0.05deg); transform: rotate(0.05deg); }
-          100% { -webkit-transform: rotate(360.05deg); transform: rotate(360.05deg); }
-        }
-        @-webkit-keyframes tpFlowerSpinReverse {
-          0% { -webkit-transform: rotate(360.05deg); transform: rotate(360.05deg); }
-          100% { -webkit-transform: rotate(0.05deg); transform: rotate(0.05deg); }
-        }
-        @keyframes tpFlowerSpinReverse {
-          0% { -webkit-transform: rotate(360.05deg); transform: rotate(360.05deg); }
-          100% { -webkit-transform: rotate(0.05deg); transform: rotate(0.05deg); }
-        }
         @keyframes tpGlowPulse {
           0%, 100% { transform: scale(0.92); opacity: 0.6; }
           50% { transform: scale(1.08); opacity: 1; }
@@ -284,6 +299,7 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
 
       {/* Outer Rotating Sacred Lotus Mandala */}
       <div
+        ref={outerRef}
         style={{
           position: 'absolute',
           inset: 0,
@@ -294,11 +310,7 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
           justifyContent: 'center',
           transformOrigin: 'center center',
           WebkitTransformOrigin: 'center center',
-          animation: 'tpFlowerSpin 16s linear infinite',
-          WebkitAnimation: 'tpFlowerSpin 16s linear infinite',
           willChange: 'transform',
-          WebkitBackfaceVisibility: 'hidden',
-          backfaceVisibility: 'hidden',
           pointerEvents: 'none'
         }}
       >
@@ -313,14 +325,6 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
           xmlns="http://www.w3.org/2000/svg"
         >
           <g>
-            <animateTransform 
-              attributeName="transform" 
-              type="rotate" 
-              from="0 100 100" 
-              to="360 100 100" 
-              dur="16s" 
-              repeatCount="indefinite" 
-            />
             {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
               <g key={i} transform={`rotate(${angle} 100 100)`}>
                 <path 
@@ -338,6 +342,7 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
 
       {/* Middle Counter-rotating Petal Layer */}
       <div
+        ref={innerRef}
         style={{
           position: 'absolute',
           width: `${innerSize}px`,
@@ -347,11 +352,7 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
           justifyContent: 'center',
           transformOrigin: 'center center',
           WebkitTransformOrigin: 'center center',
-          animation: 'tpFlowerSpinReverse 11s linear infinite',
-          WebkitAnimation: 'tpFlowerSpinReverse 11s linear infinite',
           willChange: 'transform',
-          WebkitBackfaceVisibility: 'hidden',
-          backfaceVisibility: 'hidden',
           pointerEvents: 'none'
         }}
       >
@@ -366,14 +367,6 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
           xmlns="http://www.w3.org/2000/svg"
         >
           <g>
-            <animateTransform 
-              attributeName="transform" 
-              type="rotate" 
-              from="360 50 50" 
-              to="0 50 50" 
-              dur="11s" 
-              repeatCount="indefinite" 
-            />
             {[0, 60, 120, 180, 240, 300].map((angle, i) => (
               <g key={i} transform={`rotate(${angle} 50 50)`}>
                 <path 
@@ -980,6 +973,77 @@ function HeaderWalletButton({ lang = 'bn', setIsModalOpen }) {
   );
 }
 
+const GUEST_ID = 123456789;
+
+function resolveTelegramUser() {
+  try {
+    const candidates = [
+      window.Telegram?.WebApp?.initDataUnsafe?.user,
+      WebApp?.initDataUnsafe?.user
+    ];
+    for (const c of candidates) {
+      if (c && c.id && Number(c.id) !== GUEST_ID) {
+        try {
+          sessionStorage.setItem('tp_verified_tg_user', JSON.stringify(c));
+          localStorage.setItem('tp_verified_tg_user', JSON.stringify(c));
+        } catch (_) {}
+        return c;
+      }
+    }
+
+    // Parse URL hash / search params for tgWebAppData if present
+    const rawParams = [window.location.hash.slice(1), window.location.search.slice(1)];
+    for (const raw of rawParams) {
+      if (!raw) continue;
+      const params = new URLSearchParams(raw);
+      const tgData = params.get('tgWebAppData');
+      if (tgData) {
+        const innerParams = new URLSearchParams(tgData);
+        const userJson = innerParams.get('user');
+        if (userJson) {
+          const parsed = JSON.parse(userJson);
+          if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
+            try {
+              sessionStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+              localStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+            } catch (_) {}
+            return parsed;
+          }
+        }
+      }
+    }
+
+    // Check Telegram's internal sessionStorage __telegram__initParams
+    try {
+      const tgInit = sessionStorage.getItem('__telegram__initParams');
+      if (tgInit) {
+        const parsedInit = JSON.parse(tgInit);
+        if (parsedInit?.tgWebAppData) {
+          const innerParams = new URLSearchParams(parsedInit.tgWebAppData);
+          const userJson = innerParams.get('user');
+          if (userJson) {
+            const parsed = JSON.parse(userJson);
+            if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
+              localStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+              return parsed;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Fallback to previously verified Telegram user across WebView refreshes
+    const cached = sessionStorage.getItem('tp_verified_tg_user') || localStorage.getItem('tp_verified_tg_user');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
+        return parsed;
+      }
+    }
+  } catch (_) {}
+  return { id: GUEST_ID, first_name: 'Guest', last_name: 'Account', username: '' };
+}
+
 export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('app_lang') || 'bn');
   const t = translations[lang] || translations.bn;
@@ -992,12 +1056,19 @@ export default function App() {
     }
   };
 
-  const [appLoading, setAppLoading] = useState(true);
-  // appLoading is cleared by loadData after first successful fetch
-  // Safety fallback: if loadData never fires for some reason, clear after 4s
+  // Smoothly fade out the HTML #splash-loader once React is mounted
   useEffect(() => {
-    const fallbackTimer = setTimeout(() => setAppLoading(false), 4000);
-    return () => clearTimeout(fallbackTimer);
+    const timer = setTimeout(() => {
+      const splash = document.getElementById('splash-loader');
+      if (splash) {
+        splash.style.opacity = '0';
+        splash.style.pointerEvents = 'none';
+        setTimeout(() => {
+          if (splash.parentNode) splash.parentNode.removeChild(splash);
+        }, 260);
+      }
+    }, 550);
+    return () => clearTimeout(timer);
   }, []);
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -1084,7 +1155,7 @@ export default function App() {
   const [fiatWallet, setFiatWallet] = useState(null);
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
   const [mbsId, setMbsId] = useState(null);
-  const [user, setUser] = useState({ id: 0, first_name: 'User', username: '' });
+  const [user, setUser] = useState(() => resolveTelegramUser());
   const [balance, setBalance] = useState(0);
   const [balanceLoaded, setBalanceLoaded] = useState(false); // true only after real data arrives
   const [antiAbuseData, setAntiAbuseData] = useState({
@@ -1100,20 +1171,52 @@ export default function App() {
   const [communityError, setCommunityError] = useState('');
   const [communitySuccess, setCommunitySuccess] = useState(false);
 
-  window.reloadGlobalData = () => loadData(user.id || 123456789);
+  const activeUserIdRef = useRef(user?.id || GUEST_ID);
+  const loadSeqRef = useRef(0);
+  const mountTimeRef = useRef(Date.now());
   const isFirstLoad = useRef(true);
-  const loadData = async (userId) => {
+
+  const loadData = async (rawUserId) => {
+    const resolved = resolveTelegramUser();
+    const targetId = (rawUserId && Number(rawUserId) !== GUEST_ID)
+      ? rawUserId
+      : (resolved?.id && Number(resolved.id) !== GUEST_ID ? resolved.id : (activeUserIdRef.current || GUEST_ID));
+
+    // Never allow a guest request to overwrite a real verified user
+    if (Number(targetId) === GUEST_ID && Number(activeUserIdRef.current) !== GUEST_ID) {
+      return;
+    }
+
+    activeUserIdRef.current = targetId;
+    const currentSeq = ++loadSeqRef.current;
+
     try {
-      const data = await fetchUserData(userId);
-      if (!data) {
-        // Both retry attempts failed — unblock loading but don't change balance
-        if (isFirstLoad.current) { isFirstLoad.current = false; setAppLoading(false); }
-        return;
-      }
-      // Real data arrived — update all state
+      const data = await fetchUserData(targetId);
+      // Ignore stale responses if a newer request was fired
+      if (currentSeq !== loadSeqRef.current) return;
+      if (!data) return;
+
       if (data.balance !== undefined) {
-        setBalance(data.balance);
-        setBalanceLoaded(true);  // signal: real balance is ready, stop skeleton
+        const numericBal = Number(data.balance);
+        const finalBal = Number.isFinite(numericBal) ? numericBal : 0;
+        if (isFirstLoad.current) {
+          isFirstLoad.current = false;
+          // Ensure the user sees the smooth Skeleton Loader on the Balance Card right after the splash fades out
+          const elapsed = Date.now() - mountTimeRef.current;
+          const remainingDelay = Math.max(0, 900 - elapsed);
+          if (remainingDelay > 0) {
+            setTimeout(() => {
+              setBalance(finalBal);
+              setBalanceLoaded(true);
+            }, remainingDelay);
+          } else {
+            setBalance(finalBal);
+            setBalanceLoaded(true);
+          }
+        } else {
+          setBalance(finalBal);
+          setBalanceLoaded(true);
+        }
       }
       setFiatWallet(data.fiatWallet || null);
       setFiatWithdrawPending(data.fiatWithdrawPending || null);
@@ -1123,16 +1226,15 @@ export default function App() {
         hasSellBalance: Boolean(data.hasSellBalance),
         spentSinceLastDeposit: parseFloat(data.spentSinceLastDeposit) || 0
       });
-      // Dismiss the flower loader now that real data is here
-      if (isFirstLoad.current) { isFirstLoad.current = false; setAppLoading(false); }
     } catch (e) {
       console.warn("loadData error:", e);
-      if (isFirstLoad.current) { isFirstLoad.current = false; setAppLoading(false); }
     }
   };
 
+  window.reloadGlobalData = () => loadData(activeUserIdRef.current);
+
   const performCommunityCheck = async (silent = false) => {
-    if (!user?.id || user.id === 123456789) return;
+    if (!user?.id || user.id === GUEST_ID) return;
     try {
       const res = await checkCommunityMembership(user.id);
       if (res) {
@@ -1161,7 +1263,7 @@ export default function App() {
 
   const checkCommunityJoinStatus = async (userId) => {
     try {
-      if (!userId || userId === 123456789) return;
+      if (!userId || userId === GUEST_ID) return;
       const res = await checkCommunityMembership(userId);
       if (res && res.allJoined === true) {
         setCommunityStatus({
@@ -1270,64 +1372,27 @@ export default function App() {
 
   useEffect(() => {
     try {
-      const GUEST_ID = 123456789;
-      const tgWebApp = window.Telegram?.WebApp;
-      if (tgWebApp?.initDataUnsafe?.user) {
-        const u = tgWebApp.initDataUnsafe.user;
-        setUser(u);
-        loadData(u.id);
-        checkCommunityJoinStatus(u.id);
-        axios.post('/api/miniapp/sync-profile', {
-          userId: u.id,
-          username: u.username || '',
-          firstName: u.first_name || '',
-          lastName: u.last_name || '',
-          photoUrl: u.photo_url || ''
-        }).catch(()=>{});
-      } else {
-        setUser({ id: GUEST_ID, first_name: "Guest", last_name: "Account" });
-        loadData(GUEST_ID);
+      if (window.Telegram?.WebApp?.ready) {
+        window.Telegram.WebApp.ready();
       }
-    } catch(e) {
-      loadData(123456789);
+    } catch (_) {}
+
+    const resolvedUser = resolveTelegramUser();
+    setUser(resolvedUser);
+    activeUserIdRef.current = resolvedUser.id;
+    loadData(resolvedUser.id);
+
+    if (resolvedUser.id && Number(resolvedUser.id) !== GUEST_ID) {
+      checkCommunityJoinStatus(resolvedUser.id);
+      syncUserProfile({
+        userId: resolvedUser.id,
+        username: resolvedUser.username || '',
+        firstName: resolvedUser.first_name || '',
+        lastName: resolvedUser.last_name || '',
+        photoUrl: resolvedUser.photo_url || ''
+      });
     }
   }, []);
-
-  // Server Maintenance Mode requested by user
-  return (
-    <div className="fixed inset-0 bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#eef2ff] z-[99999] flex flex-col items-center justify-center font-sans select-none p-6 text-center">
-      <BloomingFlowerGraphic size={180} />
-
-      <h2 className="text-[#0f172a] font-black text-2xl mt-6 tracking-tight flex items-center justify-center gap-2">
-        <span>Server Maintenance</span>
-        <span className="text-xl">🛠️</span>
-      </h2>
-
-      <div className="flex items-center gap-2 mt-3 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30">
-        <div className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
-        <span className="text-[13px] font-black text-amber-600">
-          সার্ভার রক্ষণাবেক্ষণ ও আপগ্রেড চলছে
-        </span>
-      </div>
-
-      <p className="text-xs text-slate-500 font-medium max-w-[290px] mt-3 leading-relaxed">
-        আমাদের সিস্টেম আপডেট করা হচ্ছে। সাময়িক অসুবিধার জন্য আন্তরিকভাবে দুঃখিত, খুব শীঘ্রই বট পুনরায় সচল হবে।
-      </p>
-
-      {/* Shimmer Progress Line */}
-      <div className="w-44 h-1.5 bg-slate-200/90 rounded-full mt-6 overflow-hidden relative shadow-inner">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 rounded-full animate-pulse" />
-      </div>
-
-      <div className="mt-8 text-[11px] font-bold text-slate-400">
-        Trust Pay • Official System Update
-      </div>
-    </div>
-  );
-
-  if (appLoading) {
-    return <BloomingFlowerLoader lang={lang} />;
-  }
 
   return (
     <TonConnectUIProvider 

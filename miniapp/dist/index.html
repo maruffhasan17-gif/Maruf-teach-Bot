@@ -9,12 +9,12 @@
     <meta http-equiv="Expires" content="0" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>body{background-color:#f8fafc;margin:0;overflow-x:hidden}@keyframes flowerSpin{0%{transform:rotate(.05deg)}to{transform:rotate(360.05deg)}}@keyframes flowerSpinReverse{0%{transform:rotate(360.05deg)}to{transform:rotate(.05deg)}}@keyframes glowPulse{0%,to{opacity:.6;transform:scale(.92)}50%{opacity:1;transform:scale(1.08)}}@keyframes pulseLogo{0%,to{filter:drop-shadow(0 8px 24px #4f46e559);transform:scale(.96)}50%{filter:drop-shadow(0 14px 34px #9333ea8c);transform:scale(1.04)}}@keyframes dotPulse{0%,to{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}@keyframes progBar{0%{transform:translate(-100%)}50%{transform:translate(20%)}to{transform:translate(100%)}}</style>
-    <script type="module" crossorigin src="/app/assets/index-D0nXS1I3.js"></script>
-    <link rel="stylesheet" crossorigin href="/app/assets/index-pzydWtkz.css">
+    <script type="module" crossorigin src="/app/assets/index-aZoiCsNV.js"></script>
+    <link rel="stylesheet" crossorigin href="/app/assets/index-CX3chAfk.css">
   </head>
   <body>
-    <div id="root">
-      <div id="splash-loader" style="position:fixed;inset:0;background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 60%,#eef2ff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;z-index:99999;padding:20px;box-sizing:border-box;text-align:center;">
+    <div id="root"></div>
+    <div id="splash-loader" style="position:fixed;inset:0;background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 60%,#eef2ff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;z-index:99999;padding:20px;box-sizing:border-box;text-align:center;transition:opacity 0.25s ease;">
         
         <!-- Blooming Flower Container -->
         <div style="position:relative;width:170px;height:170px;display:flex;align-items:center;justify-content:center;">
@@ -22,10 +22,9 @@
           <div style="position:absolute;inset:0;border-radius:9999px;background:radial-gradient(circle, rgba(99,102,241,0.25) 0%, rgba(168,85,247,0.15) 50%, transparent 75%);filter:blur(16px);animation:glowPulse 2.8s infinite ease-in-out;"></div>
           
           <!-- Outer Rotating Flower Mandala Layer -->
-          <div id="splash-flower-outer" style="position:absolute;inset:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;-webkit-transform-origin:center center;transform-origin:center center;animation:flowerSpin 16s linear infinite;-webkit-animation:flowerSpin 16s linear infinite;will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden;pointer-events:none;">
+          <div id="splash-flower-outer" style="position:absolute;inset:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;-webkit-transform-origin:center center;transform-origin:center center;will-change:transform;pointer-events:none;">
             <svg style="width:100%;height:100%;display:block;" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
               <g>
-                <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="16s" repeatCount="indefinite" />
                 <g transform="rotate(0 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
                 <g transform="rotate(45 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
                 <g transform="rotate(90 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
@@ -39,10 +38,9 @@
           </div>
 
           <!-- Middle Counter-rotating Petal Layer -->
-          <div id="splash-flower-inner" style="position:absolute;width:125px;height:125px;display:flex;align-items:center;justify-content:center;-webkit-transform-origin:center center;transform-origin:center center;animation:flowerSpinReverse 11s linear infinite;-webkit-animation:flowerSpinReverse 11s linear infinite;will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden;pointer-events:none;">
+          <div id="splash-flower-inner" style="position:absolute;width:125px;height:125px;display:flex;align-items:center;justify-content:center;-webkit-transform-origin:center center;transform-origin:center center;will-change:transform;pointer-events:none;">
             <svg style="width:100%;height:100%;display:block;" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
               <g>
-                <animateTransform attributeName="transform" type="rotate" from="360 50 50" to="0 50 50" dur="11s" repeatCount="indefinite" />
                 <g transform="rotate(0 50 50)"><path d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" fill="rgba(168,85,247,0.22)" stroke="rgba(147,51,234,0.6)" stroke-width="1"/></g>
                 <g transform="rotate(60 50 50)"><path d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" fill="rgba(168,85,247,0.22)" stroke="rgba(147,51,234,0.6)" stroke-width="1"/></g>
                 <g transform="rotate(120 50 50)"><path d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" fill="rgba(168,85,247,0.22)" stroke="rgba(147,51,234,0.6)" stroke-width="1"/></g>
@@ -59,21 +57,17 @@
           </div>
         </div>
 
-        <div style="margin-top:20px;font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-0.02em;">Server Maintenance 🛠️</div>
-        <div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:99px;background:#fef3c7;border:1px solid #fde68a;font-size:13px;font-weight:800;color:#b45309;">
-          <span style="width:8px;height:8px;border-radius:99px;background:#d97706;animation:dotPulse 1.2s infinite ease-in-out;"></span>
-          সার্ভার রক্ষণাবেক্ষণ ও আপগ্রেড চলছে
+        <div style="margin-top:20px;font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-0.02em;">Trust Pay</div>
+        <div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:99px;background:#eef2ff;border:1px solid #e0e7ff;font-size:12px;font-weight:700;color:#4338ca;">
+          <span style="width:7px;height:7px;border-radius:99px;background:#4f46e5;animation:dotPulse 1.2s infinite ease-in-out;"></span>
+          লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...
         </div>
-        <p style="font-size:12px;color:#64748b;margin-top:10px;margin-bottom:0;max-width:280px;line-height:1.5;font-weight:500;">
-          আমাদের সিস্টেম আপডেট করা হচ্ছে। খুব শীঘ্রই বট পুনরায় সচল হবে।
-        </p>
-        <div style="width:140px;height:4px;background:#e2e8f0;border-radius:99px;margin-top:18px;overflow:hidden;position:relative;">
+        <div style="width:140px;height:4px;background:#e2e8f0;border-radius:99px;margin-top:16px;overflow:hidden;position:relative;">
           <div style="position:absolute;inset:0;background:linear-gradient(90deg,#4f46e5,#9333ea);border-radius:99px;animation:progBar 1.4s infinite ease-in-out;"></div>
         </div>
-      </div>
     </div>
     <script>
-      // Active Spin Animation Loop (guarantees rotation even if CSS keyframes/SMIL are throttled by mobile WebView)
+      // Active 60fps Spin Animation Loop (no conflicting CSS animation on #splash-flower-outer/inner)
       (function() {
         var outer = document.getElementById('splash-flower-outer');
         var inner = document.getElementById('splash-flower-inner');
@@ -81,12 +75,13 @@
         var degInner = 0;
         var lastTime = performance.now();
         function animateFlower(time) {
-          if (!document.getElementById('splash-loader')) return;
+          var splash = document.getElementById('splash-loader');
+          if (!splash) return;
           var dt = (time - lastTime) / 1000;
           lastTime = time;
-          if (dt > 0.3) dt = 0.016;
-          degOuter = (degOuter + dt * 22.5) % 360;
-          degInner = (degInner - dt * 32.7) % 360;
+          if (dt > 0.3 || dt < 0) dt = 0.016;
+          degOuter = (degOuter + dt * 45) % 360;
+          degInner = (degInner - dt * 60) % 360;
           if (outer) {
             outer.style.webkitTransform = 'rotate(' + degOuter.toFixed(2) + 'deg)';
             outer.style.transform = 'rotate(' + degOuter.toFixed(2) + 'deg)';
