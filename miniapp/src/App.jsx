@@ -1394,6 +1394,8 @@ export default function App() {
     }
   }, []);
 
+  const manifestUrl = 'https://maruf-teach-bot.onrender.com/app/tonconnect-manifest.json';
+
   return (
     <TonConnectUIProvider 
       manifestUrl={manifestUrl}
