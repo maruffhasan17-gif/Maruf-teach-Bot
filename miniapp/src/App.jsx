@@ -1085,7 +1085,8 @@ export default function App() {
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
   const [mbsId, setMbsId] = useState(null);
   const [user, setUser] = useState({ id: 0, first_name: 'User', username: '' });
-  const [balance, setBalance] = useState(null);
+  const [balance, setBalance] = useState(0);
+  const [balanceLoaded, setBalanceLoaded] = useState(false); // true only after real data arrives
   const [antiAbuseData, setAntiAbuseData] = useState({
     hasDepositWithoutTrade: false,
     hasSellBalance: false,
@@ -1104,13 +1105,16 @@ export default function App() {
   const loadData = async (userId) => {
     try {
       const data = await fetchUserData(userId);
-      // data is null when both fetch attempts failed — keep existing balance, don't flash 0
       if (!data) {
-        // Even on failure, unblock the UI after first attempt
+        // Both retry attempts failed — unblock loading but don't change balance
         if (isFirstLoad.current) { isFirstLoad.current = false; setAppLoading(false); }
         return;
       }
-      if (data.balance !== undefined) setBalance(data.balance);
+      // Real data arrived — update all state
+      if (data.balance !== undefined) {
+        setBalance(data.balance);
+        setBalanceLoaded(true);  // signal: real balance is ready, stop skeleton
+      }
       setFiatWallet(data.fiatWallet || null);
       setFiatWithdrawPending(data.fiatWithdrawPending || null);
       if (data.mbsId) setMbsId(data.mbsId);
@@ -1119,7 +1123,7 @@ export default function App() {
         hasSellBalance: Boolean(data.hasSellBalance),
         spentSinceLastDeposit: parseFloat(data.spentSinceLastDeposit) || 0
       });
-      // Clear loading screen once real data has arrived
+      // Dismiss the flower loader now that real data is here
       if (isFirstLoad.current) { isFirstLoad.current = false; setAppLoading(false); }
     } catch (e) {
       console.warn("loadData error:", e);
@@ -1341,6 +1345,7 @@ export default function App() {
           {activeTab === 'home' && (
               <HomePage 
                   balance={balance} 
+                  balanceLoaded={balanceLoaded}
                   user={user} 
                   lang={lang}
                   t={t}
@@ -1714,7 +1719,7 @@ function AppHeader({ user, lang = 'bn' }) {
   );
 }
 
-function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney, lang = 'bn', t = {} }) {
+function HomePage({ balance, balanceLoaded = false, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney, lang = 'bn', t = {} }) {
   const [graphData, setGraphData] = useState(initialGraphData);
   const [timeframe, setTimeframe] = useState('LIVE');
 
@@ -1799,9 +1804,13 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
                 <span>{t?.addMoney || 'Add Money'}</span>
             </button>
          </div>
-         <div className="flex items-baseline gap-1.5">
-            {balance === null ? (
-              <div className="h-9 w-20 bg-slate-200 animate-pulse rounded-lg mt-1" />
+         <div className="flex items-baseline gap-1.5 min-h-[44px] items-center">
+            {!balanceLoaded ? (
+              /* Skeleton pulse while balance is being fetched */
+              <div className="flex items-center gap-2">
+                <div className="h-9 w-24 bg-slate-200 animate-pulse rounded-xl" />
+                <div className="h-5 w-6 bg-indigo-100 animate-pulse rounded-md" />
+              </div>
             ) : (
               <>
                 <h2 className="text-3xl font-black text-slate-900">{balance}</h2>
