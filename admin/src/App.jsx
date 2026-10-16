@@ -2111,23 +2111,42 @@ function BotWallet() {
               </div>
             </div>
 
-            {/* Asset Selector Tabs */}
-            <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-emerald-900/40">
-              {['USDT', 'TON', 'GRAM'].map(asset => (
+            {/* Asset Selector Tabs: USDT & GRAM (or TON Gas if opened from Gas Station) */}
+            {depositModal.asset === 'TON' ? (
+              <div className="mb-5 p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Fuel size={20} className="text-cyan-400 shrink-0" />
+                  <div>
+                    <div className="text-xs font-black text-cyan-300">TON Gas Refill (Network Fee)</div>
+                    <div className="text-[10px] text-slate-400">Needed to pay TON blockchain network fees when sending USDT/GRAM</div>
+                  </div>
+                </div>
                 <button
-                  key={asset}
                   type="button"
-                  onClick={() => { setDepositModal({ ...depositModal, asset }); }}
-                  className={`flex-1 py-2 rounded-xl font-black text-xs transition-all cursor-pointer ${
-                    depositModal.asset === asset
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
+                  onClick={() => setDepositModal({ ...depositModal, asset: 'USDT' })}
+                  className="text-[11px] font-bold text-cyan-400 hover:underline px-2 py-1 rounded-lg bg-cyan-500/20 cursor-pointer"
                 >
-                  {asset === 'TON' ? 'TON Gas' : asset}
+                  Deposit USDT
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-emerald-900/40">
+                {['USDT', 'GRAM'].map(asset => (
+                  <button
+                    key={asset}
+                    type="button"
+                    onClick={() => { setDepositModal({ ...depositModal, asset }); }}
+                    className={`flex-1 py-2.5 rounded-xl font-black text-xs transition-all cursor-pointer ${
+                      depositModal.asset === asset
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {asset}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Amount Input */}
             <div className="mb-5 space-y-2">
