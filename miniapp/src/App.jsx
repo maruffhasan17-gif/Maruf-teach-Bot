@@ -1085,7 +1085,7 @@ export default function App() {
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
   const [mbsId, setMbsId] = useState(null);
   const [user, setUser] = useState({ id: 0, first_name: 'User', username: '' });
-  const [balance, setBalance] = useState(0);
+  const [balance, setBalance] = useState(null);
   const [antiAbuseData, setAntiAbuseData] = useState({
     hasDepositWithoutTrade: false,
     hasSellBalance: false,
@@ -1103,17 +1103,17 @@ export default function App() {
   const loadData = async (userId) => {
     try {
       const data = await fetchUserData(userId);
-      if (data) {
-        if (data.balance !== undefined) setBalance(data.balance);
-        setFiatWallet(data.fiatWallet || null);
-        setFiatWithdrawPending(data.fiatWithdrawPending || null);
-        if (data.mbsId) setMbsId(data.mbsId);
-        setAntiAbuseData({
-          hasDepositWithoutTrade: Boolean(data.hasDepositWithoutTrade),
-          hasSellBalance: Boolean(data.hasSellBalance),
-          spentSinceLastDeposit: parseFloat(data.spentSinceLastDeposit) || 0
-        });
-      }
+      // data is null when both fetch attempts failed — keep existing balance, don't flash 0
+      if (!data) return;
+      if (data.balance !== undefined) setBalance(data.balance);
+      setFiatWallet(data.fiatWallet || null);
+      setFiatWithdrawPending(data.fiatWithdrawPending || null);
+      if (data.mbsId) setMbsId(data.mbsId);
+      setAntiAbuseData({
+        hasDepositWithoutTrade: Boolean(data.hasDepositWithoutTrade),
+        hasSellBalance: Boolean(data.hasSellBalance),
+        spentSinceLastDeposit: parseFloat(data.spentSinceLastDeposit) || 0
+      });
     } catch (e) {
       console.warn("loadData error:", e);
     }
@@ -1792,8 +1792,14 @@ function HomePage({ balance, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCr
             </button>
          </div>
          <div className="flex items-baseline gap-1.5">
-            <h2 className="text-3xl font-black text-slate-900">{balance}</h2>
-            <span className="text-base font-black text-indigo-600">TK</span>
+            {balance === null ? (
+              <div className="h-9 w-20 bg-slate-200 animate-pulse rounded-lg mt-1" />
+            ) : (
+              <>
+                <h2 className="text-3xl font-black text-slate-900">{balance}</h2>
+                <span className="text-base font-black text-indigo-600">TK</span>
+              </>
+            )}
          </div>
          <p className="text-[11px] text-slate-500 font-medium mt-1">{t?.balanceSub || 'Available for withdrawal & crypto purchase'}</p>
       </CutCornerCard>

@@ -9,13 +9,20 @@ const API_URL = isLocal
 // Default axios config with timeout to prevent hanging on mobile networks
 axios.defaults.timeout = 12000;
 
-export const fetchUserData = async (userId) => {
+export const fetchUserData = async (userId, retrying = false) => {
     try {
         const res = await axios.get(`${API_URL}/api/miniapp/user/${userId}?_t=${Date.now()}`);
         return res.data;
     } catch (e) {
-        console.error(e);
-        return { balance: 0 };
+        console.warn('fetchUserData error (attempt ' + (retrying ? '2' : '1') + '):', e?.message || e);
+        if (!retrying) {
+            // Auto-retry once after 1.5s (handles cold start / brief network hiccup)
+            return new Promise(resolve =>
+                setTimeout(() => resolve(fetchUserData(userId, true)), 1500)
+            );
+        }
+        // After both attempts fail: return null so callers keep the old balance
+        return null;
     }
 };
 
