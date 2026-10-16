@@ -92,6 +92,7 @@ let botConfig = {
 const PE = {
     zap: '<tg-emoji emoji-id="5431449001532594346">⚡️</tg-emoji>',
     moneyBag: '<tg-emoji emoji-id="5375296873982604963">💰</tg-emoji>',
+    approvedBag: '<tg-emoji emoji-id="5224257782013769471">💰</tg-emoji>',
     dollar: '<tg-emoji emoji-id="5409048419211682843">💲</tg-emoji>',
     flyingCash: '<tg-emoji emoji-id="5472030678633684592">💸</tg-emoji>',
     coin: '<tg-emoji emoji-id="5379600444098093058">🪙</tg-emoji>',
@@ -251,7 +252,7 @@ const notifyPayoutGroup = async (payoutData) => {
             const rec = parseFloat(payoutData.receiveAmount || payoutData.amount || 0).toFixed(2);
             const method = (payoutData.method || 'bKash').toUpperCase();
             
-            msg = `${PE.moneyBag} <b>Withdrawal Approved! (ক্যাশআউট সফল!)</b>\n\n` +
+            msg = `${PE.approvedBag} <b>Withdrawal Approved! (ক্যাশআউট সফল!)</b>\n\n` +
                   `${PE.user} <b>Customer:</b> ${safeCustomerName} (<code>${maskId(payoutData.userId)}</code>)\n` +
                   `${PE.dollar} <b>Amount:</b> ৳${amt} BDT\n` +
                   `${PE.flyingCash} <b>Net Sent:</b> <b>৳${rec} BDT</b>\n` +
@@ -1303,7 +1304,7 @@ bot.on('message', async (msg) => {
                     const numVal = pend?.number || '';
 
                     // DM to User (Shards Bot Premium Animated Emoji format)
-                    const userSuccessMsg = `${PE.moneyBag} <b>Withdrawal Approved! (ক্যাশআউট সফল!)</b>\n\n` +
+                    const userSuccessMsg = `${PE.approvedBag} <b>Withdrawal Approved! (ক্যাশআউট সফল!)</b>\n\n` +
                         `${PE.dollar} <b>Amount:</b> ৳${amtVal} BDT\n` +
                         `${PE.chartDown} <b>Fee:</b> ৳${typeof feeVal === 'number' ? feeVal.toFixed(2) : feeVal} BDT\n` +
                         `${PE.flyingCash} <b>Net Sent:</b> <b>৳${typeof recVal === 'number' ? recVal.toFixed(2) : recVal} BDT</b>\n` +
@@ -3689,7 +3690,7 @@ app.post('/api/admin/approve-withdraw', async (req, res) => {
                     'fiatWithdrawPending.status': 'completed',
                     'fiatWithdrawPending.completedAt': Date.now()
                 });
-                const userMsg = `<b>${PE.moneyBag} উইথড্র অনুমোদিত! (Withdrawal Approved!)</b>\n\n` +
+                const userMsg = `<b>${PE.approvedBag} উইথড্র অনুমোদিত! (Withdrawal Approved!)</b>\n\n` +
                     `<blockquote>${PE.dollar} <b>Amount:</b> <code>৳${pend?.amount || 0} BDT</code>\n` +
                     `${PE.chartDown} <b>Service Fee:</b> <code>৳${pend?.fee || 0} BDT</code>\n` +
                     `${PE.flyingCash} <b>Sent Amount:</b> <b>৳${pend?.receiveAmount || pend?.amount || 0} BDT</b>\n` +
@@ -5066,7 +5067,7 @@ const doApproveWithdraw = async (docId, userId) => {
     }
 
     if (withdrawItem && bot) {
-        const userMsg = `<b>${PE.moneyBag} উইথড্র অনুমোদিত! (Withdrawal Approved!)</b>\n\n` +
+        const userMsg = `<b>${PE.approvedBag} উইথড্র অনুমোদিত! (Withdrawal Approved!)</b>\n\n` +
             `<blockquote>${PE.dollar} <b>Amount:</b> <code>৳${withdrawItem?.amount || 0} BDT</code>\n` +
             `${PE.chartDown} <b>Service Fee:</b> <code>৳${withdrawItem?.fee || 0} BDT</code>\n` +
             `${PE.flyingCash} <b>Sent Amount:</b> <b>৳${withdrawItem?.receiveAmount || withdrawItem?.amount || 0} BDT</b>\n` +
