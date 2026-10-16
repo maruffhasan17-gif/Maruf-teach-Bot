@@ -4849,7 +4849,7 @@ bot.onText(/\/wallet/, async (msg) => {
 // 6. Fee Policy: 20-30 BDT has 0 fee; >30 BDT has tiered fee
 // ============================================================
 
-const WITHDRAW_BOT_TOKEN = '8965853759:AAHdAas87oEfVY_fbqAdb9KXF3vHj6ECLGY';
+const WITHDRAW_BOT_TOKEN = process.env.WITHDRAW_BOT_TOKEN || '8965853759:AAEqFkelaLFeJZVN7lwIOXUBE6YXcO-tkVk';
 
 // Fee calculator: <=30 BDT is 0 fee; >30 BDT uses tiered fee
 const calcWithdrawFee = (amt) => {
