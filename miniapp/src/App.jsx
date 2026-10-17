@@ -2996,14 +2996,14 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                         {t?.selectMethod || 'Select Payment Method'}
                     </label>
 
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-2 gap-2">
                         {/* bKash */}
                         <div 
                             onClick={() => setPaymentMethod('bKash')}
-                            className={`px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-2.5 ${
+                            className={`px-3 py-2.5 rounded-xl border cursor-pointer transition-all flex items-center gap-2.5 ${
                                 paymentMethod === 'bKash' 
-                                    ? 'tp-asset-card-selected border-emerald-500 bg-emerald-50/70 shadow-sm ring-2 ring-emerald-500/20' 
-                                    : 'tp-asset-card-unselected border-gray-200 bg-gray-50/60 hover:bg-gray-50 opacity-75'
+                                    ? 'tp-asset-card-selected border-emerald-400 bg-emerald-50/50 shadow-2xs' 
+                                    : 'tp-asset-card-unselected border-gray-200/80 bg-gray-50/50 hover:bg-gray-50'
                             }`}
                         >
                             <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
@@ -3017,20 +3017,20 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                                 <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">bKash</span>
                                 <span className="text-[10px] text-gray-400 font-medium block">Personal</span>
                             </div>
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                                paymentMethod === 'bKash' ? 'tp-asset-check-active bg-indigo-600 text-white shadow-xs scale-105' : 'tp-asset-check-inactive border-2 border-gray-300'
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                paymentMethod === 'bKash' ? 'tp-asset-check-active bg-emerald-500 text-white' : 'tp-asset-check-inactive border border-gray-300'
                             }`}>
-                                {paymentMethod === 'bKash' && <Check size={12} strokeWidth={3.5} />}
+                                {paymentMethod === 'bKash' && <Check size={10} strokeWidth={3} />}
                             </div>
                         </div>
 
                         {/* Nagad */}
                         <div 
                             onClick={() => setPaymentMethod('Nagad')}
-                            className={`px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-2.5 ${
+                            className={`px-3 py-2.5 rounded-xl border cursor-pointer transition-all flex items-center gap-2.5 ${
                                 paymentMethod === 'Nagad' 
-                                    ? 'tp-asset-card-selected border-indigo-600 bg-indigo-50/70 shadow-sm ring-2 ring-indigo-500/20' 
-                                    : 'tp-asset-card-unselected border-gray-200 bg-gray-50/60 hover:bg-gray-50 opacity-75'
+                                    ? 'tp-asset-card-selected border-indigo-400 bg-indigo-50/50 shadow-2xs' 
+                                    : 'tp-asset-card-unselected border-gray-200/80 bg-gray-50/50 hover:bg-gray-50'
                             }`}
                         >
                             <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
@@ -3044,10 +3044,10 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                                 <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">Nagad</span>
                                 <span className="text-[10px] text-gray-400 font-medium block">Personal</span>
                             </div>
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                                paymentMethod === 'Nagad' ? 'tp-asset-check-active bg-emerald-500 text-white shadow-xs scale-105' : 'tp-asset-check-inactive border-2 border-gray-300'
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                paymentMethod === 'Nagad' ? 'tp-asset-check-active bg-indigo-500 text-white' : 'tp-asset-check-inactive border border-gray-300'
                             }`}>
-                                {paymentMethod === 'Nagad' && <Check size={12} strokeWidth={3.5} />}
+                                {paymentMethod === 'Nagad' && <Check size={10} strokeWidth={3} />}
                             </div>
                         </div>
                     </div>
@@ -3334,54 +3334,54 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">
                                 {t?.selectCrypto || 'Select Crypto Asset'}
                             </label>
-                            <div className="grid grid-cols-2 gap-2.5">
+                            <div className="grid grid-cols-2 gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setSelectedAsset('GRAM')}
-                                    className={`p-2.5 rounded-xl border-2 flex items-center justify-between gap-2 cursor-pointer transition-all ${
+                                    className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
                                         selectedAsset === 'GRAM' 
-                                            ? 'tp-asset-card-selected border-indigo-600 bg-indigo-50/90 shadow-sm ring-2 ring-indigo-500/25' 
-                                            : 'tp-asset-card-unselected border-slate-200 bg-slate-50/60 hover:bg-slate-100/60 opacity-75'
+                                            ? 'tp-asset-card-selected border-indigo-400/80 bg-indigo-50/55 shadow-2xs' 
+                                            : 'tp-asset-card-unselected border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/50'
                                     }`}
                                 >
                                     <div className="flex items-center gap-2 min-w-0">
-                                        <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-6 h-6 object-contain shrink-0" alt="GRAM" />
+                                        <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-5 h-5 object-contain shrink-0" alt="GRAM" />
                                         <div className="text-left min-w-0">
-                                            <span className="font-extrabold text-[12px] text-slate-900 block leading-tight truncate">GRAM</span>
-                                            <span className="text-[9.5px] text-indigo-600 font-bold block">≈ ৳{buyerRates.GRAM} TK</span>
+                                            <span className="font-extrabold text-[11px] text-slate-900 block leading-tight truncate">GRAM</span>
+                                            <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{buyerRates.GRAM} TK</span>
                                         </div>
                                     </div>
-                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
                                         selectedAsset === 'GRAM'
-                                            ? 'tp-asset-check-active bg-indigo-600 text-white shadow-xs scale-105'
-                                            : 'tp-asset-check-inactive border-2 border-slate-300 bg-transparent'
+                                            ? 'tp-asset-check-active bg-indigo-500 text-white'
+                                            : 'tp-asset-check-inactive border border-slate-300/80 bg-transparent'
                                     }`}>
-                                        {selectedAsset === 'GRAM' && <Check size={12} strokeWidth={3.5} />}
+                                        {selectedAsset === 'GRAM' && <Check size={10} strokeWidth={3} />}
                                     </div>
                                 </button>
 
                                 <button
                                     type="button"
                                     onClick={() => setSelectedAsset('USDT')}
-                                    className={`p-2.5 rounded-xl border-2 flex items-center justify-between gap-2 cursor-pointer transition-all ${
+                                    className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
                                         selectedAsset === 'USDT' 
-                                            ? 'tp-asset-card-selected border-indigo-600 bg-indigo-50/90 shadow-sm ring-2 ring-indigo-500/25' 
-                                            : 'tp-asset-card-unselected border-slate-200 bg-slate-50/60 hover:bg-slate-100/60 opacity-75'
+                                            ? 'tp-asset-card-selected border-indigo-400/80 bg-indigo-50/55 shadow-2xs' 
+                                            : 'tp-asset-card-unselected border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/50'
                                     }`}
                                 >
                                     <div className="flex items-center gap-2 min-w-0">
-                                        <img src={`${import.meta.env.BASE_URL}usdt.svg`} className="w-6 h-6 object-contain shrink-0" alt="USDT" />
+                                        <img src={`${import.meta.env.BASE_URL}usdt.svg`} className="w-5 h-5 object-contain shrink-0" alt="USDT" />
                                         <div className="text-left min-w-0">
-                                            <span className="font-extrabold text-[12px] text-slate-900 block leading-tight truncate">USDT</span>
-                                            <span className="text-[9.5px] text-indigo-600 font-bold block">≈ ৳{buyerRates.USDT} TK</span>
+                                            <span className="font-extrabold text-[11px] text-slate-900 block leading-tight truncate">USDT</span>
+                                            <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{buyerRates.USDT} TK</span>
                                         </div>
                                     </div>
-                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
                                         selectedAsset === 'USDT'
-                                            ? 'tp-asset-check-active bg-indigo-600 text-white shadow-xs scale-105'
-                                            : 'tp-asset-check-inactive border-2 border-slate-300 bg-transparent'
+                                            ? 'tp-asset-check-active bg-indigo-500 text-white'
+                                            : 'tp-asset-check-inactive border border-slate-300/80 bg-transparent'
                                     }`}>
-                                        {selectedAsset === 'USDT' && <Check size={12} strokeWidth={3.5} />}
+                                        {selectedAsset === 'USDT' && <Check size={10} strokeWidth={3} />}
                                     </div>
                                 </button>
                             </div>
@@ -3791,33 +3791,33 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 <div className="space-y-2.5">
                     {/* 1. Asset Selection */}
                     <div className="shrink-0">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1">
                             {t?.selectCrypto || 'Select Crypto Asset'}
                         </label>
-                        <div className="grid grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-2 gap-2">
                             {/* GRAM */}
                             <button 
                                 type="button"
                                 onClick={() => setAsset('GRAM')}
-                                className={`p-2.5 rounded-xl border-2 flex items-center justify-between gap-2 cursor-pointer transition-all ${
+                                className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
                                     asset === 'GRAM' 
-                                        ? 'tp-asset-card-selected border-indigo-600 bg-indigo-50/90 shadow-sm ring-2 ring-indigo-500/25' 
-                                        : 'tp-asset-card-unselected border-slate-200 bg-slate-50/60 hover:bg-slate-100/60 opacity-75'
+                                        ? 'tp-asset-card-selected border-indigo-400/80 bg-indigo-50/55 shadow-2xs' 
+                                        : 'tp-asset-card-unselected border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/50'
                                 }`}
                             >
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-6 h-6 object-contain shrink-0" alt="GRAM" />
+                                    <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-5 h-5 object-contain shrink-0" alt="GRAM" />
                                     <div className="text-left min-w-0">
-                                        <span className="font-extrabold text-[12px] text-slate-900 block leading-tight truncate">GRAM</span>
-                                        <span className="text-[9.5px] text-indigo-600 font-bold block">≈ ৳{liveRates?.GRAM || 160} TK</span>
+                                        <span className="font-extrabold text-[11px] text-slate-900 block leading-tight truncate">GRAM</span>
+                                        <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{liveRates?.GRAM || 160} TK</span>
                                     </div>
                                 </div>
-                                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
                                     asset === 'GRAM'
-                                        ? 'tp-asset-check-active bg-indigo-600 text-white shadow-xs scale-105'
-                                        : 'tp-asset-check-inactive border-2 border-slate-300 bg-transparent'
+                                        ? 'tp-asset-check-active bg-indigo-500 text-white'
+                                        : 'tp-asset-check-inactive border border-slate-300/80 bg-transparent'
                                 }`}>
-                                    {asset === 'GRAM' && <Check size={12} strokeWidth={3.5} />}
+                                    {asset === 'GRAM' && <Check size={10} strokeWidth={3} />}
                                 </div>
                             </button>
 
@@ -3825,25 +3825,25 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                             <button 
                                 type="button"
                                 onClick={() => setAsset('USDT')}
-                                className={`p-2.5 rounded-xl border-2 flex items-center justify-between gap-2 cursor-pointer transition-all ${
+                                className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
                                     asset === 'USDT' 
-                                        ? 'tp-asset-card-selected border-indigo-600 bg-indigo-50/90 shadow-sm ring-2 ring-indigo-500/25' 
-                                        : 'tp-asset-card-unselected border-slate-200 bg-slate-50/60 hover:bg-slate-100/60 opacity-75'
+                                        ? 'tp-asset-card-selected border-indigo-400/80 bg-indigo-50/55 shadow-2xs' 
+                                        : 'tp-asset-card-unselected border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/50'
                                 }`}
                             >
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <img src={`${import.meta.env.BASE_URL}usdt.svg`} className="w-6 h-6 object-contain shrink-0" alt="USDT" />
+                                    <img src={`${import.meta.env.BASE_URL}usdt.svg`} className="w-5 h-5 object-contain shrink-0" alt="USDT" />
                                     <div className="text-left min-w-0">
-                                        <span className="font-extrabold text-[12px] text-slate-900 block leading-tight truncate">USDT</span>
-                                        <span className="text-[9.5px] text-indigo-600 font-bold block">≈ ৳{liveRates.USDT} TK</span>
+                                        <span className="font-extrabold text-[11px] text-slate-900 block leading-tight truncate">USDT</span>
+                                        <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{liveRates.USDT} TK</span>
                                     </div>
                                 </div>
-                                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
                                     asset === 'USDT'
-                                        ? 'tp-asset-check-active bg-indigo-600 text-white shadow-xs scale-105'
-                                        : 'tp-asset-check-inactive border-2 border-slate-300 bg-transparent'
+                                        ? 'tp-asset-check-active bg-indigo-500 text-white'
+                                        : 'tp-asset-check-inactive border border-slate-300/80 bg-transparent'
                                 }`}>
-                                    {asset === 'USDT' && <Check size={12} strokeWidth={3.5} />}
+                                    {asset === 'USDT' && <Check size={10} strokeWidth={3} />}
                                 </div>
                             </button>
                         </div>
