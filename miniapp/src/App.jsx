@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, User, Users, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle } from 'lucide-react';
+import { Home, User, Users, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -10,6 +10,28 @@ import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/referral-banner.jpg';
 
 const stickerJsonCache = new Map();
+
+const CrescentMoonIcon = ({ size = 18, isDark = false, className = '' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`inline-block shrink-0 select-none transition-transform duration-300 ${className}`}
+  >
+    <path
+      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+      fill={isDark ? '#fbbf24' : '#4f46e5'}
+      stroke={isDark ? '#fde68a' : '#4338ca'}
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="18.5" cy="5.5" r="1.2" fill={isDark ? '#fde047' : '#818cf8'} />
+    <circle cx="14.5" cy="3.5" r="0.85" fill={isDark ? '#fef08a' : '#a5b4fc'} />
+  </svg>
+);
 
 const CustomRoseIcon = ({ size = 18, className = '' }) => (
   <svg
@@ -161,7 +183,7 @@ const PremiumGiftBox = () => (
 );
 
 // 1. HOME: Sacred Royal Lotus Pattern
-const HomeLotusPattern = ({ className = "opacity-[0.06]" }) => (
+const HomeLotusPattern = ({ className = "opacity-[0.06] tp-card-flower-lotus" }) => (
   <svg 
     className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-indigo-900 ${className}`} 
     width="140" 
@@ -170,19 +192,19 @@ const HomeLotusPattern = ({ className = "opacity-[0.06]" }) => (
     fill="none" 
     xmlns="http://www.w3.org/2000/svg"
   >
-    <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-    <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-    <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-    <path d="M50 85 C15 90, 0 75, 10 50 C25 65, 40 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
-    <path d="M50 85 C85 90, 100 75, 90 50 C75 65, 60 78, 50 85 Z" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
-    <circle cx="50" cy="15" r="2" fill="currentColor" />
-    <circle cx="25" cy="35" r="1.5" fill="currentColor" />
-    <circle cx="75" cy="35" r="1.5" fill="currentColor" />
+    <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" fill="currentColor" fillOpacity="0.06" />
+    <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" fill="currentColor" fillOpacity="0.05" />
+    <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" fill="currentColor" fillOpacity="0.05" />
+    <path d="M50 85 C15 90, 0 75, 10 50 C25 65, 40 78, 50 85 Z" stroke="currentColor" strokeWidth="0.95" strokeLinecap="round" />
+    <path d="M50 85 C85 90, 100 75, 90 50 C75 65, 60 78, 50 85 Z" stroke="currentColor" strokeWidth="0.95" strokeLinecap="round" />
+    <circle cx="50" cy="15" r="2.2" fill="currentColor" />
+    <circle cx="25" cy="35" r="1.7" fill="currentColor" />
+    <circle cx="75" cy="35" r="1.7" fill="currentColor" />
   </svg>
 );
 
 // 2. ADD MONEY: Cascading Prosperity Orchid & Jasmine Blooms
-const AddMoneyFloraPattern = ({ className = "opacity-[0.06]" }) => (
+const AddMoneyFloraPattern = ({ className = "opacity-[0.06] tp-card-flower-emerald" }) => (
   <svg 
     className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-emerald-900 ${className}`} 
     width="145" 
@@ -191,26 +213,26 @@ const AddMoneyFloraPattern = ({ className = "opacity-[0.06]" }) => (
     fill="none" 
     xmlns="http://www.w3.org/2000/svg"
   >
-    <path d="M10 90 Q40 85, 60 55 T90 20" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    <path d="M10 90 Q40 85, 60 55 T90 20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     <g transform="translate(60, 55)">
       {[0, 72, 144, 216, 288].map((rot, idx) => (
-        <path key={idx} d="M0 0 C-4 -12, 4 -12, 0 0" stroke="currentColor" strokeWidth="0.9" transform={`rotate(${rot})`} fill="currentColor" fillOpacity="0.08" />
+        <path key={idx} d="M0 0 C-4 -12, 4 -12, 0 0" stroke="currentColor" strokeWidth="1" transform={`rotate(${rot})`} fill="currentColor" fillOpacity="0.1" />
       ))}
-      <circle cx="0" cy="0" r="1.8" fill="currentColor" />
+      <circle cx="0" cy="0" r="2" fill="currentColor" />
     </g>
     <g transform="translate(85, 25)">
       {[0, 72, 144, 216, 288].map((rot, idx) => (
-        <path key={idx} d="M0 0 C-3 -9, 3 -9, 0 0" stroke="currentColor" strokeWidth="0.8" transform={`rotate(${rot})`} fill="currentColor" fillOpacity="0.08" />
+        <path key={idx} d="M0 0 C-3 -9, 3 -9, 0 0" stroke="currentColor" strokeWidth="0.9" transform={`rotate(${rot})`} fill="currentColor" fillOpacity="0.1" />
       ))}
-      <circle cx="0" cy="0" r="1.5" fill="currentColor" />
+      <circle cx="0" cy="0" r="1.6" fill="currentColor" />
     </g>
-    <path d="M40 70 C30 65, 25 50, 35 48 C42 55, 40 65, 40 70 Z" stroke="currentColor" strokeWidth="0.9" fill="currentColor" fillOpacity="0.05" />
-    <path d="M70 42 C78 38, 85 45, 80 50 C74 48, 72 44, 70 42 Z" stroke="currentColor" strokeWidth="0.8" />
+    <path d="M40 70 C30 65, 25 50, 35 48 C42 55, 40 65, 40 70 Z" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.07" />
+    <path d="M70 42 C78 38, 85 45, 80 50 C74 48, 72 44, 70 42 Z" stroke="currentColor" strokeWidth="0.9" />
   </svg>
 );
 
 // 3. SELL CRYPTO: Sacred Geometric Swap Mandala Blossom
-const SellCryptoMandalaPattern = ({ className = "opacity-[0.06]" }) => (
+const SellCryptoMandalaPattern = ({ className = "opacity-[0.06] tp-card-flower-mandala" }) => (
   <svg 
     className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-indigo-950 ${className}`} 
     width="140" 
@@ -219,20 +241,20 @@ const SellCryptoMandalaPattern = ({ className = "opacity-[0.06]" }) => (
     fill="none" 
     xmlns="http://www.w3.org/2000/svg"
   >
-    <circle cx="50" cy="50" r="32" stroke="currentColor" strokeWidth="0.8" strokeDasharray="3 3" />
-    <circle cx="50" cy="50" r="14" stroke="currentColor" strokeWidth="1" />
+    <circle cx="50" cy="50" r="32" stroke="currentColor" strokeWidth="0.9" strokeDasharray="3 3" />
+    <circle cx="50" cy="50" r="14" stroke="currentColor" strokeWidth="1.1" />
     {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
       <g key={i} transform={`rotate(${angle} 50 50)`}>
-        <path d="M50 14 C44 26, 44 38, 50 50 C56 38, 56 26, 50 14 Z" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.04" />
-        <circle cx="50" cy="14" r="1.5" fill="currentColor" />
+        <path d="M50 14 C44 26, 44 38, 50 50 C56 38, 56 26, 50 14 Z" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.06" />
+        <circle cx="50" cy="14" r="1.6" fill="currentColor" />
       </g>
     ))}
-    <circle cx="50" cy="50" r="3" fill="currentColor" />
+    <circle cx="50" cy="50" r="3.2" fill="currentColor" />
   </svg>
 );
 
 // 4. PROFILE: Imperial Laurel Botanical Wreath
-const ProfileImperialFloraPattern = ({ className = "opacity-[0.06]" }) => (
+const ProfileImperialFloraPattern = ({ className = "opacity-[0.06] tp-card-flower-imperial" }) => (
   <svg 
     className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-blue-950 ${className}`} 
     width="140" 
@@ -241,18 +263,18 @@ const ProfileImperialFloraPattern = ({ className = "opacity-[0.06]" }) => (
     fill="none" 
     xmlns="http://www.w3.org/2000/svg"
   >
-    <path d="M25 80 C20 50, 35 25, 50 20 C65 25, 80 50, 75 80" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-    <path d="M30 65 C22 60, 24 50, 32 55" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.05" />
-    <path d="M70 65 C78 60, 76 50, 68 55" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.05" />
-    <path d="M35 48 C28 42, 32 34, 40 40" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.05" />
-    <path d="M65 48 C72 42, 68 34, 60 40" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.05" />
-    <circle cx="50" cy="18" r="2.5" fill="currentColor" />
-    <path d="M50 14 Q46 6, 50 2 Q54 6, 50 14" stroke="currentColor" strokeWidth="1" fill="currentColor" fillOpacity="0.1" />
+    <path d="M25 80 C20 50, 35 25, 50 20 C65 25, 80 50, 75 80" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    <path d="M30 65 C22 60, 24 50, 32 55" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.07" />
+    <path d="M70 65 C78 60, 76 50, 68 55" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.07" />
+    <path d="M35 48 C28 42, 32 34, 40 40" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.07" />
+    <path d="M65 48 C72 42, 68 34, 60 40" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.07" />
+    <circle cx="50" cy="18" r="2.6" fill="currentColor" />
+    <path d="M50 14 Q46 6, 50 2 Q54 6, 50 14" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.12" />
   </svg>
 );
 
 // 5. WITHDRAW: Harvest Golden Lily & Upward Tulip Bloom
-const WithdrawLilyPattern = ({ className = "opacity-[0.06]" }) => (
+const WithdrawLilyPattern = ({ className = "opacity-[0.06] tp-card-flower-lily" }) => (
   <svg 
     className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-amber-950 ${className}`} 
     width="140" 
@@ -262,17 +284,17 @@ const WithdrawLilyPattern = ({ className = "opacity-[0.06]" }) => (
     xmlns="http://www.w3.org/2000/svg"
   >
     <path d="M50 90 Q50 65, 50 45" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    <path d="M50 60 C35 55, 18 40, 24 20 C35 32, 45 42, 50 55" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.06" />
-    <path d="M50 60 C65 55, 82 40, 76 20 C65 32, 55 42, 50 55" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.06" />
-    <path d="M50 50 C44 35, 42 20, 50 10 C58 20, 56 35, 50 50" stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.08" />
-    <circle cx="50" cy="8" r="2" fill="currentColor" />
-    <circle cx="23" cy="18" r="1.5" fill="currentColor" />
-    <circle cx="77" cy="18" r="1.5" fill="currentColor" />
+    <path d="M50 60 C35 55, 18 40, 24 20 C35 32, 45 42, 50 55" stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.08" />
+    <path d="M50 60 C65 55, 82 40, 76 20 C65 32, 55 42, 50 55" stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.08" />
+    <path d="M50 50 C44 35, 42 20, 50 10 C58 20, 56 35, 50 50" stroke="currentColor" strokeWidth="1.3" fill="currentColor" fillOpacity="0.1" />
+    <circle cx="50" cy="8" r="2.2" fill="currentColor" />
+    <circle cx="23" cy="18" r="1.6" fill="currentColor" />
+    <circle cx="77" cy="18" r="1.6" fill="currentColor" />
   </svg>
 );
 
 // 6. REFERRAL: Royal Blooming Damask Rose & Rosebud Botanical Pattern
-const ReferralRosePattern = ({ className = "opacity-[0.08]" }) => (
+const ReferralRosePattern = ({ className = "opacity-[0.08] tp-card-flower-rose" }) => (
   <svg 
     className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-rose-700 ${className}`} 
     width="150" 
@@ -287,9 +309,9 @@ const ReferralRosePattern = ({ className = "opacity-[0.08]" }) => (
         <path 
           d="M50 12 C34 16, 26 30, 36 44 C42 50, 58 50, 64 44 C74 30, 66 16, 50 12 Z" 
           stroke="currentColor" 
-          strokeWidth="1.1" 
+          strokeWidth="1.2" 
           fill="currentColor" 
-          fillOpacity="0.05" 
+          fillOpacity="0.07" 
         />
       </g>
     ))}
@@ -299,9 +321,9 @@ const ReferralRosePattern = ({ className = "opacity-[0.08]" }) => (
         <path 
           d="M50 22 C39 24, 35 35, 42 44 C46 48, 54 48, 58 44 C65 35, 61 24, 50 22 Z" 
           stroke="currentColor" 
-          strokeWidth="1.15" 
+          strokeWidth="1.25" 
           fill="currentColor" 
-          fillOpacity="0.08" 
+          fillOpacity="0.1" 
         />
       </g>
     ))}
@@ -309,89 +331,139 @@ const ReferralRosePattern = ({ className = "opacity-[0.08]" }) => (
     <path 
       d="M50 32 C43 32, 40 39, 44 45 C48 50, 56 49, 57 43 C58 37, 52 35, 48 38 C45 41, 47 45, 51 44" 
       stroke="currentColor" 
-      strokeWidth="1.4" 
+      strokeWidth="1.5" 
       strokeLinecap="round" 
     />
     {/* Rose Stem & Serrated Rose Leaves */}
-    <path d="M50 68 Q49 82, 46 95" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    <path d="M48 77 C36 74, 25 80, 28 87 C35 88, 43 83, 48 77 Z" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.07" />
-    <path d="M49 82 C61 79, 72 85, 69 92 C62 93, 54 88, 49 82 Z" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.07" />
+    <path d="M50 68 Q49 82, 46 95" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M48 77 C36 74, 25 80, 28 87 C35 88, 43 83, 48 77 Z" stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.09" />
+    <path d="M49 82 C61 79, 72 85, 69 92 C62 93, 54 88, 49 82 Z" stroke="currentColor" strokeWidth="1.2" fill="currentColor" fillOpacity="0.09" />
   </svg>
 );
 
 // Backward-compatibility alias
 const FloralWatermark = HomeLotusPattern;
 
-const PageBackgroundFlowers = ({ page = 'home' }) => (
+const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
   <div className="fixed inset-0 pointer-events-none select-none z-0 overflow-hidden">
+    {/* Ambient Dark Mode Glow Auras behind the botanical flower art */}
+    {darkMode && (
+      <>
+        <div
+          className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-3xl opacity-30"
+          style={{
+            background:
+              page === 'referral'
+                ? 'radial-gradient(circle, rgba(244,63,94,0.5) 0%, transparent 70%)'
+                : page === 'add-money'
+                ? 'radial-gradient(circle, rgba(16,185,129,0.45) 0%, transparent 70%)'
+                : page === 'withdraw'
+                ? 'radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)'
+                : 'radial-gradient(circle, rgba(99,102,241,0.5) 0%, transparent 70%)'
+          }}
+        />
+        <div
+          className="absolute bottom-8 -left-24 w-96 h-96 rounded-full blur-3xl opacity-25"
+          style={{
+            background:
+              page === 'referral'
+                ? 'radial-gradient(circle, rgba(236,72,153,0.45) 0%, transparent 70%)'
+                : page === 'sell'
+                ? 'radial-gradient(circle, rgba(168,85,247,0.45) 0%, transparent 70%)'
+                : 'radial-gradient(circle, rgba(56,189,248,0.4) 0%, transparent 70%)'
+          }}
+        />
+      </>
+    )}
+
     {page === 'home' && (
       <>
-        <div className="absolute -top-12 -right-12 w-80 h-80 text-indigo-900 opacity-[0.04] transform rotate-12">
-          <HomeLotusPattern className="w-full h-full" />
+        <div className="absolute -top-10 -right-10 w-80 h-80 text-indigo-900 opacity-[0.045] tp-bg-flower-home transform rotate-12">
+          <HomeLotusPattern className="w-full h-full opacity-100" />
         </div>
-        <div className="absolute bottom-12 -left-12 w-80 h-80 text-indigo-900 opacity-[0.035] transform -rotate-45">
-          <HomeLotusPattern className="w-full h-full" />
+        <div className="absolute top-[38%] -left-20 w-72 h-72 text-indigo-900 opacity-[0.03] tp-bg-flower-home transform rotate-25">
+          <HomeLotusPattern className="w-full h-full opacity-100" />
+        </div>
+        <div className="absolute bottom-12 -left-10 w-80 h-80 text-indigo-900 opacity-[0.04] tp-bg-flower-home transform -rotate-45">
+          <HomeLotusPattern className="w-full h-full opacity-100" />
         </div>
       </>
     )}
     {page === 'add-money' && (
       <>
-        <div className="absolute -top-10 -right-10 w-80 h-80 text-emerald-800 opacity-[0.05] transform rotate-6">
-          <AddMoneyFloraPattern className="w-full h-full" />
+        <div className="absolute -top-10 -right-10 w-80 h-80 text-emerald-800 opacity-[0.05] tp-bg-flower-addmoney transform rotate-6">
+          <AddMoneyFloraPattern className="w-full h-full opacity-100" />
         </div>
-        <div className="absolute bottom-16 -left-10 w-80 h-80 text-emerald-800 opacity-[0.04] transform -rotate-30">
-          <AddMoneyFloraPattern className="w-full h-full" />
+        <div className="absolute top-[40%] -left-16 w-72 h-72 text-emerald-800 opacity-[0.035] tp-bg-flower-addmoney transform rotate-15">
+          <AddMoneyFloraPattern className="w-full h-full opacity-100" />
+        </div>
+        <div className="absolute bottom-16 -left-10 w-80 h-80 text-emerald-800 opacity-[0.045] tp-bg-flower-addmoney transform -rotate-30">
+          <AddMoneyFloraPattern className="w-full h-full opacity-100" />
         </div>
       </>
     )}
     {page === 'sell' && (
       <>
-        <div className="absolute -top-12 -right-12 w-84 h-84 text-indigo-950 opacity-[0.045] transform rotate-45">
-          <SellCryptoMandalaPattern className="w-full h-full" />
+        <div className="absolute -top-12 -right-12 w-84 h-84 text-indigo-950 opacity-[0.045] tp-bg-flower-sell transform rotate-45">
+          <SellCryptoMandalaPattern className="w-full h-full opacity-100" />
         </div>
-        <div className="absolute bottom-14 -left-14 w-84 h-84 text-indigo-950 opacity-[0.035] transform -rotate-12">
-          <SellCryptoMandalaPattern className="w-full h-full" />
+        <div className="absolute top-[36%] -right-20 w-72 h-72 text-indigo-950 opacity-[0.035] tp-bg-flower-sell transform -rotate-25">
+          <SellCryptoMandalaPattern className="w-full h-full opacity-100" />
+        </div>
+        <div className="absolute bottom-14 -left-14 w-84 h-84 text-indigo-950 opacity-[0.04] tp-bg-flower-sell transform -rotate-12">
+          <SellCryptoMandalaPattern className="w-full h-full opacity-100" />
         </div>
       </>
     )}
     {page === 'profile' && (
       <>
-        <div className="absolute -top-10 -right-10 w-80 h-80 text-blue-950 opacity-[0.045] transform rotate-12">
-          <ProfileImperialFloraPattern className="w-full h-full" />
+        <div className="absolute -top-10 -right-10 w-80 h-80 text-blue-950 opacity-[0.045] tp-bg-flower-profile transform rotate-12">
+          <ProfileImperialFloraPattern className="w-full h-full opacity-100" />
         </div>
-        <div className="absolute bottom-16 -left-10 w-80 h-80 text-blue-950 opacity-[0.035] transform -rotate-45">
-          <ProfileImperialFloraPattern className="w-full h-full" />
+        <div className="absolute top-[38%] -left-16 w-72 h-72 text-blue-950 opacity-[0.035] tp-bg-flower-profile transform rotate-20">
+          <ProfileImperialFloraPattern className="w-full h-full opacity-100" />
+        </div>
+        <div className="absolute bottom-16 -left-10 w-80 h-80 text-blue-950 opacity-[0.04] tp-bg-flower-profile transform -rotate-45">
+          <ProfileImperialFloraPattern className="w-full h-full opacity-100" />
         </div>
       </>
     )}
     {page === 'withdraw' && (
       <>
-        <div className="absolute -top-10 -right-10 w-80 h-80 text-amber-950 opacity-[0.05] transform rotate-15">
-          <WithdrawLilyPattern className="w-full h-full" />
+        <div className="absolute -top-10 -right-10 w-80 h-80 text-amber-950 opacity-[0.05] tp-bg-flower-withdraw transform rotate-15">
+          <WithdrawLilyPattern className="w-full h-full opacity-100" />
         </div>
-        <div className="absolute bottom-16 -left-10 w-80 h-80 text-amber-950 opacity-[0.04] transform -rotate-30">
-          <WithdrawLilyPattern className="w-full h-full" />
+        <div className="absolute top-[38%] -left-16 w-72 h-72 text-amber-950 opacity-[0.035] tp-bg-flower-withdraw transform rotate-20">
+          <WithdrawLilyPattern className="w-full h-full opacity-100" />
+        </div>
+        <div className="absolute bottom-16 -left-10 w-80 h-80 text-amber-950 opacity-[0.045] tp-bg-flower-withdraw transform -rotate-30">
+          <WithdrawLilyPattern className="w-full h-full opacity-100" />
         </div>
       </>
     )}
     {page === 'referral' && (
       <>
-        <div className="absolute inset-0 bg-gradient-to-b from-rose-50/50 via-pink-50/20 to-transparent" />
-        <div className="absolute -top-10 -right-10 w-80 h-80 text-rose-600 opacity-[0.075] transform rotate-12">
-          <ReferralRosePattern className="w-full h-full" />
+        <div className={`absolute inset-0 ${darkMode ? 'bg-gradient-to-b from-rose-950/35 via-fuchsia-950/15 to-transparent' : 'bg-gradient-to-b from-rose-50/50 via-pink-50/20 to-transparent'}`} />
+        <div className="absolute -top-10 -right-10 w-80 h-80 text-rose-600 opacity-[0.075] tp-bg-flower-referral transform rotate-12">
+          <ReferralRosePattern className="w-full h-full opacity-100" />
         </div>
-        <div className="absolute top-1/3 -left-16 w-72 h-72 text-rose-500 opacity-[0.055] transform -rotate-25">
-          <ReferralRosePattern className="w-full h-full" />
+        <div className="absolute top-1/3 -left-16 w-72 h-72 text-rose-500 opacity-[0.055] tp-bg-flower-referral transform -rotate-25">
+          <ReferralRosePattern className="w-full h-full opacity-100" />
         </div>
-        <div className="absolute bottom-10 -right-12 w-80 h-80 text-rose-700 opacity-[0.065] transform rotate-30">
-          <ReferralRosePattern className="w-full h-full" />
+        <div className="absolute bottom-10 -right-12 w-80 h-80 text-rose-700 opacity-[0.065] tp-bg-flower-referral transform rotate-30">
+          <ReferralRosePattern className="w-full h-full opacity-100" />
         </div>
       </>
     )}
     {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && (
-      <div className="absolute -top-12 -right-12 w-80 h-80 text-indigo-900 opacity-[0.035]">
-        <HomeLotusPattern className="w-full h-full" />
-      </div>
+      <>
+        <div className="absolute -top-12 -right-12 w-80 h-80 text-indigo-900 opacity-[0.045] tp-bg-flower-home">
+          <HomeLotusPattern className="w-full h-full opacity-100" />
+        </div>
+        <div className="absolute bottom-12 -left-12 w-80 h-80 text-indigo-900 opacity-[0.04] tp-bg-flower-home transform -rotate-35">
+          <HomeLotusPattern className="w-full h-full opacity-100" />
+        </div>
+      </>
     )}
   </div>
 );
@@ -454,7 +526,7 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
           position: 'absolute',
           inset: 0,
           borderRadius: '9999px',
-          background: 'radial-gradient(circle, rgba(99,102,241,0.25) 0%, rgba(168,85,247,0.15) 50%, transparent 75%)',
+          background: 'radial-gradient(circle, rgba(99,102,241,0.32) 0%, rgba(168,85,247,0.22) 50%, transparent 75%)',
           filter: 'blur(16px)',
           animation: 'tpGlowPulse 2.8s infinite ease-in-out'
         }} 
@@ -491,12 +563,13 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
             {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
               <g key={i} transform={`rotate(${angle} 100 100)`}>
                 <path 
+                  className="splash-outer-petal"
                   d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" 
                   fill="rgba(99,102,241,0.18)" 
                   stroke="rgba(99,102,241,0.6)" 
                   strokeWidth="1.2"
                 />
-                <circle cx="100" cy="18" r="2.5" fill="#6366f1" />
+                <circle className="splash-outer-dot" cx="100" cy="18" r="2.5" fill="#6366f1" />
               </g>
             ))}
           </g>
@@ -533,6 +606,7 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
             {[0, 60, 120, 180, 240, 300].map((angle, i) => (
               <g key={i} transform={`rotate(${angle} 50 50)`}>
                 <path 
+                  className="splash-inner-petal"
                   d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
                   fill="rgba(168,85,247,0.22)" 
                   stroke="rgba(147,51,234,0.6)" 
@@ -572,46 +646,56 @@ const BloomingFlowerGraphic = ({ size = 145 }) => {
 };
 
 const BloomingFlowerLoader = ({ lang = 'bn' }) => (
-  <div className="fixed inset-0 bg-gradient-to-b from-[#f8fafc] via-[#f1f5f9] to-[#eef2ff] z-[99999] flex flex-col items-center justify-center font-sans select-none p-4">
-    <BloomingFlowerGraphic size={170} />
+  <div className="fixed inset-0 bg-[var(--color-bg-primary)] z-[99999] flex flex-col items-center justify-center font-sans select-none p-4 overflow-hidden">
+    <PageBackgroundFlowers page="home" darkMode={typeof document !== 'undefined' && document.documentElement.classList.contains('dark')} />
+    <div className="relative z-10 flex flex-col items-center justify-center">
+      <BloomingFlowerGraphic size={170} />
 
-    {/* Typography */}
-    <h2 className="text-[#0f172a] font-black text-2xl mt-5 tracking-tight flex items-center gap-1.5">
-      Trust Pay
-    </h2>
-    <div className="flex items-center gap-2 mt-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100/80">
-      <div className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
-      <span className="text-[12px] font-bold text-indigo-700">
-        {lang === 'bn' ? 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Loading, please wait...'}
-      </span>
-    </div>
+      {/* Typography */}
+      <h2 className="text-[#0f172a] font-black text-2xl mt-5 tracking-tight flex items-center gap-1.5">
+        Trust Pay
+      </h2>
+      <div className="flex items-center gap-2 mt-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100/80">
+        <div className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+        <span className="text-[12px] font-bold text-indigo-700">
+          {lang === 'bn' ? 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Loading, please wait...'}
+        </span>
+      </div>
 
-    {/* Shimmer Progress Line */}
-    <div className="w-36 h-1 bg-slate-200/80 rounded-full mt-4 overflow-hidden relative">
-      <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 rounded-full animate-pulse" />
+      {/* Shimmer Progress Line */}
+      <div className="w-36 h-1 bg-slate-200/80 rounded-full mt-4 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 rounded-full animate-pulse" />
+      </div>
     </div>
   </div>
 );
 
-const CutCornerCard = ({ children, className = '', containerClassName = '', onClick, flower = null }) => (
-  <div 
-    onClick={onClick}
-    className={`relative p-[1.5px] bg-gradient-to-br from-slate-200 via-slate-100 to-indigo-100/70 shadow-[0_4px_16px_rgba(15,23,42,0.04)] transition-all ${containerClassName}`}
-    style={{
-      clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px)',
-    }}
-  >
+const CutCornerCard = ({ children, className = '', containerClassName = '', onClick, flower = null }) => {
+  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  return (
     <div 
-      className={`relative bg-white w-full h-full overflow-hidden ${className}`}
+      onClick={onClick}
+      className={`tp-cut-corner-outer relative p-[1.5px] ${
+        isDark
+          ? 'bg-gradient-to-br from-indigo-500/35 via-slate-700/85 to-purple-500/30 shadow-[0_10px_28px_rgba(0,0,0,0.55)]'
+          : 'bg-gradient-to-br from-slate-200 via-slate-100 to-indigo-100/70 shadow-[0_4px_16px_rgba(15,23,42,0.04)]'
+      } transition-colors duration-200 ${containerClassName}`}
       style={{
-        clipPath: 'polygon(11px 0, calc(100% - 11px) 0, 100% 11px, 100% calc(100% - 11px), calc(100% - 11px) 100%, 11px 100%, 0 calc(100% - 11px), 0 11px)',
+        clipPath: 'polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px)',
       }}
     >
-      {flower || <HomeLotusPattern />}
-      <div className="relative z-10 w-full">{children}</div>
+      <div 
+        className={`tp-cut-corner-inner relative bg-white w-full h-full overflow-hidden transition-colors duration-200 ${className}`}
+        style={{
+          clipPath: 'polygon(11px 0, calc(100% - 11px) 0, 100% 11px, 100% calc(100% - 11px), calc(100% - 11px) 100%, 11px 100%, 0 calc(100% - 11px), 0 11px)',
+        }}
+      >
+        {flower || <HomeLotusPattern />}
+        <div className="relative z-10 w-full">{children}</div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const CutCornerButton = ({ 
   children, 
@@ -1222,6 +1306,65 @@ export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('app_lang') || 'bn');
   const t = translations[lang] || translations.bn;
 
+  // Synchronous initial Dark Mode read so React matches index.html at 0ms with zero flash
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      if (window.__TP_THEME__ === 'dark') return true;
+      if (window.__TP_THEME__ === 'light') return false;
+      const saved = localStorage.getItem('tp_theme_mode');
+      if (saved === 'dark') return true;
+      if (saved === 'light') return false;
+      return document.documentElement.classList.contains('dark');
+    } catch (_) {
+      return false;
+    }
+  });
+
+  const applyThemeMode = (isDark, syncBackend = false) => {
+    const modeStr = isDark ? 'dark' : 'light';
+    window.__TP_THEME__ = modeStr;
+    try {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+      localStorage.setItem('tp_theme_mode', modeStr);
+      document.cookie = 'tp_theme_mode=' + modeStr + '; path=/; max-age=31536000; SameSite=Lax';
+    } catch (_) {}
+
+    try {
+      const tg = window.Telegram?.WebApp;
+      if (tg) {
+        const bgHex = isDark ? '#070b14' : '#f8fafc';
+        if (typeof tg.setHeaderColor === 'function') tg.setHeaderColor(bgHex);
+        if (typeof tg.setBackgroundColor === 'function') tg.setBackgroundColor(bgHex);
+        if (tg.CloudStorage && typeof tg.CloudStorage.setItem === 'function') {
+          tg.CloudStorage.setItem('tp_theme_mode', modeStr, () => {});
+        }
+      }
+    } catch (_) {}
+
+    setDarkMode(isDark);
+
+    if (syncBackend && activeUserIdRef.current && Number(activeUserIdRef.current) !== GUEST_ID) {
+      syncUserProfile({
+        userId: activeUserIdRef.current,
+        themeMode: modeStr
+      }).catch(() => {});
+    }
+  };
+
+  const handleToggleDarkMode = () => {
+    const nextDark = !darkMode;
+    applyThemeMode(nextDark, true);
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    }
+  };
+
   const handleSetLang = (newLang) => {
     setLang(newLang);
     localStorage.setItem('app_lang', newLang);
@@ -1369,6 +1512,14 @@ export default function App() {
       // Ignore stale responses if a newer request was fired
       if (currentSeq !== loadSeqRef.current) return;
       if (!data) return;
+
+      // Only restore backend themeMode if local storage was never set yet (prevents any light-to-dark flash)
+      try {
+        const localSaved = localStorage.getItem('tp_theme_mode');
+        if (!localSaved && data.themeMode === 'dark') {
+          applyThemeMode(true, false);
+        }
+      } catch (_) {}
 
       if (data.balance !== undefined) {
         const numericBal = Number(data.balance);
@@ -1577,7 +1728,7 @@ export default function App() {
         twaReturnUrl: 'https://t.me/maruf_teach_bot'
       }}
       uiPreferences={{
-        theme: THEME.LIGHT,
+        theme: darkMode ? THEME.DARK : THEME.LIGHT,
         borderRadius: 'm',
         colorsSet: {
           [THEME.LIGHT]: {
@@ -1587,13 +1738,21 @@ export default function App() {
             },
             accent: '#4f46e5',
             telegramButton: '#0098ea'
+          },
+          [THEME.DARK]: {
+            connectButton: {
+              background: '#6366f1',
+              foreground: '#ffffff'
+            },
+            accent: '#818cf8',
+            telegramButton: '#0098ea'
           }
         }
       }}
     >
       <TonConnectStyles />
-      <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] pb-28 relative overflow-x-hidden font-sans selection:bg-[var(--color-brand)]/20">
-        <PageBackgroundFlowers page={activeTab} />
+      <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] pb-28 relative overflow-x-hidden font-sans selection:bg-[var(--color-brand)]/20 transition-colors duration-200">
+        <PageBackgroundFlowers page={activeTab} darkMode={darkMode} />
         
         <div className="relative z-10 p-4 max-w-md mx-auto">
           {/* Header */}
@@ -1607,8 +1766,23 @@ export default function App() {
                     <p className="text-[10px] font-medium text-[var(--color-brand)] uppercase tracking-[0.15em]">{t.welcome}</p>
                  </div>
              </div>
-             {/* Header Wallet Button (Shows Connected when connected, Connect when disconnected) */}
-             <div className="origin-right">
+             {/* Right Header Controls: Moon Theme Toggle (on Profile/Referral) + Wallet Button */}
+             <div className="origin-right flex items-center gap-2">
+                {(activeTab === 'profile' || activeTab === 'referral') && (
+                  <button
+                    type="button"
+                    onClick={handleToggleDarkMode}
+                    title={darkMode ? (lang === 'bn' ? 'লাইট মোড চালু করুন' : 'Switch to Light Mode') : (lang === 'bn' ? 'ডার্ক মোড চালু করুন' : 'Switch to Dark Mode')}
+                    aria-label="Toggle Dark Mode"
+                    className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 cursor-pointer shadow-sm ${
+                      darkMode
+                        ? 'bg-indigo-950/90 border-indigo-400/50 text-amber-300 shadow-[0_0_16px_rgba(129,140,248,0.35)]'
+                        : 'bg-indigo-50/95 border-indigo-200/80 text-indigo-700 hover:bg-indigo-100'
+                    }`}
+                  >
+                    <CrescentMoonIcon size={18} isDark={darkMode} />
+                  </button>
+                )}
                 <HeaderWalletButton lang={lang} setIsModalOpen={setIsModalOpen} user={user} />
              </div>
           </div>
@@ -1667,6 +1841,8 @@ export default function App() {
                   lang={lang}
                   t={t}
                   onSetLang={handleSetLang}
+                  darkMode={darkMode}
+                  onToggleDarkMode={handleToggleDarkMode}
                   fiatWallet={fiatWallet} 
                   fiatWithdrawPending={fiatWithdrawPending} 
                   onGoToWithdraw={() => setActiveTab('withdraw')} 
@@ -1681,6 +1857,7 @@ export default function App() {
               <ReferralPage
                   user={user}
                   lang={lang}
+                  darkMode={darkMode}
                   onBack={() => setActiveTab('profile')}
                   reloadData={() => loadData(user?.id || 123456789)}
               />
@@ -4004,7 +4181,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
 }
 
 
-function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, onGoToReferral, setFiatWallet, setIsModalOpen, reloadData }) {
+function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, onGoToReferral, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
 
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -4057,16 +4234,16 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
 
   return (
     <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
-      {/* 1. IDENTITY & LANGUAGE MASTER CARD */}
+      {/* 1. IDENTITY, THEME MOON TOGGLE & LANGUAGE MASTER CARD */}
       <CutCornerCard className="p-4" flower={<ProfileImperialFloraPattern />}>
-         <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+         <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
                <div className="w-12 h-12 bg-indigo-50 border-2 border-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-black text-lg shrink-0 shadow-xs">
                   {user?.first_name?.charAt(0)?.toUpperCase() || 'U'}
                </div>
-               <div>
-                  <h2 className="text-[15px] font-black text-slate-900 leading-tight">{user?.first_name || 'User'}</h2>
-                  <p className="text-slate-400 text-[11px] font-medium">@{user?.username || 'user'}</p>
+               <div className="min-w-0">
+                  <h2 className="text-[15px] font-black text-slate-900 leading-tight truncate">{user?.first_name || 'User'}</h2>
+                  <p className="text-slate-400 text-[11px] font-medium truncate">@{user?.username || 'user'}</p>
                   <div 
                      onClick={() => { 
                         navigator.clipboard.writeText(user?.id); 
@@ -4079,11 +4256,24 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
                </div>
             </div>
 
-            {/* Language Switcher Pill */}
-            <div className="flex flex-col items-end">
-               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                  {lang === 'bn' ? 'ভাষা' : 'Language'}
-               </span>
+            {/* Right Column: Moon Night Mode Button + Language Switcher Pill */}
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+               {/* Prominent Moon Icon Toggle Button */}
+               <button
+                  type="button"
+                  onClick={onToggleDarkMode}
+                  title={darkMode ? (lang === 'bn' ? 'লাইট মোড চালু করুন' : 'Light Mode') : (lang === 'bn' ? 'নাইট / ডার্ক মোড চালু করুন' : 'Dark Mode')}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-black transition-all duration-300 active:scale-90 cursor-pointer ${
+                     darkMode
+                        ? 'bg-indigo-950/90 border-indigo-400/50 text-amber-300 shadow-[0_0_14px_rgba(129,140,248,0.3)]'
+                        : 'bg-indigo-50 border-indigo-200/80 text-indigo-700 hover:bg-indigo-100 shadow-2xs'
+                  }`}
+               >
+                  <CrescentMoonIcon size={14} isDark={darkMode} />
+                  <span>{darkMode ? (lang === 'bn' ? 'নাইট মোড' : 'Dark') : (lang === 'bn' ? 'ডার্ক মোড' : 'Night')}</span>
+               </button>
+
+               {/* Language Switcher Pill */}
                <div className="flex bg-slate-100 p-0.5 rounded-lg gap-0.5 border border-slate-200/60">
                   <button
                      type="button"
@@ -4195,7 +4385,14 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
       </CutCornerCard>
 
       {/* 2.5 ROSE REFERRAL & EARN MASTER CARD */}
-      <CutCornerCard className="p-3 bg-gradient-to-br from-rose-50/95 via-white to-pink-50/90 border border-rose-200/80" flower={<ReferralRosePattern />}>
+      <CutCornerCard
+         className={`p-3 border ${
+            darkMode
+               ? 'bg-slate-900 border-rose-500/30'
+               : 'bg-gradient-to-br from-rose-50/95 via-white to-pink-50/90 border-rose-200/80'
+         }`}
+         flower={<ReferralRosePattern />}
+      >
          <div
             onClick={onGoToReferral}
             className="flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group p-1"
@@ -4213,7 +4410,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
                         +৳5 / REF
                      </span>
                   </div>
-                  <span className="text-[10.5px] text-rose-700/85 font-semibold inline-flex items-center gap-1 mt-0.5">
+                  <span className={`text-[10.5px] ${darkMode ? 'text-rose-300' : 'text-rose-700/85'} font-semibold inline-flex items-center gap-1 mt-0.5`}>
                      <span>{lang === 'bn' ? 'প্রতি অ্যাক্টিভ রেফারে নগদ ৫ টাকা বোনাস পান' : 'Get instant ৳5 BDT per active referral'}</span>
                      <CustomRoseIcon size={13} />
                   </span>
@@ -4545,7 +4742,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
 }
 
 
-function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
+function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData }) {
   const userId = user?.id || 123456789;
   const defaultBotLink = `https://t.me/bd_trust_pay_bot?start=ref_${userId}`;
   const [refData, setRefData] = useState({
@@ -4749,7 +4946,11 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
 
       {/* 2. REFERRAL LINK COPY & RICH SHARE CARD (WITH ANIMATED ROSE STICKER & SHORT BUTTON) */}
       <CutCornerCard
-        className="p-4 space-y-3 bg-gradient-to-br from-white via-rose-50/40 to-pink-50/50 border border-rose-200/80"
+        className={`p-4 space-y-3 border ${
+          darkMode
+            ? 'bg-slate-900 border-rose-500/30'
+            : 'bg-gradient-to-br from-white via-rose-50/40 to-pink-50/50 border-rose-200/80'
+        }`}
         flower={<ReferralRosePattern />}
       >
         <div className="flex items-center justify-between gap-2">
@@ -4761,7 +4962,7 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
               <h3 className="text-[13px] font-black text-slate-900 leading-tight">
                 {lang === 'bn' ? 'আপনার পার্সোনাল রেফারেল লিংক' : 'Your Personal Referral Link'}
               </h3>
-              <p className="text-[10px] text-rose-600/85 font-semibold truncate mt-0.5">
+              <p className={`text-[10px] ${darkMode ? 'text-rose-300' : 'text-rose-600/85'} font-semibold truncate mt-0.5`}>
                 {lang === 'bn' ? 'লিংক কপি বা শেয়ার করে বন্ধুদের আমন্ত্রণ জানান' : 'Copy or share your link to invite friends'}
               </p>
             </div>
@@ -4820,7 +5021,11 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
 
       {/* 3. HOW ACTIVE REFERRAL WORKS (3 CONDITIONS) */}
       <CutCornerCard
-        className="p-4 space-y-3 bg-gradient-to-br from-white via-rose-50/25 to-white border border-rose-200/70"
+        className={`p-4 space-y-3 border ${
+          darkMode
+            ? 'bg-slate-900 border-rose-500/30'
+            : 'bg-gradient-to-br from-white via-rose-50/25 to-white border-rose-200/70'
+        }`}
         flower={<ReferralRosePattern />}
       >
         <div className="flex items-center gap-2">

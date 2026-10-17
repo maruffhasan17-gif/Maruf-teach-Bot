@@ -7,17 +7,46 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f8fafc" />
     <script>
       (function() {
+        var savedTheme = 'light';
+        try {
+          var lsTheme = localStorage.getItem('tp_theme_mode');
+          if (lsTheme === 'dark' || lsTheme === 'light') {
+            savedTheme = lsTheme;
+          } else if (document.cookie && document.cookie.indexOf('tp_theme_mode=dark') !== -1) {
+            savedTheme = 'dark';
+          }
+        } catch (e) {}
+        window.__TP_THEME__ = savedTheme;
+        var isDark = savedTheme === 'dark';
+        var docEl = document.documentElement;
+        if (isDark) {
+          docEl.classList.add('dark');
+          docEl.setAttribute('data-theme', 'dark');
+        } else {
+          docEl.classList.remove('dark');
+          docEl.setAttribute('data-theme', 'light');
+        }
+        var bgHex = isDark ? '#070b14' : '#f8fafc';
+        try {
+          var metaTheme = document.querySelector('meta[name="theme-color"]');
+          if (metaTheme) metaTheme.setAttribute('content', bgHex);
+          var metaScheme = document.querySelector('meta[name="color-scheme"]');
+          if (metaScheme) metaScheme.setAttribute('content', isDark ? 'dark' : 'light');
+        } catch (e) {}
+
         function notifyTelegramReady() {
+          var curDark = (window.__TP_THEME__ || document.documentElement.getAttribute('data-theme')) === 'dark';
+          var curHex = curDark ? '#070b14' : '#f8fafc';
           try {
             if (window.TelegramWebviewProxy && window.TelegramWebviewProxy.postEvent) {
               window.TelegramWebviewProxy.postEvent('web_app_ready', '{}');
               window.TelegramWebviewProxy.postEvent('web_app_expand', '{}');
-              window.TelegramWebviewProxy.postEvent('web_app_set_header_color', JSON.stringify({ color_key: 'bg_color', color: '#f8fafc' }));
-              window.TelegramWebviewProxy.postEvent('web_app_set_background_color', JSON.stringify({ color: '#f8fafc' }));
+              window.TelegramWebviewProxy.postEvent('web_app_set_header_color', JSON.stringify({ color_key: 'bg_color', color: curHex }));
+              window.TelegramWebviewProxy.postEvent('web_app_set_background_color', JSON.stringify({ color: curHex }));
             } else if (window.external && window.external.notify) {
               window.external.notify(JSON.stringify({ eventType: 'web_app_ready', eventData: {} }));
               window.external.notify(JSON.stringify({ eventType: 'web_app_expand', eventData: {} }));
@@ -27,8 +56,8 @@
             if (window.Telegram && window.Telegram.WebApp) {
               window.Telegram.WebApp.ready();
               window.Telegram.WebApp.expand();
-              if (window.Telegram.WebApp.setHeaderColor) window.Telegram.WebApp.setHeaderColor('#f8fafc');
-              if (window.Telegram.WebApp.setBackgroundColor) window.Telegram.WebApp.setBackgroundColor('#f8fafc');
+              if (window.Telegram.WebApp.setHeaderColor) window.Telegram.WebApp.setHeaderColor(curHex);
+              if (window.Telegram.WebApp.setBackgroundColor) window.Telegram.WebApp.setBackgroundColor(curHex);
             }
           } catch (e) {}
         }
@@ -44,6 +73,121 @@
         background-color: #f8fafc !important;
         color-scheme: light;
         overflow-x: hidden;
+      }
+      html.dark, html.dark body {
+        background-color: #070b14 !important;
+        color-scheme: dark;
+      }
+      #splash-loader {
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 60%, #eef2ff 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+        z-index: 99999;
+        padding: 20px;
+        box-sizing: border-box;
+        text-align: center;
+        transition: opacity 0.25s ease;
+        overflow: hidden;
+      }
+      html.dark #splash-loader {
+        background: radial-gradient(circle at 50% 25%, #131c38 0%, #0b1120 55%, #060913 100%) !important;
+      }
+      .splash-bg-flower {
+        position: absolute;
+        width: 310px;
+        height: 310px;
+        pointer-events: none;
+        color: #312e81;
+        opacity: 0.045;
+      }
+      html.dark .splash-bg-flower {
+        color: #818cf8;
+        opacity: 0.22;
+        filter: drop-shadow(0 0 18px rgba(99, 102, 241, 0.45));
+      }
+      .splash-outer-petal {
+        fill: rgba(99, 102, 241, 0.18);
+        stroke: rgba(99, 102, 241, 0.6);
+      }
+      html.dark .splash-outer-petal {
+        fill: rgba(129, 140, 248, 0.28);
+        stroke: rgba(165, 180, 252, 0.9);
+      }
+      .splash-outer-dot {
+        fill: #6366f1;
+      }
+      html.dark .splash-outer-dot {
+        fill: #a5b4fc;
+      }
+      .splash-inner-petal {
+        fill: rgba(168, 85, 247, 0.22);
+        stroke: rgba(147, 51, 234, 0.6);
+      }
+      html.dark .splash-inner-petal {
+        fill: rgba(192, 132, 252, 0.32);
+        stroke: rgba(216, 180, 254, 0.9);
+      }
+      .splash-title {
+        margin-top: 20px;
+        font-size: 24px;
+        font-weight: 900;
+        color: #0f172a;
+        letter-spacing: -0.02em;
+        position: relative;
+        z-index: 2;
+      }
+      html.dark .splash-title {
+        color: #f8fafc;
+        text-shadow: 0 2px 18px rgba(99, 102, 241, 0.4);
+      }
+      .splash-badge {
+        margin-top: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 14px;
+        border-radius: 99px;
+        background: #eef2ff;
+        border: 1px solid #e0e7ff;
+        font-size: 12px;
+        font-weight: 700;
+        color: #4338ca;
+        position: relative;
+        z-index: 2;
+      }
+      html.dark .splash-badge {
+        background: rgba(79, 70, 229, 0.2);
+        border: 1px solid rgba(129, 140, 248, 0.35);
+        color: #c7d2fe;
+      }
+      .splash-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 99px;
+        background: #4f46e5;
+        animation: dotPulse 1.2s infinite ease-in-out;
+      }
+      html.dark .splash-dot {
+        background: #818cf8;
+        box-shadow: 0 0 8px #818cf8;
+      }
+      .splash-prog-track {
+        width: 140px;
+        height: 4px;
+        background: #e2e8f0;
+        border-radius: 99px;
+        margin-top: 16px;
+        overflow: hidden;
+        position: relative;
+        z-index: 2;
+      }
+      html.dark .splash-prog-track {
+        background: rgba(30, 41, 59, 0.9);
       }
       @-webkit-keyframes flowerSpin {
         0% { -webkit-transform: rotate(0.05deg); transform: rotate(0.05deg); }
@@ -82,25 +226,46 @@
   </head>
   <body>
     <div id="root"></div>
-    <div id="splash-loader" style="position:fixed;inset:0;background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 60%,#eef2ff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;z-index:99999;padding:20px;box-sizing:border-box;text-align:center;transition:opacity 0.25s ease;">
-        
+    <div id="splash-loader">
+        <!-- Background Corner Sacred Lotus Flower Art (Visible in Light & Luminous in Dark Mode) -->
+        <svg class="splash-bg-flower" style="top:-40px;right:-40px;transform:rotate(14deg);" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+          <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" />
+          <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" />
+          <path d="M50 85 C15 90, 0 75, 10 50 C25 65, 40 78, 50 85 Z" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" />
+          <path d="M50 85 C85 90, 100 75, 90 50 C75 65, 60 78, 50 85 Z" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" />
+          <circle cx="50" cy="15" r="2" fill="currentColor" />
+          <circle cx="25" cy="35" r="1.5" fill="currentColor" />
+          <circle cx="75" cy="35" r="1.5" fill="currentColor" />
+        </svg>
+        <svg class="splash-bg-flower" style="bottom:30px;left:-45px;transform:rotate(-38deg);" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+          <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" />
+          <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" stroke-width="1" stroke-linecap="round" />
+          <path d="M50 85 C15 90, 0 75, 10 50 C25 65, 40 78, 50 85 Z" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" />
+          <path d="M50 85 C85 90, 100 75, 90 50 C75 65, 60 78, 50 85 Z" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" />
+          <circle cx="50" cy="15" r="2" fill="currentColor" />
+          <circle cx="25" cy="35" r="1.5" fill="currentColor" />
+          <circle cx="75" cy="35" r="1.5" fill="currentColor" />
+        </svg>
+
         <!-- Blooming Flower Container -->
-        <div style="position:relative;width:170px;height:170px;display:flex;align-items:center;justify-content:center;">
+        <div style="position:relative;width:170px;height:170px;display:flex;align-items:center;justify-content:center;z-index:2;">
           <!-- Ambient Radial Glow -->
-          <div style="position:absolute;inset:0;border-radius:9999px;background:radial-gradient(circle, rgba(99,102,241,0.25) 0%, rgba(168,85,247,0.15) 50%, transparent 75%);filter:blur(16px);animation:glowPulse 2.8s infinite ease-in-out;"></div>
+          <div style="position:absolute;inset:0;border-radius:9999px;background:radial-gradient(circle, rgba(99,102,241,0.32) 0%, rgba(168,85,247,0.22) 50%, transparent 75%);filter:blur(16px);animation:glowPulse 2.8s infinite ease-in-out;"></div>
           
           <!-- Outer Rotating Flower Mandala Layer -->
           <div id="splash-flower-outer" style="position:absolute;inset:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;-webkit-transform-origin:center center;transform-origin:center center;will-change:transform;pointer-events:none;">
             <svg style="width:100%;height:100%;display:block;" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
               <g>
-                <g transform="rotate(0 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
-                <g transform="rotate(45 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
-                <g transform="rotate(90 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
-                <g transform="rotate(135 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
-                <g transform="rotate(180 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
-                <g transform="rotate(225 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
-                <g transform="rotate(270 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
-                <g transform="rotate(315 100 100)"><path d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" fill="rgba(99,102,241,0.18)" stroke="rgba(99,102,241,0.6)" stroke-width="1.2"/><circle cx="100" cy="18" r="2.5" fill="#6366f1"/></g>
+                <g transform="rotate(0 100 100)"><path class="splash-outer-petal" d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" stroke-width="1.2"/><circle class="splash-outer-dot" cx="100" cy="18" r="2.5"/></g>
+                <g transform="rotate(45 100 100)"><path class="splash-outer-petal" d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" stroke-width="1.2"/><circle class="splash-outer-dot" cx="100" cy="18" r="2.5"/></g>
+                <g transform="rotate(90 100 100)"><path class="splash-outer-petal" d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" stroke-width="1.2"/><circle class="splash-outer-dot" cx="100" cy="18" r="2.5"/></g>
+                <g transform="rotate(135 100 100)"><path class="splash-outer-petal" d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" stroke-width="1.2"/><circle class="splash-outer-dot" cx="100" cy="18" r="2.5"/></g>
+                <g transform="rotate(180 100 100)"><path class="splash-outer-petal" d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" stroke-width="1.2"/><circle class="splash-outer-dot" cx="100" cy="18" r="2.5"/></g>
+                <g transform="rotate(225 100 100)"><path class="splash-outer-petal" d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" stroke-width="1.2"/><circle class="splash-outer-dot" cx="100" cy="18" r="2.5"/></g>
+                <g transform="rotate(270 100 100)"><path class="splash-outer-petal" d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" stroke-width="1.2"/><circle class="splash-outer-dot" cx="100" cy="18" r="2.5"/></g>
+                <g transform="rotate(315 100 100)"><path class="splash-outer-petal" d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" stroke-width="1.2"/><circle class="splash-outer-dot" cx="100" cy="18" r="2.5"/></g>
               </g>
             </svg>
           </div>
@@ -109,12 +274,12 @@
           <div id="splash-flower-inner" style="position:absolute;width:125px;height:125px;display:flex;align-items:center;justify-content:center;-webkit-transform-origin:center center;transform-origin:center center;will-change:transform;pointer-events:none;">
             <svg style="width:100%;height:100%;display:block;" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
               <g>
-                <g transform="rotate(0 50 50)"><path d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" fill="rgba(168,85,247,0.22)" stroke="rgba(147,51,234,0.6)" stroke-width="1"/></g>
-                <g transform="rotate(60 50 50)"><path d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" fill="rgba(168,85,247,0.22)" stroke="rgba(147,51,234,0.6)" stroke-width="1"/></g>
-                <g transform="rotate(120 50 50)"><path d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" fill="rgba(168,85,247,0.22)" stroke="rgba(147,51,234,0.6)" stroke-width="1"/></g>
-                <g transform="rotate(180 50 50)"><path d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" fill="rgba(168,85,247,0.22)" stroke="rgba(147,51,234,0.6)" stroke-width="1"/></g>
-                <g transform="rotate(240 50 50)"><path d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" fill="rgba(168,85,247,0.22)" stroke="rgba(147,51,234,0.6)" stroke-width="1"/></g>
-                <g transform="rotate(300 50 50)"><path d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" fill="rgba(168,85,247,0.22)" stroke="rgba(147,51,234,0.6)" stroke-width="1"/></g>
+                <g transform="rotate(0 50 50)"><path class="splash-inner-petal" d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" stroke-width="1"/></g>
+                <g transform="rotate(60 50 50)"><path class="splash-inner-petal" d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" stroke-width="1"/></g>
+                <g transform="rotate(120 50 50)"><path class="splash-inner-petal" d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" stroke-width="1"/></g>
+                <g transform="rotate(180 50 50)"><path class="splash-inner-petal" d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" stroke-width="1"/></g>
+                <g transform="rotate(240 50 50)"><path class="splash-inner-petal" d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" stroke-width="1"/></g>
+                <g transform="rotate(300 50 50)"><path class="splash-inner-petal" d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" stroke-width="1"/></g>
               </g>
             </svg>
           </div>
@@ -125,13 +290,13 @@
           </div>
         </div>
 
-        <div style="margin-top:20px;font-size:24px;font-weight:900;color:#0f172a;letter-spacing:-0.02em;">Trust Pay</div>
-        <div style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:99px;background:#eef2ff;border:1px solid #e0e7ff;font-size:12px;font-weight:700;color:#4338ca;">
-          <span style="width:7px;height:7px;border-radius:99px;background:#4f46e5;animation:dotPulse 1.2s infinite ease-in-out;"></span>
+        <div class="splash-title">Trust Pay</div>
+        <div class="splash-badge">
+          <span class="splash-dot"></span>
           লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...
         </div>
-        <div style="width:140px;height:4px;background:#e2e8f0;border-radius:99px;margin-top:16px;overflow:hidden;position:relative;">
-          <div style="position:absolute;inset:0;background:linear-gradient(90deg,#4f46e5,#9333ea);border-radius:99px;animation:progBar 1.4s infinite ease-in-out;"></div>
+        <div class="splash-prog-track">
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg,#6366f1,#a855f7);border-radius:99px;animation:progBar 1.4s infinite ease-in-out;"></div>
         </div>
     </div>
     <script>

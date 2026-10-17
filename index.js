@@ -2304,7 +2304,8 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             referralEarnings: data.referralEarnings || 0,
             activeReferralsCount: data.activeReferralsCount || 0,
             referredBy: data.referredBy || null,
-            referralStatus: data.referralStatus || null
+            referralStatus: data.referralStatus || null,
+            themeMode: data.themeMode || 'light'
         });
     } catch(e) {
         console.error(e);
@@ -4171,7 +4172,7 @@ app.get('/api/admin/user-avatar/:userId', async (req, res) => {
 // MiniApp Profile Sync Endpoint (syncs telegram name, username, photo, device fingerprint, tonAddress & referral to db)
 app.post('/api/miniapp/sync-profile', async (req, res) => {
     try {
-        const { userId, username, firstName, lastName, photoUrl, tonAddress, startParam } = req.body;
+        const { userId, username, firstName, lastName, photoUrl, tonAddress, startParam, themeMode } = req.body;
         if (!userId || Number(userId) === 123456789) return res.json({ success: true });
 
         const devInfo = extractClientDevice(req, req.body);
@@ -4200,6 +4201,9 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
         if (photoUrl) updates.photoUrl = photoUrl;
         if (tonAddress && String(tonAddress).trim().length >= 20) {
             updates.tonAddress = String(tonAddress).trim();
+        }
+        if (themeMode === 'dark' || themeMode === 'light') {
+            updates.themeMode = themeMode;
         }
 
         await db.collection('users').doc(userId.toString()).set(updates, { merge: true });
