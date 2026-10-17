@@ -120,11 +120,16 @@ const PE = {
     shield: '<tg-emoji emoji-id="5251203410396458957">🛡</tg-emoji>',
     warn: '<tg-emoji emoji-id="5447644880824181073">⚠️</tg-emoji>',
     star: '<tg-emoji emoji-id="5435957248314579621">⭐️</tg-emoji>',
-    crown: '<tg-emoji emoji-id="5467406098367521267">👑</tg-emoji>'
+    crown: '<tg-emoji emoji-id="5467406098367521267">👑</tg-emoji>',
+    rose: '<tg-emoji emoji-id="5440911110838425969">🌹</tg-emoji>',
+    bouquet: '<tg-emoji emoji-id="5190661263629243818">💐</tg-emoji>',
+    arrowRight: '<tg-emoji emoji-id="5445284980978621387">🚀</tg-emoji>'
 };
 
 // Automatic Unicode-to-Telegram-Premium Animated Emoji Converter
 const EMOJI_TO_PREMIUM_PAIRS = [
+    ['🌹', '5440911110838425969', '🌹'],
+    ['💐', '5190661263629243818', '💐'],
     ['⚡️', '5431449001532594346', '⚡️'],
     ['⚡', '5431449001532594346', '⚡️'],
     ['💰', '5375296873982604963', '💰'],
@@ -4135,15 +4140,32 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
 });
 
 // ==================== REFERRAL API & RICH SHARE ENDPOINTS ====================
+let cachedReferralPhotoFileId = null;
+
+app.get('/referral-banner.jpg', (req, res) => {
+    const p = path.join(__dirname, 'miniapp/public/referral-banner.jpg');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    if (fs.existsSync(p)) {
+        return res.sendFile(p);
+    }
+    return res.redirect('/app/referral-banner.jpg');
+});
+
 app.get('/api/miniapp/referrals/:userId', async (req, res) => {
     try {
         const cleanUserId = parseInt(req.params.userId);
         if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
             return res.json({
                 referralLink: `https://t.me/${BOT_USERNAME}?start=ref_0`,
+                botReferralLink: `https://t.me/${BOT_USERNAME}?start=ref_0`,
                 miniAppReferralLink: `https://t.me/${BOT_USERNAME}/app?startapp=ref_0`,
                 sharePreviewUrl: `https://maruf-teach-bot.onrender.com/invite/0`,
                 bannerUrl: `https://maruf-teach-bot.onrender.com/app/referral-banner.jpg`,
+                totalReferrals: 0,
+                activeReferrals: 0,
+                pendingReferrals: 0,
+                referralEarnings: 0,
                 stats: { totalReferrals: 0, activeReferrals: 0, pendingReferrals: 0, blockedReferrals: 0, totalEarned: 0, bonusPerReferral: REFERRAL_BONUS_BDT },
                 referrals: []
             });
@@ -4166,7 +4188,7 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
                 const d = doc.data() || {};
                 const status = d.status || 'pending';
                 if (status === 'active') activeCount++;
-                else if (status === 'blocked_clone') blockedCount++;
+                else if (status === 'blocked_clone' || status === 'rejected_clone') blockedCount++;
                 else pendingCount++;
 
                 let createdMs = Date.now();
@@ -4175,6 +4197,7 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
 
                 referralsList.push({
                     id: d.referredUserId || doc.id,
+                    userId: d.referredUserId || doc.id,
                     name: d.referredName || 'User',
                     username: d.referredUsername || '',
                     status,
@@ -4183,6 +4206,7 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
                     totalAddMoneyBdt: d.totalAddMoneyBdt || 0,
                     totalSellBdt: d.totalSellBdt || 0,
                     bonusAmount: d.bonusAmount || REFERRAL_BONUS_BDT,
+                    rewardAmount: d.bonusAmount || REFERRAL_BONUS_BDT,
                     bonusPaid: Boolean(d.bonusPaid),
                     createdAt: createdMs
                 });
@@ -4195,10 +4219,15 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
 
         res.json({
             referralLink: `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`,
+            botReferralLink: `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`,
             miniAppReferralLink: `https://t.me/${BOT_USERNAME}/app?startapp=ref_${cleanUserId}`,
             sharePreviewUrl: `https://maruf-teach-bot.onrender.com/invite/${cleanUserId}`,
             bannerUrl: `https://maruf-teach-bot.onrender.com/app/referral-banner.jpg`,
             botUsername: BOT_USERNAME,
+            totalReferrals: referralsList.length,
+            activeReferrals: activeCount,
+            pendingReferrals: pendingCount,
+            referralEarnings: totalEarned,
             stats: {
                 totalReferrals: referralsList.length,
                 activeReferrals: activeCount,
@@ -4228,28 +4257,27 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
         const sharePreviewUrl = `https://maruf-teach-bot.onrender.com/invite/${cleanUserId}`;
         const bannerUrl = `https://maruf-teach-bot.onrender.com/app/referral-banner.jpg`;
 
-        const htmlCaption = `${PE.gem} <b>Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল প্ল্যাটফর্ম!</b> ${PE.sparkles}\n\n` +
+        const htmlCaption = `${PE.rose} <b>Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল প্ল্যাটফর্ম!</b> ${PE.sparkles}\n\n` +
             `<blockquote>${PE.rocket} <b>TON, GRAM ও USDT</b> মুহূর্তেই কেনা-বেচা করুন!\n` +
             `${PE.bank} <b>পেমেন্ট মেথড:</b> bKash ও Nagad (Auto-Verified)\n` +
             `${PE.zap} <b>উইথড্র ও ডেলিভারি:</b> ১০০% ফাস্ট ও নিরাপদ!\n` +
-            `${PE.moneyBag} <b>রেফার ও বোনাস:</b> জয়েন করে লেনদেন শুরু করুন!</blockquote>\n\n` +
+            `${PE.gift} <b>রেফার ও বোনাস:</b> জয়েন করে লেনদেন শুরু করুন!</blockquote>\n\n` +
             `${PE.arrowRight} <b>নিচের বাটনে ক্লিক করে এখনই Trust Pay বটে জয়েন করুন 👇</b>`;
 
-        let preparedMessageId = null;
+        const inlineCleanCaption = `🌹 <b>Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল প্ল্যাটফর্ম!</b> ✨\n\n` +
+            `<blockquote>🚀 <b>TON, GRAM ও USDT</b> মুহূর্তেই কেনা-বেচা করুন!\n` +
+            `🏦 <b>পেমেন্ট মেথড:</b> bKash ও Nagad (Auto-Verified)\n` +
+            `⚡️ <b>উইথড্র ও ডেলিভারি:</b> ১০০% ফাস্ট ও নিরাপদ!\n` +
+            `🎁 <b>রেফার ও বোনাস:</b> জয়েন করে লেনদেন শুরু করুন!</blockquote>\n\n` +
+            `👇 <b>নিচের বাটনে ক্লিক করে এখনই Trust Pay বটে জয়েন করুন:</b>`;
 
-        // 1. Try Telegram Bot API savePreparedInlineMessage (sends Photo + Caption + Inline Button directly via WebApp.shareMessage)
-        try {
-            const prepRes = await axios.post(`https://api.telegram.org/bot${token}/savePreparedInlineMessage`, {
-                user_id: cleanUserId,
-                result: {
-                    type: 'photo',
-                    id: `ref_${cleanUserId}_${Date.now()}`,
-                    photo_url: bannerUrl,
-                    thumb_url: bannerUrl,
-                    photo_width: 1280,
-                    photo_height: 720,
-                    title: '💎 Trust Pay — Instant Crypto Buy & Sell',
-                    description: 'TON, GRAM ও USDT কেনা-বেচা করুন বিকাশ ও নগদে!',
+        // 1. Send the Photo + Caption + Inline Join Button to their Telegram chat first (also caches photo_file_id on Telegram servers!)
+        let sentToChat = false;
+        if (sendToBotChat && bot) {
+            try {
+                const bannerLocalPath = path.join(__dirname, 'miniapp/public/referral-banner.jpg');
+                const photoSource = cachedReferralPhotoFileId || (fs.existsSync(bannerLocalPath) ? bannerLocalPath : bannerUrl);
+                const sentMsg = await bot.sendPhoto(cleanUserId, photoSource, {
                     caption: htmlCaption,
                     parse_mode: 'HTML',
                     reply_markup: {
@@ -4257,7 +4285,56 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
                             [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
                         ]
                     }
-                },
+                });
+                if (sentMsg?.photo?.length > 0) {
+                    cachedReferralPhotoFileId = sentMsg.photo[sentMsg.photo.length - 1].file_id;
+                }
+                sentToChat = true;
+            } catch (sendErr) {
+                console.warn('Referral bot.sendPhoto warning:', sendErr.message);
+            }
+        }
+
+        let preparedMessageId = null;
+
+        // 2. Try Telegram Bot API savePreparedInlineMessage (uses cached photo_file_id when available for instant 0ms rendering)
+        try {
+            const inlinePhotoResult = cachedReferralPhotoFileId
+                ? {
+                    type: 'photo',
+                    id: `ref_${cleanUserId}_${Date.now()}`,
+                    photo_file_id: cachedReferralPhotoFileId,
+                    title: 'Trust Pay — Instant Crypto Buy & Sell',
+                    description: 'TON, GRAM ও USDT কেনা-বেচা করুন বিকাশ ও নগদে!',
+                    caption: inlineCleanCaption,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
+                        ]
+                    }
+                }
+                : {
+                    type: 'photo',
+                    id: `ref_${cleanUserId}_${Date.now()}`,
+                    photo_url: bannerUrl,
+                    thumb_url: bannerUrl,
+                    photo_width: 1280,
+                    photo_height: 720,
+                    title: 'Trust Pay — Instant Crypto Buy & Sell',
+                    description: 'TON, GRAM ও USDT কেনা-বেচা করুন বিকাশ ও নগদে!',
+                    caption: inlineCleanCaption,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
+                        ]
+                    }
+                };
+
+            const prepRes = await axios.post(`https://api.telegram.org/bot${token}/savePreparedInlineMessage`, {
+                user_id: cleanUserId,
+                result: inlinePhotoResult,
                 allow_user_chats: true,
                 allow_bot_chats: false,
                 allow_group_chats: true,
@@ -4271,22 +4348,12 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
             // Fallback will be used if savePreparedInlineMessage is not available
         }
 
-        // 2. If requested (or if user clicked Send Share Card to Bot Chat), send the Photo + Caption + Inline Join Button to their Telegram chat
-        let sentToChat = false;
-        if (sendToBotChat && bot) {
-            const bannerLocalPath = path.join(__dirname, 'miniapp/public/referral-banner.jpg');
-            const photoSource = fs.existsSync(bannerLocalPath) ? bannerLocalPath : bannerUrl;
-            await bot.sendPhoto(cleanUserId, photoSource, {
-                caption: htmlCaption,
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
-                    ]
-                }
-            });
-            sentToChat = true;
-        }
+        const shareTextPlain =
+            `✨ Trust Pay — Instant Crypto Buy & Sell BD ✨\n\n` +
+            `💎 TON, GRAM ও USDT খুব সহজে কেনা-বেচা করুন!\n` +
+            `⚡ bKash ও Nagad-এ অটোমেটিক পেমেন্ট!\n` +
+            `🎁 নিচের লিংকে ক্লিক করে জয়েন করুন 👇\n${botStartLink}`;
+        const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(sharePreviewUrl)}&text=${encodeURIComponent(shareTextPlain)}`;
 
         res.json({
             success: true,
@@ -4294,6 +4361,7 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
             sentToChat,
             botStartLink,
             sharePreviewUrl,
+            telegramShareUrl,
             bannerUrl
         });
     } catch (e) {

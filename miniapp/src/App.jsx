@@ -5,7 +5,108 @@ import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI,
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare } from './api';
+import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
+import referralBannerImg from './assets/referral-banner.jpg';
+
+const stickerJsonCache = new Map();
+
+const CustomRoseIcon = ({ size = 18, className = '' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 64 64"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`inline-block shrink-0 select-none ${className}`}
+  >
+    <defs>
+      <radialGradient id="roseOuterGrad" cx="50%" cy="38%" r="55%">
+        <stop offset="0%" stopColor="#fb7185" />
+        <stop offset="55%" stopColor="#e11d48" />
+        <stop offset="100%" stopColor="#9f1239" />
+      </radialGradient>
+      <radialGradient id="roseInnerGrad" cx="48%" cy="35%" r="50%">
+        <stop offset="0%" stopColor="#fda4af" />
+        <stop offset="50%" stopColor="#f43f5e" />
+        <stop offset="100%" stopColor="#be123c" />
+      </radialGradient>
+      <linearGradient id="roseStemGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#34d399" />
+        <stop offset="100%" stopColor="#059669" />
+      </linearGradient>
+    </defs>
+    {/* Stem & Leaves */}
+    <path d="M32 38 C32 47, 30 54, 29 60" stroke="url(#roseStemGrad)" strokeWidth="4" strokeLinecap="round" />
+    <path d="M31 48 C22 47, 15 41, 18 35 C23 36, 29 41, 31 48 Z" fill="url(#roseStemGrad)" />
+    <path d="M32 51 C41 50, 48 44, 45 38 C40 39, 34 44, 32 51 Z" fill="url(#roseStemGrad)" />
+    {/* Outer Blooming Rose Petals */}
+    <path d="M32 8 C19 8, 10 18, 13 30 C16 39, 24 43, 32 43 C40 43, 48 39, 51 30 C54 18, 45 8, 32 8 Z" fill="url(#roseOuterGrad)" />
+    <path d="M16 20 C12 28, 18 39, 32 41 C46 39, 52 28, 48 20 C44 13, 38 12, 32 15 C26 12, 20 13, 16 20 Z" fill="url(#roseInnerGrad)" />
+    {/* Inner Swirl Bud & Highlights */}
+    <path d="M22 22 C22 15, 42 15, 42 22 C42 30, 32 35, 32 35 C32 35, 22 30, 22 22 Z" fill="#e11d48" />
+    <path d="M26 21 C28 16, 36 16, 38 21 C39 25, 35 29, 32 29 C29 29, 25 25, 26 21 Z" fill="#fda4af" />
+    <path d="M29 21 C31 19, 34 19, 35 22 C35 24, 33 25, 31 24" stroke="#fff1f2" strokeWidth="2" strokeLinecap="round" />
+  </svg>
+);
+
+const TelegramAnimatedSticker = ({ src = 'tg-rose-sticker.json', size = 28, className = '' }) => {
+  const containerRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let animInstance = null;
+    let isCancelled = false;
+    const fullUrl = `${import.meta.env.BASE_URL || '/app/'}${src}`;
+
+    const mountSticker = async () => {
+      try {
+        let data = stickerJsonCache.get(src);
+        if (!data) {
+          const resp = await fetch(fullUrl);
+          if (!resp.ok) throw new Error('Failed to load sticker');
+          data = await resp.json();
+          stickerJsonCache.set(src, data);
+        }
+        if (isCancelled || !containerRef.current) return;
+        containerRef.current.innerHTML = '';
+        animInstance = lottie.loadAnimation({
+          container: containerRef.current,
+          renderer: 'svg',
+          loop: true,
+          autoplay: true,
+          animationData: JSON.parse(JSON.stringify(data))
+        });
+        setLoaded(true);
+      } catch (_) {
+        setLoaded(false);
+      }
+    };
+
+    mountSticker();
+
+    return () => {
+      isCancelled = true;
+      if (animInstance) {
+        try { animInstance.destroy(); } catch (_) {}
+      }
+    };
+  }, [src]);
+
+  return (
+    <span
+      className={`inline-flex items-center justify-center shrink-0 relative select-none ${className}`}
+      style={{ width: size, height: size }}
+    >
+      <span
+        ref={containerRef}
+        className="w-full h-full flex items-center justify-center"
+        style={{ display: loaded ? 'flex' : 'none' }}
+      />
+      {!loaded && <CustomRoseIcon size={Math.round(size * 0.88)} />}
+    </span>
+  );
+};
 
 const initialGraphData = [
   { time: '10:00', price: 118.5 },
@@ -4100,8 +4201,8 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
             className="flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group p-1"
          >
             <div className="flex items-center gap-3 min-w-0">
-               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-md shadow-rose-500/25 shrink-0 group-hover:scale-105 transition-transform">
-                  <Gift size={19} />
+               <div className="w-10 h-10 rounded-xl bg-rose-100/90 border border-rose-200/80 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                  <TelegramAnimatedSticker src="tg-rose-sticker.json" size={30} />
                </div>
                <div className="min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -4112,8 +4213,9 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
                         +৳5 / REF
                      </span>
                   </div>
-                  <span className="text-[10.5px] text-rose-700/85 font-semibold block mt-0.5">
-                     {lang === 'bn' ? 'প্রতি অ্যাক্টিভ রেফারে নগদ ৫ টাকা বোনাস পান 🌹' : 'Get instant ৳5 BDT per active referral 🌹'}
+                  <span className="text-[10.5px] text-rose-700/85 font-semibold inline-flex items-center gap-1 mt-0.5">
+                     <span>{lang === 'bn' ? 'প্রতি অ্যাক্টিভ রেফারে নগদ ৫ টাকা বোনাস পান' : 'Get instant ৳5 BDT per active referral'}</span>
+                     <CustomRoseIcon size={13} />
                   </span>
                </div>
             </div>
@@ -4448,9 +4550,10 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
   const defaultBotLink = `https://t.me/bd_trust_pay_bot?start=ref_${userId}`;
   const [refData, setRefData] = useState({
     botReferralLink: defaultBotLink,
+    referralLink: defaultBotLink,
     miniAppReferralLink: `https://t.me/bd_trust_pay_bot/app?startapp=ref_${userId}`,
     sharePreviewUrl: `${window.location.origin}/invite/${userId}`,
-    bannerUrl: `${window.location.origin}/referral-banner.jpg`,
+    bannerUrl: `${window.location.origin}/app/referral-banner.jpg`,
     rewardPerReferral: 5,
     minVolumeBdt: 20,
     totalReferrals: 0,
@@ -4471,7 +4574,15 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
       try {
         const data = await fetchReferralData(userId);
         if (mounted && data && !data.error) {
-          setRefData(prev => ({ ...prev, ...data }));
+          setRefData(prev => ({
+            ...prev,
+            ...data,
+            botReferralLink: data.botReferralLink || data.referralLink || prev.botReferralLink,
+            totalReferrals: data.totalReferrals ?? data.stats?.totalReferrals ?? 0,
+            activeReferrals: data.activeReferrals ?? data.stats?.activeReferrals ?? 0,
+            pendingReferrals: data.pendingReferrals ?? data.stats?.pendingReferrals ?? 0,
+            referralEarnings: data.referralEarnings ?? data.stats?.totalEarned ?? 0
+          }));
         }
       } catch (e) {
         console.error('Failed to load referral data:', e);
@@ -4483,9 +4594,10 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
     return () => { mounted = false; };
   }, [userId]);
 
+  const activeReferralLink = refData.botReferralLink || refData.referralLink || defaultBotLink;
+
   const handleCopyLink = () => {
-    const linkToCopy = refData.botReferralLink || defaultBotLink;
-    navigator.clipboard.writeText(linkToCopy);
+    navigator.clipboard.writeText(activeReferralLink);
     setCopied(true);
     if (window.Telegram?.WebApp?.HapticFeedback) {
       window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
@@ -4513,26 +4625,24 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
       if (res?.preparedMessageId && typeof tg?.shareMessage === 'function') {
         tg.shareMessage(res.preparedMessageId, (sent) => {
           if (sent) {
-            setShareToast(lang === 'bn' ? '✅ ছবি ও বাটনসহ মেসেজ সফলভাবে শেয়ার হয়েছে!' : '✅ Shared with image & join button!');
+            setShareToast(lang === 'bn' ? 'ছবি ও বাটনসহ মেসেজ সফলভাবে শেয়ার হয়েছে!' : 'Shared with image & join button!');
           }
         });
         setShareToast(
           lang === 'bn'
-            ? '🌹 ছবি ও বাটনসহ রেফারেল কার্ড বট ইনবক্সেও পাঠানো হয়েছে!'
-            : '🌹 Referral card with image & button also sent to your bot chat!'
+            ? 'ছবি ও বাটনসহ রেফারেল কার্ড বট ইনবক্সেও পাঠানো হয়েছে!'
+            : 'Referral card with image & button also sent to your bot chat!'
         );
       } else {
-        // 2. Open Telegram native share picker with OpenGraph Banner Preview + Formatted Message,
-        // while the Bot simultaneously delivers the full Photo + Inline Button message to the user's chat!
         const fallbackShareText =
-          `🌹✨ Trust Pay — Instant Crypto Buy & Sell BD ✨🌹\n\n` +
+          `✨ Trust Pay — Instant Crypto Buy & Sell BD ✨\n\n` +
           `💎 TON, GRAM ও USDT খুব সহজে কিনুন এবং বিক্রি করুন!\n` +
           `⚡ bKash ও Nagad-এ মাত্র ২ মিনিটে অটোমেটিক পেমেন্ট!\n` +
-          `🎁 নিচের লিংকে ক্লিক করে জয়েন করুন এবং ওয়ালেট কানেক্ট করে লেনদেন শুরু করুন 👇\n` +
-          `${refData.botReferralLink || defaultBotLink}`;
+          `🎁 নিচের লিংকে ক্লিক করে জয়েন করুন 👇\n` +
+          `${activeReferralLink}`;
         const shareUrl =
           res?.telegramShareUrl ||
-          `https://t.me/share/url?url=${encodeURIComponent(refData.sharePreviewUrl || refData.botReferralLink || defaultBotLink)}&text=${encodeURIComponent(fallbackShareText)}`;
+          `https://t.me/share/url?url=${encodeURIComponent(refData.sharePreviewUrl || activeReferralLink)}&text=${encodeURIComponent(fallbackShareText)}`;
 
         if (tg?.openTelegramLink) {
           tg.openTelegramLink(shareUrl);
@@ -4542,13 +4652,13 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
 
         setShareToast(
           lang === 'bn'
-            ? '🌹 ছবি ও বাটনসহ রেফারেল পোস্ট আপনার বট চ্যাটেও পাঠানো হয়েছে — যেকোনো বন্ধুকে Forward করতে পারবেন!'
-            : '🌹 Full Photo + Button post was also sent to your bot chat for easy forwarding!'
+            ? 'ছবি ও বাটনসহ রেফারেল পোস্ট বট চ্যাটেও পাঠানো হয়েছে!'
+            : 'Full Photo + Button post was also sent to your bot chat!'
         );
       }
     } catch (err) {
       console.error('Share error:', err);
-      const fallbackUrl = `https://t.me/share/url?url=${encodeURIComponent(refData.botReferralLink || defaultBotLink)}&text=${encodeURIComponent('🌹 Trust Pay — Instant Crypto Buy & Sell (bKash & Nagad)! নিচের লিংকে ক্লিক করে জয়েন করুন 👇')}`;
+      const fallbackUrl = `https://t.me/share/url?url=${encodeURIComponent(activeReferralLink)}&text=${encodeURIComponent('✨ Trust Pay — Instant Crypto Buy & Sell (bKash & Nagad)! নিচের লিংকে ক্লিক করে জয়েন করুন 👇')}`;
       if (window.Telegram?.WebApp?.openTelegramLink) {
         window.Telegram.WebApp.openTelegramLink(fallbackUrl);
       } else {
@@ -4561,45 +4671,57 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-16 relative">
-      {/* Floating ambient Rose Petals header bar */}
+      {/* Top Navigation & Telegram Animated Rose Header Bar */}
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/90 border border-rose-200 text-rose-700 font-bold text-xs shadow-xs active:scale-95 transition-all"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/95 border border-rose-200 text-rose-700 font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
         >
           <ArrowLeft size={15} />
           <span>{lang === 'bn' ? 'প্রোফাইলে ফিরুন' : 'Back to Profile'}</span>
         </button>
 
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100/90 border border-rose-200 text-rose-700 text-[11px] font-black shadow-xs">
-          <span>🌹</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100/95 border border-rose-200 text-rose-700 text-[11px] font-black shadow-xs">
+          <TelegramAnimatedSticker src="tg-rose-sticker.json" size={18} />
           <span>{lang === 'bn' ? 'রেফারেল প্রোগ্রাম' : 'Referral Program'}</span>
         </div>
       </div>
 
       {/* 1. HERO ROSE GARDEN BANNER CARD */}
       <CutCornerCard
-        className="p-0 overflow-hidden bg-gradient-to-br from-rose-600 via-rose-500 to-pink-600 text-white border border-rose-300/60 shadow-[0_14px_34px_rgba(225,29,72,0.25)]"
+        className="p-0 overflow-hidden bg-gradient-to-br from-rose-600 via-rose-500 to-pink-600 text-white border border-rose-300/60 shadow-[0_14px_34px_rgba(225,29,72,0.22)]"
         flower={<ReferralRosePattern />}
       >
         {/* Promotional Referral Banner Image Preview */}
-        <div className="relative w-full h-36 overflow-hidden border-b border-white/15 bg-rose-950/40">
+        <div className="relative w-full h-44 overflow-hidden border-b border-white/15 bg-indigo-950">
           <img
-            src="/referral-banner.jpg"
+            src={referralBannerImg}
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = `${import.meta.env.BASE_URL || '/app/'}referral-banner.jpg`;
+            }}
             alt="Trust Pay Referral Banner"
-            className="w-full h-full object-cover opacity-95"
+            className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-rose-950/90 via-rose-900/25 to-transparent flex flex-col justify-end p-3.5">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/90 backdrop-blur-xs text-white text-[10px] font-black w-fit mb-1 border border-rose-300/40">
-              <span>🌹 অ্যাক্টিভ রেফার বোনাস</span>
-              <span className="bg-white text-rose-600 px-1.5 py-0.2 rounded-full font-black">+৳৫ টাকা</span>
+          <div className="absolute inset-0 bg-gradient-to-t from-rose-950/90 via-rose-950/25 to-transparent flex items-end justify-between p-3.5 gap-2">
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-600/95 backdrop-blur-xs text-white text-[10px] font-black w-fit mb-1 border border-rose-300/50 shadow-xs">
+                <CustomRoseIcon size={13} />
+                <span>{lang === 'bn' ? 'অ্যাক্টিভ রেফার বোনাস' : 'Active Refer Bonus'}</span>
+                <span className="bg-white text-rose-600 px-1.5 py-0.2 rounded-full font-black">+৳৫ টাকা</span>
+              </div>
+              <h2 className="text-[15px] font-black text-white leading-snug drop-shadow-xs">
+                {lang === 'bn'
+                  ? 'বন্ধুদের ইনভাইট করুন এবং প্রতি রেফারে ৫ টাকা পান!'
+                  : 'Invite Friends & Earn ৳5 Per Active Referral!'}
+              </h2>
             </div>
-            <h2 className="text-[16px] font-black text-white leading-tight drop-shadow-xs">
-              {lang === 'bn'
-                ? 'বন্ধুদের ইনভাইট করুন এবং প্রতি রেফারে ৫ টাকা পান!'
-                : 'Invite Friends & Earn ৳5 Per Active Referral!'}
-            </h2>
+
+            {/* Official Telegram Animated Gift Sticker */}
+            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center shrink-0 shadow-md">
+              <TelegramAnimatedSticker src="tg-gift-sticker.json" size={38} />
+            </div>
           </div>
         </div>
 
@@ -4636,41 +4758,41 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
         </div>
       </CutCornerCard>
 
-      {/* 2. REFERRAL LINK COPY & RICH SHARE CARD (WITH ROSE FLOWER DESIGN) */}
+      {/* 2. REFERRAL LINK COPY & RICH SHARE CARD (WITH ANIMATED ROSE STICKER & SHORT BUTTON) */}
       <CutCornerCard
-        className="p-4 space-y-3.5 bg-gradient-to-br from-white via-rose-50/40 to-pink-50/50 border border-rose-200/80"
+        className="p-4 space-y-3 bg-gradient-to-br from-white via-rose-50/40 to-pink-50/50 border border-rose-200/80"
         flower={<ReferralRosePattern />}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
-              🌹
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-rose-100/90 border border-rose-200/80 flex items-center justify-center shrink-0">
+              <TelegramAnimatedSticker src="tg-rose-sticker.json" size={28} />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-[13px] font-black text-slate-900 leading-tight">
                 {lang === 'bn' ? 'আপনার পার্সোনাল রেফারেল লিংক' : 'Your Personal Referral Link'}
               </h3>
-              <p className="text-[10px] text-rose-600/80 font-semibold">
-                {lang === 'bn' ? 'লিংক কপি করুন অথবা ছবি ও বাটনসহ শেয়ার করুন' : 'Copy link or share with banner & button'}
+              <p className="text-[10px] text-rose-600/85 font-semibold truncate mt-0.5">
+                {lang === 'bn' ? 'লিংক কপি বা শেয়ার করে বন্ধুদের আমন্ত্রণ জানান' : 'Copy or share your link to invite friends'}
               </p>
             </div>
           </div>
-          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black">
-            ৳5 / Active
+          <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black shrink-0 border border-rose-200/60">
+            +৳5 / Ref
           </span>
         </div>
 
         {/* Link Box + Copy Button */}
-        <div className="flex items-center gap-2 bg-white border-2 border-rose-200/90 rounded-xl p-2 shadow-2xs">
-          <div className="flex-1 min-w-0 px-1.5">
+        <div className="flex items-center gap-2 bg-white border-2 border-rose-200/90 rounded-xl p-1.5 shadow-2xs">
+          <div className="flex-1 min-w-0 px-2">
             <span className="text-[11px] font-mono font-bold text-slate-700 block truncate select-all">
-              {refData.botReferralLink || defaultBotLink}
+              {activeReferralLink}
             </span>
           </div>
           <button
             type="button"
             onClick={handleCopyLink}
-            className={`px-3 py-2 rounded-lg text-[11px] font-black flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+            className={`px-3 py-2 rounded-lg text-[11px] font-black flex items-center gap-1.5 shrink-0 transition-all active:scale-95 cursor-pointer ${
               copied
                 ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/30'
                 : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
@@ -4681,28 +4803,28 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
           </button>
         </div>
 
-        {/* Share with Image + Message + Button CTA */}
+        {/* Clean, Short Single-Line Share Button */}
         <button
           type="button"
           onClick={handleShareRichMessage}
           disabled={sharing}
-          className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:from-rose-700 hover:to-pink-700 text-white font-black text-[13px] shadow-lg shadow-rose-500/30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
+          className="w-full h-[46px] px-4 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:from-rose-700 hover:to-pink-700 text-white font-black text-[13.5px] shadow-md shadow-rose-500/25 flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
         >
           {sharing ? (
             <Loader2 size={17} className="animate-spin" />
           ) : (
-            <Send size={16} />
+            <>
+              <CustomRoseIcon size={17} />
+              <span>{lang === 'bn' ? 'শেয়ার করুন' : 'Share Link'}</span>
+              <Send size={14} className="ml-0.5" />
+            </>
           )}
-          <span>
-            {lang === 'bn'
-              ? '🌹 শেয়ার করুন (ছবি + মেসেজ + জয়েন বাটনসহ)'
-              : '🌹 Share Now (Image + Message + Join Button)'}
-          </span>
         </button>
 
         {shareToast && (
-          <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-bold text-center leading-snug animate-in fade-in">
-            {shareToast}
+          <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-bold flex items-center justify-center gap-1.5 text-center leading-snug animate-in fade-in">
+            <CustomRoseIcon size={14} />
+            <span>{shareToast}</span>
           </div>
         )}
       </CutCornerCard>
@@ -4774,7 +4896,7 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
           <ShieldCheck size={17} className="text-amber-700 shrink-0 mt-0.5" />
           <div className="text-[10.5px] text-amber-900 font-semibold leading-relaxed">
             <span className="font-black block text-amber-950 mb-0.5">
-              {lang === 'bn' ? '🛡️ অ্যান্টি-ক্লোন ও ডিভাইস সিকিউরিটি সতর্কবার্তা:' : '🛡️ Anti-Clone & Device Security Notice:'}
+              {lang === 'bn' ? 'অ্যান্টি-ক্লোন ও ডিভাইস সিকিউরিটি সতর্কবার্তা:' : 'Anti-Clone & Device Security Notice:'}
             </span>
             {lang === 'bn'
               ? 'একই মোবাইলে Clone App, Parallel Space, Dual App বা একাধিক টেলিগ্রাম আইডি খুলে নিজে নিজেকে রেফার করলে আমাদের হার্ডওয়্যার সিকিউরিটি সিস্টেম তা সাথে সাথে ব্লক করে দিবে এবং কোনো বোনাস যুক্ত হবে না।'
@@ -4806,9 +4928,9 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
             <span className="text-xs font-bold">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
           </div>
         ) : !refData.referrals || refData.referrals.length === 0 ? (
-          <div className="py-7 text-center space-y-1.5 bg-rose-50/40 rounded-xl border border-dashed border-rose-200 p-4">
-            <div className="text-2xl">🌹</div>
-            <p className="text-[12px] font-bold text-slate-700">
+          <div className="py-6 text-center space-y-1.5 bg-rose-50/40 rounded-xl border border-dashed border-rose-200 p-4 flex flex-col items-center">
+            <TelegramAnimatedSticker src="tg-rose-sticker.json" size={52} />
+            <p className="text-[12px] font-bold text-slate-700 mt-1">
               {lang === 'bn' ? 'এখনো কোনো রেফার নেই' : 'No referrals yet'}
             </p>
             <p className="text-[10.5px] text-slate-500">
@@ -4821,10 +4943,10 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
           <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
             {refData.referrals.map((item, idx) => {
               const isAct = item.status === 'active';
-              const isBlocked = item.status === 'rejected_clone';
+              const isBlocked = item.status === 'rejected_clone' || item.status === 'blocked_clone';
               return (
                 <div
-                  key={item.userId || idx}
+                  key={item.userId || item.id || idx}
                   className="p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/80 flex items-center justify-between gap-2"
                 >
                   <div className="min-w-0">
@@ -4866,7 +4988,7 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
                   <div className="shrink-0 text-right">
                     {isAct ? (
                       <span className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-black block">
-                        +৳{item.rewardAmount || 5} Active
+                        +৳{item.rewardAmount || item.bonusAmount || 5} Active
                       </span>
                     ) : isBlocked ? (
                       <span className="px-2 py-1 rounded-lg bg-rose-100 text-rose-700 text-[10px] font-black block">
