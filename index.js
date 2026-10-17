@@ -802,9 +802,438 @@ async function notifyNewUserJoined(userId, userData = {}) {
     }
 }
 
-bot.onText(/\/start/, async (msg) => {
+// ==================== REFERRAL & ANTI-CLONE SECURITY ENGINE ====================
+let BOT_USERNAME = process.env.BOT_USERNAME || 'bd_trust_pay_bot';
+if (bot && bot.getMe) {
+    bot.getMe().then(me => {
+        if (me && me.username) {
+            BOT_USERNAME = me.username;
+            console.log(`[BOT READY] Active Bot Username: @${BOT_USERNAME}`);
+        }
+    }).catch(() => {});
+}
+
+const REFERRAL_BONUS_BDT = 5;
+const REFERRAL_MIN_TX_BDT = 20;
+
+function extractClientDevice(req, bodyOrQuery = {}) {
+    const rawIp = (req.headers['x-forwarded-for'] || req.headers['cf-connecting-ip'] || req.ip || '').toString();
+    const clientIp = rawIp.split(',')[0].trim().replace(/^::ffff:/, '') || 'unknown_ip';
+    const ua = (req.headers['user-agent'] || '').toString();
+
+    let parsedModel = bodyOrQuery.deviceModel || '';
+    if (!parsedModel || parsedModel === 'generic_device') {
+        const androidMatch = ua.match(/Android\s+[0-9.]+;\s*([^;)]+?)(?:\s+Build\/|\))/i);
+        if (androidMatch && androidMatch[1]) {
+            parsedModel = androidMatch[1].trim();
+        } else if (/iPhone/i.test(ua)) {
+            parsedModel = 'iPhone';
+        }
+    }
+
+    const hwHash = (bodyOrQuery.hwHash || '').toString().trim();
+    const deviceUid = (bodyOrQuery.deviceUid || '').toString().trim();
+    const phoneModel = (parsedModel || 'unknown_model').toString().trim();
+    const ipModelSig = (clientIp !== 'unknown_ip' && phoneModel !== 'unknown_model' && phoneModel !== 'generic_device')
+        ? `${clientIp}__${phoneModel}`
+        : '';
+
+    return {
+        clientIp,
+        hwHash,
+        deviceUid,
+        phoneModel,
+        ipModelSig,
+        userAgent: ua.slice(0, 220)
+    };
+}
+
+// Records device fingerprint and detects if this physical mobile already has another Trust Pay account (Clone App / Multi-Account)
+async function recordAndVerifyDeviceAntiClone(userId, deviceInfo = {}) {
+    if (!userId || Number(userId) === 123456789) return { isClone: false, reason: null };
+    const strUserId = String(userId);
+    let isClone = false;
+    let cloneReason = null;
+    let matchedUserId = null;
+
+    try {
+        const { hwHash, deviceUid, clientIp, phoneModel, ipModelSig } = deviceInfo;
+
+        // 1. Check persistent browser Device UID registry
+        if (deviceUid && deviceUid.length > 5) {
+            const uidRef = db.collection('device_uids').doc(deviceUid);
+            const uidDoc = await uidRef.get();
+            if (uidDoc.exists) {
+                const ownerId = String(uidDoc.data().ownerUserId || '');
+                if (ownerId && ownerId !== strUserId) {
+                    isClone = true;
+                    cloneReason = 'same_browser_storage';
+                    matchedUserId = ownerId;
+                }
+            } else {
+                await uidRef.set({
+                    ownerUserId: strUserId,
+                    hwHash: hwHash || '',
+                    phoneModel: phoneModel || '',
+                    firstIp: clientIp || '',
+                    createdAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+        }
+
+        // 2. Check Hardware Fingerprint + IP/PhoneModel registry (detects Clone Apps like Parallel Space / Dual Messenger on the same phone)
+        if (hwHash && hwHash.length > 5) {
+            const hwRef = db.collection('device_fingerprints').doc(hwHash);
+            const hwDoc = await hwRef.get();
+            if (hwDoc.exists) {
+                const hwData = hwDoc.data() || {};
+                const ownerId = String(hwData.ownerUserId || '');
+                if (ownerId && ownerId !== strUserId) {
+                    // Same exact hardware GPU + screen + canvas + deviceModel on the same IP or specific model
+                    const sameIp = clientIp && clientIp !== 'unknown_ip' && (hwData.lastIp === clientIp || hwData.firstIp === clientIp);
+                    const specificAndroidModel = phoneModel && phoneModel !== 'unknown_model' && phoneModel !== 'generic_device' && phoneModel !== 'iPhone';
+                    if (sameIp || specificAndroidModel) {
+                        isClone = true;
+                        cloneReason = 'same_physical_mobile_clone_app';
+                        matchedUserId = ownerId;
+                    }
+                } else {
+                    await hwRef.set({ lastIp: clientIp || '', updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+                }
+            } else {
+                await hwRef.set({
+                    ownerUserId: strUserId,
+                    deviceUid: deviceUid || '',
+                    phoneModel: phoneModel || '',
+                    firstIp: clientIp || '',
+                    lastIp: clientIp || '',
+                    createdAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+            }
+        }
+
+        // 3. Save device metadata onto user document
+        const userUpdates = {};
+        if (hwHash) userUpdates.hwHash = hwHash;
+        if (deviceUid) userUpdates.deviceUid = deviceUid;
+        if (clientIp && clientIp !== 'unknown_ip') userUpdates.lastIp = clientIp;
+        if (phoneModel && phoneModel !== 'unknown_model') userUpdates.phoneModel = phoneModel;
+        if (ipModelSig) userUpdates.ipModelSig = ipModelSig;
+        if (isClone) {
+            userUpdates.isCloneDevice = true;
+            userUpdates.cloneMatchedUserId = matchedUserId;
+            userUpdates.cloneReason = cloneReason;
+        }
+        if (Object.keys(userUpdates).length > 0) {
+            await db.collection('users').doc(strUserId).set(userUpdates, { merge: true });
+        }
+    } catch (e) {
+        console.warn("recordAndVerifyDeviceAntiClone warning:", e.message);
+    }
+
+    return { isClone, reason: cloneReason, matchedUserId };
+}
+
+// Registers a new referral when an invited user starts the bot or opens the MiniApp via a referral link
+async function registerUserReferral(userId, rawReferrerId, userMeta = {}, deviceInfo = {}) {
+    try {
+        const cleanUserId = parseInt(userId);
+        const cleanReferrerId = parseInt(String(rawReferrerId).replace(/^ref_/i, '').trim());
+
+        if (!cleanUserId || !cleanReferrerId || isNaN(cleanUserId) || isNaN(cleanReferrerId)) return { registered: false, reason: 'invalid_id' };
+        if (cleanUserId === 123456789 || cleanReferrerId === 123456789) return { registered: false, reason: 'guest_id' };
+        if (cleanUserId === cleanReferrerId) return { registered: false, reason: 'self_referral' };
+
+        const strUserId = String(cleanUserId);
+        const strReferrerId = String(cleanReferrerId);
+
+        const [userDoc, referrerDoc, existingRefDoc] = await Promise.all([
+            db.collection('users').doc(strUserId).get(),
+            db.collection('users').doc(strReferrerId).get(),
+            db.collection('referrals').doc(strUserId).get()
+        ]);
+
+        // Referrer must exist
+        if (!referrerDoc.exists) return { registered: false, reason: 'referrer_not_found' };
+
+        // If user already has a referral record, do not overwrite
+        if (existingRefDoc.exists) return { registered: false, reason: 'already_referred' };
+
+        const userData = userDoc.exists ? (userDoc.data() || {}) : {};
+        if (userData.referredBy) return { registered: false, reason: 'already_has_referrer' };
+
+        // If user is an existing old user who already did transactions or joined long ago (more than 15 minutes before clicking referral link), don't allow retroactive referral
+        if (userData.hasSellBalance || userData.hasDepositWithoutTrade || (userData.balance && userData.balance > 0) || userData.fiatWallet?.number) {
+            return { registered: false, reason: 'existing_active_user' };
+        }
+
+        // Run Anti-Clone check against referrer and device registry
+        const referrerData = referrerDoc.data() || {};
+        const cloneCheck = await recordAndVerifyDeviceAntiClone(cleanUserId, deviceInfo);
+
+        let isBlockedClone = Boolean(cloneCheck.isClone || userData.isCloneDevice);
+        let blockReason = cloneCheck.reason || userData.cloneReason || null;
+
+        // Direct comparison between Referrer and Referred User
+        const uHw = deviceInfo.hwHash || userData.hwHash || '';
+        const uUid = deviceInfo.deviceUid || userData.deviceUid || '';
+        const uIp = deviceInfo.clientIp || userData.lastIp || '';
+        const uModel = deviceInfo.phoneModel || userData.phoneModel || '';
+
+        if (uUid && referrerData.deviceUid && uUid === referrerData.deviceUid) {
+            isBlockedClone = true;
+            blockReason = 'same_device_uid_as_referrer';
+        } else if (uHw && referrerData.hwHash && uHw === referrerData.hwHash) {
+            isBlockedClone = true;
+            blockReason = 'same_hardware_as_referrer';
+        } else if (uIp && uIp !== 'unknown_ip' && referrerData.lastIp === uIp && uModel && uModel === referrerData.phoneModel) {
+            isBlockedClone = true;
+            blockReason = 'same_ip_and_phone_as_referrer';
+        }
+
+        const refStatus = isBlockedClone ? 'blocked_clone' : 'pending';
+        const firstName = userMeta.firstName || userData.firstName || userData.first_name || 'User';
+        const username = userMeta.username || userData.username || '';
+
+        await Promise.all([
+            db.collection('users').doc(strUserId).set({
+                referredBy: cleanReferrerId,
+                referralStatus: refStatus,
+                referralBonusPaid: false,
+                referredAt: FieldValue.serverTimestamp(),
+                ...(isBlockedClone ? { referralBlockReason: blockReason } : {})
+            }, { merge: true }),
+            db.collection('referrals').doc(strUserId).set({
+                referredUserId: cleanUserId,
+                referrerId: cleanReferrerId,
+                referredName: firstName,
+                referredUsername: username,
+                status: refStatus,
+                blockReason: blockReason || null,
+                walletConnected: false,
+                qualifyingTxDone: false,
+                totalAddMoneyBdt: 0,
+                totalSellBdt: 0,
+                bonusAmount: REFERRAL_BONUS_BDT,
+                bonusPaid: false,
+                createdAt: FieldValue.serverTimestamp()
+            })
+        ]);
+
+        // Notify Referrer in Telegram if valid pending referral
+        if (!isBlockedClone && bot) {
+            const joinNotifyMsg = `${PE.sparkles} <b>নতুন রেফারেল যুক্ত হয়েছে! (New Referral Joined)</b>\n\n` +
+                `<blockquote>${PE.user} <b>নতুন ইউজার:</b> <code>${firstName}</code> ${username ? `(@${username})` : ''}\n` +
+                `⏳ <b>স্ট্যাটাস:</b> <code>Pending (অ্যাক্টিভেশন বাকি)</code>\n` +
+                `${PE.moneyBag} <b>রেফার বোনাস:</b> <code>+৳${REFERRAL_BONUS_BDT} BDT</code></blockquote>\n\n` +
+                `${PE.zap} <i>আপনার বন্ধু ওয়ালেট কানেক্ট করে নূন্যতম ২০ টাকা Add Money অথবা ২০ টাকা Crypto Sell সম্পন্ন করলেই রেফারটি Active হবে এবং আপনি সাথে সাথে <b>৳${REFERRAL_BONUS_BDT} টাকা বোনাস</b> পাবেন!</i>`;
+            bot.sendMessage(cleanReferrerId, joinNotifyMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
+        }
+
+        return { registered: true, status: refStatus };
+    } catch (e) {
+        console.error("registerUserReferral error:", e.message);
+        return { registered: false, reason: e.message };
+    }
+}
+
+// Evaluates if a referred user has completed all requirements (Wallet Connected + >=20 BDT Add Money OR >=20 BDT Crypto Sell + Anti-Clone Clean) and pays 5 BDT to the referrer
+async function checkAndRewardReferral(userId) {
+    try {
+        if (!userId || Number(userId) === 123456789) return { rewarded: false };
+        const cleanUserId = parseInt(userId);
+        const strUserId = String(cleanUserId);
+
+        const userRef = db.collection('users').doc(strUserId);
+        const userDoc = await userRef.get();
+        if (!userDoc.exists) return { rewarded: false };
+
+        const userData = userDoc.data() || {};
+        const referrerId = userData.referredBy;
+        if (!referrerId || userData.referralBonusPaid === true || userData.referralStatus === 'blocked_clone') {
+            return { rewarded: false };
+        }
+
+        const strReferrerId = String(referrerId);
+        const referrerRef = db.collection('users').doc(strReferrerId);
+        const referralDocRef = db.collection('referrals').doc(strUserId);
+
+        const referrerDoc = await referrerRef.get();
+        if (!referrerDoc.exists) return { rewarded: false };
+        const referrerData = referrerDoc.data() || {};
+
+        // 1. Re-verify Anti-Clone & Unique Wallet Security
+        let isCloneOrFraud = Boolean(userData.isCloneDevice);
+        let fraudReason = userData.cloneReason || null;
+
+        if (!isCloneOrFraud) {
+            if (userData.deviceUid && referrerData.deviceUid && userData.deviceUid === referrerData.deviceUid) {
+                isCloneOrFraud = true;
+                fraudReason = 'same_device_uid_as_referrer';
+            } else if (userData.hwHash && referrerData.hwHash && userData.hwHash === referrerData.hwHash) {
+                isCloneOrFraud = true;
+                fraudReason = 'same_hardware_as_referrer';
+            } else if (userData.lastIp && userData.lastIp !== 'unknown_ip' && userData.lastIp === referrerData.lastIp && userData.phoneModel && userData.phoneModel === referrerData.phoneModel) {
+                isCloneOrFraud = true;
+                fraudReason = 'same_ip_and_phone_as_referrer';
+            } else if (userData.fiatWallet?.number && referrerData.fiatWallet?.number && String(userData.fiatWallet.number).trim() === String(referrerData.fiatWallet.number).trim()) {
+                isCloneOrFraud = true;
+                fraudReason = 'same_fiat_wallet_as_referrer';
+            } else if (userData.tonAddress && referrerData.tonAddress && String(userData.tonAddress).trim() === String(referrerData.tonAddress).trim()) {
+                isCloneOrFraud = true;
+                fraudReason = 'same_ton_wallet_as_referrer';
+            }
+        }
+
+        // Also check if this user's fiat wallet or TON address is already registered to ANY other user
+        if (!isCloneOrFraud && userData.fiatWallet?.number) {
+            const cleanNum = String(userData.fiatWallet.number).trim();
+            const sameWalletSnap = await db.collection('users').where('fiatWallet.number', '==', cleanNum).limit(3).get().catch(() => null);
+            if (sameWalletSnap && !sameWalletSnap.empty) {
+                sameWalletSnap.forEach(d => {
+                    if (String(d.id) !== strUserId) {
+                        isCloneOrFraud = true;
+                        fraudReason = 'duplicate_fiat_wallet_across_accounts';
+                    }
+                });
+            }
+        }
+        if (!isCloneOrFraud && userData.tonAddress) {
+            const cleanTon = String(userData.tonAddress).trim();
+            const sameTonSnap = await db.collection('users').where('tonAddress', '==', cleanTon).limit(3).get().catch(() => null);
+            if (sameTonSnap && !sameTonSnap.empty) {
+                sameTonSnap.forEach(d => {
+                    if (String(d.id) !== strUserId) {
+                        isCloneOrFraud = true;
+                        fraudReason = 'duplicate_ton_wallet_across_accounts';
+                    }
+                });
+            }
+        }
+
+        if (isCloneOrFraud) {
+            await Promise.all([
+                userRef.set({ referralStatus: 'blocked_clone', referralBlockReason: fraudReason }, { merge: true }),
+                referralDocRef.set({ status: 'blocked_clone', blockReason: fraudReason }, { merge: true })
+            ]);
+            return { rewarded: false, blocked: true, reason: fraudReason };
+        }
+
+        // 2. Check Wallet Connected Requirement (Fiat Wallet bKash/Nagad OR Connected TON Wallet)
+        const hasFiatWallet = Boolean(userData.fiatWallet && userData.fiatWallet.number && String(userData.fiatWallet.number).trim().length >= 10);
+        const hasTonWallet = Boolean(userData.tonAddress && String(userData.tonAddress).trim().length >= 20);
+        const walletConnected = hasFiatWallet || hasTonWallet;
+
+        // 3. Check Transaction Requirement (>= 20 TK Add Money OR >= 20 TK Crypto Sell)
+        let totalAddMoneyBdt = parseFloat(userData.totalAddMoneyBdt) || 0;
+        let totalSellBdt = parseFloat(userData.totalCryptoSellBdt) || 0;
+
+        if (totalAddMoneyBdt < REFERRAL_MIN_TX_BDT && totalSellBdt < REFERRAL_MIN_TX_BDT) {
+            const userIds = [cleanUserId, strUserId];
+            const [depSnap, sellSnap] = await Promise.all([
+                db.collection('deposits').where('userId', 'in', userIds).get().catch(() => null),
+                db.collection('miniapp_sells').where('userId', 'in', userIds).get().catch(() => null)
+            ]);
+            let calcAdd = 0;
+            if (depSnap && !depSnap.empty) {
+                depSnap.forEach(d => {
+                    const dd = d.data();
+                    if (dd.status === 'completed') calcAdd += (parseFloat(dd.amount) || 0);
+                });
+            }
+            let calcSell = 0;
+            if (sellSnap && !sellSnap.empty) {
+                sellSnap.forEach(d => {
+                    const sd = d.data();
+                    if (sd.status === 'completed') calcSell += (parseFloat(sd.estimatedTk) || 0);
+                });
+            }
+            totalAddMoneyBdt = Math.max(totalAddMoneyBdt, calcAdd);
+            totalSellBdt = Math.max(totalSellBdt, calcSell);
+        }
+
+        const qualifyingTxDone = (totalAddMoneyBdt >= REFERRAL_MIN_TX_BDT) || (totalSellBdt >= REFERRAL_MIN_TX_BDT);
+
+        // Update progress in referrals collection
+        await referralDocRef.set({
+            referredUserId: cleanUserId,
+            referrerId: parseInt(referrerId),
+            referredName: userData.firstName || userData.first_name || 'User',
+            referredUsername: userData.username || '',
+            walletConnected,
+            qualifyingTxDone,
+            totalAddMoneyBdt,
+            totalSellBdt
+        }, { merge: true });
+
+        if (!walletConnected || !qualifyingTxDone) {
+            return { rewarded: false, walletConnected, qualifyingTxDone };
+        }
+
+        // 4. All conditions met! Atomically mark active and pay 5 BDT bonus to Referrer
+        let bonusJustPaid = false;
+        let newReferrerBal = 0;
+
+        await db.runTransaction(async (t) => {
+            const freshUserDoc = await t.get(userRef);
+            const freshRefDoc = await t.get(referrerRef);
+            if (!freshUserDoc.exists || !freshRefDoc.exists) return;
+
+            const uData = freshUserDoc.data() || {};
+            if (uData.referralBonusPaid === true || uData.referralStatus === 'active' || uData.referralStatus === 'blocked_clone') {
+                return;
+            }
+
+            const rData = freshRefDoc.data() || {};
+            const currentBal = parseFloat(rData.balance) || 0;
+            newReferrerBal = Number((currentBal + REFERRAL_BONUS_BDT).toFixed(2));
+
+            t.set(userRef, {
+                referralStatus: 'active',
+                referralBonusPaid: true,
+                referralActivatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            t.set(referralDocRef, {
+                status: 'active',
+                bonusPaid: true,
+                bonusAmount: REFERRAL_BONUS_BDT,
+                walletConnected: true,
+                qualifyingTxDone: true,
+                activatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            t.set(referrerRef, {
+                balance: newReferrerBal,
+                referralEarnings: FieldValue.increment(REFERRAL_BONUS_BDT),
+                activeReferralsCount: FieldValue.increment(1)
+            }, { merge: true });
+
+            bonusJustPaid = true;
+        });
+
+        if (bonusJustPaid && bot) {
+            const referredName = userData.firstName || userData.first_name || 'User';
+            const rewardMsg = `${PE.moneyBag} <b>অভিনন্দন! রেফারেল বোনাস যোগ হয়েছে! (+৳${REFERRAL_BONUS_BDT} BDT)</b> ${PE.party}\n\n` +
+                `<blockquote>${PE.user} <b>রেফার ইউজার:</b> <code>${referredName}</code>\n` +
+                `${PE.check} <b>স্ট্যাটাস:</b> <code>Active (ওয়ালেট + ২০৳+ লেনদেন সম্পন্ন)</code>\n` +
+                `${PE.dollar} <b>প্রাপ্ত বোনাস:</b> <b>+৳${REFERRAL_BONUS_BDT}.00 BDT</b>\n` +
+                `${PE.bank} <b>নতুন ব্যালেন্স:</b> <b>৳${newReferrerBal} BDT</b></blockquote>\n\n` +
+                `${PE.rocket} <i>বেশি বেশি বন্ধুদের রেফার করুন এবং আনলিমিটেড বোনাস আয় করুন!</i>`;
+            bot.sendMessage(referrerId, rewardMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
+        }
+
+        return { rewarded: bonusJustPaid, newReferrerBal };
+    } catch (e) {
+        console.error("checkAndRewardReferral error:", e.message);
+        return { rewarded: false, error: e.message };
+    }
+}
+
+bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
     const msgId = msg.message_id;
+    const startPayload = (match && match[1]) ? match[1].trim() : '';
     const lockKey = `${chatId}_${msgId}`;
 
     // 1. In-memory deduplication check
@@ -827,6 +1256,12 @@ bot.onText(/\/start/, async (msg) => {
     // Save user to Firebase
     const userRef = db.collection('users').doc(chatId.toString());
     const existingUserDoc = await userRef.get().catch(() => null);
+
+    // If user started bot via referral link (e.g., /start ref_123456)
+    if (startPayload && /^ref_\d+$/i.test(startPayload)) {
+        const referrerId = startPayload.replace(/^ref_/i, '');
+        await registerUserReferral(chatId, referrerId, { username, firstName, lastName }, {});
+    }
 
     await userRef.set({
         id: chatId,
@@ -1746,6 +2181,12 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             data = userDoc.data();
         }
 
+        // Background anti-clone device verification if fingerprint query params provided
+        if (req.query.hwHash || req.query.deviceUid) {
+            const devInfo = extractClientDevice(req, req.query);
+            recordAndVerifyDeviceAntiClone(userId, devInfo).catch(() => {});
+        }
+
         let mbsId = data.mbsId;
         if (!mbsId) {
             let unique = false;
@@ -1779,7 +2220,11 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             mbsId: mbsId,
             hasDepositWithoutTrade: Boolean(data.hasDepositWithoutTrade),
             hasSellBalance: Boolean(data.hasSellBalance),
-            spentSinceLastDeposit: data.spentSinceLastDeposit || 0
+            spentSinceLastDeposit: data.spentSinceLastDeposit || 0,
+            referralEarnings: data.referralEarnings || 0,
+            activeReferralsCount: data.activeReferralsCount || 0,
+            referredBy: data.referredBy || null,
+            referralStatus: data.referralStatus || null
         });
     } catch(e) {
         console.error(e);
@@ -1893,6 +2338,9 @@ app.post('/api/miniapp/sell', async (req, res) => {
             return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা' });
         }
 
+        const devInfo = extractClientDevice(req, req.body);
+        recordAndVerifyDeviceAntiClone(userId, devInfo).catch(() => {});
+
         if (status === 'pending') {
             const docRef = await db.collection('miniapp_sells').add({
                 userId, 
@@ -1925,21 +2373,32 @@ app.post('/api/miniapp/sell', async (req, res) => {
             savedOrderId = docRef.id;
         }
 
-        // Increment user balance
+        // Increment user balance & track totalCryptoSellBdt for referral activation
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
+        const extraWalletField = (wallet && wallet !== 'Manual' && wallet !== 'Direct' && String(wallet).length >= 20)
+            ? { tonAddress: String(wallet).trim() }
+            : {};
+
         if (userDoc.exists) {
             await userRef.update({ 
                 balance: FieldValue.increment(numEstimatedTk),
-                hasSellBalance: true
+                totalCryptoSellBdt: FieldValue.increment(numEstimatedTk),
+                hasSellBalance: true,
+                ...extraWalletField
             });
         } else {
             await userRef.set({ 
                 balance: numEstimatedTk, 
+                totalCryptoSellBdt: numEstimatedTk,
                 joinedAt: FieldValue.serverTimestamp(),
-                hasSellBalance: true
+                hasSellBalance: true,
+                ...extraWalletField
             }, { merge: true });
         }
+
+        // Check if this user qualifies their referrer for the 5 BDT active referral bonus
+        checkAndRewardReferral(userId).catch(err => console.warn("Sell referral check err:", err.message));
 
         const updatedDoc = await userRef.get();
         const newBalance = updatedDoc.data()?.balance || numEstimatedTk;
@@ -2321,7 +2780,16 @@ app.get('/api/transactions', async (req, res) => {
 app.post('/api/miniapp/save-wallet', async (req, res) => {
     try {
         const { userId, method, number, name } = req.body;
-        await db.collection('users').doc(userId.toString()).set({ fiatWallet: { method, number, name } }, { merge: true });
+        const devInfo = extractClientDevice(req, req.body);
+        recordAndVerifyDeviceAntiClone(userId, devInfo).catch(() => {});
+
+        await db.collection('users').doc(userId.toString()).set({
+            fiatWallet: { method, number: String(number || '').trim(), name }
+        }, { merge: true });
+
+        // Check if saving this wallet completes active referral requirements
+        checkAndRewardReferral(userId).catch(err => console.warn("Wallet save referral check err:", err.message));
+
         res.json({ success: true });
     } catch(e) {
         res.status(500).json({ error: e.message });
@@ -2597,6 +3065,9 @@ app.post('/api/miniapp/add-money', async (req, res) => {
             return res.status(400).json({ error: 'সঠিক টাকার পরিমাণ দিন' });
         }
 
+        const devInfo = extractClientDevice(req, req.body);
+        recordAndVerifyDeviceAntiClone(userId, devInfo).catch(() => {});
+
         const verifiedRecord = await getVerifiedTrxRecord(trxId);
         
         // STRICT: If not found in database or memory, REJECT IMMEDIATELY! NO PENDING!
@@ -2641,6 +3112,7 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         const userRef = db.collection('users').doc(userId.toString());
         await userRef.set({
             balance: FieldValue.increment(amount),
+            totalAddMoneyBdt: FieldValue.increment(amount),
             hasDepositWithoutTrade: true,
             spentSinceLastDeposit: 0,
             lastDepositAt: Date.now()
@@ -2669,6 +3141,9 @@ app.post('/api/miniapp/add-money', async (req, res) => {
             type: 'add_money',
             timestamp: FieldValue.serverTimestamp()
         });
+
+        // Check if this Add Money transaction activates a referral and awards 5 BDT bonus
+        checkAndRewardReferral(userId).catch(err => console.warn("AddMoney referral check err:", err.message));
 
         const updatedDoc = await userRef.get();
         const newBalance = updatedDoc.data()?.balance || amount;
@@ -3613,11 +4088,20 @@ app.get('/api/admin/user-avatar/:userId', async (req, res) => {
     }
 });
 
-// MiniApp Profile Sync Endpoint (syncs telegram name, username, photo to db)
+// MiniApp Profile Sync Endpoint (syncs telegram name, username, photo, device fingerprint, tonAddress & referral to db)
 app.post('/api/miniapp/sync-profile', async (req, res) => {
     try {
-        const { userId, username, firstName, lastName, photoUrl } = req.body;
-        if (!userId || userId === 123456789) return res.json({ success: true });
+        const { userId, username, firstName, lastName, photoUrl, tonAddress, startParam } = req.body;
+        if (!userId || Number(userId) === 123456789) return res.json({ success: true });
+
+        const devInfo = extractClientDevice(req, req.body);
+        await recordAndVerifyDeviceAntiClone(userId, devInfo);
+
+        // If user opened MiniApp with a referral startParam (e.g., ref_123456)
+        if (startParam && /^ref_\d+$/i.test(String(startParam).trim())) {
+            const refId = String(startParam).trim().replace(/^ref_/i, '');
+            await registerUserReferral(userId, refId, { username, firstName, lastName }, devInfo);
+        }
         
         const updates = {
             chatId: userId.toString(),
@@ -3633,12 +4117,229 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
             updates.last_name = lastName;
         }
         if (photoUrl) updates.photoUrl = photoUrl;
+        if (tonAddress && String(tonAddress).trim().length >= 20) {
+            updates.tonAddress = String(tonAddress).trim();
+        }
 
         await db.collection('users').doc(userId.toString()).set(updates, { merge: true });
+
+        // If TON wallet was connected, check if referral now qualifies for activation
+        if (tonAddress) {
+            checkAndRewardReferral(userId).catch(() => {});
+        }
+
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
+});
+
+// ==================== REFERRAL API & RICH SHARE ENDPOINTS ====================
+app.get('/api/miniapp/referrals/:userId', async (req, res) => {
+    try {
+        const cleanUserId = parseInt(req.params.userId);
+        if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
+            return res.json({
+                referralLink: `https://t.me/${BOT_USERNAME}?start=ref_0`,
+                miniAppReferralLink: `https://t.me/${BOT_USERNAME}/app?startapp=ref_0`,
+                sharePreviewUrl: `https://maruf-teach-bot.onrender.com/invite/0`,
+                bannerUrl: `https://maruf-teach-bot.onrender.com/app/referral-banner.jpg`,
+                stats: { totalReferrals: 0, activeReferrals: 0, pendingReferrals: 0, blockedReferrals: 0, totalEarned: 0, bonusPerReferral: REFERRAL_BONUS_BDT },
+                referrals: []
+            });
+        }
+
+        const strUserId = String(cleanUserId);
+        const [userDoc, refSnap] = await Promise.all([
+            db.collection('users').doc(strUserId).get().catch(() => null),
+            db.collection('referrals').where('referrerId', '==', cleanUserId).get().catch(() => null)
+        ]);
+
+        const userData = (userDoc && userDoc.exists) ? (userDoc.data() || {}) : {};
+        const referralsList = [];
+        let activeCount = 0;
+        let pendingCount = 0;
+        let blockedCount = 0;
+
+        if (refSnap && !refSnap.empty) {
+            refSnap.forEach(doc => {
+                const d = doc.data() || {};
+                const status = d.status || 'pending';
+                if (status === 'active') activeCount++;
+                else if (status === 'blocked_clone') blockedCount++;
+                else pendingCount++;
+
+                let createdMs = Date.now();
+                if (d.createdAt && typeof d.createdAt.toMillis === 'function') createdMs = d.createdAt.toMillis();
+                else if (d.createdAt && d.createdAt._seconds) createdMs = d.createdAt._seconds * 1000;
+
+                referralsList.push({
+                    id: d.referredUserId || doc.id,
+                    name: d.referredName || 'User',
+                    username: d.referredUsername || '',
+                    status,
+                    walletConnected: Boolean(d.walletConnected),
+                    qualifyingTxDone: Boolean(d.qualifyingTxDone),
+                    totalAddMoneyBdt: d.totalAddMoneyBdt || 0,
+                    totalSellBdt: d.totalSellBdt || 0,
+                    bonusAmount: d.bonusAmount || REFERRAL_BONUS_BDT,
+                    bonusPaid: Boolean(d.bonusPaid),
+                    createdAt: createdMs
+                });
+            });
+        }
+
+        referralsList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+        const totalEarned = Math.max(activeCount * REFERRAL_BONUS_BDT, parseFloat(userData.referralEarnings) || 0);
+
+        res.json({
+            referralLink: `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`,
+            miniAppReferralLink: `https://t.me/${BOT_USERNAME}/app?startapp=ref_${cleanUserId}`,
+            sharePreviewUrl: `https://maruf-teach-bot.onrender.com/invite/${cleanUserId}`,
+            bannerUrl: `https://maruf-teach-bot.onrender.com/app/referral-banner.jpg`,
+            botUsername: BOT_USERNAME,
+            stats: {
+                totalReferrals: referralsList.length,
+                activeReferrals: activeCount,
+                pendingReferrals: pendingCount,
+                blockedReferrals: blockedCount,
+                totalEarned,
+                bonusPerReferral: REFERRAL_BONUS_BDT
+            },
+            referrals: referralsList
+        });
+    } catch (e) {
+        console.error("GET /api/miniapp/referrals error:", e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Prepares an Inline Photo + Caption + Button message for Telegram Share and/or sends a forwardable Share Card to Bot Chat
+app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
+    try {
+        const { userId, sendToBotChat } = req.body;
+        const cleanUserId = parseInt(userId);
+        if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
+            return res.status(400).json({ error: 'Valid Telegram User ID required' });
+        }
+
+        const botStartLink = `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`;
+        const sharePreviewUrl = `https://maruf-teach-bot.onrender.com/invite/${cleanUserId}`;
+        const bannerUrl = `https://maruf-teach-bot.onrender.com/app/referral-banner.jpg`;
+
+        const htmlCaption = `${PE.gem} <b>Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল প্ল্যাটফর্ম!</b> ${PE.sparkles}\n\n` +
+            `<blockquote>${PE.rocket} <b>TON, GRAM ও USDT</b> মুহূর্তেই কেনা-বেচা করুন!\n` +
+            `${PE.bank} <b>পেমেন্ট মেথড:</b> bKash ও Nagad (Auto-Verified)\n` +
+            `${PE.zap} <b>উইথড্র ও ডেলিভারি:</b> ১০০% ফাস্ট ও নিরাপদ!\n` +
+            `${PE.moneyBag} <b>রেফার ও বোনাস:</b> জয়েন করে লেনদেন শুরু করুন!</blockquote>\n\n` +
+            `${PE.arrowRight} <b>নিচের বাটনে ক্লিক করে এখনই Trust Pay বটে জয়েন করুন 👇</b>`;
+
+        let preparedMessageId = null;
+
+        // 1. Try Telegram Bot API savePreparedInlineMessage (sends Photo + Caption + Inline Button directly via WebApp.shareMessage)
+        try {
+            const prepRes = await axios.post(`https://api.telegram.org/bot${token}/savePreparedInlineMessage`, {
+                user_id: cleanUserId,
+                result: {
+                    type: 'photo',
+                    id: `ref_${cleanUserId}_${Date.now()}`,
+                    photo_url: bannerUrl,
+                    thumb_url: bannerUrl,
+                    photo_width: 1280,
+                    photo_height: 720,
+                    title: '💎 Trust Pay — Instant Crypto Buy & Sell',
+                    description: 'TON, GRAM ও USDT কেনা-বেচা করুন বিকাশ ও নগদে!',
+                    caption: htmlCaption,
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
+                        ]
+                    }
+                },
+                allow_user_chats: true,
+                allow_bot_chats: false,
+                allow_group_chats: true,
+                allow_channel_chats: true
+            }, { timeout: 6000 });
+
+            if (prepRes.data && prepRes.data.ok && prepRes.data.result?.id) {
+                preparedMessageId = prepRes.data.result.id;
+            }
+        } catch (prepErr) {
+            // Fallback will be used if savePreparedInlineMessage is not available
+        }
+
+        // 2. If requested (or if user clicked Send Share Card to Bot Chat), send the Photo + Caption + Inline Join Button to their Telegram chat
+        let sentToChat = false;
+        if (sendToBotChat && bot) {
+            const bannerLocalPath = path.join(__dirname, 'miniapp/public/referral-banner.jpg');
+            const photoSource = fs.existsSync(bannerLocalPath) ? bannerLocalPath : bannerUrl;
+            await bot.sendPhoto(cleanUserId, photoSource, {
+                caption: htmlCaption,
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
+                    ]
+                }
+            });
+            sentToChat = true;
+        }
+
+        res.json({
+            success: true,
+            preparedMessageId,
+            sentToChat,
+            botStartLink,
+            sharePreviewUrl,
+            bannerUrl
+        });
+    } catch (e) {
+        console.error("prepare-referral-share error:", e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Public Rich Preview & Instant Redirect Route for Referral Sharing (shows Banner Image + Title + Button in Telegram)
+app.get('/invite/:referrerId', (req, res) => {
+    const rawRef = (req.params.referrerId || '').toString().replace(/[^0-9]/g, '');
+    const botStartLink = rawRef ? `https://t.me/${BOT_USERNAME}?start=ref_${rawRef}` : `https://t.me/${BOT_USERNAME}`;
+    const bannerUrl = `https://maruf-teach-bot.onrender.com/app/referral-banner.jpg`;
+
+    const html = `<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>💎 Trust Pay — Instant Crypto Buy & Sell (bKash & Nagad)</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Trust Pay Official" />
+    <meta property="og:title" content="💎 Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই ও সেল (bKash & Nagad)" />
+    <meta property="og:description" content="🚀 TON, GRAM ও USDT মুহূর্তেই কেনা-বেচা করুন বিকাশ ও নগদে! নিচের লিংকে ক্লিক করে এখনই জয়েন করুন 👇" />
+    <meta property="og:image" content="${bannerUrl}" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <meta property="og:url" content="https://maruf-teach-bot.onrender.com/invite/${rawRef}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="💎 Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই ও সেল (bKash & Nagad)" />
+    <meta name="twitter:description" content="🚀 TON, GRAM ও USDT মুহূর্তেই কেনা-বেচা করুন বিকাশ ও নগদে! এখনই জয়েন করুন 👇" />
+    <meta name="twitter:image" content="${bannerUrl}" />
+    <meta http-equiv="refresh" content="0;url=${botStartLink}" />
+    <script>
+        window.location.replace(${JSON.stringify(botStartLink)});
+    </script>
+</head>
+<body style="background:#0f172a;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center;">
+    <img src="${bannerUrl}" alt="Trust Pay" style="max-width:340px;width:100%;border-radius:16px;box-shadow:0 12px 32px rgba(0,0,0,0.4);margin-bottom:20px;" />
+    <h2 style="margin:0 0 8px;font-size:20px;">💎 Trust Pay — ট্রাস্ট পে</h2>
+    <p style="margin:0 0 20px;font-size:14px;color:#cbd5e1;">টেলিগ্রাম বটে নিয়ে যাওয়া হচ্ছে...</p>
+    <a href="${botStartLink}" style="display:inline-block;padding:14px 28px;background:linear-gradient(90deg,#4f46e5,#9333ea);color:#fff;text-decoration:none;font-weight:bold;border-radius:12px;font-size:15px;">🚀 জয়েন করুন — Open Trust Pay Bot</a>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
 });
 
 app.post('/api/admin/limits', async (req, res) => {

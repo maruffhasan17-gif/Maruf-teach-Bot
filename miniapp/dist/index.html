@@ -7,10 +7,40 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>body{background-color:#f8fafc;margin:0;overflow-x:hidden}@keyframes flowerSpin{0%{transform:rotate(.05deg)}to{transform:rotate(360.05deg)}}@keyframes flowerSpinReverse{0%{transform:rotate(360.05deg)}to{transform:rotate(.05deg)}}@keyframes glowPulse{0%,to{opacity:.6;transform:scale(.92)}50%{opacity:1;transform:scale(1.08)}}@keyframes pulseLogo{0%,to{filter:drop-shadow(0 8px 24px #4f46e559);transform:scale(.96)}50%{filter:drop-shadow(0 14px 34px #9333ea8c);transform:scale(1.04)}}@keyframes dotPulse{0%,to{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}@keyframes progBar{0%{transform:translate(-100%)}50%{transform:translate(20%)}to{transform:translate(100%)}}</style>
-    <script type="module" crossorigin src="/app/assets/index-BfKBcZtQ.js"></script>
-    <link rel="stylesheet" crossorigin href="/app/assets/index-Bd9br3gZ.css">
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f8fafc" />
+    <script>
+      (function() {
+        function notifyTelegramReady() {
+          try {
+            if (window.TelegramWebviewProxy && window.TelegramWebviewProxy.postEvent) {
+              window.TelegramWebviewProxy.postEvent('web_app_ready', '{}');
+              window.TelegramWebviewProxy.postEvent('web_app_expand', '{}');
+              window.TelegramWebviewProxy.postEvent('web_app_set_header_color', JSON.stringify({ color_key: 'bg_color', color: '#f8fafc' }));
+              window.TelegramWebviewProxy.postEvent('web_app_set_background_color', JSON.stringify({ color: '#f8fafc' }));
+            } else if (window.external && window.external.notify) {
+              window.external.notify(JSON.stringify({ eventType: 'web_app_ready', eventData: {} }));
+              window.external.notify(JSON.stringify({ eventType: 'web_app_expand', eventData: {} }));
+            }
+          } catch (e) {}
+          try {
+            if (window.Telegram && window.Telegram.WebApp) {
+              window.Telegram.WebApp.ready();
+              window.Telegram.WebApp.expand();
+              if (window.Telegram.WebApp.setHeaderColor) window.Telegram.WebApp.setHeaderColor('#f8fafc');
+              if (window.Telegram.WebApp.setBackgroundColor) window.Telegram.WebApp.setBackgroundColor('#f8fafc');
+            }
+          } catch (e) {}
+        }
+        notifyTelegramReady();
+        window.__notifyTelegramReady = notifyTelegramReady;
+        document.addEventListener('DOMContentLoaded', notifyTelegramReady);
+      })();
+    </script>
+    <script src="https://telegram.org/js/telegram-web-app.js" onload="if(window.__notifyTelegramReady)window.__notifyTelegramReady()"></script>
+    <style>html,body{--lightningcss-light:initial;--lightningcss-dark: ;color-scheme:light;margin:0;overflow-x:hidden;background-color:#f8fafc!important}@keyframes flowerSpin{0%{transform:rotate(.05deg)}to{transform:rotate(360.05deg)}}@keyframes flowerSpinReverse{0%{transform:rotate(360.05deg)}to{transform:rotate(.05deg)}}@keyframes glowPulse{0%,to{opacity:.6;transform:scale(.92)}50%{opacity:1;transform:scale(1.08)}}@keyframes pulseLogo{0%,to{filter:drop-shadow(0 8px 24px #4f46e559);transform:scale(.96)}50%{filter:drop-shadow(0 14px 34px #9333ea8c);transform:scale(1.04)}}@keyframes dotPulse{0%,to{opacity:.4;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}@keyframes progBar{0%{transform:translate(-100%)}50%{transform:translate(20%)}to{transform:translate(100%)}}</style>
+    <script type="module" crossorigin src="/app/assets/index-ZxmBU2iD.js"></script>
+    <link rel="stylesheet" crossorigin href="/app/assets/index-BS9EokS1.css">
   </head>
   <body>
     <div id="root"></div>

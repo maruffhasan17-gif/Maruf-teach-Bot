@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, User, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle } from 'lucide-react';
+import { Home, User, Users, ShieldCheck, Award, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare } from './api';
 import brandLogo from './assets/trustpaylogo.png';
 
 const initialGraphData = [
@@ -170,6 +170,54 @@ const WithdrawLilyPattern = ({ className = "opacity-[0.06]" }) => (
   </svg>
 );
 
+// 6. REFERRAL: Royal Blooming Damask Rose & Rosebud Botanical Pattern
+const ReferralRosePattern = ({ className = "opacity-[0.08]" }) => (
+  <svg 
+    className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-rose-700 ${className}`} 
+    width="150" 
+    height="150" 
+    viewBox="0 0 100 100" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* Outer Blooming Rose Petals */}
+    {[0, 60, 120, 180, 240, 300].map((angle, i) => (
+      <g key={`outer-${i}`} transform={`rotate(${angle} 50 46)`}>
+        <path 
+          d="M50 12 C34 16, 26 30, 36 44 C42 50, 58 50, 64 44 C74 30, 66 16, 50 12 Z" 
+          stroke="currentColor" 
+          strokeWidth="1.1" 
+          fill="currentColor" 
+          fillOpacity="0.05" 
+        />
+      </g>
+    ))}
+    {/* Middle Cupped Rose Petals */}
+    {[30, 102, 174, 246, 318].map((angle, i) => (
+      <g key={`mid-${i}`} transform={`rotate(${angle} 50 46)`}>
+        <path 
+          d="M50 22 C39 24, 35 35, 42 44 C46 48, 54 48, 58 44 C65 35, 61 24, 50 22 Z" 
+          stroke="currentColor" 
+          strokeWidth="1.15" 
+          fill="currentColor" 
+          fillOpacity="0.08" 
+        />
+      </g>
+    ))}
+    {/* Inner Spiraling Rosebud Core */}
+    <path 
+      d="M50 32 C43 32, 40 39, 44 45 C48 50, 56 49, 57 43 C58 37, 52 35, 48 38 C45 41, 47 45, 51 44" 
+      stroke="currentColor" 
+      strokeWidth="1.4" 
+      strokeLinecap="round" 
+    />
+    {/* Rose Stem & Serrated Rose Leaves */}
+    <path d="M50 68 Q49 82, 46 95" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    <path d="M48 77 C36 74, 25 80, 28 87 C35 88, 43 83, 48 77 Z" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.07" />
+    <path d="M49 82 C61 79, 72 85, 69 92 C62 93, 54 88, 49 82 Z" stroke="currentColor" strokeWidth="1.1" fill="currentColor" fillOpacity="0.07" />
+  </svg>
+);
+
 // Backward-compatibility alias
 const FloralWatermark = HomeLotusPattern;
 
@@ -225,7 +273,21 @@ const PageBackgroundFlowers = ({ page = 'home' }) => (
         </div>
       </>
     )}
-    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'profile' && page !== 'withdraw' && (
+    {page === 'referral' && (
+      <>
+        <div className="absolute inset-0 bg-gradient-to-b from-rose-50/50 via-pink-50/20 to-transparent" />
+        <div className="absolute -top-10 -right-10 w-80 h-80 text-rose-600 opacity-[0.075] transform rotate-12">
+          <ReferralRosePattern className="w-full h-full" />
+        </div>
+        <div className="absolute top-1/3 -left-16 w-72 h-72 text-rose-500 opacity-[0.055] transform -rotate-25">
+          <ReferralRosePattern className="w-full h-full" />
+        </div>
+        <div className="absolute bottom-10 -right-12 w-80 h-80 text-rose-700 opacity-[0.065] transform rotate-30">
+          <ReferralRosePattern className="w-full h-full" />
+        </div>
+      </>
+    )}
+    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && (
       <div className="absolute -top-12 -right-12 w-80 h-80 text-indigo-900 opacity-[0.035]">
         <HomeLotusPattern className="w-full h-full" />
       </div>
@@ -911,10 +973,21 @@ function ConnectedWalletModal({ isOpen, onClose, userTonAddress, onDisconnect, l
   return typeof document !== 'undefined' ? createPortal(modalNode, document.body) : modalNode;
 }
 
-function HeaderWalletButton({ lang = 'bn', setIsModalOpen }) {
+function HeaderWalletButton({ lang = 'bn', setIsModalOpen, user }) {
   const userTonAddress = useTonAddress();
   const [tonConnectUI] = useTonConnectUI();
   const [showWalletModal, setShowWalletModal] = useState(false);
+
+  useEffect(() => {
+    if (userTonAddress && user?.id) {
+      syncUserProfile({
+        userId: user.id,
+        first_name: user.first_name,
+        username: user.username,
+        tonAddress: userTonAddress,
+      }).catch(() => {});
+    }
+  }, [userTonAddress, user?.id]);
 
   const handleDisconnect = async () => {
     if (tonConnectUI) {
@@ -1435,7 +1508,7 @@ export default function App() {
              </div>
              {/* Header Wallet Button (Shows Connected when connected, Connect when disconnected) */}
              <div className="origin-right">
-                <HeaderWalletButton lang={lang} setIsModalOpen={setIsModalOpen} />
+                <HeaderWalletButton lang={lang} setIsModalOpen={setIsModalOpen} user={user} />
              </div>
           </div>
 
@@ -1497,9 +1570,18 @@ export default function App() {
                   fiatWithdrawPending={fiatWithdrawPending} 
                   onGoToWithdraw={() => setActiveTab('withdraw')} 
                   onGoToHistory={() => setActiveTab('history')} 
+                  onGoToReferral={() => setActiveTab('referral')}
                   setFiatWallet={setFiatWallet} 
                   setIsModalOpen={setIsModalOpen}
                   reloadData={() => loadData(user?.id || 123456789)} 
+              />
+          )}
+          {activeTab === 'referral' && (
+              <ReferralPage
+                  user={user}
+                  lang={lang}
+                  onBack={() => setActiveTab('profile')}
+                  reloadData={() => loadData(user?.id || 123456789)}
               />
           )}
           {activeTab === 'claim' && <ClaimPage user={user} lang={lang} t={t} onBack={() => setActiveTab('home')} />}
@@ -1521,7 +1603,7 @@ export default function App() {
         </div>
 
         {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
-        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && (() => {
+        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && (() => {
             const navTabs = ['home', 'add-money', 'sell', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
@@ -3821,7 +3903,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
 }
 
 
-function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, setFiatWallet, setIsModalOpen, reloadData }) {
+function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, onGoToReferral, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
 
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -4009,6 +4091,36 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
          >
             {t?.withdrawBalance || 'WITHDRAW BALANCE'}
          </CutCornerButton>
+      </CutCornerCard>
+
+      {/* 2.5 ROSE REFERRAL & EARN MASTER CARD */}
+      <CutCornerCard className="p-3 bg-gradient-to-br from-rose-50/95 via-white to-pink-50/90 border border-rose-200/80" flower={<ReferralRosePattern />}>
+         <div
+            onClick={onGoToReferral}
+            className="flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group p-1"
+         >
+            <div className="flex items-center gap-3 min-w-0">
+               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-md shadow-rose-500/25 shrink-0 group-hover:scale-105 transition-transform">
+                  <Gift size={19} />
+               </div>
+               <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                     <span className="font-black text-slate-900 text-[13px] leading-tight">
+                        {lang === 'bn' ? 'রেফার করুন এবং আয় করুন' : 'Refer Friends & Earn'}
+                     </span>
+                     <span className="px-2 py-0.5 bg-rose-600 text-white rounded-full text-[9px] font-black tracking-wide shadow-xs">
+                        +৳5 / REF
+                     </span>
+                  </div>
+                  <span className="text-[10.5px] text-rose-700/85 font-semibold block mt-0.5">
+                     {lang === 'bn' ? 'প্রতি অ্যাক্টিভ রেফারে নগদ ৫ টাকা বোনাস পান 🌹' : 'Get instant ৳5 BDT per active referral 🌹'}
+                  </span>
+               </div>
+            </div>
+            <div className="w-7 h-7 rounded-full bg-rose-100/90 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-all">
+               <ChevronRight size={15} />
+            </div>
+         </div>
       </CutCornerCard>
 
       {/* 3. HISTORY & SUPPORT SERVICES MASTER CARD */}
@@ -4331,10 +4443,450 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, fiatWall
 }
 
 
+function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
+  const userId = user?.id || 123456789;
+  const defaultBotLink = `https://t.me/bd_trust_pay_bot?start=ref_${userId}`;
+  const [refData, setRefData] = useState({
+    botReferralLink: defaultBotLink,
+    miniAppReferralLink: `https://t.me/bd_trust_pay_bot/app?startapp=ref_${userId}`,
+    sharePreviewUrl: `${window.location.origin}/invite/${userId}`,
+    bannerUrl: `${window.location.origin}/referral-banner.jpg`,
+    rewardPerReferral: 5,
+    minVolumeBdt: 20,
+    totalReferrals: 0,
+    activeReferrals: 0,
+    pendingReferrals: 0,
+    referralEarnings: 0,
+    referrals: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareToast, setShareToast] = useState('');
 
+  useEffect(() => {
+    let mounted = true;
+    const loadRef = async () => {
+      setLoading(true);
+      try {
+        const data = await fetchReferralData(userId);
+        if (mounted && data && !data.error) {
+          setRefData(prev => ({ ...prev, ...data }));
+        }
+      } catch (e) {
+        console.error('Failed to load referral data:', e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    loadRef();
+    return () => { mounted = false; };
+  }, [userId]);
 
+  const handleCopyLink = () => {
+    const linkToCopy = refData.botReferralLink || defaultBotLink;
+    navigator.clipboard.writeText(linkToCopy);
+    setCopied(true);
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+    setTimeout(() => setCopied(false), 2200);
+  };
 
+  const handleShareRichMessage = async () => {
+    if (sharing) return;
+    setSharing(true);
+    setShareToast('');
+    try {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+      }
 
+      const res = await prepareReferralShare({
+        userId,
+        sendToBotChat: true
+      });
+
+      const tg = window.Telegram?.WebApp;
+
+      // 1. If Telegram supports native prepared inline message sharing (Photo + Caption + Inline Join Button)
+      if (res?.preparedMessageId && typeof tg?.shareMessage === 'function') {
+        tg.shareMessage(res.preparedMessageId, (sent) => {
+          if (sent) {
+            setShareToast(lang === 'bn' ? '✅ ছবি ও বাটনসহ মেসেজ সফলভাবে শেয়ার হয়েছে!' : '✅ Shared with image & join button!');
+          }
+        });
+        setShareToast(
+          lang === 'bn'
+            ? '🌹 ছবি ও বাটনসহ রেফারেল কার্ড বট ইনবক্সেও পাঠানো হয়েছে!'
+            : '🌹 Referral card with image & button also sent to your bot chat!'
+        );
+      } else {
+        // 2. Open Telegram native share picker with OpenGraph Banner Preview + Formatted Message,
+        // while the Bot simultaneously delivers the full Photo + Inline Button message to the user's chat!
+        const fallbackShareText =
+          `🌹✨ Trust Pay — Instant Crypto Buy & Sell BD ✨🌹\n\n` +
+          `💎 TON, GRAM ও USDT খুব সহজে কিনুন এবং বিক্রি করুন!\n` +
+          `⚡ bKash ও Nagad-এ মাত্র ২ মিনিটে অটোমেটিক পেমেন্ট!\n` +
+          `🎁 নিচের লিংকে ক্লিক করে জয়েন করুন এবং ওয়ালেট কানেক্ট করে লেনদেন শুরু করুন 👇\n` +
+          `${refData.botReferralLink || defaultBotLink}`;
+        const shareUrl =
+          res?.telegramShareUrl ||
+          `https://t.me/share/url?url=${encodeURIComponent(refData.sharePreviewUrl || refData.botReferralLink || defaultBotLink)}&text=${encodeURIComponent(fallbackShareText)}`;
+
+        if (tg?.openTelegramLink) {
+          tg.openTelegramLink(shareUrl);
+        } else {
+          window.open(shareUrl, '_blank');
+        }
+
+        setShareToast(
+          lang === 'bn'
+            ? '🌹 ছবি ও বাটনসহ রেফারেল পোস্ট আপনার বট চ্যাটেও পাঠানো হয়েছে — যেকোনো বন্ধুকে Forward করতে পারবেন!'
+            : '🌹 Full Photo + Button post was also sent to your bot chat for easy forwarding!'
+        );
+      }
+    } catch (err) {
+      console.error('Share error:', err);
+      const fallbackUrl = `https://t.me/share/url?url=${encodeURIComponent(refData.botReferralLink || defaultBotLink)}&text=${encodeURIComponent('🌹 Trust Pay — Instant Crypto Buy & Sell (bKash & Nagad)! নিচের লিংকে ক্লিক করে জয়েন করুন 👇')}`;
+      if (window.Telegram?.WebApp?.openTelegramLink) {
+        window.Telegram.WebApp.openTelegramLink(fallbackUrl);
+      } else {
+        window.open(fallbackUrl, '_blank');
+      }
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-16 relative">
+      {/* Floating ambient Rose Petals header bar */}
+      <div className="flex items-center justify-between">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/90 border border-rose-200 text-rose-700 font-bold text-xs shadow-xs active:scale-95 transition-all"
+        >
+          <ArrowLeft size={15} />
+          <span>{lang === 'bn' ? 'প্রোফাইলে ফিরুন' : 'Back to Profile'}</span>
+        </button>
+
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100/90 border border-rose-200 text-rose-700 text-[11px] font-black shadow-xs">
+          <span>🌹</span>
+          <span>{lang === 'bn' ? 'রেফারেল প্রোগ্রাম' : 'Referral Program'}</span>
+        </div>
+      </div>
+
+      {/* 1. HERO ROSE GARDEN BANNER CARD */}
+      <CutCornerCard
+        className="p-0 overflow-hidden bg-gradient-to-br from-rose-600 via-rose-500 to-pink-600 text-white border border-rose-300/60 shadow-[0_14px_34px_rgba(225,29,72,0.25)]"
+        flower={<ReferralRosePattern />}
+      >
+        {/* Promotional Referral Banner Image Preview */}
+        <div className="relative w-full h-36 overflow-hidden border-b border-white/15 bg-rose-950/40">
+          <img
+            src="/referral-banner.jpg"
+            alt="Trust Pay Referral Banner"
+            className="w-full h-full object-cover opacity-95"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-rose-950/90 via-rose-900/25 to-transparent flex flex-col justify-end p-3.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/90 backdrop-blur-xs text-white text-[10px] font-black w-fit mb-1 border border-rose-300/40">
+              <span>🌹 অ্যাক্টিভ রেফার বোনাস</span>
+              <span className="bg-white text-rose-600 px-1.5 py-0.2 rounded-full font-black">+৳৫ টাকা</span>
+            </div>
+            <h2 className="text-[16px] font-black text-white leading-tight drop-shadow-xs">
+              {lang === 'bn'
+                ? 'বন্ধুদের ইনভাইট করুন এবং প্রতি রেফারে ৫ টাকা পান!'
+                : 'Invite Friends & Earn ৳5 Per Active Referral!'}
+            </h2>
+          </div>
+        </div>
+
+        {/* 3-Column Stats Row */}
+        <div className="p-3.5 bg-white/95 text-slate-900">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="p-2.5 rounded-xl bg-rose-50/80 border border-rose-100">
+              <span className="text-[10px] font-bold text-rose-500 block">
+                {lang === 'bn' ? 'মোট রেফার' : 'Total Joined'}
+              </span>
+              <span className="text-lg font-black text-slate-900 mt-0.5 block">
+                {loading ? '...' : refData.totalReferrals}
+              </span>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-100">
+              <span className="text-[10px] font-bold text-emerald-600 block">
+                {lang === 'bn' ? 'অ্যাক্টিভ রেফার' : 'Active Refs'}
+              </span>
+              <span className="text-lg font-black text-emerald-700 mt-0.5 block">
+                {loading ? '...' : refData.activeReferrals}
+              </span>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/70">
+              <span className="text-[10px] font-bold text-amber-700 block">
+                {lang === 'bn' ? 'মোট বোনাস আয়' : 'Total Earned'}
+              </span>
+              <span className="text-lg font-black text-amber-700 mt-0.5 block">
+                ৳{loading ? '...' : refData.referralEarnings}
+              </span>
+            </div>
+          </div>
+        </div>
+      </CutCornerCard>
+
+      {/* 2. REFERRAL LINK COPY & RICH SHARE CARD (WITH ROSE FLOWER DESIGN) */}
+      <CutCornerCard
+        className="p-4 space-y-3.5 bg-gradient-to-br from-white via-rose-50/40 to-pink-50/50 border border-rose-200/80"
+        flower={<ReferralRosePattern />}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+              🌹
+            </div>
+            <div>
+              <h3 className="text-[13px] font-black text-slate-900 leading-tight">
+                {lang === 'bn' ? 'আপনার পার্সোনাল রেফারেল লিংক' : 'Your Personal Referral Link'}
+              </h3>
+              <p className="text-[10px] text-rose-600/80 font-semibold">
+                {lang === 'bn' ? 'লিংক কপি করুন অথবা ছবি ও বাটনসহ শেয়ার করুন' : 'Copy link or share with banner & button'}
+              </p>
+            </div>
+          </div>
+          <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black">
+            ৳5 / Active
+          </span>
+        </div>
+
+        {/* Link Box + Copy Button */}
+        <div className="flex items-center gap-2 bg-white border-2 border-rose-200/90 rounded-xl p-2 shadow-2xs">
+          <div className="flex-1 min-w-0 px-1.5">
+            <span className="text-[11px] font-mono font-bold text-slate-700 block truncate select-all">
+              {refData.botReferralLink || defaultBotLink}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className={`px-3 py-2 rounded-lg text-[11px] font-black flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+              copied
+                ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/30'
+                : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+            }`}
+          >
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            <span>{copied ? (lang === 'bn' ? 'কপি হয়েছে!' : 'Copied!') : (lang === 'bn' ? 'কপি করুন' : 'Copy')}</span>
+          </button>
+        </div>
+
+        {/* Share with Image + Message + Button CTA */}
+        <button
+          type="button"
+          onClick={handleShareRichMessage}
+          disabled={sharing}
+          className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:from-rose-700 hover:to-pink-700 text-white font-black text-[13px] shadow-lg shadow-rose-500/30 flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
+        >
+          {sharing ? (
+            <Loader2 size={17} className="animate-spin" />
+          ) : (
+            <Send size={16} />
+          )}
+          <span>
+            {lang === 'bn'
+              ? '🌹 শেয়ার করুন (ছবি + মেসেজ + জয়েন বাটনসহ)'
+              : '🌹 Share Now (Image + Message + Join Button)'}
+          </span>
+        </button>
+
+        {shareToast && (
+          <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-bold text-center leading-snug animate-in fade-in">
+            {shareToast}
+          </div>
+        )}
+      </CutCornerCard>
+
+      {/* 3. HOW ACTIVE REFERRAL WORKS (3 CONDITIONS) */}
+      <CutCornerCard
+        className="p-4 space-y-3 bg-gradient-to-br from-white via-rose-50/25 to-white border border-rose-200/70"
+        flower={<ReferralRosePattern />}
+      >
+        <div className="flex items-center gap-2">
+          <Award size={17} className="text-rose-600 shrink-0" />
+          <h3 className="text-[13px] font-black text-slate-900">
+            {lang === 'bn' ? 'কীভাবে রেফার Active হবে এবং ৫ টাকা পাবেন?' : 'How Referral Becomes Active (+৳5 Bonus)'}
+          </h3>
+        </div>
+
+        <div className="space-y-2.5">
+          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-rose-50/60 border border-rose-100">
+            <div className="w-6 h-6 rounded-full bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+              1
+            </div>
+            <div>
+              <span className="text-[12px] font-extrabold text-slate-900 block">
+                {lang === 'bn' ? 'রেফারেল লিংক বা বাটনে ক্লিক করে আইডি তৈরি' : 'Join via Referral Link or Button'}
+              </span>
+              <span className="text-[10.5px] text-slate-600 font-medium leading-snug block mt-0.5">
+                {lang === 'bn'
+                  ? 'আপনার শেয়ার করা মেসেজের বাটনে বা লিংকে ক্লিক করে নতুন ইউজারকে বটে স্টার্ট করতে হবে।'
+                  : 'Your friend must start the bot using your referral link or join button.'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-rose-50/60 border border-rose-100">
+            <div className="w-6 h-6 rounded-full bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+              2
+            </div>
+            <div>
+              <span className="text-[12px] font-extrabold text-slate-900 block">
+                {lang === 'bn' ? 'ওয়ালেট কানেক্ট করা (Wallet Connect)' : 'Connect a Wallet'}
+              </span>
+              <span className="text-[10.5px] text-slate-600 font-medium leading-snug block mt-0.5">
+                {lang === 'bn'
+                  ? 'ইউজারকে বটে TON Wallet কানেক্ট করতে হবে অথবা bKash/Nagad পেআউট ওয়ালেট যুক্ত করতে হবে।'
+                  : 'Your friend must connect a TON wallet or save a bKash/Nagad wallet.'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/70">
+            <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+              3
+            </div>
+            <div>
+              <span className="text-[12px] font-extrabold text-emerald-950 block">
+                {lang === 'bn' ? '২০ টাকা Add Money অথবা ২০ টাকা Crypto Sell' : 'Complete ৳20 Add Money or ৳20 Crypto Sell'}
+              </span>
+              <span className="text-[10.5px] text-emerald-800 font-medium leading-snug block mt-0.5">
+                {lang === 'bn'
+                  ? 'কমপক্ষে ২০ টাকা অ্যাড মানি অথবা ২০ টাকার ক্রিপ্টো সেল সম্পন্ন করলেই রেফারটি সাথে সাথে Active হবে এবং আপনার মেইন ব্যালেন্সে +৳৫ টাকা যোগ হয়ে যাবে!'
+                  : 'Once they complete at least ৳20 Add Money or ৳20 Crypto Sell, the referral becomes Active and +৳5 BDT is credited instantly!'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Anti-Clone Security Warning */}
+        <div className="p-3 rounded-xl bg-amber-50/90 border border-amber-200/80 flex items-start gap-2.5">
+          <ShieldCheck size={17} className="text-amber-700 shrink-0 mt-0.5" />
+          <div className="text-[10.5px] text-amber-900 font-semibold leading-relaxed">
+            <span className="font-black block text-amber-950 mb-0.5">
+              {lang === 'bn' ? '🛡️ অ্যান্টি-ক্লোন ও ডিভাইস সিকিউরিটি সতর্কবার্তা:' : '🛡️ Anti-Clone & Device Security Notice:'}
+            </span>
+            {lang === 'bn'
+              ? 'একই মোবাইলে Clone App, Parallel Space, Dual App বা একাধিক টেলিগ্রাম আইডি খুলে নিজে নিজেকে রেফার করলে আমাদের হার্ডওয়্যার সিকিউরিটি সিস্টেম তা সাথে সাথে ব্লক করে দিবে এবং কোনো বোনাস যুক্ত হবে না।'
+              : 'Using Clone Apps, Parallel Space, or multiple accounts on the same phone is strictly blocked by our hardware device fingerprint security.'}
+          </div>
+        </div>
+      </CutCornerCard>
+
+      {/* 4. REFERRED USERS LIST CARD */}
+      <CutCornerCard
+        className="p-4 space-y-3 bg-white border border-rose-200/70"
+        flower={<ReferralRosePattern />}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-rose-600" />
+            <h3 className="text-[13px] font-black text-slate-900">
+              {lang === 'bn' ? 'আপনার রেফার তালিকা' : 'Your Referred Users'}
+            </h3>
+          </div>
+          <span className="text-[10px] font-bold text-slate-400">
+            {refData.referrals?.length || 0} {lang === 'bn' ? 'জন' : 'Users'}
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="py-8 flex flex-col items-center justify-center text-rose-500 gap-2">
+            <Loader2 size={22} className="animate-spin" />
+            <span className="text-xs font-bold">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
+          </div>
+        ) : !refData.referrals || refData.referrals.length === 0 ? (
+          <div className="py-7 text-center space-y-1.5 bg-rose-50/40 rounded-xl border border-dashed border-rose-200 p-4">
+            <div className="text-2xl">🌹</div>
+            <p className="text-[12px] font-bold text-slate-700">
+              {lang === 'bn' ? 'এখনো কোনো রেফার নেই' : 'No referrals yet'}
+            </p>
+            <p className="text-[10.5px] text-slate-500">
+              {lang === 'bn'
+                ? 'উপরের শেয়ার বাটনে ক্লিক করে বন্ধুদের ইনভাইট করুন এবং প্রতি অ্যাক্টিভ রেফারে ৫ টাকা বোনাস নিন!'
+                : 'Tap the Share button above to invite friends and earn ৳5 per active referral!'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
+            {refData.referrals.map((item, idx) => {
+              const isAct = item.status === 'active';
+              const isBlocked = item.status === 'rejected_clone';
+              return (
+                <div
+                  key={item.userId || idx}
+                  className="p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/80 flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[12px] font-black text-slate-900 truncate">
+                        {item.name || 'Telegram User'}
+                      </span>
+                      {item.username && (
+                        <span className="text-[10px] text-slate-400 font-medium truncate">
+                          @{item.username}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                        ✓ ID Joined
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                          item.walletConnected
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                        }`}
+                      >
+                        {item.walletConnected ? '✓ Wallet' : '⏳ Wallet'}
+                      </span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+                          item.qualifyingTxDone
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                        }`}
+                      >
+                        {item.qualifyingTxDone ? '✓ ৳20+ Tx' : '⏳ ৳20+ Tx'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    {isAct ? (
+                      <span className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-black block">
+                        +৳{item.rewardAmount || 5} Active
+                      </span>
+                    ) : isBlocked ? (
+                      <span className="px-2 py-1 rounded-lg bg-rose-100 text-rose-700 text-[10px] font-black block">
+                        Clone Blocked
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-black block">
+                        Pending
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CutCornerCard>
+    </div>
+  );
+}
 
 
 function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWallet, fiatWithdrawPending, antiAbuseData = {}, setIsModalOpen, onBack, reloadData }) {

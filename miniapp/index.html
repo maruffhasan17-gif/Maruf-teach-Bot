@@ -7,11 +7,42 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#f8fafc" />
+    <script>
+      (function() {
+        function notifyTelegramReady() {
+          try {
+            if (window.TelegramWebviewProxy && window.TelegramWebviewProxy.postEvent) {
+              window.TelegramWebviewProxy.postEvent('web_app_ready', '{}');
+              window.TelegramWebviewProxy.postEvent('web_app_expand', '{}');
+              window.TelegramWebviewProxy.postEvent('web_app_set_header_color', JSON.stringify({ color_key: 'bg_color', color: '#f8fafc' }));
+              window.TelegramWebviewProxy.postEvent('web_app_set_background_color', JSON.stringify({ color: '#f8fafc' }));
+            } else if (window.external && window.external.notify) {
+              window.external.notify(JSON.stringify({ eventType: 'web_app_ready', eventData: {} }));
+              window.external.notify(JSON.stringify({ eventType: 'web_app_expand', eventData: {} }));
+            }
+          } catch (e) {}
+          try {
+            if (window.Telegram && window.Telegram.WebApp) {
+              window.Telegram.WebApp.ready();
+              window.Telegram.WebApp.expand();
+              if (window.Telegram.WebApp.setHeaderColor) window.Telegram.WebApp.setHeaderColor('#f8fafc');
+              if (window.Telegram.WebApp.setBackgroundColor) window.Telegram.WebApp.setBackgroundColor('#f8fafc');
+            }
+          } catch (e) {}
+        }
+        notifyTelegramReady();
+        window.__notifyTelegramReady = notifyTelegramReady;
+        document.addEventListener('DOMContentLoaded', notifyTelegramReady);
+      })();
+    </script>
+    <script src="https://telegram.org/js/telegram-web-app.js" onload="if(window.__notifyTelegramReady)window.__notifyTelegramReady()"></script>
     <style>
-      body {
+      html, body {
         margin: 0;
-        background-color: #f8fafc;
+        background-color: #f8fafc !important;
+        color-scheme: light;
         overflow-x: hidden;
       }
       @-webkit-keyframes flowerSpin {
