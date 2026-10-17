@@ -479,3 +479,23 @@ html.dark .tp-wallet-dropdown button:hover {
   background-color: #334155 !important;
 }
 
+/* Selected vs Unselected Crypto Asset Cards in Dark Mode */
+html.dark .tp-asset-card-selected {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.34), rgba(79, 70, 229, 0.22)) !important;
+  border-color: #818CF8 !important;
+  box-shadow: 0 0 18px rgba(99, 102, 241, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  opacity: 1 !important;
+}
+html.dark .tp-asset-card-unselected {
+  background-color: rgba(15, 23, 42, 0.7) !important;
+  border-color: rgba(51, 65, 85, 0.65) !important;
+  opacity: 0.65 !important;
+}
+html.dark .tp-asset-check-active {
+  background: linear-gradient(135deg, #6366F1, #10B981) !important;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.6) !important;
+}
+html.dark .tp-asset-check-inactive {
+  border-color: rgba(100, 116, 139, 0.5) !important;
+}
+
