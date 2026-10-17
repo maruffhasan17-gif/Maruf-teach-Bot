@@ -742,51 +742,78 @@ function getMenu(lang) {
 }
 
 const processedStartIds = new Set();
+const notifiedNewUserIds = new Set();
 
-
-async function notifyNewUserJoined(userId, userData = {}) {
+async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = false) {
     try {
         if (!userId || userId === 123456789 || isNaN(userId)) return;
-        const userRef = db.collection('users').doc(userId.toString());
+        const strUserId = userId.toString();
+        if (notifiedNewUserIds.has(strUserId)) return;
+
+        const userRef = db.collection('users').doc(strUserId);
         const userDoc = await userRef.get().catch(() => null);
 
-        let userNumber = 1;
-        let isNew = false;
         if (userDoc && userDoc.exists) {
-            const d = userDoc.data();
-            if (d.userNumber) return; // already counted
-            userNumber = d.userNumber || 1;
-        } else {
-            isNew = true;
-            try {
-                const countSnap = await db.collection('users').count().get();
-                userNumber = (countSnap.data().count || 0) + 1;
-            } catch (cErr) {
-                try {
-                    const snap = await db.collection('users').select().get();
-                    userNumber = snap.size + 1;
-                } catch(e) {
-                    userNumber = 1;
+            const d = userDoc.data() || {};
+            // If user was already counted/notified OR was already an existing bot member before this call
+            if (
+                d.userNumber ||
+                d.notifiedNewUser ||
+                (!isConfirmedBrandNew && (
+                    d.id ||
+                    d.userId ||
+                    d.chatId ||
+                    d.mbsId ||
+                    d.status ||
+                    d.firstName ||
+                    d.first_name ||
+                    d.balance !== undefined ||
+                    d.fiatWallet
+                ))
+            ) {
+                notifiedNewUserIds.add(strUserId);
+                if (!d.notifiedNewUser) {
+                    userRef.set({ notifiedNewUser: true }, { merge: true }).catch(() => {});
                 }
+                return;
             }
-            await userRef.set({
-                chatId: userId,
-                userId: userId,
-                username: userData.username || "Unknown",
-                firstName: userData.firstName || "User",
-                joinedAt: new Date(),
-                status: 'pending_verification',
-                totalPayouts: 0,
-                balance: 0,
-                userNumber: userNumber,
-                ...userData
-            }, { merge: true });
         }
+
+        notifiedNewUserIds.add(strUserId);
+
+        let userNumber = 1;
+        try {
+            const countSnap = await db.collection('users').count().get();
+            const currentCount = countSnap.data().count || 0;
+            userNumber = (userDoc && userDoc.exists) ? Math.max(1, currentCount) : (currentCount + 1);
+        } catch (cErr) {
+            try {
+                const snap = await db.collection('users').select().get();
+                userNumber = (userDoc && userDoc.exists) ? Math.max(1, snap.size) : (snap.size + 1);
+            } catch (e) {
+                userNumber = 1;
+            }
+        }
+
+        await userRef.set({
+            id: Number(userId),
+            chatId: strUserId,
+            userId: Number(userId),
+            username: userData.username || '',
+            firstName: userData.firstName || 'User',
+            first_name: userData.firstName || 'User',
+            lastName: userData.lastName || '',
+            last_name: userData.lastName || '',
+            joinedAt: new Date(),
+            status: (userDoc && userDoc.exists && userDoc.data()?.status) ? userDoc.data().status : 'pending_verification',
+            userNumber: userNumber,
+            notifiedNewUser: true
+        }, { merge: true });
 
         const targetGroup = botConfig?.userLogGroupId || botConfig?.newUserGroupId;
         if (targetGroup && bot) {
-            const firstName = userData.firstName || (userDoc?.exists ? userDoc.data().firstName : "User");
-            const rawUsername = userData.username || (userDoc?.exists ? userDoc.data().username : "");
+            const firstName = userData.firstName || (userDoc?.exists ? userDoc.data().firstName : 'User');
+            const rawUsername = userData.username || (userDoc?.exists ? userDoc.data().username : '');
             const uname = rawUsername && rawUsername !== 'Unknown' ? ('@' + rawUsername) : 'None';
             const bdDate = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' });
 
@@ -939,19 +966,26 @@ async function recordAndVerifyDeviceAntiClone(userId, deviceInfo = {}) {
     return { isClone, reason: cloneReason, matchedUserId };
 }
 
-// Registers a new referral when an invited user starts the bot or opens the MiniApp via a referral link
+const inFlightReferralRegistrations = new Set();
+
+// Registers a new referral ONLY when a brand-new user (never joined bot before) starts the bot or opens the MiniApp via a referral link
 async function registerUserReferral(userId, rawReferrerId, userMeta = {}, deviceInfo = {}) {
+    const cleanUserId = parseInt(userId);
+    const cleanReferrerId = parseInt(String(rawReferrerId || '').replace(/^ref_/i, '').trim());
+
+    if (!cleanUserId || !cleanReferrerId || isNaN(cleanUserId) || isNaN(cleanReferrerId)) return { registered: false, reason: 'invalid_id' };
+    if (cleanUserId === 123456789 || cleanReferrerId === 123456789) return { registered: false, reason: 'guest_id' };
+    if (cleanUserId === cleanReferrerId) return { registered: false, reason: 'self_referral' };
+
+    const strUserId = String(cleanUserId);
+    const strReferrerId = String(cleanReferrerId);
+
+    if (inFlightReferralRegistrations.has(strUserId)) {
+        return { registered: false, reason: 'registration_in_progress' };
+    }
+    inFlightReferralRegistrations.add(strUserId);
+
     try {
-        const cleanUserId = parseInt(userId);
-        const cleanReferrerId = parseInt(String(rawReferrerId).replace(/^ref_/i, '').trim());
-
-        if (!cleanUserId || !cleanReferrerId || isNaN(cleanUserId) || isNaN(cleanReferrerId)) return { registered: false, reason: 'invalid_id' };
-        if (cleanUserId === 123456789 || cleanReferrerId === 123456789) return { registered: false, reason: 'guest_id' };
-        if (cleanUserId === cleanReferrerId) return { registered: false, reason: 'self_referral' };
-
-        const strUserId = String(cleanUserId);
-        const strReferrerId = String(cleanReferrerId);
-
         const [userDoc, referrerDoc, existingRefDoc] = await Promise.all([
             db.collection('users').doc(strUserId).get(),
             db.collection('users').doc(strReferrerId).get(),
@@ -964,13 +998,28 @@ async function registerUserReferral(userId, rawReferrerId, userMeta = {}, device
         // If user already has a referral record, do not overwrite
         if (existingRefDoc.exists) return { registered: false, reason: 'already_referred' };
 
-        const userData = userDoc.exists ? (userDoc.data() || {}) : {};
-        if (userData.referredBy) return { registered: false, reason: 'already_has_referrer' };
-
-        // If user is an existing old user who already did transactions or joined long ago (more than 15 minutes before clicking referral link), don't allow retroactive referral
-        if (userData.hasSellBalance || userData.hasDepositWithoutTrade || (userData.balance && userData.balance > 0) || userData.fiatWallet?.number) {
-            return { registered: false, reason: 'existing_active_user' };
+        // STRICT CHECK: If user was ALREADY joined in the bot before, NEVER count as referral!
+        if (userDoc.exists) {
+            const existingData = userDoc.data() || {};
+            if (
+                existingData.referredBy ||
+                existingData.id ||
+                existingData.userId ||
+                existingData.chatId ||
+                existingData.mbsId ||
+                existingData.status ||
+                existingData.firstName ||
+                existingData.first_name ||
+                existingData.balance !== undefined ||
+                existingData.fiatWallet?.number ||
+                existingData.hasSellBalance ||
+                existingData.hasDepositWithoutTrade
+            ) {
+                return { registered: false, reason: 'already_joined_bot' };
+            }
         }
+
+        const userData = userDoc.exists ? (userDoc.data() || {}) : {};
 
         // Run Anti-Clone check against referrer and device registry
         const referrerData = referrerDoc.data() || {};
@@ -1039,6 +1088,8 @@ async function registerUserReferral(userId, rawReferrerId, userMeta = {}, device
     } catch (e) {
         console.error("registerUserReferral error:", e.message);
         return { registered: false, reason: e.message };
+    } finally {
+        inFlightReferralRegistrations.delete(strUserId);
     }
 }
 
@@ -1258,14 +1309,34 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     const firstName = msg.from.first_name || "User";
     const lastName = msg.from.last_name || "";
     
-    // Save user to Firebase
+    // Check if this user ALREADY exists in Firebase BEFORE writing any fields
     const userRef = db.collection('users').doc(chatId.toString());
     const existingUserDoc = await userRef.get().catch(() => null);
+    const existingData = (existingUserDoc && existingUserDoc.exists) ? (existingUserDoc.data() || {}) : null;
+    const isExistingUser = Boolean(
+        existingData && (
+            existingData.userNumber ||
+            existingData.notifiedNewUser ||
+            existingData.id ||
+            existingData.userId ||
+            existingData.chatId ||
+            existingData.mbsId ||
+            existingData.status ||
+            existingData.firstName ||
+            existingData.first_name ||
+            existingData.balance !== undefined ||
+            existingData.fiatWallet
+        )
+    );
 
-    // If user started bot via referral link (e.g., /start ref_123456)
-    if (startPayload && /^ref_\d+$/i.test(startPayload)) {
-        const referrerId = startPayload.replace(/^ref_/i, '');
-        await registerUserReferral(chatId, referrerId, { username, firstName, lastName }, {});
+    if (!isExistingUser) {
+        // 1. Brand-new user: if they joined via referral link (/start ref_123456), register the referral
+        if (startPayload && /^ref_\d+$/i.test(startPayload)) {
+            const referrerId = startPayload.replace(/^ref_/i, '');
+            await registerUserReferral(chatId, referrerId, { username, firstName, lastName }, {});
+        }
+        // 2. Brand-new user: notify User Joined group ONCE and assign permanent userNumber
+        await notifyNewUserJoined(chatId, { username, firstName, lastName }, true);
     }
 
     await userRef.set({
@@ -1276,10 +1347,9 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         firstName: firstName,
         first_name: firstName,
         lastName: lastName,
-        last_name: lastName
+        last_name: lastName,
+        notifiedNewUser: true
     }, { merge: true }).catch(() => {});
-
-    await notifyNewUserJoined(chatId, { username, firstName });
 
     userStates[chatId] = { step: 'start', failedAttempts: 0, lang: 'bn' };
     
@@ -2184,6 +2254,11 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
         let data = {};
         if (userDoc.exists) {
             data = userDoc.data();
+        } else if (req.query.startParam && /^ref_\d+$/i.test(String(req.query.startParam).trim())) {
+            // Brand-new user opening MiniApp directly via referral startParam
+            const devInfo = extractClientDevice(req, req.query);
+            const refId = String(req.query.startParam).trim().replace(/^ref_/i, '');
+            await registerUserReferral(userId, refId, {}, devInfo);
         }
 
         // Background anti-clone device verification if fingerprint query params provided
@@ -4100,13 +4175,14 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
         if (!userId || Number(userId) === 123456789) return res.json({ success: true });
 
         const devInfo = extractClientDevice(req, req.body);
-        await recordAndVerifyDeviceAntiClone(userId, devInfo);
 
-        // If user opened MiniApp with a referral startParam (e.g., ref_123456)
+        // If a brand-new user opened MiniApp with a referral startParam (e.g., ref_123456), check BEFORE writing user doc
         if (startParam && /^ref_\d+$/i.test(String(startParam).trim())) {
             const refId = String(startParam).trim().replace(/^ref_/i, '');
             await registerUserReferral(userId, refId, { username, firstName, lastName }, devInfo);
         }
+
+        await recordAndVerifyDeviceAntiClone(userId, devInfo);
         
         const updates = {
             chatId: userId.toString(),
@@ -4140,8 +4216,6 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
 });
 
 // ==================== REFERRAL API & RICH SHARE ENDPOINTS ====================
-let cachedReferralPhotoFileId = null;
-
 app.get('/referral-banner.jpg', (req, res) => {
     const p = path.join(__dirname, 'miniapp/public/referral-banner.jpg');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -4244,10 +4318,10 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
     }
 });
 
-// Prepares an Inline Photo + Caption + Button message for Telegram Share and/or sends a forwardable Share Card to Bot Chat
+// Prepares an Inline Photo + Caption + Button message for Telegram Share ONLY (Never sends any message to the referrer's bot chat)
 app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
     try {
-        const { userId, sendToBotChat } = req.body;
+        const { userId } = req.body;
         const cleanUserId = parseInt(userId);
         if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
             return res.status(400).json({ error: 'Valid Telegram User ID required' });
@@ -4257,13 +4331,6 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
         const sharePreviewUrl = `https://maruf-teach-bot.onrender.com/invite/${cleanUserId}`;
         const bannerUrl = `https://maruf-teach-bot.onrender.com/app/referral-banner.jpg`;
 
-        const htmlCaption = `${PE.rose} <b>Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল প্ল্যাটফর্ম!</b> ${PE.sparkles}\n\n` +
-            `<blockquote>${PE.rocket} <b>TON, GRAM ও USDT</b> মুহূর্তেই কেনা-বেচা করুন!\n` +
-            `${PE.bank} <b>পেমেন্ট মেথড:</b> bKash ও Nagad (Auto-Verified)\n` +
-            `${PE.zap} <b>উইথড্র ও ডেলিভারি:</b> ১০০% ফাস্ট ও নিরাপদ!\n` +
-            `${PE.gift} <b>রেফার ও বোনাস:</b> জয়েন করে লেনদেন শুরু করুন!</blockquote>\n\n` +
-            `${PE.arrowRight} <b>নিচের বাটনে ক্লিক করে এখনই Trust Pay বটে জয়েন করুন 👇</b>`;
-
         const inlineCleanCaption = `🌹 <b>Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল প্ল্যাটফর্ম!</b> ✨\n\n` +
             `<blockquote>🚀 <b>TON, GRAM ও USDT</b> মুহূর্তেই কেনা-বেচা করুন!\n` +
             `🏦 <b>পেমেন্ট মেথড:</b> bKash ও Nagad (Auto-Verified)\n` +
@@ -4271,50 +4338,13 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
             `🎁 <b>রেফার ও বোনাস:</b> জয়েন করে লেনদেন শুরু করুন!</blockquote>\n\n` +
             `👇 <b>নিচের বাটনে ক্লিক করে এখনই Trust Pay বটে জয়েন করুন:</b>`;
 
-        // 1. Send the Photo + Caption + Inline Join Button to their Telegram chat first (also caches photo_file_id on Telegram servers!)
-        let sentToChat = false;
-        if (sendToBotChat && bot) {
-            try {
-                const bannerLocalPath = path.join(__dirname, 'miniapp/public/referral-banner.jpg');
-                const photoSource = cachedReferralPhotoFileId || (fs.existsSync(bannerLocalPath) ? bannerLocalPath : bannerUrl);
-                const sentMsg = await bot.sendPhoto(cleanUserId, photoSource, {
-                    caption: htmlCaption,
-                    parse_mode: 'HTML',
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
-                        ]
-                    }
-                });
-                if (sentMsg?.photo?.length > 0) {
-                    cachedReferralPhotoFileId = sentMsg.photo[sentMsg.photo.length - 1].file_id;
-                }
-                sentToChat = true;
-            } catch (sendErr) {
-                console.warn('Referral bot.sendPhoto warning:', sendErr.message);
-            }
-        }
-
         let preparedMessageId = null;
 
-        // 2. Try Telegram Bot API savePreparedInlineMessage (uses cached photo_file_id when available for instant 0ms rendering)
+        // Prepare inline message for WebApp.shareMessage (does NOT send anything to the user's bot inbox)
         try {
-            const inlinePhotoResult = cachedReferralPhotoFileId
-                ? {
-                    type: 'photo',
-                    id: `ref_${cleanUserId}_${Date.now()}`,
-                    photo_file_id: cachedReferralPhotoFileId,
-                    title: 'Trust Pay — Instant Crypto Buy & Sell',
-                    description: 'TON, GRAM ও USDT কেনা-বেচা করুন বিকাশ ও নগদে!',
-                    caption: inlineCleanCaption,
-                    parse_mode: 'HTML',
-                    reply_markup: {
-                        inline_keyboard: [
-                            [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
-                        ]
-                    }
-                }
-                : {
+            const prepRes = await axios.post(`https://api.telegram.org/bot${token}/savePreparedInlineMessage`, {
+                user_id: cleanUserId,
+                result: {
                     type: 'photo',
                     id: `ref_${cleanUserId}_${Date.now()}`,
                     photo_url: bannerUrl,
@@ -4330,11 +4360,7 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
                             [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
                         ]
                     }
-                };
-
-            const prepRes = await axios.post(`https://api.telegram.org/bot${token}/savePreparedInlineMessage`, {
-                user_id: cleanUserId,
-                result: inlinePhotoResult,
+                },
                 allow_user_chats: true,
                 allow_bot_chats: false,
                 allow_group_chats: true,
@@ -4358,7 +4384,7 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
         res.json({
             success: true,
             preparedMessageId,
-            sentToChat,
+            sentToChat: false,
             botStartLink,
             sharePreviewUrl,
             telegramShareUrl,

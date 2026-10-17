@@ -4616,7 +4616,7 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
 
       const res = await prepareReferralShare({
         userId,
-        sendToBotChat: true
+        sendToBotChat: false
       });
 
       const tg = window.Telegram?.WebApp;
@@ -4625,14 +4625,9 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
       if (res?.preparedMessageId && typeof tg?.shareMessage === 'function') {
         tg.shareMessage(res.preparedMessageId, (sent) => {
           if (sent) {
-            setShareToast(lang === 'bn' ? 'ছবি ও বাটনসহ মেসেজ সফলভাবে শেয়ার হয়েছে!' : 'Shared with image & join button!');
+            setShareToast(lang === 'bn' ? 'রেফারেল মেসেজ সফলভাবে শেয়ার হয়েছে!' : 'Referral message shared successfully!');
           }
         });
-        setShareToast(
-          lang === 'bn'
-            ? 'ছবি ও বাটনসহ রেফারেল কার্ড বট ইনবক্সেও পাঠানো হয়েছে!'
-            : 'Referral card with image & button also sent to your bot chat!'
-        );
       } else {
         const fallbackShareText =
           `✨ Trust Pay — Instant Crypto Buy & Sell BD ✨\n\n` +
@@ -4649,12 +4644,6 @@ function ReferralPage({ user, lang = 'bn', onBack, reloadData }) {
         } else {
           window.open(shareUrl, '_blank');
         }
-
-        setShareToast(
-          lang === 'bn'
-            ? 'ছবি ও বাটনসহ রেফারেল পোস্ট বট চ্যাটেও পাঠানো হয়েছে!'
-            : 'Full Photo + Button post was also sent to your bot chat!'
-        );
       }
     } catch (err) {
       console.error('Share error:', err);
