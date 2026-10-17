@@ -1766,7 +1766,7 @@ export default function App() {
                     <p className="text-[10px] font-medium text-[var(--color-brand)] uppercase tracking-[0.15em]">{t.welcome}</p>
                  </div>
              </div>
-             {/* Right Header Controls: Moon Theme Toggle (on Profile/Referral) + Wallet Button */}
+             {/* Right Header Controls: Moon/Sun Theme Toggle (on Profile/Referral) + Wallet Button */}
              <div className="origin-right flex items-center gap-2">
                 {(activeTab === 'profile' || activeTab === 'referral') && (
                   <button
@@ -1780,7 +1780,7 @@ export default function App() {
                         : 'bg-indigo-50/95 border-indigo-200/80 text-indigo-700 hover:bg-indigo-100'
                     }`}
                   >
-                    <CrescentMoonIcon size={18} isDark={darkMode} />
+                    {darkMode ? <Sun size={18} className="text-amber-300" /> : <CrescentMoonIcon size={18} isDark={false} />}
                   </button>
                 )}
                 <HeaderWalletButton lang={lang} setIsModalOpen={setIsModalOpen} user={user} />
@@ -2815,12 +2815,14 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                 {/* Instructions Card */}
                 <CutCornerCard className="p-3.5 mb-3 space-y-3" flower={<AddMoneyFloraPattern />}>
                     <div className="flex justify-between items-center pb-2.5 border-b border-gray-100">
-                        <div className="flex items-center gap-2">
-                            <img 
-                                src={getPaymentLogo(paymentMethod)} 
-                                className="w-6 h-6 object-contain" 
-                                alt={paymentMethod} 
-                            />
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                <img 
+                                    src={getPaymentLogo(paymentMethod)} 
+                                    className="w-full h-full object-contain" 
+                                    alt={paymentMethod} 
+                                />
+                            </div>
                             <div>
                                 <span className="font-bold text-gray-900 text-[13px] block">{paymentMethod} Personal</span>
                                 <span className="text-[10px] text-gray-400 font-medium">{lang === 'bn' ? 'শুধু সেন্ড মানি' : 'Send Money Only'}</span>
@@ -3004,11 +3006,13 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                                     : 'border-gray-100 bg-gray-50/60 hover:bg-gray-50'
                             }`}
                         >
-                            <img 
-                                src={getPaymentLogo('bKash')} 
-                                className="w-6 h-6 object-contain shrink-0" 
-                                alt="bKash" 
-                            />
+                            <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                <img 
+                                    src={getPaymentLogo('bKash')} 
+                                    className="w-full h-full object-contain" 
+                                    alt="bKash" 
+                                />
+                            </div>
                             <div className="flex-1 text-left min-w-0">
                                 <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">bKash</span>
                                 <span className="text-[10px] text-gray-400 font-medium block">Personal</span>
@@ -3029,11 +3033,13 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                                     : 'border-gray-100 bg-gray-50/60 hover:bg-gray-50'
                             }`}
                         >
-                            <img 
-                                src={getPaymentLogo('Nagad')} 
-                                className="w-6 h-6 object-contain shrink-0" 
-                                alt="Nagad" 
-                            />
+                            <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                <img 
+                                    src={getPaymentLogo('Nagad')} 
+                                    className="w-full h-full object-contain" 
+                                    alt="Nagad" 
+                                />
+                            </div>
                             <div className="flex-1 text-left min-w-0">
                                 <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">Nagad</span>
                                 <span className="text-[10px] text-gray-400 font-medium block">Personal</span>
@@ -4256,21 +4262,25 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                </div>
             </div>
 
-            {/* Right Column: Moon Night Mode Button + Language Switcher Pill */}
+            {/* Right Column: Dark Mode / Light Mode Toggle Button + Language Switcher Pill */}
             <div className="flex flex-col items-end gap-1.5 shrink-0">
-               {/* Prominent Moon Icon Toggle Button */}
+               {/* Prominent Dark Mode / Light Mode Toggle Button */}
                <button
                   type="button"
                   onClick={onToggleDarkMode}
-                  title={darkMode ? (lang === 'bn' ? 'লাইট মোড চালু করুন' : 'Light Mode') : (lang === 'bn' ? 'নাইট / ডার্ক মোড চালু করুন' : 'Dark Mode')}
+                  title={darkMode ? (lang === 'bn' ? 'লাইট মোড চালু করুন' : 'Switch to Light Mode') : (lang === 'bn' ? 'ডার্ক মোড চালু করুন' : 'Switch to Dark Mode')}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-black transition-all duration-300 active:scale-90 cursor-pointer ${
                      darkMode
                         ? 'bg-indigo-950/90 border-indigo-400/50 text-amber-300 shadow-[0_0_14px_rgba(129,140,248,0.3)]'
                         : 'bg-indigo-50 border-indigo-200/80 text-indigo-700 hover:bg-indigo-100 shadow-2xs'
                   }`}
                >
-                  <CrescentMoonIcon size={14} isDark={darkMode} />
-                  <span>{darkMode ? (lang === 'bn' ? 'নাইট মোড' : 'Dark') : (lang === 'bn' ? 'ডার্ক মোড' : 'Night')}</span>
+                  {darkMode ? (
+                     <Sun size={14} className="text-amber-300 shrink-0" />
+                  ) : (
+                     <CrescentMoonIcon size={14} isDark={false} />
+                  )}
+                  <span>{darkMode ? (lang === 'bn' ? 'লাইট মোড' : 'Light Mode') : (lang === 'bn' ? 'ডার্ক মোড' : 'Dark Mode')}</span>
                </button>
 
                {/* Language Switcher Pill */}
@@ -4320,7 +4330,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
             {fiatWallet ? (
                <>
                   <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                     <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                     <div className="w-10 h-10 rounded-xl tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
                         <img 
                            src={getPaymentLogo(fiatWallet.method)} 
                            alt={fiatWallet.method} 
@@ -4656,7 +4666,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                           <div className="relative">
                               <div onClick={() => setShowMethodDropdown(!showMethodDropdown)} className="w-full h-[52px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 flex items-center justify-between cursor-pointer hover:border-[var(--color-brand)]/50 transition-all">
                                   <div className="flex items-center gap-3">
-                                      <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                                      <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                        <img src={getPaymentLogo(walletMethod)} alt={walletMethod} className="w-full h-full object-contain" />
                                    </div>
                                       <span className="font-bold text-[var(--color-text-primary)]">{walletMethod}</span>
@@ -4667,10 +4677,10 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                               {showMethodDropdown && (
                                   <>
                                       <div className="fixed inset-0 z-40" onClick={() => setShowMethodDropdown(false)}></div>
-                                      <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-[14px] premium-shadow border border-[var(--color-border)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
+                                      <div className="tp-wallet-dropdown absolute top-full left-0 right-0 mt-2 bg-white rounded-[14px] premium-shadow border border-[var(--color-border)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                                           {['bKash', 'Nagad'].filter(method => method !== walletMethod).map(method => (
                                               <button key={method} onClick={() => { setWalletMethod(method); setShowMethodDropdown(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                                                  <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                                                  <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                                    <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
                                                </div>
                                                   <span className="font-bold text-[14px] text-[var(--color-text-primary)]">{method}</span>
@@ -5028,9 +5038,11 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
         }`}
         flower={<ReferralRosePattern />}
       >
-        <div className="flex items-center gap-2">
-          <Award size={17} className="text-rose-600 shrink-0" />
-          <h3 className="text-[13px] font-black text-slate-900">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-rose-100/90 border border-rose-200/80 flex items-center justify-center shrink-0 shadow-2xs">
+            <TelegramAnimatedSticker src="tg-gift-sticker.json" size={24} />
+          </div>
+          <h3 className="text-[13px] font-black text-slate-900 leading-snug">
             {lang === 'bn' ? 'কীভাবে রেফার Active হবে এবং ৫ টাকা পাবেন?' : 'How Referral Becomes Active (+৳5 Bonus)'}
           </h3>
         </div>
@@ -5436,7 +5448,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             <CutCornerCard className="p-3.5" flower={<WithdrawLilyPattern />}>
                 <div className="flex items-center justify-between gap-3 w-full">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                        <div className="w-10 h-10 rounded-xl tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
                             <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -5526,7 +5538,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                                                     : 'border-gray-200 bg-gray-50 text-gray-600'
                                             }`}
                                         >
-                                            <div className="w-6 h-6 rounded-lg bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0">
+                                            <div className="w-7 h-7 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                                 <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
                                             </div>
                                             {method}

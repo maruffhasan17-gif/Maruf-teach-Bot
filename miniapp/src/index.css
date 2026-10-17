@@ -462,3 +462,20 @@ html.dark .tp-cut-corner-inner {
   background-color: #0F172A !important;
 }
 
+/* Keep bKash & Nagad logo badges pure crisp white in Dark Mode so dark logo text stays 100% visible */
+html.dark .tp-payment-logo-box {
+  background-color: #FFFFFF !important;
+  border-color: rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Elevated Wallet Setup dropdown menu in Dark Mode */
+html.dark .tp-wallet-dropdown {
+  background-color: #1E293B !important;
+  border-color: #475569 !important;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.75) !important;
+}
+html.dark .tp-wallet-dropdown button:hover {
+  background-color: #334155 !important;
+}
+
