@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, User, Users, ShieldCheck, Award, ArrowDown, ArrowUp, ArrowRight, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle } from 'lucide-react';
+import { Home, User, Users, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
