@@ -4520,9 +4520,9 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
          <div 
             onClick={() => {
                if (window.Telegram?.WebApp?.openLink) {
-                  window.Telegram.WebApp.openLink('https://youtu.be/HAn23QoYi34');
+                  window.Telegram.WebApp.openLink('https://youtu.be/iimWerd2dPI');
                } else {
-                  window.open('https://youtu.be/HAn23QoYi34', '_blank');
+                  window.open('https://youtu.be/iimWerd2dPI', '_blank');
                }
             }} 
             className="p-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
