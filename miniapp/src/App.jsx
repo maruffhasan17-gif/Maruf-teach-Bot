@@ -5470,8 +5470,11 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
   }));
   const [loading, setLoading] = useState(true);
   const [isSpinning, setIsSpinning] = useState(false);
-  const [wheelRotation, setWheelRotation] = useState(0); // Degrees; 0 deg puts Slice 0 at 12 o'clock
-  const [activeSliceIndex, setActiveSliceIndex] = useState(4);
+  const [wheelRotation, setWheelRotation] = useState(0);
+  const wheelRotationRef = useRef(0);
+  const spinAnimRef = useRef(null);
+  const [pointerKick, setPointerKick] = useState(false);
+  const [activeSliceIndex, setActiveSliceIndex] = useState(0);
   const [spinResultModal, setSpinResultModal] = useState(null);
   const [spinError, setSpinError] = useState('');
 
@@ -5504,6 +5507,9 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
 
   useEffect(() => {
     loadSpinData();
+    return () => {
+      if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
+    };
   }, [userId]);
 
   // Ensure Monetag (Zone 12077323) & Adsgram scripts are loaded + trigger Monetag In-App Interstitial preload
@@ -5520,7 +5526,6 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
         s.async = true;
         document.head.appendChild(s);
       }
-      // Initialize Monetag In-App Interstitial session as provided by user
       const initInAppTimer = setTimeout(() => {
         const fn = window[`show_${zoneId}`];
         if (typeof fn === 'function' && !window.__tpMonetagInAppInitialized) {
@@ -5589,14 +5594,66 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
     return () => clearInterval(timer);
   }, [spinStatus.eventEndAt, spinStatus.dailyFreeAvailable, spinStatus.nextDailySpinAt]);
 
+  // 60fps Smooth Physics Wheel Spin with Peg Flapper Bounce & Haptic Ticks
+  const animateWheelToTarget = (targetIndex, onFinish) => {
+    if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
+
+    const startAngle = wheelRotationRef.current;
+    const desiredMod = (360 - targetIndex * 40) % 360;
+    const currentMod = ((startAngle % 360) + 360) % 360;
+    let deltaDeg = desiredMod - currentMod;
+    if (deltaDeg <= 0) deltaDeg += 360;
+
+    // 6 full turns (2160 deg) + exact delta to land dead-center at 12 o'clock
+    const totalSpinDeg = 6 * 360 + deltaDeg;
+    const finalAngle = startAngle + totalSpinDeg;
+    const durationMs = 4200;
+    const startTime = performance.now();
+    let lastSectorTick = Math.floor((startAngle + 20) / 40);
+
+    const stepFrame = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / durationMs);
+      // Smooth casino deceleration curve: fast start, suspenseful slow finish
+      const eased = 1 - Math.pow(1 - progress, 3.6);
+      const currentAngle = startAngle + totalSpinDeg * eased;
+
+      wheelRotationRef.current = currentAngle;
+      setWheelRotation(currentAngle);
+
+      const currentSectorTick = Math.floor((currentAngle + 20) / 40);
+      if (currentSectorTick !== lastSectorTick) {
+        lastSectorTick = currentSectorTick;
+        setPointerKick(true);
+        setTimeout(() => setPointerKick(false), 75);
+        try {
+          if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.selectionChanged();
+          }
+        } catch (_) {}
+      }
+
+      if (progress < 1) {
+        spinAnimRef.current = requestAnimationFrame(stepFrame);
+      } else {
+        wheelRotationRef.current = finalAngle;
+        setWheelRotation(finalAngle);
+        setPointerKick(false);
+        if (onFinish) onFinish();
+      }
+    };
+
+    spinAnimRef.current = requestAnimationFrame(stepFrame);
+  };
+
   // Handle Round Wheel Spin
   const handleStartSpin = async () => {
     if (isSpinning) return;
     if ((spinStatus.totalAvailableSpins || 0) <= 0) {
       setSpinError(
         lang === 'bn'
-          ? 'আপনার ফ্রি স্পিন শেষ! নিচে ৩টি অ্যাড দেখে অথবা বন্ধুদের রেফার করে ফ্রি স্পিন নিন।'
-          : 'No spins left! Watch 3 ads below or refer a friend to get a free spin.'
+          ? 'স্পিন শেষ! নিচে অ্যাড দেখে বা রেফার করে ফ্রি স্পিন নিন।'
+          : 'No spins left! Watch ads or refer a friend below.'
       );
       if (window.Telegram?.WebApp?.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
@@ -5608,37 +5665,25 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
     setIsSpinning(true);
     setSpinResultModal(null);
 
+    // Start spinning immediately at 0ms while API request resolves
+    if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
+    const preSpinLoop = () => {
+      wheelRotationRef.current += 11;
+      setWheelRotation(wheelRotationRef.current);
+      spinAnimRef.current = requestAnimationFrame(preSpinLoop);
+    };
+    spinAnimRef.current = requestAnimationFrame(preSpinLoop);
+
     try {
       const res = await executeSpin(userId);
       if (!res || !res.success) {
+        if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
         throw new Error(res?.error || 'Spin failed');
       }
 
       const targetIndex = typeof res.winningIndex === 'number' ? res.winningIndex : 6;
-      // Slice `targetIndex` sits at `+targetIndex * 40` deg clockwise from 12 o'clock.
-      // To bring `targetIndex` to 0 deg (12 o'clock top pointer), final rotation % 360 must equal (360 - targetIndex * 40) % 360.
-      const desiredMod = (360 - targetIndex * 40) % 360;
-      const currentMod = ((wheelRotation % 360) + 360) % 360;
-      let deltaDeg = desiredMod - currentMod;
-      if (deltaDeg <= 0) deltaDeg += 360;
-      const extraFullTurns = 7 * 360; // 7 full high-speed rotations
-      const nextRotation = wheelRotation + extraFullTurns + deltaDeg;
 
-      setWheelRotation(nextRotation);
-
-      // Haptic ticks while the wheel spins
-      const tickOffsets = [250, 500, 800, 1150, 1550, 2000, 2500, 3050, 3650, 4250];
-      tickOffsets.forEach(ms => {
-        setTimeout(() => {
-          try {
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-              window.Telegram.WebApp.HapticFeedback.selectionChanged();
-            }
-          } catch (_) {}
-        }, ms);
-      });
-
-      setTimeout(() => {
+      animateWheelToTarget(targetIndex, () => {
         setActiveSliceIndex(targetIndex);
         try {
           if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -5662,15 +5707,18 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
           reloadData();
         }
 
-        setIsSpinning(false);
-        setSpinResultModal({
-          card: SPIN_WHEEL_SLICES[targetIndex] || SPIN_WHEEL_SLICES[6],
-          bdtWon: res.bdtWon || 0,
-          isMilestoneWinner: Boolean(res.isMilestoneWinner),
-          bonusFreeRespin: Boolean(res.bonusFreeRespin)
-        });
-      }, 4800);
+        setTimeout(() => {
+          setIsSpinning(false);
+          setSpinResultModal({
+            card: SPIN_WHEEL_SLICES[targetIndex] || SPIN_WHEEL_SLICES[6],
+            bdtWon: res.bdtWon || 0,
+            isMilestoneWinner: Boolean(res.isMilestoneWinner),
+            bonusFreeRespin: Boolean(res.bonusFreeRespin)
+          });
+        }, 320);
+      });
     } catch (err) {
+      if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
       setIsSpinning(false);
       setSpinError(err.message || (lang === 'bn' ? 'স্পিন করতে সমস্যা হয়েছে' : 'Spin failed'));
     }
@@ -5690,20 +5738,20 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
         if (res.spinUnlocked) {
           setAdUnlockToast(
             lang === 'bn'
-              ? '🎉 অভিনন্দন! ৩টি অ্যাড দেখা পূর্ণ হয়েছে — আপনি +১টি ফ্রি স্পিন পেয়েছেন!'
-              : '🎉 3 Ads Completed! You unlocked +1 Free Spin!'
+              ? '🎉 ৩টি অ্যাড সম্পন্ন! +১টি ফ্রি স্পিন পেয়েছেন!'
+              : '🎉 3 Ads Completed! +1 Free Spin unlocked!'
           );
-          setTimeout(() => setAdUnlockToast(''), 5000);
+          setTimeout(() => setAdUnlockToast(''), 4500);
           if (window.Telegram?.WebApp?.HapticFeedback) {
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
           }
         } else {
           setAdUnlockToast(
             lang === 'bn'
-              ? `✅ অ্যাড দেখা সম্পন্ন (${res.adProgress}/3)! আর ${3 - res.adProgress}টি অ্যাড দেখলেই ১টি ফ্রি স্পিন পাবেন।`
-              : `✅ Ad watched (${res.adProgress}/3)! Watch ${3 - res.adProgress} more to unlock 1 Free Spin.`
+              ? `✅ অ্যাড সম্পন্ন (${res.adProgress}/3)! আর ${3 - res.adProgress}টি দেখলেই ১টি স্পিন ফ্রি।`
+              : `✅ Ad watched (${res.adProgress}/3)! Watch ${3 - res.adProgress} more for 1 Spin.`
           );
-          setTimeout(() => setAdUnlockToast(''), 4000);
+          setTimeout(() => setAdUnlockToast(''), 3500);
         }
       }
     } catch (err) {
@@ -5722,7 +5770,6 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
     const zoneId = String(spinStatus.monetagZoneId || '12077323').trim();
     const monetagFn = window[`show_${zoneId}`] || window.show_12077323;
 
-    // 1. Try Monetag Rewarded Interstitial first, then Rewarded Popup ('pop')
     if (typeof monetagFn === 'function') {
       try {
         await monetagFn();
@@ -5739,7 +5786,6 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
       }
     }
 
-    // 2. Try Adsgram if configured
     if (spinStatus.adsgramBlockId && window.Adsgram) {
       try {
         const AdController = window.Adsgram.init({ blockId: String(spinStatus.adsgramBlockId).trim() });
@@ -5751,7 +5797,6 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
       }
     }
 
-    // 3. Built-in 10-Second Sponsored Ad Modal fallback if SDK blocked
     setShowFallbackAdModal(true);
     setFallbackAdTimer(10);
   };
@@ -5772,39 +5817,36 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
   };
 
   return (
-    <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 pb-12 max-w-md mx-auto">
+    <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-12 max-w-md mx-auto">
       {/* Top Header Bar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onBack}
-            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-xs border border-amber-200 active:scale-95 transition-transform text-amber-700 cursor-pointer"
+            className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-xs border border-amber-200 active:scale-95 transition-transform text-amber-700 cursor-pointer shrink-0"
           >
-            <ArrowLeft size={18} strokeWidth={2.5} />
+            <ArrowLeft size={17} strokeWidth={2.5} />
           </button>
           <div>
-            <h2 className="text-[15px] font-black text-slate-900 leading-tight flex items-center gap-1.5">
-              <span>{lang === 'bn' ? '৩০ দিনের রয়েল স্পিন ও গিভওয়ে' : '30-Day Royal Spin & Giveaway'}</span>
+            <h2 className="text-[14.5px] font-black text-slate-900 leading-tight">
+              {lang === 'bn' ? 'লাকি স্পিন ও গিভওয়ে' : 'Lucky Spin & Giveaway'}
             </h2>
-            <p className="text-[10.5px] text-amber-600 font-bold leading-none mt-0.5">
-              {lang === 'bn' ? 'স্পিন ঘুরিয়ে জিতে নিন Star Gift, $1 ও নগদ টাকা!' : 'Spin the wheel to win Star Gift, $1 & Instant BDT!'}
+            <p className="text-[10px] text-amber-600 font-bold leading-none mt-0.5">
+              {lang === 'bn' ? 'স্পিন ঘুরিয়ে জিতুন Star Gift ও ক্যাশ!' : 'Spin to win Star Gift & Cash!'}
             </p>
           </div>
         </div>
 
-        {/* Available Spins Pill */}
-        <div className="px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white text-[11px] font-black shadow-sm flex items-center gap-1.5 shrink-0">
-          <Sparkles size={13} />
-          <span>
-            {lang === 'bn' ? `স্পিন: ${spinStatus.totalAvailableSpins || 0}টি` : `${spinStatus.totalAvailableSpins || 0} Spins`}
-          </span>
+        {/* Won Balance Pill */}
+        <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10.5px] font-black shrink-0">
+          {lang === 'bn' ? `জয়: ৳${spinStatus.totalWonBdt || 0}` : `Won: ৳${spinStatus.totalWonBdt || 0}`}
         </div>
       </div>
 
-      {/* 1. LUXURY 30-DAY COUNTDOWN BANNER (NO 50K COUNTER VISIBLE TO USERS) */}
+      {/* 1. COMPACT 30-DAY COUNTDOWN BANNER */}
       <CutCornerCard
-        className={`p-3.5 border ${
+        className={`p-3 border ${
           darkMode
             ? 'bg-slate-900 border-amber-500/35'
             : 'bg-gradient-to-r from-amber-50/90 via-white to-rose-50/85 border-amber-200/85'
@@ -5812,16 +5854,16 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
         flower={<ReferralRosePattern />}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-amber-100/90 border border-amber-200 flex items-center justify-center shrink-0 shadow-2xs">
-              <TelegramAnimatedSticker src="tg-crown-sticker.json" size={32} />
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-amber-100/90 border border-amber-200 flex items-center justify-center shrink-0">
+              <TelegramAnimatedSticker src="tg-crown-sticker.json" size={28} />
             </div>
             <div className="min-w-0">
-              <span className="inline-block px-2 py-0.5 rounded-full bg-gradient-to-r from-rose-600 to-amber-600 text-white text-[8.5px] font-black uppercase tracking-wider">
-                30 DAYS ROYAL GIVEAWAY
+              <span className="inline-block px-2 py-0.5 rounded-full bg-gradient-to-r from-rose-600 to-amber-600 text-white text-[8px] font-black uppercase tracking-wider leading-none">
+                30 DAYS EVENT
               </span>
-              <h3 className="text-[12.5px] font-black text-slate-900 leading-tight mt-0.5">
-                {lang === 'bn' ? 'ইভেন্ট শেষ হতে বাকি:' : 'Event Ends In:'}
+              <h3 className="text-[12px] font-black text-slate-900 leading-tight mt-1 truncate">
+                {lang === 'bn' ? 'ইভেন্ট বাকি:' : 'Ends In:'}
               </h3>
             </div>
           </div>
@@ -5836,287 +5878,291 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
             ].map((item, i) => (
               <div
                 key={i}
-                className="min-w-[36px] px-1.5 py-1 rounded-lg bg-slate-900 text-white text-center border border-amber-400/50 shadow-xs"
+                className="min-w-[34px] px-1.5 py-1 rounded-lg bg-slate-900 text-white text-center border border-amber-400/50 shadow-xs"
               >
-                <span className="text-[12px] font-black text-amber-300 block leading-none font-mono">
+                <span className="text-[11.5px] font-black text-amber-300 block leading-none font-mono">
                   {item.val}
                 </span>
-                <span className="text-[8px] font-bold text-slate-300 block mt-0.5">{item.lbl}</span>
+                <span className="text-[7.5px] font-bold text-slate-300 block mt-0.5">{item.lbl}</span>
               </div>
             ))}
           </div>
         </div>
       </CutCornerCard>
 
-      {/* 2. GRAND ROUND 3D ROYAL SPIN WHEEL WITH ANIMATED STICKERS */}
+      {/* 2. CENTERED ROUND 3D ROYAL SPIN WHEEL CARD */}
       <CutCornerCard
-        className={`p-4 border ${
+        className={`p-3.5 border ${
           darkMode
             ? 'bg-slate-900 border-indigo-500/45'
             : 'bg-gradient-to-b from-indigo-50/75 via-white to-rose-50/65 border-indigo-200/85'
         }`}
         flower={<SellCryptoMandalaPattern />}
       >
-        {/* Top Wheel Status Strip */}
-        <div className="flex items-center justify-between mb-3">
+        {/* TOP OF WHEEL: CLEAR SPINS LEFT BADGE */}
+        <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-1.5">
-            <TelegramAnimatedSticker src="tg-heart-gift-sticker.json" size={22} />
-            <span className="text-[11.5px] font-black text-slate-800 uppercase tracking-wide">
-              {lang === 'bn' ? 'রয়েল লাকি স্পিন হুইল' : 'Royal Lucky Spin Wheel'}
+            <TelegramAnimatedSticker src="tg-heart-gift-sticker.json" size={20} />
+            <span className="text-[12px] font-black text-slate-800">
+              {lang === 'bn' ? 'রয়েল স্পিন হুইল' : 'Royal Spin Wheel'}
             </span>
           </div>
-          <span className="text-[10.5px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/80">
-            {lang === 'bn' ? 'মোট জয়: ৳' : 'Won: ৳'}
-            {spinStatus.totalWonBdt || 0} TK
-          </span>
+
+          {/* Prominent Spins Remaining Badge Right Above the Wheel */}
+          <div className="px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-white text-[11px] font-black shadow-sm flex items-center gap-1.5">
+            <Sparkles size={12} />
+            <span>
+              {lang === 'bn'
+                ? `স্পিন বাকি: ${spinStatus.totalAvailableSpins || 0}টি`
+                : `Spins Left: ${spinStatus.totalAvailableSpins || 0}`}
+            </span>
+          </div>
         </div>
 
-        {/* THE ROUND WHEEL CONTAINER */}
-        <div className="relative mx-auto my-2 flex items-center justify-center" style={{ width: 324, height: 324 }}>
-          {/* Ambient Golden/Royal Backlight Glow */}
+        {/* PERFECTLY CENTERED ROUND WHEEL WRAPPER */}
+        <div className="w-full flex flex-col items-center justify-center py-2">
           <div
-            className="absolute inset-1 rounded-full pointer-events-none blur-xl opacity-60"
-            style={{
-              background: 'radial-gradient(circle, rgba(245,158,11,0.45) 0%, rgba(168,85,247,0.35) 55%, transparent 78%)'
-            }}
-          />
-
-          {/* TOP 12 O'CLOCK 3D GOLDEN POINTER / CROWN STOPPER */}
-          <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center drop-shadow-[0_6px_12px_rgba(0,0,0,0.65)]">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-b from-yellow-300 via-amber-500 to-amber-700 border-2 border-white flex items-center justify-center shadow-md">
-              <div className="w-2.5 h-2.5 rounded-full bg-rose-600 border border-yellow-200 animate-ping" />
-            </div>
+            className="relative flex items-center justify-center mx-auto shrink-0"
+            style={{ width: 274, height: 274 }}
+          >
+            {/* Ambient Golden/Royal Backlight Glow */}
             <div
-              className="-mt-1.5"
+              className="absolute inset-0 rounded-full pointer-events-none blur-xl opacity-65"
               style={{
-                width: 0,
-                height: 0,
-                borderLeft: '12px solid transparent',
-                borderRight: '12px solid transparent',
-                borderTop: '20px solid #f59e0b',
-                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.45))'
+                background:
+                  'radial-gradient(circle, rgba(245,158,11,0.5) 0%, rgba(168,85,247,0.38) 55%, transparent 78%)'
               }}
             />
-          </div>
 
-          {/* OUTER ROYAL GOLD & INDIGO METALLIC BEZEL RING */}
-          <div
-            className="relative w-full h-full rounded-full p-[11px] shadow-[0_14px_38px_rgba(15,23,42,0.45)] flex items-center justify-center"
-            style={{
-              background: 'conic-gradient(from 0deg, #fbbf24, #d97706, #fef08a, #b45309, #fbbf24, #92400e, #fef08a, #d97706, #fbbf24)',
-              boxShadow: '0 12px 34px rgba(15, 23, 42, 0.45), inset 0 2px 6px rgba(255,255,255,0.75), inset 0 -3px 8px rgba(120,53,15,0.8)'
-            }}
-          >
-            {/* 18 Twinkling Casino Rim Lights around the Bezel */}
-            {Array.from({ length: 18 }).map((_, idx) => {
-              const deg = idx * 20;
-              const isGold = idx % 2 === 0;
-              return (
-                <div
-                  key={idx}
-                  className="absolute inset-0 pointer-events-none"
-                  style={{ transform: `rotate(${deg}deg)` }}
-                >
-                  <div
-                    className={`mx-auto mt-[2.5px] w-[6px] h-[6px] rounded-full ${
-                      isSpinning ? 'animate-ping' : 'animate-pulse'
-                    }`}
-                    style={{
-                      backgroundColor: isGold ? '#ffffff' : '#fb7185',
-                      boxShadow: isGold
-                        ? '0 0 8px #fef08a, 0 0 12px #f59e0b'
-                        : '0 0 8px #fda4af, 0 0 12px #e11d48'
-                    }}
-                  />
-                </div>
-              );
-            })}
-
-            {/* ROTATING INNER WHEEL DISC */}
+            {/* TOP 12 O'CLOCK 3D GOLDEN POINTER WITH FLAPPER BOUNCE */}
             <div
-              className="relative w-full h-full rounded-full overflow-hidden border-[3px] border-slate-950/90 shadow-inner"
+              className="absolute -top-3 left-1/2 z-30 pointer-events-none flex flex-col items-center drop-shadow-[0_5px_10px_rgba(0,0,0,0.65)] transition-transform duration-75"
               style={{
-                transform: `rotate(${wheelRotation}deg)`,
-                transition: isSpinning
-                  ? 'transform 4.75s cubic-bezier(0.12, 0.85, 0.14, 1)'
-                  : 'transform 0.3s ease-out',
-                willChange: 'transform'
+                transform: `translateX(-50%) rotate(${pointerKick ? '-16deg' : '0deg'})`,
+                transformOrigin: 'top center'
               }}
             >
-              {/* SVG 9-Sector Radial Wheel Background */}
-              <svg viewBox="0 0 360 360" className="w-full h-full block">
-                <defs>
-                  {SPIN_WHEEL_SLICES.map((slice) => (
-                    <radialGradient
-                      key={`grad-${slice.id}`}
-                      id={`wheelGrad-${slice.index}`}
-                      cx="50%"
-                      cy="50%"
-                      r="55%"
-                    >
-                      <stop offset="15%" stopColor={slice.sliceBgA} />
-                      <stop offset="100%" stopColor={slice.sliceBgB} />
-                    </radialGradient>
-                  ))}
-                </defs>
+              <div className="w-5 h-5 rounded-full bg-gradient-to-b from-yellow-300 via-amber-500 to-amber-700 border-2 border-white flex items-center justify-center shadow-md">
+                <div className="w-2 h-2 rounded-full bg-rose-600 border border-yellow-200" />
+              </div>
+              <div
+                className="-mt-1"
+                style={{
+                  width: 0,
+                  height: 0,
+                  borderLeft: '10px solid transparent',
+                  borderRight: '10px solid transparent',
+                  borderTop: '17px solid #f59e0b',
+                  filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.45))'
+                }}
+              />
+            </div>
 
-                {SPIN_WHEEL_SLICES.map((slice) => (
-                  <path
-                    key={`sector-${slice.id}`}
-                    d={getWheelSectorPath(slice.index, 9, 180, 180, 180)}
-                    fill={`url(#wheelGrad-${slice.index})`}
-                    stroke="#fbbf24"
-                    strokeWidth="2.2"
-                  />
-                ))}
-
-                {/* Decorative Inner Golden Rings */}
-                <circle
-                  cx="180"
-                  cy="180"
-                  r="142"
-                  fill="none"
-                  stroke="rgba(251, 191, 36, 0.25)"
-                  strokeWidth="1.2"
-                  strokeDasharray="4 4"
-                />
-                <circle
-                  cx="180"
-                  cy="180"
-                  r="52"
-                  fill="none"
-                  stroke="rgba(251, 191, 36, 0.55)"
-                  strokeWidth="2"
-                />
-              </svg>
-
-              {/* 9 FLOATING MINI PRIZE CARDS WITH OFFICIAL 3D TELEGRAM ANIMATED STICKERS */}
-              {SPIN_WHEEL_SLICES.map((slice) => {
-                const angleDeg = slice.index * 40;
-                const isWinnerHighlight = !isSpinning && activeSliceIndex === slice.index;
+            {/* OUTER ROYAL GOLD BEZEL RING */}
+            <div
+              className="relative w-full h-full rounded-full p-[9px] flex items-center justify-center"
+              style={{
+                background:
+                  'conic-gradient(from 0deg, #fbbf24, #d97706, #fef08a, #b45309, #fbbf24, #92400e, #fef08a, #d97706, #fbbf24)',
+                boxShadow:
+                  '0 10px 28px rgba(15, 23, 42, 0.42), inset 0 2px 5px rgba(255,255,255,0.8), inset 0 -3px 7px rgba(120,53,15,0.85)'
+              }}
+            >
+              {/* 18 Twinkling Casino Rim Lights */}
+              {Array.from({ length: 18 }).map((_, idx) => {
+                const deg = idx * 20;
+                const isGold = idx % 2 === 0;
                 return (
                   <div
-                    key={`pod-${slice.id}`}
-                    className="absolute left-1/2 top-1/2 pointer-events-none select-none"
-                    style={{
-                      transform: `translate(-50%, -50%) rotate(${angleDeg}deg) translateY(-98px)`
-                    }}
+                    key={idx}
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ transform: `rotate(${deg}deg)` }}
                   >
                     <div
-                      className={`flex flex-col items-center justify-center px-1.5 py-1 rounded-2xl border transition-all ${
-                        slice.isSpecialGift
-                          ? 'bg-gradient-to-b from-amber-400/30 via-rose-500/30 to-slate-900/90 border-yellow-300 shadow-[0_0_14px_rgba(251,191,36,0.55)]'
-                          : isWinnerHighlight
-                          ? 'bg-white/20 border-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]'
-                          : 'bg-slate-950/45 border-white/20'
+                      className={`mx-auto mt-[2px] w-[5px] h-[5px] rounded-full ${
+                        isSpinning ? 'animate-ping' : 'animate-pulse'
                       }`}
-                      style={{ minWidth: 56 }}
-                    >
-                      {/* Animated 3D Telegram Sticker on each Wheel Card */}
-                      <div className="w-8 h-8 flex items-center justify-center">
-                        <TelegramAnimatedSticker src={slice.sticker} size={30} />
-                      </div>
-
-                      {/* Crisp Prize Label Pill */}
-                      <span
-                        className={`mt-0.5 px-1.5 py-0.5 rounded-full text-[9.5px] font-black leading-none tracking-tight border shadow-2xs whitespace-nowrap ${slice.pillBg}`}
-                      >
-                        {slice.title}
-                      </span>
-                    </div>
+                      style={{
+                        backgroundColor: isGold ? '#ffffff' : '#fb7185',
+                        boxShadow: isGold
+                          ? '0 0 6px #fef08a, 0 0 10px #f59e0b'
+                          : '0 0 6px #fda4af, 0 0 10px #e11d48'
+                      }}
+                    />
                   </div>
                 );
               })}
-            </div>
 
-            {/* CENTER 3D ROYAL "SPIN" HUB BUTTON */}
-            <button
-              type="button"
-              onClick={handleStartSpin}
-              disabled={isSpinning}
-              className="absolute z-20 w-[74px] h-[74px] rounded-full p-1 cursor-pointer active:scale-95 transition-transform flex items-center justify-center shadow-[0_6px_20px_rgba(0,0,0,0.65)]"
-              style={{
-                background: 'linear-gradient(135deg, #fde047 0%, #f59e0b 50%, #b45309 100%)'
-              }}
-            >
-              <div className="w-full h-full rounded-full bg-gradient-to-b from-indigo-900 via-slate-900 to-rose-950 border-2 border-yellow-200/80 flex flex-col items-center justify-center text-white shadow-inner">
-                {isSpinning ? (
-                  <Loader2 size={20} className="animate-spin text-amber-300" />
-                ) : (
-                  <>
-                    <Sparkles size={14} className="text-amber-300 -mb-0.5" />
-                    <span className="text-[12px] font-black tracking-wider text-amber-200 leading-tight">
-                      SPIN
-                    </span>
-                    <span className="text-[8px] font-bold text-rose-300 leading-none">
-                      {spinStatus.totalAvailableSpins || 0} LEFT
-                    </span>
-                  </>
-                )}
+              {/* ROTATING INNER WHEEL DISC (DRIVEN BY 60FPS RAF) */}
+              <div
+                className="relative w-full h-full rounded-full overflow-hidden border-[2.5px] border-slate-950/90 shadow-inner"
+                style={{
+                  transform: `rotate(${wheelRotation}deg)`
+                }}
+              >
+                {/* SVG 9-Sector Radial Wheel Background */}
+                <svg viewBox="0 0 360 360" className="w-full h-full block">
+                  <defs>
+                    {SPIN_WHEEL_SLICES.map((slice) => (
+                      <radialGradient
+                        key={`grad-${slice.id}`}
+                        id={`wheelGrad-${slice.index}`}
+                        cx="50%"
+                        cy="50%"
+                        r="55%"
+                      >
+                        <stop offset="15%" stopColor={slice.sliceBgA} />
+                        <stop offset="100%" stopColor={slice.sliceBgB} />
+                      </radialGradient>
+                    ))}
+                  </defs>
+
+                  {SPIN_WHEEL_SLICES.map((slice) => (
+                    <path
+                      key={`sector-${slice.id}`}
+                      d={getWheelSectorPath(slice.index, 9, 180, 180, 180)}
+                      fill={`url(#wheelGrad-${slice.index})`}
+                      stroke="#fbbf24"
+                      strokeWidth="2.2"
+                    />
+                  ))}
+
+                  <circle
+                    cx="180"
+                    cy="180"
+                    r="142"
+                    fill="none"
+                    stroke="rgba(251, 191, 36, 0.25)"
+                    strokeWidth="1.2"
+                    strokeDasharray="4 4"
+                  />
+                  <circle
+                    cx="180"
+                    cy="180"
+                    r="48"
+                    fill="none"
+                    stroke="rgba(251, 191, 36, 0.55)"
+                    strokeWidth="2"
+                  />
+                </svg>
+
+                {/* 9 FLOATING MINI PRIZE CARDS WITH 3D TELEGRAM STICKERS */}
+                {SPIN_WHEEL_SLICES.map((slice) => {
+                  const angleDeg = slice.index * 40;
+                  const isWinnerHighlight = !isSpinning && activeSliceIndex === slice.index;
+                  return (
+                    <div
+                      key={`pod-${slice.id}`}
+                      className="absolute left-1/2 top-1/2 pointer-events-none select-none"
+                      style={{
+                        transform: `translate(-50%, -50%) rotate(${angleDeg}deg) translateY(-82px)`
+                      }}
+                    >
+                      <div
+                        className={`flex flex-col items-center justify-center px-1 py-0.5 rounded-xl border transition-all ${
+                          slice.isSpecialGift
+                            ? 'bg-gradient-to-b from-amber-400/35 via-rose-500/35 to-slate-900/90 border-yellow-300 shadow-[0_0_10px_rgba(251,191,36,0.55)]'
+                            : isWinnerHighlight
+                            ? 'bg-white/20 border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.45)]'
+                            : 'bg-slate-950/45 border-white/20'
+                        }`}
+                        style={{ minWidth: 46 }}
+                      >
+                        <div className="w-6 h-6 flex items-center justify-center">
+                          <TelegramAnimatedSticker src={slice.sticker} size={24} />
+                        </div>
+
+                        <span
+                          className={`mt-0.5 px-1.5 py-0.2 rounded-full text-[8.5px] font-black leading-tight tracking-tight border shadow-2xs whitespace-nowrap ${slice.pillBg}`}
+                        >
+                          {slice.title}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </button>
+
+              {/* CENTER 3D "SPIN" HUB BUTTON */}
+              <button
+                type="button"
+                onClick={handleStartSpin}
+                disabled={isSpinning}
+                className="absolute z-20 w-[62px] h-[62px] rounded-full p-1 cursor-pointer active:scale-95 transition-transform flex items-center justify-center shadow-[0_6px_18px_rgba(0,0,0,0.65)]"
+                style={{
+                  background: 'linear-gradient(135deg, #fde047 0%, #f59e0b 50%, #b45309 100%)'
+                }}
+              >
+                <div className="w-full h-full rounded-full bg-gradient-to-b from-indigo-900 via-slate-900 to-rose-950 border-2 border-yellow-200/80 flex flex-col items-center justify-center text-white shadow-inner">
+                  {isSpinning ? (
+                    <Loader2 size={18} className="animate-spin text-amber-300" />
+                  ) : (
+                    <>
+                      <Sparkles size={12} className="text-amber-300" />
+                      <span className="text-[11px] font-black tracking-wider text-amber-200 leading-none mt-0.5">
+                        SPIN
+                      </span>
+                    </>
+                  )}
+                </div>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Error / Ad Unlock Status Toast */}
         {spinError && (
-          <div className="mt-2 mb-2.5 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold text-center">
+          <div className="mt-1.5 mb-2 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold text-center">
             {spinError}
           </div>
         )}
         {adUnlockToast && (
-          <div className="mt-2 mb-2.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold text-center animate-in fade-in">
+          <div className="mt-1.5 mb-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold text-center animate-in fade-in">
             {adUnlockToast}
           </div>
         )}
 
-        {/* Main Spin Action Button Below Wheel */}
+        {/* CLEAN SINGLE-WORD "SPIN" BUTTON BELOW WHEEL */}
         <button
           type="button"
           onClick={handleStartSpin}
           disabled={isSpinning}
-          className={`mt-2 w-full py-3.5 px-4 rounded-xl font-black text-[14px] text-white shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98] ${
+          className={`mt-2 w-full py-3 px-4 rounded-xl font-black text-[15px] tracking-wider uppercase text-white shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98] ${
             isSpinning
               ? 'bg-gradient-to-r from-indigo-600 to-purple-600 opacity-90 cursor-wait'
               : (spinStatus.totalAvailableSpins || 0) > 0
               ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 hover:brightness-105 shadow-rose-500/25'
-              : 'bg-slate-700 hover:bg-slate-800'
+              : 'bg-slate-700 hover:bg-slate-800 text-[12.5px]'
           }`}
         >
           {isSpinning ? (
             <>
               <Loader2 size={18} className="animate-spin" />
-              <span>{lang === 'bn' ? 'চাকা ঘুরছে... ভাগ্য যাচাই চলছে!' : 'Wheel Spinning... Good Luck!'}</span>
+              <span>SPINNING...</span>
             </>
           ) : (spinStatus.totalAvailableSpins || 0) > 0 ? (
             <>
               <Sparkles size={18} />
-              <span>
-                {lang === 'bn'
-                  ? `🎰 এখনই স্পিন করুন (${spinStatus.totalAvailableSpins}টি ফ্রি স্পিন বাকি)`
-                  : `🎰 SPIN NOW (${spinStatus.totalAvailableSpins} Left)`}
-              </span>
+              <span>SPIN</span>
             </>
           ) : (
             <>
-              <Clock size={17} />
+              <Clock size={16} />
               <span>
                 {dailyCooldownStr
                   ? lang === 'bn'
-                    ? `পরবর্তী ডেইলি স্পিন: ${dailyCooldownStr} (অ্যাড/রেফারে ফ্রি স্পিন নিন)`
-                    : `Next Daily Spin: ${dailyCooldownStr}`
-                  : lang === 'bn'
-                  ? 'স্পিন শেষ — নিচে অ্যাড দেখে বা রেফার করে স্পিন নিন'
-                  : 'Watch Ads or Refer below for Free Spins'}
+                    ? `ডেইলি স্পিন: ${dailyCooldownStr}`
+                    : `Next Spin: ${dailyCooldownStr}`
+                  : 'SPIN'}
               </span>
             </>
           )}
         </button>
       </CutCornerCard>
 
-      {/* 3. WATCH 3 ADS = 1 FREE SPIN CARD (POWERED BY MONETAG 12077323) */}
+      {/* 3. SHORT & CLEAN: WATCH 3 ADS = 1 FREE SPIN CARD */}
       <CutCornerCard
-        className={`p-3.5 border space-y-2.5 ${
+        className={`p-3 border space-y-2 ${
           darkMode
             ? 'bg-slate-900 border-emerald-500/35'
             : 'bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60 border-emerald-200/80'
@@ -6124,23 +6170,21 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
         flower={<AddMoneyFloraPattern />}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100/90 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-              <TelegramAnimatedSticker src="tg-sparkles-sticker.json" size={30} />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100/90 border border-emerald-200 flex items-center justify-center shrink-0">
+              <TelegramAnimatedSticker src="tg-sparkles-sticker.json" size={26} />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="text-[13px] font-black text-slate-900 leading-tight">
-                  {lang === 'bn' ? '৩টি অ্যাড দেখুন = ১টি ফ্রি স্পিন' : 'Watch 3 Ads = +1 Free Spin'}
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-[12.5px] font-black text-slate-900 leading-tight truncate">
+                  {lang === 'bn' ? '৩টি অ্যাড = ১টি ফ্রি স্পিন' : '3 Ads = +1 Free Spin'}
                 </h3>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[8.5px] font-black">
-                  {spinStatus.adProgress || 0}/3 ADS
+                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[8.5px] font-black shrink-0">
+                  {spinStatus.adProgress || 0}/3
                 </span>
               </div>
-              <p className="text-[10.5px] text-slate-500 font-semibold mt-0.5">
-                {lang === 'bn'
-                  ? 'প্রতি ৩টি ছোট বিজ্ঞাপন দেখলে সাথে সাথে ১টি ফ্রি স্পিন যুক্ত হবে!'
-                  : 'Watch 3 short sponsored ads to unlock 1 extra free spin instantly!'}
+              <p className="text-[10px] text-slate-500 font-semibold mt-0.5 truncate">
+                {lang === 'bn' ? '৩টি অ্যাড দেখলেই ১টি স্পিন ফ্রি!' : 'Watch 3 short ads to get 1 free spin!'}
               </p>
             </div>
           </div>
@@ -6153,14 +6197,14 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
             return (
               <div
                 key={stepNum}
-                className={`p-2 rounded-xl border text-center flex items-center justify-center gap-1.5 text-[10.5px] font-black transition-all ${
+                className={`py-1.5 px-2 rounded-xl border text-center flex items-center justify-center gap-1 text-[10px] font-black transition-all ${
                   done
                     ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
                     : 'bg-slate-50 border-slate-200 text-slate-400'
                 }`}
               >
-                {done ? <CheckCircle2 size={13} className="text-emerald-600" /> : <PlayCircle size={13} />}
-                <span>{lang === 'bn' ? `অ্যাড ${stepNum}` : `Ad #${stepNum}`}</span>
+                {done ? <CheckCircle2 size={12} className="text-emerald-600" /> : <PlayCircle size={12} />}
+                <span>{lang === 'bn' ? `অ্যাড ${stepNum}` : `Ad ${stepNum}`}</span>
               </div>
             );
           })}
@@ -6170,70 +6214,66 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
           type="button"
           onClick={handleWatchAdClick}
           disabled={isWatchingAd || isSpinning}
-          className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[12.5px] shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
+          className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[12px] shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
         >
           {isWatchingAd ? (
             <>
               <Loader2 size={15} className="animate-spin" />
-              <span>{lang === 'bn' ? 'অ্যাড লোড হচ্ছে...' : 'Loading Ad...'}</span>
+              <span>{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
             </>
           ) : (
             <>
-              <PlayCircle size={16} />
+              <PlayCircle size={15} />
               <span>
                 {lang === 'bn'
-                  ? `▶️ অ্যাড দেখুন (${spinStatus.adProgress || 0}/3) — ফ্রি স্পিন নিন`
-                  : `▶️ Watch Ad (${spinStatus.adProgress || 0}/3) for Free Spin`}
+                  ? `অ্যাড দেখুন (${spinStatus.adProgress || 0}/3)`
+                  : `Watch Ad (${spinStatus.adProgress || 0}/3)`}
               </span>
             </>
           )}
         </button>
       </CutCornerCard>
 
-      {/* 4. REFER & GET 1 FREE SPIN PER REFERRAL (EVEN IF UNACTIVATED) */}
+      {/* 4. SHORT & CLEAN: 1 REFERRAL = 1 FREE SPIN CARD */}
       <CutCornerCard
-        className={`p-3.5 border space-y-2.5 ${
+        className={`p-3 border space-y-2 ${
           darkMode
             ? 'bg-slate-900 border-rose-500/35'
             : 'bg-gradient-to-br from-rose-50/85 via-white to-pink-50/75 border-rose-200/80'
         }`}
         flower={<ReferralRosePattern />}
       >
-        <div className="flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-rose-100/90 border border-rose-200 flex items-center justify-center shrink-0">
-              <TelegramAnimatedSticker src="tg-rose-sticker.json" size={30} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="text-[13px] font-black text-slate-900 leading-tight">
-                  {lang === 'bn' ? '১টি রেফার = ১টি ফ্রি স্পিন + ৳৫ বোনাস' : '1 Referral = +1 Free Spin + ৳5'}
-                </h3>
-              </div>
-              <p className="text-[10.5px] text-slate-600 font-semibold mt-0.5 leading-snug">
-                {lang === 'bn'
-                  ? 'আপনার রেফার লিংকে ক্লিক করে নতুন কেউ বটে ঢুকলেই সাথে সাথে ১টি ফ্রি স্পিন পাবেন (রেফার অ্যাক্টিভ না হলেও স্পিন পাবেন)!'
-                  : 'Get +1 Free Spin immediately whenever a new friend joins via your referral link (even before referral activation)!'}
-              </p>
-            </div>
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-rose-100/90 border border-rose-200 flex items-center justify-center shrink-0">
+            <TelegramAnimatedSticker src="tg-rose-sticker.json" size={26} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-[12.5px] font-black text-slate-900 leading-tight truncate">
+              {lang === 'bn' ? '১টি রেফার = ১টি ফ্রি স্পিন + ৳৫' : '1 Referral = +1 Free Spin + ৳5'}
+            </h3>
+            <p className="text-[10px] text-slate-600 font-semibold mt-0.5 truncate">
+              {lang === 'bn'
+                ? 'বন্ধু জয়েন করলেই সাথে সাথে ১টি ফ্রি স্পিন পাবেন!'
+                : 'Get +1 Free Spin as soon as a friend joins!'}
+            </p>
           </div>
         </div>
 
         <button
           type="button"
           onClick={onGoToReferral}
-          className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-black text-[12px] shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
+          className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-black text-[12px] shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
         >
-          <Share2 size={15} />
-          <span>{lang === 'bn' ? 'বন্ধুদের রেফার করে ফ্রি স্পিন নিন' : 'Refer Friends to Get Free Spins'}</span>
+          <Share2 size={14} />
+          <span>{lang === 'bn' ? 'রেফার করে স্পিন নিন' : 'Refer & Get Spin'}</span>
         </button>
       </CutCornerCard>
 
       {/* BUILT-IN 10-SECOND SPONSORED AD MODAL FALLBACK */}
       {showFallbackAdModal && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-[340px] bg-slate-900 border border-indigo-500/40 rounded-2xl p-5 text-center space-y-4 shadow-2xl text-white">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <div className="w-full max-w-[330px] bg-slate-900 border border-indigo-500/40 rounded-2xl p-5 text-center space-y-3.5 shadow-2xl text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[9.5px] font-black uppercase">
                 Sponsored Ad • {(spinStatus.adProgress || 0) + 1}/3
               </span>
@@ -6242,15 +6282,13 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
               </span>
             </div>
 
-            <div className="py-3 flex flex-col items-center space-y-2">
-              <TelegramAnimatedSticker src="tg-gem-sticker.json" size={56} />
-              <h3 className="text-[15px] font-black text-white">
-                Trust Pay — Instant Crypto Exchange BD
-              </h3>
-              <p className="text-[11px] text-slate-300 leading-relaxed">
+            <div className="py-2 flex flex-col items-center space-y-2">
+              <TelegramAnimatedSticker src="tg-gem-sticker.json" size={54} />
+              <h3 className="text-[14.5px] font-black text-white">Trust Pay — Crypto Exchange</h3>
+              <p className="text-[11px] text-slate-300 leading-snug">
                 {lang === 'bn'
-                  ? 'মাত্র ২০ টাকা থেকে TON, GRAM ও USDT কেনাবেচা করুন এবং বিকাশ ও নগদে ইনস্ট্যান্ট পেমেন্ট নিন! প্রতি অ্যাক্টিভ রেফারে ৳৫ বোনাস!'
-                  : 'Buy & Sell TON, GRAM & USDT starting from ৳20 with instant bKash & Nagad payout!'}
+                  ? 'মাত্র ২০ টাকা থেকে TON, GRAM ও USDT কেনাবেচা ও বিকাশ/নগদে পেমেন্ট!'
+                  : 'Buy & Sell TON, GRAM & USDT with instant bKash & Nagad payout!'}
               </p>
             </div>
 
@@ -6258,7 +6296,7 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
               type="button"
               onClick={handleClaimFallbackAd}
               disabled={fallbackAdTimer > 0}
-              className={`w-full py-2.5 rounded-xl font-black text-[12.5px] transition-all cursor-pointer ${
+              className={`w-full py-2.5 rounded-xl font-black text-[12px] transition-all cursor-pointer ${
                 fallbackAdTimer > 0
                   ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
                   : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg'
@@ -6266,77 +6304,106 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
             >
               {fallbackAdTimer > 0
                 ? lang === 'bn'
-                  ? `অ্যাড চলছে... ${fallbackAdTimer} সেকেন্ড অপেক্ষা করুন`
-                  : `Please wait ${fallbackAdTimer}s...`
+                  ? `অপেক্ষা করুন (${fallbackAdTimer}s)...`
+                  : `Wait ${fallbackAdTimer}s...`
                 : lang === 'bn'
-                ? '✅ রিওয়ার্ড ক্লেইম করুন (Continue)'
-                : '✅ Claim Ad Progress'}
+                ? '✅ রিওয়ার্ড নিন'
+                : '✅ Claim Reward'}
             </button>
           </div>
         </div>
       )}
 
-      {/* SPIN PRIZE RESULT CELEBRATION MODAL */}
+      {/* LUXURY ANIMATED PRIZE POPUP MODAL */}
       {spinResultModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-[330px] bg-white rounded-3xl p-6 text-center space-y-3.5 shadow-2xl border-2 border-amber-300 animate-in zoom-in-95">
-            <div className="flex justify-center">
-              <TelegramAnimatedSticker
-                src={
-                  spinResultModal.card.id === 'again'
-                    ? 'tg-target-sticker.json'
-                    : spinResultModal.card.id === 'teddy'
-                    ? 'tg-heart-gift-sticker.json'
-                    : 'tg-party-sticker.json'
-                }
-                size={76}
-              />
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative w-full max-w-[310px] rounded-3xl p-6 text-center space-y-3.5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] border-2 border-amber-400/90 bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 text-white overflow-hidden animate-in zoom-in-90 duration-300">
+            {/* Rotating Golden Light Burst Behind Sticker */}
+            <div
+              className="absolute -top-12 left-1/2 -translate-x-1/2 w-56 h-56 rounded-full pointer-events-none opacity-30 blur-xl"
+              style={{
+                background:
+                  'conic-gradient(from 0deg, #f59e0b, transparent, #ec4899, transparent, #6366f1, transparent, #f59e0b)',
+                animation: 'flowerSpin 9s linear infinite'
+              }}
+            />
+
+            {/* Top Celebration Badge */}
+            <div className="relative z-10">
+              {spinResultModal.isMilestoneWinner ? (
+                <span className="inline-block px-3 py-1 rounded-full bg-gradient-to-r from-amber-400 to-rose-600 text-slate-950 text-[9.5px] font-black uppercase tracking-wider shadow-sm">
+                  🏆 MEGA JACKPOT WINNER!
+                </span>
+              ) : (
+                <span className="inline-block px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[9.5px] font-black uppercase tracking-wider">
+                  {spinResultModal.card.id === 'again'
+                    ? lang === 'bn'
+                      ? 'স্পিন রেজাল্ট'
+                      : 'SPIN RESULT'
+                    : lang === 'bn'
+                    ? '🎉 অভিনন্দন!'
+                    : '🎉 CONGRATULATIONS!'}
+                </span>
+              )}
             </div>
 
-            {spinResultModal.isMilestoneWinner && (
-              <span className="inline-block px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-rose-600 text-white text-[10px] font-black uppercase tracking-wider shadow-sm">
-                🏆 MEGA GIFT JACKPOT WINNER!
-              </span>
-            )}
+            {/* Prize 3D Animated Sticker Showcase */}
+            <div className="relative z-10 flex items-center justify-center py-1">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-b from-amber-400/25 to-rose-500/20 border-2 border-amber-300/60 flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.45)]">
+                <TelegramAnimatedSticker src={spinResultModal.card.sticker} size={68} />
+              </div>
+              {spinResultModal.card.id !== 'again' && (
+                <div className="absolute -right-1 -top-1 pointer-events-none">
+                  <TelegramAnimatedSticker src="tg-party-sticker.json" size={38} />
+                </div>
+              )}
+            </div>
 
-            <h3 className="text-xl font-black text-slate-900">
-              {spinResultModal.card.id === 'again'
-                ? spinResultModal.bonusFreeRespin
-                  ? lang === 'bn'
-                    ? '🎁 ফ্রি আরেকটি স্পিন পেয়েছেন!'
-                    : '🎁 Bonus Free Re-Spin!'
+            {/* Big Glowing Prize Title */}
+            <div className="relative z-10 space-y-1">
+              <div className="inline-block px-4 py-1 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-xl shadow-md">
+                {spinResultModal.card.title}
+              </div>
+
+              <h3 className="text-[15px] font-black text-white pt-1">
+                {spinResultModal.card.id === 'again'
+                  ? spinResultModal.bonusFreeRespin
+                    ? lang === 'bn'
+                      ? '🎁 +১টি বোনাস ফ্রি স্পিন পেয়েছেন!'
+                      : '🎁 +1 Bonus Free Spin!'
+                    : lang === 'bn'
+                    ? 'আবার চেষ্টা করুন!'
+                    : 'Try Again!'
                   : lang === 'bn'
-                  ? 'আবার চেষ্টা করুন! (Try Later)'
-                  : 'Try Again Next Time!'
-                : lang === 'bn'
-                ? `🎉 অভিনন্দন! আপনি জিতেছেন ${spinResultModal.card.title}!`
-                : `🎉 Congratulations! You won ${spinResultModal.card.title}!`}
-            </h3>
+                  ? `আপনি জিতেছেন ${spinResultModal.card.title}!`
+                  : `You Won ${spinResultModal.card.title}!`}
+              </h3>
 
-            <p className="text-[11.5px] text-slate-600 font-medium leading-relaxed">
-              {spinResultModal.bdtWon > 0
-                ? lang === 'bn'
-                  ? `৳${spinResultModal.bdtWon} টাকা সাথে সাথে আপনার মূল ব্যালেন্সে যোগ করে দেওয়া হয়েছে!`
-                  : `৳${spinResultModal.bdtWon} BDT has been instantly credited to your main balance!`
-                : spinResultModal.card.id === 'teddy'
-                ? lang === 'bn'
-                  ? 'আপনি স্পেশাল টেলিগ্রাম Star Gift জিতেছেন! অ্যাডমিন টিম আপনার আইডিতে গিফট পাঠিয়ে দিবে।'
-                  : 'You won the special Telegram Star Gift! Our admin team has been notified.'
-                : spinResultModal.bonusFreeRespin
-                ? lang === 'bn'
-                  ? 'আপনার জন্য সাথে সাথে আরও ১টি ফ্রি স্পিন যুক্ত করা হয়েছে! আবার স্পিন করুন।'
-                  : 'You got +1 Bonus Free Spin! Spin again right now.'
-                : lang === 'bn'
-                ? 'মন খারাপ করবেন না! নিচে ৩টি অ্যাড দেখে অথবা বন্ধুদের রেফার করে আবার ফ্রি স্পিন করুন।'
-                : 'Watch 3 ads below or refer a friend to get another free spin right now!'}
-            </p>
+              <p className="text-[11px] text-slate-300 font-medium leading-snug">
+                {spinResultModal.bdtWon > 0
+                  ? lang === 'bn'
+                    ? `৳${spinResultModal.bdtWon} টাকা আপনার মূল ব্যালেন্সে যোগ হয়েছে!`
+                    : `৳${spinResultModal.bdtWon} BDT added to your balance!`
+                  : spinResultModal.card.id === 'teddy'
+                  ? lang === 'bn'
+                    ? 'অ্যাডমিন টিম আপনার আইডিতে Star Gift পাঠিয়ে দিবে।'
+                    : 'Admin team will send your Star Gift shortly.'
+                  : spinResultModal.bonusFreeRespin
+                  ? lang === 'bn'
+                    ? 'এখনই আবার ফ্রি স্পিন করুন!'
+                    : 'Spin again right now!'
+                  : lang === 'bn'
+                  ? 'অ্যাড দেখে বা রেফার করে আবার স্পিন করুন!'
+                  : 'Watch ads or refer a friend to spin again!'}
+              </p>
+            </div>
 
             <button
               type="button"
               onClick={() => setSpinResultModal(null)}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-[13px] shadow-md active:scale-95 transition-all cursor-pointer"
+              className="relative z-10 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-rose-500 to-indigo-600 text-white font-black text-[13px] shadow-lg active:scale-95 transition-all cursor-pointer"
             >
-              {lang === 'bn' ? 'ঠিক আছে (OK)' : 'Awesome!'}
+              {lang === 'bn' ? 'ঠিক আছে (OK)' : 'COLLECT'}
             </button>
           </div>
         </div>
