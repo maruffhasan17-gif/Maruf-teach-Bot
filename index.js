@@ -4419,7 +4419,7 @@ const SPIN_ITEMS = [
     { index: 1, id: '5_tk', label: '৳5 TK', labelBn: '৳৫ টাকা', bdt: 5, type: 'cash' },
     { index: 2, id: '10_tk', label: '৳10 TK', labelBn: '৳১০ টাকা', bdt: 10, type: 'big_cash' },
     { index: 3, id: '20_tk', label: '৳20 TK', labelBn: '৳২০ টাকা', bdt: 20, type: 'big_cash' },
-    { index: 4, id: 'teddy', label: 'Teddy Gift', labelBn: '🧸 টেডি গিফট', bdt: 0, type: 'teddy' },
+    { index: 4, id: 'teddy', label: 'Star Gift', labelBn: '💝 স্টার গিফট', bdt: 0, type: 'teddy' },
     { index: 5, id: '100_tk', label: '৳100 TK', labelBn: '৳১০০ টাকা', bdt: 100, type: 'big_cash' },
     { index: 6, id: 'again', label: 'Try Later', labelBn: 'Spin Again', bdt: 0, type: 'again' },
     { index: 7, id: '500_tk', label: '৳500 TK', labelBn: '৳৫০০ টাকা', bdt: 500, type: 'big_cash' },
@@ -4428,7 +4428,7 @@ const SPIN_ITEMS = [
 
 const SPIN_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours for daily free spin
 const SPIN_EVENT_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days Event
-const SPIN_MILESTONE_TARGET = 50000; // 50,000 Global Spins target
+const SPIN_MILESTONE_TARGET = 50000; // 50,000 Global Spins target (server-only hidden counter)
 
 async function getOrInitSpinEventConfig() {
     const configRef = db.collection('config').doc('spin_event');
@@ -4441,7 +4441,7 @@ async function getOrInitSpinEventConfig() {
             totalGlobalSpins: 0,
             totalGlobalAdsWatched: 0,
             milestoneTarget: SPIN_MILESTONE_TARGET,
-            monetagZoneId: process.env.MONETAG_ZONE_ID || '',
+            monetagZoneId: process.env.MONETAG_ZONE_ID || '12077323',
             adsgramBlockId: process.env.ADSGRAM_BLOCK_ID || ''
         };
         await configRef.set(initData, { merge: true });
@@ -4460,7 +4460,7 @@ async function getOrInitSpinEventConfig() {
         totalGlobalSpins: d.totalGlobalSpins || 0,
         totalGlobalAdsWatched: d.totalGlobalAdsWatched || 0,
         milestoneTarget: d.milestoneTarget || SPIN_MILESTONE_TARGET,
-        monetagZoneId: d.monetagZoneId || process.env.MONETAG_ZONE_ID || '',
+        monetagZoneId: d.monetagZoneId || process.env.MONETAG_ZONE_ID || '12077323',
         adsgramBlockId: d.adsgramBlockId || process.env.ADSGRAM_BLOCK_ID || ''
     };
 }
