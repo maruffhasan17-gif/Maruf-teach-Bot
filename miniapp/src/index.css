@@ -499,3 +499,17 @@ html.dark .tp-asset-check-inactive {
   border-color: rgba(100, 116, 139, 0.5) !important;
 }
 
+/* 9-Card Spin Board Dark Mode Styling */
+html.dark .tp-spin-card-active {
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.18), rgba(168, 85, 247, 0.25)) !important;
+  border-color: #F59E0B !important;
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.65), 0 0 8px rgba(168, 85, 247, 0.45) !important;
+}
+html.dark .tp-spin-card-center {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.22), rgba(217, 70, 239, 0.18)) !important;
+  border-color: rgba(244, 63, 94, 0.6) !important;
+}
+html.dark .tp-spin-card-idle {
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.9)) !important;
+  border-color: rgba(71, 85, 105, 0.65) !important;
+}

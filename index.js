@@ -1049,7 +1049,7 @@ async function registerUserReferral(userId, rawReferrerId, userMeta = {}, device
         const firstName = userMeta.firstName || userData.firstName || userData.first_name || 'User';
         const username = userMeta.username || userData.username || '';
 
-        await Promise.all([
+        const batchPromises = [
             db.collection('users').doc(strUserId).set({
                 referredBy: cleanReferrerId,
                 referralStatus: refStatus,
@@ -1072,15 +1072,28 @@ async function registerUserReferral(userId, rawReferrerId, userMeta = {}, device
                 bonusPaid: false,
                 createdAt: FieldValue.serverTimestamp()
             })
-        ]);
+        ];
+
+        // Immediately grant +1 Free Spin to referrer for every valid (non-clone) referral even before activation
+        if (!isBlockedClone) {
+            batchPromises.push(
+                db.collection('users').doc(strReferrerId).set({
+                    extraSpins: FieldValue.increment(1),
+                    syncedReferralSpinsCount: FieldValue.increment(1)
+                }, { merge: true })
+            );
+        }
+
+        await Promise.all(batchPromises);
 
         // Notify Referrer in Telegram if valid pending referral
         if (!isBlockedClone && bot) {
             const joinNotifyMsg = `${PE.sparkles} <b>নতুন রেফারেল যুক্ত হয়েছে! (New Referral Joined)</b>\n\n` +
                 `<blockquote>${PE.user} <b>নতুন ইউজার:</b> <code>${firstName}</code> ${username ? `(@${username})` : ''}\n` +
+                `🎰 <b>স্পিন বোনাস:</b> <code>+1 Free Spin (সাথে সাথে যুক্ত হয়েছে!)</code>\n` +
                 `⏳ <b>স্ট্যাটাস:</b> <code>Pending (অ্যাক্টিভেশন বাকি)</code>\n` +
-                `${PE.moneyBag} <b>রেফার বোনাস:</b> <code>+৳${REFERRAL_BONUS_BDT} BDT</code></blockquote>\n\n` +
-                `${PE.zap} <i>আপনার বন্ধু ওয়ালেট কানেক্ট করে নূন্যতম ২০ টাকা Add Money অথবা ২০ টাকা Crypto Sell সম্পন্ন করলেই রেফারটি Active হবে এবং আপনি সাথে সাথে <b>৳${REFERRAL_BONUS_BDT} টাকা বোনাস</b> পাবেন!</i>`;
+                `${PE.moneyBag} <b>অ্যাক্টিভ বোনাস:</b> <code>+৳${REFERRAL_BONUS_BDT} BDT</code></blockquote>\n\n` +
+                `${PE.zap} <i>রেফার করার জন্য আপনি <b>১টি ফ্রি স্পিন</b> পেয়েছেন! এছাড়া আপনার বন্ধু ওয়ালেট কানেক্ট করে নূন্যতম ২০ টাকা Add Money অথবা ২০ টাকা Crypto Sell করলেই আপনি আরও <b>৳${REFERRAL_BONUS_BDT} টাকা বোনাস</b> পাবেন!</i>`;
             bot.sendMessage(cleanReferrerId, joinNotifyMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
         }
 
@@ -4400,6 +4413,366 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
     }
 });
 
+// ==================== 30-DAY SPIN & STAR GIVEAWAY EVENT API ====================
+const SPIN_ITEMS = [
+    { index: 0, id: '1_tk', label: '৳1 TK', labelBn: '৳১ টাকা', bdt: 1, type: 'cash' },
+    { index: 1, id: '5_tk', label: '৳5 TK', labelBn: '৳৫ টাকা', bdt: 5, type: 'cash' },
+    { index: 2, id: '10_tk', label: '৳10 TK', labelBn: '৳১০ টাকা', bdt: 10, type: 'big_cash' },
+    { index: 3, id: '20_tk', label: '৳20 TK', labelBn: '৳২০ টাকা', bdt: 20, type: 'big_cash' },
+    { index: 4, id: 'teddy', label: 'Teddy Gift', labelBn: '🧸 টেডি গিফট', bdt: 0, type: 'teddy' },
+    { index: 5, id: '100_tk', label: '৳100 TK', labelBn: '৳১০০ টাকা', bdt: 100, type: 'big_cash' },
+    { index: 6, id: 'again', label: 'Try Later', labelBn: 'Spin Again', bdt: 0, type: 'again' },
+    { index: 7, id: '500_tk', label: '৳500 TK', labelBn: '৳৫০০ টাকা', bdt: 500, type: 'big_cash' },
+    { index: 8, id: '1_usd', label: '$1 USD', labelBn: '$১ ডলার', bdt: 120, type: 'big_cash' }
+];
+
+const SPIN_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours for daily free spin
+const SPIN_EVENT_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days Event
+const SPIN_MILESTONE_TARGET = 50000; // 50,000 Global Spins target
+
+async function getOrInitSpinEventConfig() {
+    const configRef = db.collection('config').doc('spin_event');
+    const doc = await configRef.get();
+    const now = Date.now();
+    if (!doc.exists) {
+        const initData = {
+            eventStartAt: now,
+            eventEndAt: now + SPIN_EVENT_DURATION_MS,
+            totalGlobalSpins: 0,
+            totalGlobalAdsWatched: 0,
+            milestoneTarget: SPIN_MILESTONE_TARGET,
+            monetagZoneId: process.env.MONETAG_ZONE_ID || '',
+            adsgramBlockId: process.env.ADSGRAM_BLOCK_ID || ''
+        };
+        await configRef.set(initData, { merge: true });
+        return initData;
+    }
+    const d = doc.data() || {};
+    let eventEndAt = d.eventEndAt || (now + SPIN_EVENT_DURATION_MS);
+    if (eventEndAt <= now) {
+        // Renew 30-day cycle if expired
+        eventEndAt = now + SPIN_EVENT_DURATION_MS;
+        await configRef.set({ eventStartAt: now, eventEndAt }, { merge: true });
+    }
+    return {
+        eventStartAt: d.eventStartAt || now,
+        eventEndAt,
+        totalGlobalSpins: d.totalGlobalSpins || 0,
+        totalGlobalAdsWatched: d.totalGlobalAdsWatched || 0,
+        milestoneTarget: d.milestoneTarget || SPIN_MILESTONE_TARGET,
+        monetagZoneId: d.monetagZoneId || process.env.MONETAG_ZONE_ID || '',
+        adsgramBlockId: d.adsgramBlockId || process.env.ADSGRAM_BLOCK_ID || ''
+    };
+}
+
+app.get('/api/miniapp/spin-status/:userId', async (req, res) => {
+    try {
+        const cleanUserId = parseInt(req.params.userId);
+        const now = Date.now();
+        const eventConfig = await getOrInitSpinEventConfig();
+
+        if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
+            return res.json({
+                success: true,
+                dailyFreeAvailable: true,
+                nextDailySpinAt: now,
+                extraSpins: 0,
+                totalAvailableSpins: 1,
+                adProgress: 0,
+                totalSpinsByUser: 0,
+                totalWonBdt: 0,
+                eventEndAt: eventConfig.eventEndAt,
+                totalGlobalSpins: eventConfig.totalGlobalSpins,
+                milestoneTarget: eventConfig.milestoneTarget,
+                monetagZoneId: eventConfig.monetagZoneId,
+                adsgramBlockId: eventConfig.adsgramBlockId
+            });
+        }
+
+        const strUserId = String(cleanUserId);
+        const [userDoc, refSnap] = await Promise.all([
+            db.collection('users').doc(strUserId).get(),
+            db.collection('referrals').where('referrerId', '==', cleanUserId).get().catch(() => null)
+        ]);
+
+        const userData = userDoc.exists ? (userDoc.data() || {}) : {};
+        let extraSpins = Math.max(0, parseInt(userData.extraSpins) || 0);
+        const syncedRefCount = parseInt(userData.syncedReferralSpinsCount) || 0;
+
+        // Sync any valid (non-clone) referrals that haven't granted their 1 free spin yet (even if pending/unactivated)
+        let validReferralsCount = 0;
+        if (refSnap && !refSnap.empty) {
+            refSnap.forEach(rDoc => {
+                const rd = rDoc.data() || {};
+                if (rd.status !== 'blocked_clone' && rd.status !== 'rejected_clone') {
+                    validReferralsCount++;
+                }
+            });
+        }
+
+        if (validReferralsCount > syncedRefCount) {
+            const unsyncedSpins = validReferralsCount - syncedRefCount;
+            extraSpins += unsyncedSpins;
+            await db.collection('users').doc(strUserId).set({
+                extraSpins,
+                syncedReferralSpinsCount: validReferralsCount
+            }, { merge: true });
+        }
+
+        const lastDailySpinAt = parseInt(userData.lastDailySpinAt) || 0;
+        const dailyFreeAvailable = (now - lastDailySpinAt) >= SPIN_COOLDOWN_MS;
+        const nextDailySpinAt = dailyFreeAvailable ? now : (lastDailySpinAt + SPIN_COOLDOWN_MS);
+        const totalAvailableSpins = (dailyFreeAvailable ? 1 : 0) + extraSpins;
+
+        res.json({
+            success: true,
+            dailyFreeAvailable,
+            nextDailySpinAt,
+            extraSpins,
+            totalAvailableSpins,
+            adProgress: Math.min(2, Math.max(0, parseInt(userData.spinAdProgress) || 0)),
+            totalSpinsByUser: parseInt(userData.totalSpinsByUser) || 0,
+            totalWonBdt: parseFloat(userData.totalSpinWonBdt) || 0,
+            totalReferralsForSpin: validReferralsCount,
+            eventEndAt: eventConfig.eventEndAt,
+            totalGlobalSpins: eventConfig.totalGlobalSpins,
+            milestoneTarget: eventConfig.milestoneTarget,
+            monetagZoneId: eventConfig.monetagZoneId,
+            adsgramBlockId: eventConfig.adsgramBlockId
+        });
+    } catch (e) {
+        console.error("GET /api/miniapp/spin-status error:", e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/miniapp/spin-execute', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const cleanUserId = parseInt(userId);
+        if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
+            return res.status(400).json({ error: ' অনুগ্রহ করে টেলিগ্রাম থেকে বটটি ওপেন করুন।' });
+        }
+
+        const strUserId = String(cleanUserId);
+        const userRef = db.collection('users').doc(strUserId);
+        const configRef = db.collection('config').doc('spin_event');
+
+        const [userDoc, eventConfig] = await Promise.all([
+            userRef.get(),
+            getOrInitSpinEventConfig()
+        ]);
+
+        const userData = userDoc.exists ? (userDoc.data() || {}) : {};
+        const now = Date.now();
+        const lastDailySpinAt = parseInt(userData.lastDailySpinAt) || 0;
+        const dailyFreeAvailable = (now - lastDailySpinAt) >= SPIN_COOLDOWN_MS;
+        let extraSpins = Math.max(0, parseInt(userData.extraSpins) || 0);
+
+        if (!dailyFreeAvailable && extraSpins <= 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'আপনার ফ্রি স্পিন শেষ! নিচে ৩টি অ্যাড দেখে অথবা বন্ধুদের রেফার করে ফ্রি স্পিন নিন।'
+            });
+        }
+
+        // Consume spin: prioritize daily free spin first, then extraSpins
+        let usedDailyFree = false;
+        if (dailyFreeAvailable) {
+            usedDailyFree = true;
+        } else {
+            extraSpins = Math.max(0, extraSpins - 1);
+        }
+
+        // Increment global spin counter
+        const newGlobalSpins = (parseInt(eventConfig.totalGlobalSpins) || 0) + 1;
+        await configRef.set({
+            totalGlobalSpins: FieldValue.increment(1)
+        }, { merge: true });
+
+        // ──────────────────────────────────────────────────────────────────
+        // ZERO-LOSS & 50,000 MILESTONE PROBABILITY ENGINE
+        // ──────────────────────────────────────────────────────────────────
+        const todayKey = new Date(now + 6 * 3600 * 1000).toISOString().slice(0, 10); // BD date
+        const userLastWinDate = userData.lastSpinWinDate || '';
+        const wonTodayBdt = (userLastWinDate === todayKey) ? (parseFloat(userData.dailySpinWonBdt) || 0) : 0;
+        const isClone = Boolean(userData.isCloneDevice);
+
+        let winningIndex = 6; // Default: Index 6 = "Try Later / Spin Again" (0 BDT cost)
+        let isMilestoneWinner = false;
+        let bonusFreeRespin = false;
+
+        // Check if this exact spin is the 50,001st spin (right after 50,000 spins completed!)
+        if (!isClone && newGlobalSpins > SPIN_MILESTONE_TARGET && (newGlobalSpins % SPIN_MILESTONE_TARGET === 1)) {
+            isMilestoneWinner = true;
+            // 50,000+ Milestone Special Prize: Teddy Gift (index 4) or 10/20 TK
+            const milestonePool = [4, 4, 4, 2, 3]; // 60% Teddy Gift, 20% 10 TK, 20% 20 TK
+            winningIndex = milestonePool[Math.floor(Math.random() * milestonePool.length)];
+        } else if (isClone) {
+            // Clone accounts always land on Try Later (0 BDT)
+            winningIndex = 6;
+        } else {
+            // Normal Spin (< 50,000):
+            // 99%+ lands on "Try Later / Again" (Index 6) or "৳1 TK" (Index 0)
+            // Strict Zero-Loss Protection:
+            const roll = Math.random() * 100;
+
+            if (wonTodayBdt >= 2) {
+                // Already won 2 TK today -> 100% lands on Try Later (0 BDT) so admin never loses money!
+                winningIndex = 6;
+            } else if (wonTodayBdt >= 1) {
+                // Already won 1 TK today -> 95% Try Later (0 BDT), 5% 1 TK
+                winningIndex = roll < 95 ? 6 : 0;
+            } else {
+                // Has not won any BDT today yet:
+                // Rare 0.4% chance (only every 250th global spin) for 5 TK (Index 1)
+                if (newGlobalSpins % 250 === 0 && roll < 40) {
+                    winningIndex = 1; // ৳5 TK
+                } else if (roll < 82) {
+                    // 82% lands on Index 6 (Try Later / Spin Again — 0 BDT)
+                    winningIndex = 6;
+                    // 20% of the time when landing on "Again" (and not already on a free respin), grant 1 instant re-spin for excitement
+                    if (!userData.lastSpinWasFreeRespin && Math.random() < 0.20) {
+                        bonusFreeRespin = true;
+                        extraSpins += 1;
+                    }
+                } else {
+                    // ~17.6% lands on Index 0 (৳1 TK)
+                    winningIndex = 0;
+                }
+            }
+        }
+
+        const prize = SPIN_ITEMS[winningIndex] || SPIN_ITEMS[6];
+        const bdtWon = prize.bdt || 0;
+        const newDailyWonBdt = wonTodayBdt + bdtWon;
+
+        const userUpdates = {
+            extraSpins,
+            totalSpinsByUser: FieldValue.increment(1),
+            lastSpinWasFreeRespin: bonusFreeRespin,
+            updatedAt: FieldValue.serverTimestamp()
+        };
+
+        if (usedDailyFree) {
+            userUpdates.lastDailySpinAt = now;
+        }
+
+        if (bdtWon > 0) {
+            userUpdates.balance = FieldValue.increment(bdtWon);
+            userUpdates.totalSpinWonBdt = FieldValue.increment(bdtWon);
+            userUpdates.lastSpinWinDate = todayKey;
+            userUpdates.dailySpinWonBdt = newDailyWonBdt;
+        }
+
+        if (prize.type === 'teddy') {
+            userUpdates.teddyGiftsWon = FieldValue.increment(1);
+        }
+
+        await userRef.set(userUpdates, { merge: true });
+
+        // Notify Admin Group & User if Teddy Gift or Big Milestone Prize is won
+        if (prize.type === 'teddy' || isMilestoneWinner || bdtWon >= 5) {
+            const uName = userData.firstName || userData.first_name || 'User';
+            const uHandle = userData.username ? `@${userData.username}` : `ID: ${cleanUserId}`;
+            if (bot && botConfig?.adminGroupId) {
+                const adminSpinMsg = `🎰 <b>Spin Event Prize Alert!</b>\n\n` +
+                    `👤 <b>User:</b> ${uName} (${uHandle} / <code>${cleanUserId}</code>)\n` +
+                    `🎁 <b>Prize Won:</b> <b>${prize.label} (${prize.labelBn})</b>\n` +
+                    `🌍 <b>Global Spin #:</b> <code>${newGlobalSpins}</code>\n` +
+                    `${isMilestoneWinner ? '🏆 <b>50,000+ MILESTONE WINNER!</b>' : ''}`;
+                bot.sendMessage(botConfig.adminGroupId, adminSpinMsg, { parse_mode: 'HTML' }).catch(() => {});
+            }
+        }
+
+        const updatedDailyFreeAvailable = usedDailyFree ? false : dailyFreeAvailable;
+        const nextDailySpinAt = usedDailyFree ? (now + SPIN_COOLDOWN_MS) : (dailyFreeAvailable ? now : (lastDailySpinAt + SPIN_COOLDOWN_MS));
+        const newBalance = (parseFloat(userData.balance) || 0) + bdtWon;
+
+        res.json({
+            success: true,
+            winningIndex,
+            prize: {
+                ...prize,
+                bonusFreeRespin
+            },
+            bdtWon,
+            isMilestoneWinner,
+            bonusFreeRespin,
+            newBalance,
+            dailyFreeAvailable: updatedDailyFreeAvailable,
+            nextDailySpinAt,
+            extraSpins,
+            totalAvailableSpins: (updatedDailyFreeAvailable ? 1 : 0) + extraSpins,
+            totalGlobalSpins: newGlobalSpins,
+            milestoneTarget: eventConfig.milestoneTarget
+        });
+    } catch (e) {
+        console.error("POST /api/miniapp/spin-execute error:", e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Watch 3 Ads = +1 Free Spin Endpoint
+app.post('/api/miniapp/spin-watch-ad', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        const cleanUserId = parseInt(userId);
+        if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
+            return res.status(400).json({ error: 'Valid Telegram User ID required' });
+        }
+
+        const strUserId = String(cleanUserId);
+        const userRef = db.collection('users').doc(strUserId);
+        const userDoc = await userRef.get();
+        const userData = userDoc.exists ? (userDoc.data() || {}) : {};
+
+        const now = Date.now();
+        const lastAdAt = parseInt(userData.lastSpinAdAt) || 0;
+        if (now - lastAdAt < 5000) {
+            return res.status(429).json({ error: 'অনুগ্রহ করে অ্যাডটি সম্পূর্ণ দেখুন।' });
+        }
+
+        const currentProgress = Math.min(2, Math.max(0, parseInt(userData.spinAdProgress) || 0));
+        const nextProgress = currentProgress + 1;
+        let extraSpins = Math.max(0, parseInt(userData.extraSpins) || 0);
+        let spinUnlocked = false;
+        let finalProgress = nextProgress;
+
+        if (nextProgress >= 3) {
+            finalProgress = 0;
+            extraSpins += 1;
+            spinUnlocked = true;
+        }
+
+        await Promise.all([
+            userRef.set({
+                spinAdProgress: finalProgress,
+                extraSpins,
+                lastSpinAdAt: now,
+                totalAdsWatched: FieldValue.increment(1)
+            }, { merge: true }),
+            db.collection('config').doc('spin_event').set({
+                totalGlobalAdsWatched: FieldValue.increment(1)
+            }, { merge: true })
+        ]);
+
+        const lastDailySpinAt = parseInt(userData.lastDailySpinAt) || 0;
+        const dailyFreeAvailable = (now - lastDailySpinAt) >= SPIN_COOLDOWN_MS;
+
+        res.json({
+            success: true,
+            adProgress: finalProgress,
+            spinUnlocked,
+            extraSpins,
+            totalAvailableSpins: (dailyFreeAvailable ? 1 : 0) + extraSpins
+        });
+    } catch (e) {
+        console.error("POST /api/miniapp/spin-watch-ad error:", e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Public Rich Preview & Instant Redirect Route for Referral Sharing (shows Banner Image + Title + Button in Telegram)
 app.get('/invite/:referrerId', (req, res) => {
     const rawRef = (req.params.referrerId || '').toString().replace(/[^0-9]/g, '');
@@ -5595,6 +5968,23 @@ bot.onText(/\/msg (\d+) ([\s\S]+)/, async (msg, match) => {
     } catch(e) {
         bot.sendMessage(chatId, "? ????? ?????? ?????! ???? ????? ???? ???? ??? ?????? ???? ???? ????").catch(e => console.error(e.message));
     }
+});
+
+// Admin Commands for Monetag & Adsgram Ad Setup
+bot.onText(/\/setmonetag\s+(\S+)/i, async (msg, match) => {
+    const chatId = msg.chat.id;
+    if (botConfig?.adminGroupId && botConfig.adminGroupId !== chatId.toString()) return;
+    const zoneId = match[1].trim();
+    await db.collection('config').doc('spin_event').set({ monetagZoneId: zoneId }, { merge: true });
+    bot.sendMessage(chatId, `✅ <b>Monetag Zone ID সফলভাবে সেট করা হয়েছে:</b> <code>${zoneId}</code>`, { parse_mode: 'HTML' }).catch(() => {});
+});
+
+bot.onText(/\/setadsgram\s+(\S+)/i, async (msg, match) => {
+    const chatId = msg.chat.id;
+    if (botConfig?.adminGroupId && botConfig.adminGroupId !== chatId.toString()) return;
+    const blockId = match[1].trim();
+    await db.collection('config').doc('spin_event').set({ adsgramBlockId: blockId }, { merge: true });
+    bot.sendMessage(chatId, `✅ <b>Adsgram Block ID সফলভাবে সেট করা হয়েছে:</b> <code>${blockId}</code>`, { parse_mode: 'HTML' }).catch(() => {});
 });
 
 bot.onText(/\/wallet/, async (msg) => {

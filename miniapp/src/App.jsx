@@ -4,7 +4,7 @@ import { Home, User, Users, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, A
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchSpinStatus, executeSpin, watchSpinAd } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/referral-banner.jpg';
@@ -1768,7 +1768,7 @@ export default function App() {
              </div>
              {/* Right Header Controls: Moon/Sun Theme Toggle (on Profile/Referral) + Wallet Button */}
              <div className="origin-right flex items-center gap-2">
-                {(activeTab === 'profile' || activeTab === 'referral') && (
+                {(activeTab === 'profile' || activeTab === 'referral' || activeTab === 'spin') && (
                   <button
                     type="button"
                     onClick={handleToggleDarkMode}
@@ -1794,11 +1794,13 @@ export default function App() {
                   user={user} 
                   lang={lang}
                   t={t}
+                  darkMode={darkMode}
                   fiatWithdrawPending={fiatWithdrawPending} 
                   onGoToClaim={() => setActiveTab('claim')} 
                   onOpenBuyCrypto={() => setActiveTab('buy')}
                   onGoToSell={() => setActiveTab('sell')}
                   onGoToAddMoney={() => setActiveTab('add-money')}
+                  onGoToSpin={() => setActiveTab('spin')}
               />
           )}
           {activeTab === 'buy' && (
@@ -1848,6 +1850,7 @@ export default function App() {
                   onGoToWithdraw={() => setActiveTab('withdraw')} 
                   onGoToHistory={() => setActiveTab('history')} 
                   onGoToReferral={() => setActiveTab('referral')}
+                  onGoToSpin={() => setActiveTab('spin')}
                   setFiatWallet={setFiatWallet} 
                   setIsModalOpen={setIsModalOpen}
                   reloadData={() => loadData(user?.id || 123456789)} 
@@ -1859,6 +1862,16 @@ export default function App() {
                   lang={lang}
                   darkMode={darkMode}
                   onBack={() => setActiveTab('profile')}
+                  reloadData={() => loadData(user?.id || 123456789)}
+              />
+          )}
+          {activeTab === 'spin' && (
+              <SpinEventPage
+                  user={user}
+                  lang={lang}
+                  darkMode={darkMode}
+                  onBack={() => setActiveTab('home')}
+                  onGoToReferral={() => setActiveTab('referral')}
                   reloadData={() => loadData(user?.id || 123456789)}
               />
           )}
@@ -1881,7 +1894,7 @@ export default function App() {
         </div>
 
         {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
-        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && (() => {
+        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && activeTab !== 'spin' && (() => {
             const navTabs = ['home', 'add-money', 'sell', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
@@ -2176,7 +2189,7 @@ function AppHeader({ user, lang = 'bn' }) {
   );
 }
 
-function HomePage({ balance, balanceLoaded = false, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney, lang = 'bn', t = {} }) {
+function HomePage({ balance, balanceLoaded = false, user, fiatWithdrawPending, onGoToClaim, onOpenBuyCrypto, onGoToSell, onGoToAddMoney, onGoToSpin, darkMode = false, lang = 'bn', t = {} }) {
   const [graphData, setGraphData] = useState(initialGraphData);
   const [timeframe, setTimeframe] = useState('LIVE');
 
@@ -2330,6 +2343,40 @@ function HomePage({ balance, balanceLoaded = false, user, fiatWithdrawPending, o
              </div>
          </div>
       </div>
+
+      {/* 30-DAY SPIN & TEDDY STAR GIVEAWAY BANNER CARD */}
+      <CutCornerCard
+         className={`p-3 border cursor-pointer active:scale-[0.99] transition-all ${
+            darkMode
+               ? 'bg-slate-900 border-amber-500/35'
+               : 'bg-gradient-to-r from-amber-50/90 via-white to-rose-50/85 border-amber-200/80'
+         }`}
+         flower={<ReferralRosePattern />}
+      >
+         <div onClick={onGoToSpin} className="flex items-center justify-between gap-2.5 group">
+            <div className="flex items-center gap-2.5 min-w-0">
+               <div className="w-11 h-11 rounded-xl bg-amber-100/90 border border-amber-200/90 flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                  <TelegramAnimatedSticker src="tg-teddy-sticker.json" size={34} />
+               </div>
+               <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                     <span className="font-black text-slate-900 text-[13px] leading-tight">
+                        {lang === 'bn' ? '৩০ দিনের মেগা স্পিন ও গিভওয়ে' : '30-Day Spin & Star Giveaway'}
+                     </span>
+                     <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white rounded-full text-[9px] font-black tracking-wide shadow-xs animate-pulse">
+                        FREE SPIN
+                     </span>
+                  </div>
+                  <p className="text-[10.5px] text-amber-700 font-bold mt-0.5 truncate">
+                     {lang === 'bn' ? 'প্রতিদিন ফ্রি স্পিন করে জিতুন Teddy Gift, $1 ও ৳500 পর্যন্ত!' : 'Spin daily to win Teddy Star Gift, $1 USD & up to ৳500!'}
+                  </p>
+               </div>
+            </div>
+            <div className="w-7 h-7 rounded-full bg-amber-100/90 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-all">
+               <ChevronRight size={15} />
+            </div>
+         </div>
+      </CutCornerCard>
 
       {/* Premium Live Area Chart Card */}
       <CutCornerCard className="p-3.5" flower={<HomeLotusPattern />}>
@@ -4223,7 +4270,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
 }
 
 
-function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, onGoToReferral, setFiatWallet, setIsModalOpen, reloadData }) {
+function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
 
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -4428,6 +4475,43 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
          >
             {t?.withdrawBalance || 'WITHDRAW BALANCE'}
          </CutCornerButton>
+      </CutCornerCard>
+
+      {/* 2.4 30-DAY SPIN & STAR GIVEAWAY MASTER CARD */}
+      <CutCornerCard
+         className={`p-3 border ${
+            darkMode
+               ? 'bg-slate-900 border-amber-500/35'
+               : 'bg-gradient-to-br from-amber-50/95 via-white to-rose-50/90 border-amber-200/80'
+         }`}
+         flower={<ReferralRosePattern />}
+      >
+         <div
+            onClick={onGoToSpin}
+            className="flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group p-1"
+         >
+            <div className="flex items-center gap-3 min-w-0">
+               <div className="w-10 h-10 rounded-xl bg-amber-100/90 border border-amber-200/80 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                  <TelegramAnimatedSticker src="tg-teddy-sticker.json" size={30} />
+               </div>
+               <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                     <span className="font-black text-slate-900 text-[13px] leading-tight">
+                        {lang === 'bn' ? '৩০ দিনের মেগা স্পিন ও গিভওয়ে' : '30-Day Spin & Star Giveaway'}
+                     </span>
+                     <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white rounded-full text-[9px] font-black tracking-wide shadow-xs">
+                        TEDDY & ৳500
+                     </span>
+                  </div>
+                  <span className="text-[10.5px] text-amber-700 font-semibold block mt-0.5">
+                     {lang === 'bn' ? 'ডেইলি ফ্রি স্পিন, রেফার স্পিন ও ৩টি অ্যাড দেখে স্পিন করুন!' : 'Daily free spin, referral spin & watch 3 ads for spin!'}
+                  </span>
+               </div>
+            </div>
+            <div className="w-7 h-7 rounded-full bg-amber-100/90 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-all">
+               <ChevronRight size={15} />
+            </div>
+         </div>
       </CutCornerCard>
 
       {/* 2.5 ROSE REFERRAL & EARN MASTER CARD */}
@@ -5248,6 +5332,858 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
           </div>
         )}
       </CutCornerCard>
+    </div>
+  );
+}
+
+const SPIN_BOARD_CARDS = [
+  {
+    index: 0,
+    id: '1_tk',
+    title: '৳1 TK',
+    subtitleBn: 'নগদ বোনাস',
+    subtitleEn: 'Instant Cash',
+    sticker: 'tg-coin-sticker.json',
+    badge: '99% HOT',
+    accent: 'emerald'
+  },
+  {
+    index: 1,
+    id: '5_tk',
+    title: '৳5 TK',
+    subtitleBn: 'লাকি ক্যাশ',
+    subtitleEn: 'Lucky Cash',
+    sticker: 'tg-star-sticker.json',
+    badge: 'LUCKY',
+    accent: 'amber'
+  },
+  {
+    index: 2,
+    id: '10_tk',
+    title: '৳10 TK',
+    subtitleBn: 'সুপার ক্যাশ',
+    subtitleEn: 'Super Cash',
+    sticker: 'tg-cash-sticker.json',
+    badge: 'SUPER',
+    accent: 'indigo'
+  },
+  {
+    index: 3,
+    id: '20_tk',
+    title: '৳20 TK',
+    subtitleBn: 'হট প্রাইজ',
+    subtitleEn: 'Hot Prize',
+    sticker: 'tg-fire-sticker.json',
+    badge: 'HOT',
+    accent: 'rose'
+  },
+  {
+    index: 4,
+    id: 'teddy',
+    title: 'Teddy Gift',
+    subtitleBn: '⭐ টেলিগ্রাম গিফট',
+    subtitleEn: '⭐ Star Gift',
+    sticker: 'tg-teddy-sticker.json',
+    badge: 'STAR GIFT',
+    accent: 'royal',
+    isCenter: true
+  },
+  {
+    index: 5,
+    id: '100_tk',
+    title: '৳100 TK',
+    subtitleBn: 'রয়েল ক্যাশ',
+    subtitleEn: 'Royal Cash',
+    sticker: 'tg-gift-sticker.json',
+    badge: 'ROYAL',
+    accent: 'purple'
+  },
+  {
+    index: 6,
+    id: 'again',
+    title: 'Again',
+    subtitleBn: 'আবার চেষ্টা করুন',
+    subtitleEn: 'Try Later',
+    sticker: 'tg-target-sticker.json',
+    badge: 'TRY AGAIN',
+    accent: 'slate'
+  },
+  {
+    index: 7,
+    id: '500_tk',
+    title: '৳500 TK',
+    subtitleBn: 'মেগা ক্যাশ',
+    subtitleEn: 'Mega Cash',
+    sticker: 'tg-trophy-sticker.json',
+    badge: 'MEGA',
+    accent: 'amber'
+  },
+  {
+    index: 8,
+    id: '1_usd',
+    title: '$1 USD',
+    subtitleBn: '≈ ৳১২০ টাকা',
+    subtitleEn: '≈ ৳120 BDT',
+    sticker: 'tg-gem-sticker.json',
+    badge: 'VIP $1',
+    accent: 'sky'
+  }
+];
+
+// Perimeter loop order around the 3x3 board + center card for exciting visual spin
+const SPIN_RING_PATH = [0, 1, 2, 5, 8, 7, 6, 3, 4];
+
+function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToReferral, reloadData }) {
+  const userId = user?.id || 123456789;
+  const [spinStatus, setSpinStatus] = useState(() => ({
+    dailyFreeAvailable: true,
+    nextDailySpinAt: Date.now(),
+    extraSpins: 0,
+    totalAvailableSpins: 1,
+    adProgress: 0,
+    totalSpinsByUser: 0,
+    totalWonBdt: 0,
+    totalReferralsForSpin: 0,
+    eventEndAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    totalGlobalSpins: 0,
+    milestoneTarget: 50000,
+    monetagZoneId: '',
+    adsgramBlockId: ''
+  }));
+  const [loading, setLoading] = useState(true);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [highlightedCardIndex, setHighlightedCardIndex] = useState(4);
+  const [spinResultModal, setSpinResultModal] = useState(null);
+  const [spinError, setSpinError] = useState('');
+
+  // Countdown states
+  const [eventCountdown, setEventCountdown] = useState({ days: '30', hours: '00', mins: '00', secs: '00' });
+  const [dailyCooldownStr, setDailyCooldownStr] = useState('');
+
+  // Ad watching states
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
+  const [fallbackAdTimer, setFallbackAdTimer] = useState(0);
+  const [showFallbackAdModal, setShowFallbackAdModal] = useState(false);
+  const [adUnlockToast, setAdUnlockToast] = useState('');
+
+  const loadSpinData = async () => {
+    try {
+      const data = await fetchSpinStatus(userId);
+      if (data && data.success) {
+        setSpinStatus(prev => ({ ...prev, ...data }));
+      }
+    } catch (e) {
+      console.warn('loadSpinData error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSpinData();
+  }, [userId]);
+
+  // Inject Monetag / Adsgram scripts dynamically if configured in backend
+  useEffect(() => {
+    if (spinStatus.monetagZoneId) {
+      const zoneId = String(spinStatus.monetagZoneId).trim();
+      const scriptId = `monetag-sdk-${zoneId}`;
+      if (!document.getElementById(scriptId)) {
+        const s = document.createElement('script');
+        s.id = scriptId;
+        s.src = '//libtl.com/sdk.js';
+        s.setAttribute('data-zone', zoneId);
+        s.setAttribute('data-sdk', `show_${zoneId}`);
+        s.async = true;
+        document.head.appendChild(s);
+      }
+    }
+    if (spinStatus.adsgramBlockId) {
+      const scriptId = 'adsgram-sdk-script';
+      if (!document.getElementById(scriptId)) {
+        const s = document.createElement('script');
+        s.id = scriptId;
+        s.src = 'https://sad.adsgram.ai/js/sad.min.js';
+        s.async = true;
+        document.head.appendChild(s);
+      }
+    }
+  }, [spinStatus.monetagZoneId, spinStatus.adsgramBlockId]);
+
+  // Live 1-second tick for 30-Day Event Countdown & 24h Daily Free Spin Cooldown
+  useEffect(() => {
+    const tick = () => {
+      const now = Date.now();
+      const diffEvent = Math.max(0, (spinStatus.eventEndAt || (now + 30 * 86400000)) - now);
+      const d = Math.floor(diffEvent / (1000 * 60 * 60 * 24));
+      const h = Math.floor((diffEvent / (1000 * 60 * 60)) % 24);
+      const m = Math.floor((diffEvent / (1000 * 60)) % 60);
+      const s = Math.floor((diffEvent / 1000) % 60);
+      setEventCountdown({
+        days: String(d).padStart(2, '0'),
+        hours: String(h).padStart(2, '0'),
+        mins: String(m).padStart(2, '0'),
+        secs: String(s).padStart(2, '0')
+      });
+
+      if (!spinStatus.dailyFreeAvailable && spinStatus.nextDailySpinAt > now) {
+        const rem = spinStatus.nextDailySpinAt - now;
+        const ch = Math.floor(rem / (1000 * 60 * 60));
+        const cm = Math.floor((rem / (1000 * 60)) % 60);
+        const cs = Math.floor((rem / 1000) % 60);
+        setDailyCooldownStr(
+          `${String(ch).padStart(2, '0')}:${String(cm).padStart(2, '0')}:${String(cs).padStart(2, '0')}`
+        );
+      } else {
+        setDailyCooldownStr('');
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [spinStatus.eventEndAt, spinStatus.dailyFreeAvailable, spinStatus.nextDailySpinAt]);
+
+  // Handle Spin Button Click with 9-Card Neon Highlight Animation
+  const handleStartSpin = async () => {
+    if (isSpinning) return;
+    if ((spinStatus.totalAvailableSpins || 0) <= 0) {
+      setSpinError(
+        lang === 'bn'
+          ? 'আপনার ফ্রি স্পিন শেষ! নিচে ৩টি অ্যাড দেখে অথবা বন্ধুদের রেফার করে ফ্রি স্পিন নিন।'
+          : 'No spins left! Watch 3 ads below or refer a friend to get a free spin.'
+      );
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
+      }
+      return;
+    }
+
+    setSpinError('');
+    setIsSpinning(true);
+    setSpinResultModal(null);
+
+    try {
+      const res = await executeSpin(userId);
+      if (!res || !res.success) {
+        throw new Error(res?.error || 'Spin failed');
+      }
+
+      const targetCardIndex = typeof res.winningIndex === 'number' ? res.winningIndex : 6;
+      const targetPosInRing = Math.max(0, SPIN_RING_PATH.indexOf(targetCardIndex));
+      const fullCycles = 3; // 3 full loops around all 9 cards + land on target
+      const totalSteps = fullCycles * SPIN_RING_PATH.length + targetPosInRing;
+
+      let step = 0;
+      const runStep = () => {
+        const currentCard = SPIN_RING_PATH[step % SPIN_RING_PATH.length];
+        setHighlightedCardIndex(currentCard);
+
+        try {
+          if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.selectionChanged();
+          }
+        } catch (_) {}
+
+        if (step < totalSteps) {
+          step++;
+          const remaining = totalSteps - step;
+          // Smooth deceleration curve
+          let delay = 75;
+          if (remaining < 8) {
+            delay = 90 + (8 - remaining) * 42;
+          }
+          setTimeout(runStep, delay);
+        } else {
+          // Landed on targetCardIndex!
+          setHighlightedCardIndex(targetCardIndex);
+          try {
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+              window.Telegram.WebApp.HapticFeedback.notificationOccurred(
+                targetCardIndex === 6 && !res.bonusFreeRespin ? 'warning' : 'success'
+              );
+            }
+          } catch (_) {}
+
+          setSpinStatus(prev => ({
+            ...prev,
+            dailyFreeAvailable: res.dailyFreeAvailable,
+            nextDailySpinAt: res.nextDailySpinAt,
+            extraSpins: res.extraSpins,
+            totalAvailableSpins: res.totalAvailableSpins,
+            totalGlobalSpins: res.totalGlobalSpins,
+            totalSpinsByUser: (prev.totalSpinsByUser || 0) + 1,
+            totalWonBdt: (prev.totalWonBdt || 0) + (res.bdtWon || 0)
+          }));
+
+          if (res.bdtWon > 0 && reloadData) {
+            reloadData();
+          }
+
+          setTimeout(() => {
+            setIsSpinning(false);
+            setSpinResultModal({
+              card: SPIN_BOARD_CARDS[targetCardIndex] || SPIN_BOARD_CARDS[6],
+              bdtWon: res.bdtWon || 0,
+              isMilestoneWinner: Boolean(res.isMilestoneWinner),
+              bonusFreeRespin: Boolean(res.bonusFreeRespin)
+            });
+          }, 380);
+        }
+      };
+
+      runStep();
+    } catch (err) {
+      setIsSpinning(false);
+      setSpinError(err.message || (lang === 'bn' ? 'স্পিন করতে সমস্যা হয়েছে' : 'Spin failed'));
+    }
+  };
+
+  // Credit 1 Ad Watched on Backend
+  const completeOneAdWatch = async () => {
+    try {
+      const res = await watchSpinAd(userId);
+      if (res && res.success) {
+        setSpinStatus(prev => ({
+          ...prev,
+          adProgress: res.adProgress,
+          extraSpins: res.extraSpins,
+          totalAvailableSpins: res.totalAvailableSpins
+        }));
+        if (res.spinUnlocked) {
+          setAdUnlockToast(
+            lang === 'bn'
+              ? '🎉 অভিনন্দন! ৩টি অ্যাড দেখা পূর্ণ হয়েছে — আপনি +১টি ফ্রি স্পিন পেয়েছেন!'
+              : '🎉 3 Ads Completed! You unlocked +1 Free Spin!'
+          );
+          setTimeout(() => setAdUnlockToast(''), 5000);
+          if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+          }
+        } else {
+          setAdUnlockToast(
+            lang === 'bn'
+              ? `✅ অ্যাড দেখা সম্পন্ন (${res.adProgress}/3)! আর ${3 - res.adProgress}টি অ্যাড দেখলেই ১টি ফ্রি স্পিন পাবেন।`
+              : `✅ Ad watched (${res.adProgress}/3)! Watch ${3 - res.adProgress} more to unlock 1 Free Spin.`
+          );
+          setTimeout(() => setAdUnlockToast(''), 4000);
+        }
+      }
+    } catch (err) {
+      setSpinError(err.message || 'Ad verification error');
+    } finally {
+      setIsWatchingAd(false);
+    }
+  };
+
+  // Trigger Real Ad SDK (Monetag / Adsgram) or 10-second Interactive Ad Modal
+  const handleWatchAdClick = async () => {
+    if (isWatchingAd || isSpinning) return;
+    setSpinError('');
+    setIsWatchingAd(true);
+
+    const zoneId = String(spinStatus.monetagZoneId || '').trim();
+    const monetagFn = zoneId ? window[`show_${zoneId}`] : null;
+
+    // 1. Try Monetag Rewarded Interstitial if available
+    if (typeof monetagFn === 'function') {
+      try {
+        await monetagFn();
+        await completeOneAdWatch();
+        return;
+      } catch (e) {
+        console.warn('Monetag ad fallback:', e);
+      }
+    }
+
+    // 2. Try Adsgram if available
+    if (spinStatus.adsgramBlockId && window.Adsgram) {
+      try {
+        const AdController = window.Adsgram.init({ blockId: String(spinStatus.adsgramBlockId).trim() });
+        await AdController.show();
+        await completeOneAdWatch();
+        return;
+      } catch (e) {
+        console.warn('Adsgram ad fallback:', e);
+      }
+    }
+
+    // 3. Built-in 10-Second Interactive Sponsored Ad Modal (so it works immediately out of the box)
+    setShowFallbackAdModal(true);
+    setFallbackAdTimer(10);
+  };
+
+  useEffect(() => {
+    if (!showFallbackAdModal) return;
+    if (fallbackAdTimer <= 0) return;
+    const t = setTimeout(() => {
+      setFallbackAdTimer(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [showFallbackAdModal, fallbackAdTimer]);
+
+  const handleClaimFallbackAd = async () => {
+    if (fallbackAdTimer > 0) return;
+    setShowFallbackAdModal(false);
+    await completeOneAdWatch();
+  };
+
+  const milestonePct = Math.min(
+    100,
+    (((spinStatus.totalGlobalSpins || 0) % (spinStatus.milestoneTarget || 50000)) /
+      (spinStatus.milestoneTarget || 50000)) *
+      100
+  );
+
+  return (
+    <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 pb-12 max-w-md mx-auto">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-xs border border-amber-200 active:scale-95 transition-transform text-amber-700 cursor-pointer"
+          >
+            <ArrowLeft size={18} strokeWidth={2.5} />
+          </button>
+          <div>
+            <h2 className="text-[15px] font-black text-slate-900 leading-tight flex items-center gap-1.5">
+              <span>{lang === 'bn' ? '৩০ দিনের স্টার ও টেডি গিভওয়ে' : '30-Day Star & Teddy Giveaway'}</span>
+            </h2>
+            <p className="text-[10.5px] text-amber-600 font-bold leading-none mt-0.5">
+              {lang === 'bn' ? 'স্পিন করুন এবং জিতে নিন Teddy Gift ও নগদ টাকা!' : 'Spin daily to win Teddy Star Gift & Instant BDT!'}
+            </p>
+          </div>
+        </div>
+
+        {/* Available Spins Pill */}
+        <div className="px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 text-white text-[11px] font-black shadow-sm flex items-center gap-1.5 shrink-0">
+          <Sparkles size={13} />
+          <span>
+            {lang === 'bn' ? `স্পিন: ${spinStatus.totalAvailableSpins || 0}টি` : `${spinStatus.totalAvailableSpins || 0} Spins`}
+          </span>
+        </div>
+      </div>
+
+      {/* 1. 30-DAY COUNTDOWN & 50,000 MILESTONE HERO CARD */}
+      <CutCornerCard
+        className={`p-3.5 border ${
+          darkMode
+            ? 'bg-slate-900 border-amber-500/35'
+            : 'bg-gradient-to-br from-amber-50/90 via-white to-rose-50/80 border-amber-200/80'
+        }`}
+        flower={<ReferralRosePattern />}
+      >
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-amber-100/90 border border-amber-200 flex items-center justify-center shrink-0">
+              <TelegramAnimatedSticker src="tg-teddy-sticker.json" size={28} />
+            </div>
+            <div>
+              <span className="inline-block px-2 py-0.5 rounded-full bg-rose-600 text-white text-[8.5px] font-black uppercase tracking-wider">
+                30 DAYS MEGA EVENT
+              </span>
+              <h3 className="text-[13px] font-black text-slate-900 leading-tight mt-0.5">
+                {lang === 'bn' ? 'ইভেন্ট শেষ হতে বাকি:' : 'Event Ends In:'}
+              </h3>
+            </div>
+          </div>
+
+          {/* 4-Box Live Countdown */}
+          <div className="flex items-center gap-1">
+            {[
+              { val: eventCountdown.days, lbl: lang === 'bn' ? 'দিন' : 'D' },
+              { val: eventCountdown.hours, lbl: lang === 'bn' ? 'ঘণ্টা' : 'H' },
+              { val: eventCountdown.mins, lbl: lang === 'bn' ? 'মিনিট' : 'M' },
+              { val: eventCountdown.secs, lbl: lang === 'bn' ? 'সে.' : 'S' }
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="min-w-[36px] px-1.5 py-1 rounded-lg bg-slate-900 text-white text-center border border-amber-400/40 shadow-xs"
+              >
+                <span className="text-[12px] font-black text-amber-300 block leading-none font-mono">
+                  {item.val}
+                </span>
+                <span className="text-[8px] font-bold text-slate-300 block mt-0.5">{item.lbl}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 50,000 Global Spin Mega Milestone Progress */}
+        <div className="bg-white/90 rounded-xl p-2.5 border border-amber-200/70 space-y-1.5">
+          <div className="flex items-center justify-between text-[10.5px]">
+            <span className="font-black text-slate-800 flex items-center gap-1">
+              <span>🌍 {lang === 'bn' ? '৫০,০০০ স্পিন মেগা গিফট কাউন্টার' : '50,000 Spin Mega Gift Counter'}</span>
+            </span>
+            <span className="font-mono font-black text-rose-600">
+              {(spinStatus.totalGlobalSpins || 0).toLocaleString()} / {(spinStatus.milestoneTarget || 50000).toLocaleString()}
+            </span>
+          </div>
+          <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200/70">
+            <div
+              className="h-full bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 rounded-full transition-all duration-500"
+              style={{ width: `${Math.max(4, milestonePct)}%` }}
+            />
+          </div>
+          <p className="text-[9.5px] text-slate-500 font-semibold leading-snug">
+            {lang === 'bn'
+              ? '✨ সব ইউজার মিলে ৫০,০০০ স্পিন পূর্ণ করলেই পরবর্তী স্পিনকারী পাবেন স্পেশাল অ্যানিমেশনের সাথে নিশ্চিত 🧸 Teddy Gift অথবা ৳১০–৳৫০০ মেগা পুরস্কার!'
+              : '✨ Once all users complete 50,000 spins, the next spinner unlocks the guaranteed 🧸 Teddy Gift or ৳10–৳500 Mega Prize!'}
+          </p>
+        </div>
+      </CutCornerCard>
+
+      {/* 2. LUXURY 3x3 9-CARD ANIMATED STICKER SPIN BOARD */}
+      <CutCornerCard
+        className={`p-3.5 border ${
+          darkMode
+            ? 'bg-slate-900 border-indigo-500/40'
+            : 'bg-gradient-to-b from-indigo-50/60 via-white to-rose-50/50 border-indigo-200/80'
+        }`}
+        flower={<SellCryptoMandalaPattern />}
+      >
+        <div className="flex items-center justify-between mb-2.5">
+          <div className="flex items-center gap-1.5">
+            <TelegramAnimatedSticker src="tg-star-sticker.json" size={20} />
+            <span className="text-[11px] font-black text-slate-800 uppercase tracking-wider">
+              {lang === 'bn' ? 'লাকি ৯-কার্ড রয়েল স্পিন বোর্ড' : 'Lucky 9-Card Royal Spin Board'}
+            </span>
+          </div>
+          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200/60">
+            {lang === 'bn' ? 'মোট জিতেছেন: ৳' : 'Won: ৳'}
+            {spinStatus.totalWonBdt || 0} TK
+          </span>
+        </div>
+
+        {/* 3x3 Grid of 9 Cards with Animated Stickers */}
+        <div className="grid grid-cols-3 gap-2.5 mb-3">
+          {SPIN_BOARD_CARDS.map((card) => {
+            const isHighlighted = highlightedCardIndex === card.index;
+            return (
+              <div
+                key={card.id}
+                className={`relative rounded-2xl p-2.5 flex flex-col items-center justify-center text-center transition-all duration-150 select-none overflow-hidden border-2 ${
+                  isHighlighted
+                    ? 'tp-spin-card-active border-amber-400 bg-gradient-to-b from-amber-50 via-white to-rose-50 shadow-[0_0_20px_rgba(245,158,11,0.55)] scale-[1.04] z-10'
+                    : card.isCenter
+                    ? 'tp-spin-card-center border-rose-300/90 bg-gradient-to-b from-rose-50/80 to-amber-50/60 shadow-xs'
+                    : 'tp-spin-card-idle border-slate-200/90 bg-white/95 hover:border-indigo-200 shadow-2xs'
+                }`}
+              >
+                {/* Top Micro Badge */}
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[7.5px] font-black tracking-wider uppercase mb-1 ${
+                    isHighlighted
+                      ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white'
+                      : card.isCenter
+                      ? 'bg-rose-600 text-white'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {card.badge}
+                </span>
+
+                {/* Animated Telegram Sticker */}
+                <div className="my-0.5 flex items-center justify-center h-9">
+                  <TelegramAnimatedSticker src={card.sticker} size={card.isCenter ? 36 : 32} />
+                </div>
+
+                {/* Prize Amount / Name */}
+                <span className="font-black text-[12.5px] text-slate-900 leading-tight mt-0.5 block">
+                  {card.title}
+                </span>
+                <span className="text-[8.5px] font-bold text-slate-500 leading-none mt-0.5 block truncate max-w-full">
+                  {lang === 'bn' ? card.subtitleBn : card.subtitleEn}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Error / Status Toast */}
+        {spinError && (
+          <div className="mb-2.5 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold text-center">
+            {spinError}
+          </div>
+        )}
+        {adUnlockToast && (
+          <div className="mb-2.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold text-center animate-in fade-in">
+            {adUnlockToast}
+          </div>
+        )}
+
+        {/* Main Spin Action Button */}
+        <button
+          type="button"
+          onClick={handleStartSpin}
+          disabled={isSpinning}
+          className={`w-full py-3.5 px-4 rounded-xl font-black text-[14px] text-white shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98] ${
+            isSpinning
+              ? 'bg-gradient-to-r from-indigo-500 to-purple-600 opacity-90 cursor-wait'
+              : (spinStatus.totalAvailableSpins || 0) > 0
+              ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 hover:brightness-105 shadow-rose-500/25'
+              : 'bg-slate-700 hover:bg-slate-800'
+          }`}
+        >
+          {isSpinning ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              <span>{lang === 'bn' ? 'স্পিন ঘুরছে... ভাগ্য যাচাই চলছে!' : 'Spinning... Good Luck!'}</span>
+            </>
+          ) : (spinStatus.totalAvailableSpins || 0) > 0 ? (
+            <>
+              <Sparkles size={18} />
+              <span>
+                {lang === 'bn'
+                  ? `🎰 এখনই স্পিন করুন (${spinStatus.totalAvailableSpins}টি ফ্রি স্পিন বাকি)`
+                  : `🎰 SPIN NOW (${spinStatus.totalAvailableSpins} Left)`}
+              </span>
+            </>
+          ) : (
+            <>
+              <Clock size={17} />
+              <span>
+                {dailyCooldownStr
+                  ? lang === 'bn'
+                    ? `পরবর্তী ডেইলি স্পিন: ${dailyCooldownStr} (অ্যাড/রেফারে ফ্রি স্পিন নিন)`
+                    : `Next Daily Spin: ${dailyCooldownStr}`
+                  : lang === 'bn'
+                  ? 'স্পিন শেষ — নিচে অ্যাড দেখে বা রেফার করে স্পিন নিন'
+                  : 'Watch Ads or Refer below for Free Spins'}
+              </span>
+            </>
+          )}
+        </button>
+      </CutCornerCard>
+
+      {/* 3. WATCH 3 ADS = 1 FREE SPIN CARD */}
+      <CutCornerCard
+        className={`p-3.5 border space-y-2.5 ${
+          darkMode
+            ? 'bg-slate-900 border-emerald-500/35'
+            : 'bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60 border-emerald-200/80'
+        }`}
+        flower={<AddMoneyFloraPattern />}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100/90 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+              <PlayCircle size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-[13px] font-black text-slate-900 leading-tight">
+                  {lang === 'bn' ? '৩টি অ্যাড দেখুন = ১টি ফ্রি স্পিন' : 'Watch 3 Ads = +1 Free Spin'}
+                </h3>
+                <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white text-[8.5px] font-black">
+                  {spinStatus.adProgress || 0}/3 ADS
+                </span>
+              </div>
+              <p className="text-[10.5px] text-slate-500 font-semibold mt-0.5">
+                {lang === 'bn'
+                  ? 'প্রতি ৩টি ছোট বিজ্ঞাপন দেখলে সাথে সাথে ১টি ফ্রি স্পিন যুক্ত হবে!'
+                  : 'Watch 3 short sponsored ads to unlock 1 extra free spin instantly!'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 3-Step Visual Ad Progress */}
+        <div className="grid grid-cols-3 gap-2">
+          {[1, 2, 3].map((stepNum) => {
+            const done = (spinStatus.adProgress || 0) >= stepNum;
+            return (
+              <div
+                key={stepNum}
+                className={`p-2 rounded-xl border text-center flex items-center justify-center gap-1.5 text-[10.5px] font-black transition-all ${
+                  done
+                    ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}
+              >
+                {done ? <CheckCircle2 size={13} className="text-emerald-600" /> : <PlayCircle size={13} />}
+                <span>{lang === 'bn' ? `অ্যাড ${stepNum}` : `Ad #${stepNum}`}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleWatchAdClick}
+          disabled={isWatchingAd || isSpinning}
+          className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[12.5px] shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
+        >
+          {isWatchingAd ? (
+            <>
+              <Loader2 size={15} className="animate-spin" />
+              <span>{lang === 'bn' ? 'অ্যাড লোড হচ্ছে...' : 'Loading Ad...'}</span>
+            </>
+          ) : (
+            <>
+              <PlayCircle size={16} />
+              <span>
+                {lang === 'bn'
+                  ? `▶️ অ্যাড দেখুন (${spinStatus.adProgress || 0}/3) — ফ্রি স্পিন নিন`
+                  : `▶️ Watch Ad (${spinStatus.adProgress || 0}/3) for Free Spin`}
+              </span>
+            </>
+          )}
+        </button>
+      </CutCornerCard>
+
+      {/* 4. REFER & GET 1 FREE SPIN PER REFERRAL (EVEN IF UNACTIVATED) */}
+      <CutCornerCard
+        className={`p-3.5 border space-y-2.5 ${
+          darkMode
+            ? 'bg-slate-900 border-rose-500/35'
+            : 'bg-gradient-to-br from-rose-50/85 via-white to-pink-50/75 border-rose-200/80'
+        }`}
+        flower={<ReferralRosePattern />}
+      >
+        <div className="flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-rose-100/90 border border-rose-200 flex items-center justify-center shrink-0">
+              <TelegramAnimatedSticker src="tg-rose-sticker.json" size={30} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-[13px] font-black text-slate-900 leading-tight">
+                  {lang === 'bn' ? '১টি রেফার = ১টি ফ্রি স্পিন + ৳৫ বোনাস' : '1 Referral = +1 Free Spin + ৳5'}
+                </h3>
+              </div>
+              <p className="text-[10.5px] text-slate-600 font-semibold mt-0.5 leading-snug">
+                {lang === 'bn'
+                  ? 'আপনার রেফার লিংকে ক্লিক করে নতুন কেউ বটে ঢুকলেই সাথে সাথে ১টি ফ্রি স্পিন পাবেন (রেফার অ্যাক্টিভ না হলেও স্পিন পাবেন)!'
+                  : 'Get +1 Free Spin immediately whenever a new friend joins via your referral link (even before referral activation)!'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onGoToReferral}
+          className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-black text-[12px] shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer"
+        >
+          <Share2 size={15} />
+          <span>{lang === 'bn' ? 'বন্ধুদের রেফার করে ফ্রি স্পিন নিন' : 'Refer Friends to Get Free Spins'}</span>
+        </button>
+      </CutCornerCard>
+
+      {/* BUILT-IN 10-SECOND SPONSORED AD MODAL (WHEN SDK NOT CONFIGURED OR NO FILL) */}
+      {showFallbackAdModal && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-[340px] bg-slate-900 border border-indigo-500/40 rounded-2xl p-5 text-center space-y-4 shadow-2xl text-white">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+              <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[9.5px] font-black uppercase">
+                Sponsored Ad • { (spinStatus.adProgress || 0) + 1 }/3
+              </span>
+              <span className="text-[11px] font-mono font-black text-emerald-400">
+                {fallbackAdTimer > 0 ? `⏳ ${fallbackAdTimer}s` : '✓ Ready'}
+              </span>
+            </div>
+
+            <div className="py-3 flex flex-col items-center space-y-2">
+              <TelegramAnimatedSticker src="tg-gem-sticker.json" size={56} />
+              <h3 className="text-[15px] font-black text-white">
+                Trust Pay — Instant Crypto Exchange BD
+              </h3>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                {lang === 'bn'
+                  ? 'মাত্র ২০ টাকা থেকে TON, GRAM ও USDT কেনাবেচা করুন এবং বিকাশ ও নগদে ইনস্ট্যান্ট পেমেন্ট নিন! প্রতি অ্যাক্টিভ রেফারে ৳৫ বোনাস!'
+                  : 'Buy & Sell TON, GRAM & USDT starting from ৳20 with instant bKash & Nagad payout!'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleClaimFallbackAd}
+              disabled={fallbackAdTimer > 0}
+              className={`w-full py-2.5 rounded-xl font-black text-[12.5px] transition-all cursor-pointer ${
+                fallbackAdTimer > 0
+                  ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
+                  : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg'
+              }`}
+            >
+              {fallbackAdTimer > 0
+                ? lang === 'bn'
+                  ? `অ্যাড চলছে... ${fallbackAdTimer} সেকেন্ড অপেক্ষা করুন`
+                  : `Please wait ${fallbackAdTimer}s...`
+                : lang === 'bn'
+                ? '✅ রিওয়ার্ড ক্লেইম করুন (Continue)'
+                : '✅ Claim Ad Progress'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SPIN PRIZE RESULT CELEBRATION MODAL */}
+      {spinResultModal && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="w-full max-w-[330px] bg-white rounded-3xl p-6 text-center space-y-3.5 shadow-2xl border-2 border-amber-300 animate-in zoom-in-95">
+            <div className="flex justify-center">
+              <TelegramAnimatedSticker
+                src={
+                  spinResultModal.card.id === 'again'
+                    ? 'tg-target-sticker.json'
+                    : spinResultModal.card.id === 'teddy'
+                    ? 'tg-teddy-sticker.json'
+                    : 'tg-party-sticker.json'
+                }
+                size={72}
+              />
+            </div>
+
+            {spinResultModal.isMilestoneWinner && (
+              <span className="inline-block px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-rose-600 text-white text-[10px] font-black uppercase tracking-wider">
+                🏆 50,000+ SPIN MEGA MILESTONE WINNER!
+              </span>
+            )}
+
+            <h3 className="text-xl font-black text-slate-900">
+              {spinResultModal.card.id === 'again'
+                ? spinResultModal.bonusFreeRespin
+                  ? lang === 'bn'
+                    ? '🎁 ফ্রি আরেকটি স্পিন পেয়েছেন!'
+                    : '🎁 Bonus Free Re-Spin!'
+                  : lang === 'bn'
+                  ? 'আবার চেষ্টা করুন! (Try Later)'
+                  : 'Try Again Next Time!'
+                : lang === 'bn'
+                ? `🎉 অভিনন্দন! আপনি জিতেছেন ${spinResultModal.card.title}!`
+                : `🎉 Congratulations! You won ${spinResultModal.card.title}!`}
+            </h3>
+
+            <p className="text-[11.5px] text-slate-600 font-medium leading-relaxed">
+              {spinResultModal.bdtWon > 0
+                ? lang === 'bn'
+                  ? `৳${spinResultModal.bdtWon} টাকা সাথে সাথে আপনার মূল ব্যালেন্সে যোগ করে দেওয়া হয়েছে!`
+                  : `৳${spinResultModal.bdtWon} BDT has been instantly credited to your main balance!`
+                : spinResultModal.card.id === 'teddy'
+                ? lang === 'bn'
+                  ? 'আপনি স্পেশাল টেলিগ্রাম Teddy Star Gift জিতেছেন! অ্যাডমিন টিম আপনার আইডিতে গিফট পাঠিয়ে দিবে।'
+                  : 'You won the Telegram Teddy Star Gift! Our admin team has been notified.'
+                : spinResultModal.bonusFreeRespin
+                ? lang === 'bn'
+                  ? 'আপনার জন্য সাথে সাথে আরও ১টি ফ্রি স্পিন যুক্ত করা হয়েছে! আবার স্পিন করুন।'
+                  : 'You got +1 Bonus Free Spin! Spin again right now.'
+                : lang === 'bn'
+                ? 'মন খারাপ করবেন না! নিচে ৩টি অ্যাড দেখে অথবা বন্ধুদের রেফার করে আবার ফ্রি স্পিন করুন।'
+                : 'Watch 3 ads below or refer a friend to get another free spin right now!'}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setSpinResultModal(null)}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-[13px] shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              {lang === 'bn' ? 'ঠিক আছে (OK)' : 'Awesome!'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

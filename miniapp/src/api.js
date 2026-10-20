@@ -330,3 +330,37 @@ export const prepareReferralShare = async (payload) => {
     }
 };
 
+export const fetchSpinStatus = async (userId) => {
+    try {
+        const res = await axios.get(`${API_URL}/api/miniapp/spin-status/${userId}?_t=${Date.now()}`, {
+            timeout: 9000
+        });
+        return res.data;
+    } catch (e) {
+        console.warn("fetchSpinStatus error:", e);
+        return null;
+    }
+};
+
+export const executeSpin = async (userId) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/spin-execute`, { userId }, {
+            timeout: 12000
+        });
+        return res.data;
+    } catch (e) {
+        throw new Error(e.response?.data?.error || e.message || 'Spin failed');
+    }
+};
+
+export const watchSpinAd = async (userId) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/spin-watch-ad`, { userId }, {
+            timeout: 10000
+        });
+        return res.data;
+    } catch (e) {
+        throw new Error(e.response?.data?.error || e.message || 'Ad verification failed');
+    }
+};
+
