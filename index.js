@@ -2416,6 +2416,115 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
     }
 });
 
+// Function: Verify On-Chain payment via TonAPI before crediting balance
+async function verifyOnChainSellPayment({ userWallet, asset, amount }) {
+    if (!userWallet || userWallet === 'Manual' || userWallet === 'Direct') {
+        return { verified: false, error: 'বৈধ TON ওয়ালেট অ্যাড্রেস পাওয়া যায়নি।' };
+    }
+
+    const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+    let adminRaw = '';
+    let userRaw = '';
+    try {
+        adminRaw = Address.parse(adminWallet).toRawString().toLowerCase();
+        userRaw = Address.parse(userWallet).toRawString().toLowerCase();
+    } catch(e) {
+        return { verified: false, error: 'ওয়ালেট অ্যাড্রেস পার্স করতে ব্যর্থ হয়েছে: ' + e.message };
+    }
+
+    const normAsset = (asset || 'TON').toUpperCase();
+    const targetAmt = parseFloat(amount) || 0;
+    if (targetAmt <= 0) return { verified: false, error: 'অবৈধ অ্যামাউন্ট।' };
+
+    // Retry loop: Tonkeeper can take 2-8 seconds to reflect in TonAPI events
+    const maxRetries = 5;
+    const retryDelayMs = 2500;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const tonApiRes = await axios.get(`https://tonapi.io/v2/accounts/${adminRaw}/events?limit=25`, { timeout: 7000 });
+            const events = tonApiRes.data?.events || [];
+            const nowSec = Math.floor(Date.now() / 1000);
+
+            for (const ev of events) {
+                // Ignore events older than 15 minutes
+                if (ev.timestamp && (nowSec - ev.timestamp > 900)) continue;
+                if (ev.in_progress) continue;
+
+                for (const act of (ev.actions || [])) {
+                    if (act.status !== 'ok') continue;
+
+                    if (normAsset === 'USDT' && act.type === 'JettonTransfer') {
+                        const jt = act.JettonTransfer;
+                        const senderRaw = jt.sender?.address ? Address.parse(jt.sender.address).toRawString().toLowerCase() : '';
+                        const recipRaw = jt.recipient?.address ? Address.parse(jt.recipient.address).toRawString().toLowerCase() : '';
+                        const jettonAmt = Number(jt.amount) / 1e6;
+
+                        const isUsdt = jt.jetton?.symbol?.includes('USD') || jt.jetton?.address?.includes('b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe');
+
+                        if (isUsdt && recipRaw === adminRaw && senderRaw === userRaw && jettonAmt >= (targetAmt * 0.99)) {
+                            // Replay protection: Check if event_id already claimed
+                            const eventDoc = await db.collection('claimed_onchain_events').doc(ev.event_id).get();
+                            if (eventDoc.exists) {
+                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                            }
+
+                            // Mark event as claimed
+                            await db.collection('claimed_onchain_events').doc(ev.event_id).set({
+                                eventId: ev.event_id,
+                                asset: normAsset,
+                                amount: jettonAmt,
+                                userWallet,
+                                userRaw,
+                                adminRaw,
+                                claimedAt: FieldValue.serverTimestamp()
+                            });
+
+                            return { verified: true, eventId: ev.event_id, amount: jettonAmt, timestamp: ev.timestamp };
+                        }
+                    } else if ((normAsset === 'TON' || normAsset === 'GRAM') && act.type === 'TonTransfer') {
+                        const tt = act.TonTransfer;
+                        const senderRaw = tt.sender?.address ? Address.parse(tt.sender.address).toRawString().toLowerCase() : '';
+                        const recipRaw = tt.recipient?.address ? Address.parse(tt.recipient.address).toRawString().toLowerCase() : '';
+                        const tonAmt = Number(tt.amount) / 1e9;
+
+                        if (recipRaw === adminRaw && senderRaw === userRaw && tonAmt >= (targetAmt * 0.99)) {
+                            // Replay protection
+                            const eventDoc = await db.collection('claimed_onchain_events').doc(ev.event_id).get();
+                            if (eventDoc.exists) {
+                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                            }
+
+                            await db.collection('claimed_onchain_events').doc(ev.event_id).set({
+                                eventId: ev.event_id,
+                                asset: normAsset,
+                                amount: tonAmt,
+                                userWallet,
+                                userRaw,
+                                adminRaw,
+                                claimedAt: FieldValue.serverTimestamp()
+                            });
+
+                            return { verified: true, eventId: ev.event_id, amount: tonAmt, timestamp: ev.timestamp };
+                        }
+                    }
+                }
+            }
+        } catch(err) {
+            console.warn(`[verifyOnChainSellPayment] attempt ${attempt} TonAPI error:`, err.message);
+        }
+
+        if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, retryDelayMs));
+        }
+    }
+
+    return { 
+        verified: false, 
+        error: 'ব্লকচেইনে কোনো ডিপোজিট ট্রানজেকশন পাওয়া যায়নি! আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা এবং পেমেন্ট সম্পন্ন হয়েছে কিনা চেক করুন।' 
+    };
+}
+
 app.post('/api/miniapp/sell', async (req, res) => {
     try {
         const { userId, asset, amount, estimatedTk, wallet, status, orderId } = req.body;
@@ -2442,10 +2551,38 @@ app.post('/api/miniapp/sell', async (req, res) => {
             return res.json({ success: true, orderId: docRef.id });
         }
 
+        // --- HARDENED ON-CHAIN VERIFICATION ---
+        // For completed direct sells, verify on-chain via TonAPI before crediting any balance
+        const onChain = await verifyOnChainSellPayment({
+            userWallet: wallet,
+            asset: asset || 'TON',
+            amount: numAmount
+        });
+
+        if (!onChain.verified) {
+            // Record failed attempt in database for security audit
+            await db.collection('miniapp_sells').add({
+                userId,
+                asset: asset || 'TON',
+                amount: numAmount,
+                estimatedTk: numEstimatedTk,
+                wallet: wallet || 'Manual',
+                status: 'failed',
+                failureReason: onChain.error || 'On-chain verification failed',
+                timestamp: FieldValue.serverTimestamp()
+            }).catch(() => {});
+
+            return res.status(400).json({ 
+                success: false, 
+                error: onChain.error || 'ব্লকচেইনে ডিপোজিট কনফার্ম হয়নি। ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা চেক করুন।' 
+            });
+        }
+
         let savedOrderId = orderId;
         if (orderId) {
             await db.collection('miniapp_sells').doc(orderId).update({ 
                 status: 'completed',
+                onChainEventId: onChain.eventId,
                 completedAt: FieldValue.serverTimestamp()
             });
         } else {
@@ -2456,6 +2593,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
                 estimatedTk: numEstimatedTk, 
                 wallet: wallet || 'Manual', 
                 status: 'completed',
+                onChainEventId: onChain.eventId,
                 timestamp: FieldValue.serverTimestamp()
             });
             savedOrderId = docRef.id;
@@ -2497,12 +2635,13 @@ app.post('/api/miniapp/sell', async (req, res) => {
         const config = botConfig || {};
         const dataGroup = config.dataGroupId || config.adminGroupId;
         if (dataGroup && bot) {
-            const msg = `<blockquote><b>⚡ নতুন ক্রিপ্টো বিক্রয় (Crypto Sold)!</b>\n\n` +
+            const msg = `<blockquote><b>⚡ নতুন ক্রিপ্টো বিক্রয় (Crypto Sold - Verified)!</b>\n\n` +
                 `👤 <b>User:</b> <code>${userId}</code>\n` +
                 `💎 <b>বিক্রয়:</b> <b>${numAmount} ${asset || 'TON'}</b>\n` +
                 `💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳${numEstimatedTk} BDT</b>\n` +
                 `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
-                `🏦 <b>Wallet/Trx:</b> <code>${wallet || 'Direct'}</code>\n` +
+                `🏦 <b>Wallet:</b> <code>${wallet || 'Direct'}</code>\n` +
+                `🔗 <b>Tx Event:</b> <code>${onChain.eventId}</code>\n` +
                 `🆔 <b>Order ID:</b> <code>${savedOrderId}</code></blockquote>`;
             bot.sendMessage(dataGroup, msg, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
         }

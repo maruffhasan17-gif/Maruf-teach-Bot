@@ -190,7 +190,11 @@ export const submitSellOrder = async (payload) => {
         });
         return res.data;
     } catch (e) {
-        console.error(e);
+        console.error("submitSellOrder error:", e);
+        const serverError = e.response?.data?.error;
+        if (serverError) {
+            throw new Error(serverError);
+        }
         throw e;
     }
 };
