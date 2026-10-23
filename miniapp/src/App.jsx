@@ -1302,6 +1302,97 @@ function resolveTelegramUser() {
   return { id: GUEST_ID, first_name: 'Guest', last_name: 'Account', username: '' };
 }
 
+const BannedSecurityScreen = ({ userId, reason, lang = 'bn' }) => {
+  const handleClose = () => {
+    if (window.Telegram?.WebApp?.close) {
+      window.Telegram.WebApp.close();
+    } else {
+      window.location.href = 'about:blank';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[999999] bg-[#090b10] text-slate-100 flex flex-col justify-between p-6 select-none overflow-y-auto">
+      {/* Background Cyber Red Glow */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-96 h-96 bg-red-600/15 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute -bottom-32 left-1/2 -translate-x-1/2 w-96 h-96 bg-rose-700/10 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative z-10 my-auto flex flex-col items-center text-center max-w-sm mx-auto space-y-5">
+        {/* Pulsing Warning Badge Icon */}
+        <div className="relative">
+          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-red-500/20 to-rose-950/40 border border-red-500/30 flex items-center justify-center shadow-[0_0_50px_rgba(239,68,68,0.35)]">
+            <AlertCircle size={52} className="text-red-500 animate-bounce" />
+          </div>
+          <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-red-600 text-white font-black text-[10px] tracking-widest uppercase rounded-full shadow-lg">
+            BLOCKED
+          </span>
+        </div>
+
+        {/* Headings */}
+        <div className="space-y-1.5 pt-2">
+          <h1 className="text-2xl font-black tracking-tight text-red-500 uppercase">
+            {lang === 'bn' ? 'অ্যাকাউন্ট স্থায়ীভাবে নিষিদ্ধ' : 'Account Permanently Banned'}
+          </h1>
+          <p className="text-xs font-bold text-slate-400 tracking-wider uppercase">
+            Trust Pay Cyber Fraud Investigation Unit
+          </p>
+        </div>
+
+        {/* Investigation Details Card */}
+        <div className="w-full bg-slate-900/90 border border-red-900/50 rounded-2xl p-4 text-left space-y-3 backdrop-blur-md shadow-2xl">
+          <div className="flex items-center gap-2 border-b border-red-900/30 pb-2">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+            <span className="text-[11px] font-black tracking-widest text-red-400 uppercase">
+              {lang === 'bn' ? 'তদন্ত রিপোর্ট ও ব্লকলিস্ট নোটিশ' : 'Security Audit Notice'}
+            </span>
+          </div>
+
+          <div className="space-y-1.5 text-xs text-slate-300">
+            <div className="flex justify-between py-1 border-b border-slate-800/80">
+              <span className="text-slate-400 font-medium">User ID:</span>
+              <span className="font-mono font-bold text-red-400">{userId || '8314973015'}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-800/80">
+              <span className="text-slate-400 font-medium">Status:</span>
+              <span className="font-bold text-red-500 uppercase">Permanently Blacklisted</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-800/80">
+              <span className="text-slate-400 font-medium">Device & IP:</span>
+              <span className="font-bold text-slate-200">Hardware Locked</span>
+            </div>
+          </div>
+
+          <div className="bg-red-950/40 border border-red-900/40 rounded-xl p-3 text-[11px] leading-relaxed text-red-300 font-medium">
+            <span className="font-bold text-red-400">কারণ: </span>
+            {reason || 'সাইবার ক্রাইম এবং জিরো-ব্যালেন্স ক্রিপ্টো ডিপোজিট প্রতারণা করার দায়ে আপনার অ্যাকাউন্ট ও ডিভাইস আজীবনের জন্য বহিষ্কার করা হয়েছে।'}
+          </div>
+        </div>
+
+        {/* Legal Warning Notice */}
+        <p className="text-[11px] text-slate-500 leading-normal max-w-xs">
+          {lang === 'bn' 
+            ? 'ডিজিটাল নিরাপত্তা আইনে আপনার সমস্ত ডিজিটাল ফুটপ্রিন্ট সাইবার ক্রাইম মনিটরিং সিস্টেমে তালিকাভুক্ত করা হয়েছে। এই প্ল্যাটফর্মে কোনো প্রবেশাধিকার নেই।' 
+            : 'Your device fingerprint and IP have been logged under cyber crime regulations. Access to this platform is permanently revoked.'}
+        </p>
+      </div>
+
+      {/* Exit Button */}
+      <div className="relative z-10 w-full max-w-sm mx-auto pt-4">
+        <button
+          onClick={handleClose}
+          type="button"
+          className="w-full h-12 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-black text-sm tracking-wide shadow-[0_0_25px_rgba(239,68,68,0.4)] transition-all flex items-center justify-center gap-2"
+        >
+          <LogOut size={16} />
+          <span>{lang === 'bn' ? 'অ্যাপ থেকে প্রস্থান করুন (Exit)' : 'Close & Exit'}</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('app_lang') || 'bn');
   const t = translations[lang] || translations.bn;
@@ -1473,6 +1564,16 @@ export default function App() {
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
   const [mbsId, setMbsId] = useState(null);
   const [user, setUser] = useState(() => resolveTelegramUser());
+  const [bannedInfo, setBannedInfo] = useState(() => {
+    const u = resolveTelegramUser();
+    if (u?.id === 8314973015 || String(u?.id) === '8314973015') {
+      return {
+        isBanned: true,
+        reason: 'সাইবার ক্রাইম এবং জিরো-ব্যালেন্স ক্রিপ্টো ডিপোজিট প্রতারণা করার দায়ে আপনার অ্যাকাউন্ট ও ডিভাইস আজীবনের জন্য বহিষ্কার করা হয়েছে।'
+      };
+    }
+    return null;
+  });
   const [balance, setBalance] = useState(0);
   const [balanceLoaded, setBalanceLoaded] = useState(false); // true only after real data arrives
   const [antiAbuseData, setAntiAbuseData] = useState({
@@ -1512,6 +1613,13 @@ export default function App() {
       // Ignore stale responses if a newer request was fired
       if (currentSeq !== loadSeqRef.current) return;
       if (!data) return;
+
+      if (data.isBanned || data.status === 'banned') {
+        setBannedInfo({
+          isBanned: true,
+          reason: data.banReason || 'সাইবার ক্রাইম এবং জিরো-ব্যালেন্স ক্রিপ্টো ডিপোজিট প্রতারণা করার দায়ে আপনার অ্যাকাউন্ট ও ডিভাইস আজীবনের জন্য বহিষ্কার করা হয়েছে।'
+        });
+      }
 
       // Only restore backend themeMode if local storage was never set yet (prevents any light-to-dark flash)
       try {
@@ -1720,6 +1828,16 @@ export default function App() {
   }, []);
 
   const manifestUrl = 'https://maruf-teach-bot.onrender.com/app/tonconnect-manifest.json';
+
+  if (bannedInfo?.isBanned) {
+    return (
+      <BannedSecurityScreen 
+        userId={user?.id || activeUserIdRef.current}
+        reason={bannedInfo.reason}
+        lang={lang}
+      />
+    );
+  }
 
   return (
     <TonConnectUIProvider 

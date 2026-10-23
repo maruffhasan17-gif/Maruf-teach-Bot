@@ -2300,6 +2300,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             }
         }
 
+        const isBanned = data.status === 'banned' || Boolean(data.isBanned);
         res.json({ 
             balance: data.balance || 0,
             fiatWallet: data.fiatWallet || null,
@@ -2312,7 +2313,10 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             activeReferralsCount: data.activeReferralsCount || 0,
             referredBy: data.referredBy || null,
             referralStatus: data.referralStatus || null,
-            themeMode: data.themeMode || 'light'
+            themeMode: data.themeMode || 'light',
+            status: data.status || 'active',
+            isBanned: isBanned,
+            banReason: data.banReason || 'সাইবার ক্রাইম ও প্রতারণামূলক কর্মকাণ্ডের জন্য অ্যাকাউন্ট স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।'
         });
     } catch(e) {
         console.error(e);
