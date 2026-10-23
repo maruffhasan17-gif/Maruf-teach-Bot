@@ -4087,7 +4087,9 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                                 isSubmitting={isTonSending}
                                 icon={ArrowRightLeft}
                             >
-                                {lang === 'bn' ? `কনফার্ম ও বিক্রি করুন (৳${estimatedTk} BDT)` : `Confirm & Sell for ৳${estimatedTk} BDT`}
+                                {isTonSending 
+                                    ? (lang === 'bn' ? 'ব্লকচেইনে ভেরিফাই হচ্ছে...' : 'Verifying on-chain...') 
+                                    : (lang === 'bn' ? `কনফার্ম ও বিক্রি করুন (৳${estimatedTk} BDT)` : `Confirm & Sell for ৳${estimatedTk} BDT`)}
                             </CutCornerButton>
                         )}
                     </div>
