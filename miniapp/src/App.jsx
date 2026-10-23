@@ -1575,7 +1575,7 @@ export default function App() {
     return null;
   });
   const [balance, setBalance] = useState(0);
-  const [balanceLoaded, setBalanceLoaded] = useState(false); // true only after real data arrives
+  const [balanceLoaded, setBalanceLoaded] = useState(true);
   const [antiAbuseData, setAntiAbuseData] = useState({
     hasDepositWithoutTrade: false,
     hasSellBalance: false,
@@ -1632,24 +1632,8 @@ export default function App() {
       if (data.balance !== undefined) {
         const numericBal = Number(data.balance);
         const finalBal = Number.isFinite(numericBal) ? numericBal : 0;
-        if (isFirstLoad.current) {
-          isFirstLoad.current = false;
-          // Ensure the user sees the smooth Skeleton Loader on the Balance Card right after the splash fades out
-          const elapsed = Date.now() - mountTimeRef.current;
-          const remainingDelay = Math.max(0, 900 - elapsed);
-          if (remainingDelay > 0) {
-            setTimeout(() => {
-              setBalance(finalBal);
-              setBalanceLoaded(true);
-            }, remainingDelay);
-          } else {
-            setBalance(finalBal);
-            setBalanceLoaded(true);
-          }
-        } else {
-          setBalance(finalBal);
-          setBalanceLoaded(true);
-        }
+        setBalance(finalBal);
+        setBalanceLoaded(true);
       }
       setFiatWallet(data.fiatWallet || null);
       setFiatWithdrawPending(data.fiatWithdrawPending || null);
@@ -2393,18 +2377,8 @@ function HomePage({ balance, balanceLoaded = false, user, fiatWithdrawPending, o
             </button>
          </div>
          <div className="flex items-baseline gap-1.5 min-h-[44px] items-center">
-            {!balanceLoaded ? (
-              /* Skeleton pulse while balance is being fetched */
-              <div className="flex items-center gap-2">
-                <div className="h-9 w-24 bg-slate-200 animate-pulse rounded-xl" />
-                <div className="h-5 w-6 bg-indigo-100 animate-pulse rounded-md" />
-              </div>
-            ) : (
-              <>
-                <h2 className="text-3xl font-black text-slate-900">{balance}</h2>
-                <span className="text-base font-black text-indigo-600">TK</span>
-              </>
-            )}
+            <h2 className="text-3xl font-black text-slate-900">{balance}</h2>
+            <span className="text-base font-black text-indigo-600">TK</span>
          </div>
          <p className="text-[11px] text-slate-500 font-medium mt-1">{t?.balanceSub || 'Available for withdrawal & crypto purchase'}</p>
       </CutCornerCard>
