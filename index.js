@@ -1717,7 +1717,8 @@ bot.on('message', async (msg) => {
                             }
                             
                             const reason = replyText.startsWith('reject ') ? text.substring(7).trim() : 'Rejected by admin';
-                            const refundBdt = parseFloat(order.totalBdt) || 0;
+                            const isWalletOrder = order.paymentMethod === 'wallet' || order.paidWithWallet === true || order.paidFromBalance === true;
+                            const refundBdt = isWalletOrder ? (parseFloat(order.totalBdt) || 0) : 0;
                             
                             await buyRef.update({
                                 status: 'rejected',
@@ -4214,7 +4215,8 @@ app.post('/api/admin/reject-buy', async (req, res) => {
             return res.status(400).json({ error: 'Order has already been rejected.' });
         }
 
-        const refundBdt = parseFloat(order.totalBdt) || 0;
+        const isWalletOrder = order.paymentMethod === 'wallet' || order.paidWithWallet === true || order.paidFromBalance === true;
+        const refundBdt = isWalletOrder ? (parseFloat(order.totalBdt) || 0) : 0;
         
         await buyRef.update({
             status: 'rejected',
@@ -4230,11 +4232,17 @@ app.post('/api/admin/reject-buy', async (req, res) => {
             }, { merge: true });
         }
 
-        const buyRejectMsg = `<b>${PE.cross} বাই অর্ডার বাতিল ও রিফান্ড! (Order Rejected)</b>\n\n` +
-            `<blockquote>${PE.gem} <b>Order:</b> <code>${order.amount} ${order.asset}</code>\n` +
-            `${PE.note} <b>TrxID:</b> <code>${order.trxId}</code>\n` +
-            `${PE.moneyBag} <b>Refunded:</b> <b>৳${refundBdt} BDT</b></blockquote>\n\n` +
-            `${PE.swap} <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে রিফান্ড করা হয়েছে।</i>`;
+        const buyRejectMsg = refundBdt > 0
+            ? `<b>${PE.cross} বাই অর্ডার বাতিল ও রিফান্ড! (Order Rejected)</b>\n\n` +
+              `<blockquote>${PE.gem} <b>Order:</b> <code>${order.amount} ${order.asset}</code>\n` +
+              `${PE.note} <b>TrxID:</b> <code>${order.trxId}</code>\n` +
+              `${PE.moneyBag} <b>Refunded:</b> <b>৳${refundBdt} BDT</b></blockquote>\n\n` +
+              `${PE.swap} <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে রিফান্ড করা হয়েছে।</i>`
+            : `<b>${PE.cross} বাই অর্ডার বাতিল! (Order Rejected)</b>\n\n` +
+              `<blockquote>${PE.gem} <b>Order:</b> <code>${order.amount} ${order.asset}</code>\n` +
+              `${PE.note} <b>TrxID:</b> <code>${order.trxId}</code>\n` +
+              `${PE.warn} <b>Reason:</b> <i>${reason || 'Payment verification failed'}</i></blockquote>\n\n` +
+              `<i>আপনার ট্রানজেকশন অনুযায়ী কোনো পেমেন্ট পাওয়া যায়নি বিধায় অর্ডারটি বাতিল করা হয়েছে।</i>`;
         bot.sendMessage(order.userId, buyRejectMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
 
         const config = botConfig || {};
