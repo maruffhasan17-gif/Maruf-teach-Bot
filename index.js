@@ -2085,91 +2085,84 @@ const { ethers } = require('ethers');
 
 // ==================== HOURLY MARKET RATES TRACKER ====================
 let cachedMarketRates = {
-    realUsdtBdt: 120,
-    realGramUsdt: 1.46,
-    realGramBdt: 175.2,
+    realUsdtBdt: 118,
+    realGramUsdt: 1.32,
+    realGramBdt: 155.76,
     buyRates: {
-        USDT: 130, // Fixed 130 BDT
-        GRAM: 220  // Fixed 220 BDT
+        USDT: 125, // Fixed 125 BDT (buy from platform)
+        GRAM: 175, // (liveGramUsdt * 125) + 10 TK
+        TON: 175
     },
     sellRates: {
-        USDT: 115, // 120 - 5
-        GRAM: 160  // Max 160 TK (per user instruction)
+        USDT: 118, // Fixed 118 BDT (sell to platform)
+        GRAM: 146, // (liveGramUsdt * 118) - 10 TK
+        TON: 146
     },
     lastUpdated: 0
 };
 
 async function updateMarketRates() {
     try {
-        let usdtBdt = 120;
-        let tonUsdt = 1.46;
+        let tonUsdt = 1.32;
 
-        // 1. Fetch live USD/BDT from Open Exchange API
+        // 1. Fetch live TON/GRAM in USD: TonAPI -> CoinGecko -> Binance
         try {
-            const usdRes = await axios.get('https://open.er-api.com/v6/latest/USD', { timeout: 4000 });
-            if (usdRes.data && usdRes.data.rates && usdRes.data.rates.BDT) {
-                usdtBdt = parseFloat(usdRes.data.rates.BDT);
+            const tonApiRes = await axios.get('https://tonapi.io/v2/rates?tokens=ton&currencies=usd', { timeout: 4000 });
+            if (tonApiRes.data?.rates?.TON?.prices?.USD) {
+                tonUsdt = parseFloat(tonApiRes.data.rates.TON.prices.USD);
             }
-        } catch(e) {
-            console.warn("Open Exchange rate fetch fallback:", e.message);
-        }
-
-        // 2. Fetch live TON/USDT from Binance or CoinGecko
-        try {
-            const binanceRes = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT', { timeout: 4000 });
-            if (binanceRes.data && binanceRes.data.price) {
-                tonUsdt = parseFloat(binanceRes.data.price);
-            }
-        } catch(e) {
+        } catch (e1) {
             try {
-                const cgRes = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network,tether&vs_currencies=usd,bdt', { timeout: 4000 });
+                const cgRes = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd', { timeout: 4000 });
                 if (cgRes.data && cgRes.data['the-open-network']?.usd) {
                     tonUsdt = parseFloat(cgRes.data['the-open-network'].usd);
                 }
-                if (cgRes.data && cgRes.data['tether']?.bdt) {
-                    usdtBdt = parseFloat(cgRes.data['tether'].bdt);
+            } catch (e2) {
+                try {
+                    const binanceRes = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT', { timeout: 4000 });
+                    if (binanceRes.data && binanceRes.data.price) {
+                        tonUsdt = parseFloat(binanceRes.data.price);
+                    }
+                } catch (e3) {
+                    console.warn("Rate fetch fallback, keeping current tonUsdt:", tonUsdt);
                 }
-            } catch(e2) {
-                console.warn("CoinGecko rate fallback:", e2.message);
             }
         }
 
-        const realUsdtBdt = Number(usdtBdt.toFixed(2));
         const realGramUsdt = Number(tonUsdt.toFixed(4));
-        const realGramBdt = Number((realGramUsdt * realUsdtBdt).toFixed(2));
 
-        // Buyer Price Rule:
-        // USDT: Fixed 130 BDT
-        // GRAM: Fixed 220 BDT
-        const buyUsdt = 130;
-        const buyGram = 220;
+        // Base USDT Rates in BDT:
+        // Sell USDT = 118 TK, Buy USDT = 125 TK
+        const sellUsdt = 118;
+        const buyUsdt = 125;
 
-        // Seller Price Rule:
-        // USDT: realUsdtBdt - 5 TK
-        const sellUsdt = Math.max(1, Math.round(realUsdtBdt - 5));
+        // Dynamic GRAM / TON Pricing Rule:
+        // Platform maintains a guaranteed 10 TK margin:
+        // - Sell GRAM (User sells to platform): (liveGramUsdt * 118) - 10 TK
+        // - Buy GRAM (User buys from platform): (liveGramUsdt * 125) + 10 TK
+        const baseSellGramBdt = realGramUsdt * sellUsdt;
+        const sellGram = Math.max(1, Math.round(baseSellGramBdt - 10));
 
-        // GRAM Seller Price Rule:
-        // Platform keeps 10 TK profit: (realGramBdt - 10 TK).
-        // Cap rule: Maximum 160 TK (per user instruction from 170 to 160 TK).
-        // If price is low, it dynamically follows (realGramBdt - 10 TK).
-        const calculatedSellGram = Math.round(realGramBdt - 10);
-        const sellGram = Math.max(1, Math.min(160, calculatedSellGram));
+        const baseBuyGramBdt = realGramUsdt * buyUsdt;
+        const buyGram = Math.round(baseBuyGramBdt + 10);
 
         cachedMarketRates = {
-            realUsdtBdt,
+            realUsdtBdt: sellUsdt,
             realGramUsdt,
-            realGramBdt,
+            realGramBdt: Number(baseSellGramBdt.toFixed(2)),
             buyRates: {
                 USDT: buyUsdt,
-                GRAM: buyGram
+                GRAM: buyGram,
+                TON: buyGram
             },
             sellRates: {
                 USDT: sellUsdt,
-                GRAM: sellGram
+                GRAM: sellGram,
+                TON: sellGram
             },
             lastUpdated: Date.now()
         };
-        console.log(`[RATES UPDATED] Real USDT: ৳${realUsdtBdt}, Real TON/GRAM: $${realGramUsdt} (৳${realGramBdt}) => Buy: USDT ৳${buyUsdt}, GRAM ৳${buyGram} | Sell: USDT ৳${sellUsdt}, GRAM ৳${sellGram}`);
+        console.log(`[RATES UPDATED] Live TON/GRAM: $${realGramUsdt} | Sell: USDT ৳${sellUsdt}, GRAM ৳${sellGram} | Buy: USDT ৳${buyUsdt}, GRAM ৳${buyGram}`);
     } catch(err) {
         console.error("Rates update error:", err.message);
     }
@@ -2312,7 +2305,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             fiatWithdrawPending: pendingWithdraw,
             mbsId: mbsId,
             hasDepositWithoutTrade: Boolean(data.hasDepositWithoutTrade),
-            hasSellBalance: Boolean(data.hasSellBalance),
+            hasSellBalance: Boolean(data.hasSellBalance || (parseFloat(data.totalCryptoSellBdt) > 0)),
             spentSinceLastDeposit: data.spentSinceLastDeposit || 0,
             referralEarnings: data.referralEarnings || 0,
             activeReferralsCount: data.activeReferralsCount || 0,
@@ -2479,6 +2472,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
                 balance: FieldValue.increment(numEstimatedTk),
                 totalCryptoSellBdt: FieldValue.increment(numEstimatedTk),
                 hasSellBalance: true,
+                hasDepositWithoutTrade: false,
                 ...extraWalletField
             });
         } else {
@@ -2487,6 +2481,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
                 totalCryptoSellBdt: numEstimatedTk,
                 joinedAt: FieldValue.serverTimestamp(),
                 hasSellBalance: true,
+                hasDepositWithoutTrade: false,
                 ...extraWalletField
             }, { merge: true });
         }
@@ -2906,8 +2901,11 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         }
 
         // Anti-Abuse Withdrawal System (Add Money vs Sell Crypto)
-        const isDepositUser = (userData.hasDepositWithoutTrade === true) || 
-                              (userData.hasDepositWithoutTrade === undefined && !userData.hasSellBalance);
+        const hasSell = Boolean(userData.hasSellBalance) || (parseFloat(userData.totalCryptoSellBdt) > 0);
+        const isDepositUser = !hasSell && (
+            (userData.hasDepositWithoutTrade === true) || 
+            (userData.hasDepositWithoutTrade === undefined && (parseFloat(userData.totalAddMoneyBdt) > 0))
+        );
 
         // Minimum withdrawal: 30 TK for deposit users, 20 TK for crypto sellers
         const minWithdrawAmount = isDepositUser ? 30 : 20;

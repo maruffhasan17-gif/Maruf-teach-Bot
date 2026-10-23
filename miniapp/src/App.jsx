@@ -3133,7 +3133,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const [processStep, setProcessStep] = useState(1);
     const [errorMessage, setErrorMessage] = useState('');
     const [txResult, setTxResult] = useState(null);
-    // Fixed Buyer Rates (GRAM 220 TK, USDT 130 TK)
+    // Buyer Rates (Dynamic GRAM: Live + 10 TK, USDT: 125 TK)
     const [buyerRates, setBuyerRates] = useState(() => {
         try {
             const cached = localStorage.getItem('maruf_buyer_rates');
@@ -3141,13 +3141,13 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 const parsed = JSON.parse(cached);
                 if (Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000 && parsed.rates?.USDT) {
                     return {
-                        GRAM: parsed.rates.GRAM || 220,
-                        USDT: parsed.rates.USDT || 130
+                        GRAM: parsed.rates.GRAM || 175,
+                        USDT: parsed.rates.USDT || 125
                     };
                 }
             }
         } catch (e) {}
-        return { GRAM: 220, USDT: 130 };
+        return { GRAM: 175, USDT: 125 };
     });
 
     // Auto-fill connected TonConnect wallet if address empty
@@ -3162,8 +3162,8 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         fetchMarketRates().then(data => {
             if (!isMounted || !data) return;
             const newRates = {
-                GRAM: data.buyRates?.GRAM || 220,
-                USDT: data.buyRates?.USDT || 130
+                GRAM: data.buyRates?.GRAM || 175,
+                USDT: data.buyRates?.USDT || 125
             };
             setBuyerRates(newRates);
             try {
@@ -3177,7 +3177,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         return () => { isMounted = false; };
     }, []);
 
-    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 130) : (buyerRates?.GRAM || 220);
+    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 125) : (buyerRates?.GRAM || 175);
     const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
         ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
         : '0.0000';
@@ -3600,12 +3600,13 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 if (Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000 && parsed.rates?.USDT) {
                     return {
                         ...parsed.rates,
-                        GRAM: Math.min(160, parsed.rates.GRAM || 160)
+                        GRAM: parsed.rates.GRAM || 146,
+                        USDT: parsed.rates.USDT || 118
                     };
                 }
             }
         } catch(e) {}
-        return { GRAM: 160, USDT: 115 };
+        return { GRAM: 146, USDT: 118 };
     });
 
     // Fetch live market rates
@@ -3614,13 +3615,9 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
         fetchMarketRates().then(data => {
             if (!isMounted || !data) return;
             if (data.sellRates && data.sellRates.USDT) {
-                // Ensure 10 TK profit and max 160 TK ceiling
-                const gramRate = data.sellRates.GRAM 
-                    ? Math.min(160, data.sellRates.GRAM) 
-                    : (data.realGramBdt ? Math.min(160, Math.round(data.realGramBdt - 10)) : 160);
                 const newRates = {
-                    GRAM: gramRate,
-                    USDT: data.sellRates.USDT
+                    GRAM: data.sellRates.GRAM || 146,
+                    USDT: data.sellRates.USDT || 118
                 };
                 setLiveRates(newRates);
                 try {
@@ -3636,8 +3633,8 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
 
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
     const currentRate = asset === 'USDT' 
-        ? (liveRates?.USDT || 115) 
-        : Math.min(160, (liveRates?.GRAM || 160));
+        ? (liveRates?.USDT || 118) 
+        : (liveRates?.GRAM || 146);
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
 
@@ -3856,7 +3853,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                                     <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-5 h-5 object-contain shrink-0" alt="GRAM" />
                                     <div className="text-left min-w-0">
                                         <span className="font-extrabold text-[11px] text-slate-900 block leading-tight truncate">GRAM</span>
-                                        <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{liveRates?.GRAM || 160} TK</span>
+                                        <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{liveRates?.GRAM || 146} TK</span>
                                     </div>
                                 </div>
                                 <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
@@ -6425,7 +6422,8 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
     const [editName, setEditName] = useState('');
     const [isSavingWallet, setIsSavingWallet] = useState(false);
 
-    const isDepositUser = Boolean(antiAbuseData?.hasDepositWithoutTrade);
+    const hasSell = Boolean(antiAbuseData?.hasSellBalance);
+    const isDepositUser = Boolean(antiAbuseData?.hasDepositWithoutTrade) && !hasSell;
     const spentSinceLastDeposit = parseFloat(antiAbuseData?.spentSinceLastDeposit) || 0;
     const minAmount = isDepositUser ? 30 : 20;
 
@@ -6585,11 +6583,13 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
 
             {/* Anti-Abuse Notification Banner for Deposit Users */}
             {isDepositUser && spentSinceLastDeposit < 20 && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 shadow-xs">
-                    <span className="text-base leading-none">⚠️</span>
-                    <div className="space-y-0.5">
-                        <p className="font-bold">{lang === 'bn' ? 'উইথড্র নিরাপত্তা নীতি (Policy)' : 'Withdrawal Policy'}</p>
-                        <p className="opacity-90 leading-relaxed">
+                <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-3.5 text-xs flex items-start gap-3 shadow-xs">
+                    <span className="text-lg leading-none shrink-0">⚠️</span>
+                    <div className="space-y-1">
+                        <p className="font-extrabold text-[#92400E] text-[13px] leading-tight">
+                            {lang === 'bn' ? 'উইথড্র নিরাপত্তা নীতি (Policy)' : 'Withdrawal Policy'}
+                        </p>
+                        <p className="text-[#B45309] font-medium text-[12px] leading-relaxed">
                             {lang === 'bn' 
                                 ? `অ্যাড মানি করার পর উইথড্র চালু করতে নূন্যতম ২০ টাকার ক্রিপ্টো ক্রয় সম্পন্ন করুন। খরচ বাকি: ৳${Math.max(0, 20 - spentSinceLastDeposit)} টাকা।` 
                                 : `Please purchase at least 20 BDT crypto to unlock withdrawals. Remaining: ৳${Math.max(0, 20 - spentSinceLastDeposit)} BDT.`}
