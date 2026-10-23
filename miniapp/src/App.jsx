@@ -3133,7 +3133,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const [processStep, setProcessStep] = useState(1);
     const [errorMessage, setErrorMessage] = useState('');
     const [txResult, setTxResult] = useState(null);
-    // Buyer Rates (Dynamic GRAM: Live + 10 TK, USDT: 125 TK)
+    // Buyer Rates (Direct Buy USDT: 130 TK, Dynamic GRAM: Live via 125 TK USD + 10 TK)
     const [buyerRates, setBuyerRates] = useState(() => {
         try {
             const cached = localStorage.getItem('maruf_buyer_rates');
@@ -3142,12 +3142,12 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 if (Date.now() - (parsed.timestamp || 0) < 60 * 60 * 1000 && parsed.rates?.USDT) {
                     return {
                         GRAM: parsed.rates.GRAM || 175,
-                        USDT: parsed.rates.USDT || 125
+                        USDT: parsed.rates.USDT || 130
                     };
                 }
             }
         } catch (e) {}
-        return { GRAM: 175, USDT: 125 };
+        return { GRAM: 175, USDT: 130 };
     });
 
     // Auto-fill connected TonConnect wallet if address empty
@@ -3163,7 +3163,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
             if (!isMounted || !data) return;
             const newRates = {
                 GRAM: data.buyRates?.GRAM || 175,
-                USDT: data.buyRates?.USDT || 125
+                USDT: data.buyRates?.USDT || 130
             };
             setBuyerRates(newRates);
             try {
@@ -3177,7 +3177,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         return () => { isMounted = false; };
     }, []);
 
-    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 125) : (buyerRates?.GRAM || 175);
+    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 130) : (buyerRates?.GRAM || 175);
     const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
         ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
         : '0.0000';

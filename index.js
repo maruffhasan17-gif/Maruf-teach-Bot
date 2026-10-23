@@ -2089,7 +2089,7 @@ let cachedMarketRates = {
     realGramUsdt: 1.32,
     realGramBdt: 155.76,
     buyRates: {
-        USDT: 125, // Fixed 125 BDT (buy from platform)
+        USDT: 130, // Fixed 130 BDT (when buying USDT directly)
         GRAM: 175, // (liveGramUsdt * 125) + 10 TK
         TON: 175
     },
@@ -2132,18 +2132,19 @@ async function updateMarketRates() {
         const realGramUsdt = Number(tonUsdt.toFixed(4));
 
         // Base USDT Rates in BDT:
-        // Sell USDT = 118 TK, Buy USDT = 125 TK
+        // Sell USDT = 118 TK, Direct Buy USDT = 130 TK
         const sellUsdt = 118;
-        const buyUsdt = 125;
+        const buyUsdt = 130;
 
         // Dynamic GRAM / TON Pricing Rule:
         // Platform maintains a guaranteed 10 TK margin:
         // - Sell GRAM (User sells to platform): (liveGramUsdt * 118) - 10 TK
-        // - Buy GRAM (User buys from platform): (liveGramUsdt * 125) + 10 TK
+        // - Buy GRAM (User buys from platform): (liveGramUsdt * 125) + 10 TK (GRAM calculated using 125 BDT/USD)
         const baseSellGramBdt = realGramUsdt * sellUsdt;
         const sellGram = Math.max(1, Math.round(baseSellGramBdt - 10));
 
-        const baseBuyGramBdt = realGramUsdt * buyUsdt;
+        const gramBuyUsdBase = 125;
+        const baseBuyGramBdt = realGramUsdt * gramBuyUsdBase;
         const buyGram = Math.round(baseBuyGramBdt + 10);
 
         cachedMarketRates = {
@@ -2151,13 +2152,13 @@ async function updateMarketRates() {
             realGramUsdt,
             realGramBdt: Number(baseSellGramBdt.toFixed(2)),
             buyRates: {
-                USDT: buyUsdt,
-                GRAM: buyGram,
+                USDT: buyUsdt, // 130 TK
+                GRAM: buyGram, // (liveGramUsdt * 125) + 10 TK
                 TON: buyGram
             },
             sellRates: {
-                USDT: sellUsdt,
-                GRAM: sellGram,
+                USDT: sellUsdt, // 118 TK
+                GRAM: sellGram, // (liveGramUsdt * 118) - 10 TK
                 TON: sellGram
             },
             lastUpdated: Date.now()
