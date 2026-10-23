@@ -2302,6 +2302,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
         }
 
         const isBanned = data.status === 'banned' || Boolean(data.isBanned);
+        const isRestricted = data.status === 'restricted' && (!data.restrictedUntil || new Date(data.restrictedUntil) > new Date());
         res.json({ 
             balance: data.balance || 0,
             fiatWallet: data.fiatWallet || null,
@@ -2315,9 +2316,12 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             referredBy: data.referredBy || null,
             referralStatus: data.referralStatus || null,
             themeMode: data.themeMode || 'light',
-            status: data.status || 'active',
+            status: isBanned ? 'banned' : (isRestricted ? 'restricted' : (data.status || 'active')),
             isBanned: isBanned,
-            banReason: data.banReason || 'সাইবার ক্রাইম ও প্রতারণামূলক কর্মকাণ্ডের জন্য অ্যাকাউন্ট স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।'
+            banReason: data.banReason || 'সাইবার ক্রাইম ও প্রতারণামূলক কর্মকাণ্ডের জন্য অ্যাকাউন্ট স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।',
+            isRestricted: isRestricted,
+            restrictedUntil: data.restrictedUntil || null,
+            restrictReason: data.restrictReason || 'আপনার অ্যাকাউন্টটি সাময়িকভাবে রেস্ট্রিক্ট করা রয়েছে।'
         });
     } catch(e) {
         console.error(e);
@@ -2356,7 +2360,16 @@ app.post('/api/miniapp/task', async (req, res) => {
 
 app.post('/api/miniapp/build-tx', async (req, res) => {
     try {
-        let { asset, amount, userAddress } = req.body;
+        let { asset, amount, userAddress, userId } = req.body;
+        if (userId) {
+            const uRef = db.collection('users').doc(userId.toString());
+            const uDoc = await uRef.get();
+            const uData = uDoc.data() || {};
+            const isRestricted = uData.status === 'restricted' && (!uData.restrictedUntil || new Date(uData.restrictedUntil) > new Date());
+            if (isRestricted || uData.status === 'banned') {
+                return res.status(403).json({ error: 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো লেনদেন করা যাবে না।' });
+            }
+        }
         amount = parseFloat(amount) || 0;
         asset = (asset || 'GRAM').toUpperCase();
         const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
@@ -2538,6 +2551,15 @@ app.post('/api/miniapp/sell', async (req, res) => {
         
         if (numEstimatedTk < 1 || numAmount <= 0) {
             return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা' });
+        }
+
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        const userData = userDoc.data() || {};
+        const isBanned = userData.status === 'banned' || Boolean(userData.isBanned);
+        const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
+        if (isBanned || isRestricted) {
+            return res.status(403).json({ error: isBanned ? 'আপনার অ্যাকাউন্টটি নিষিদ্ধ করা হয়েছে।' : 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন ক্রিপ্টো বিক্রি করা যাবে না।' });
         }
 
         const devInfo = extractClientDevice(req, req.body);
@@ -3151,6 +3173,13 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         
         if (!userDoc.exists) throw new Error("User not found");
         const userData = userDoc.data();
+        if (userData.status === 'banned' || Boolean(userData.isBanned)) {
+            throw new Error("আপনার অ্যাকাউন্টটি স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।");
+        }
+        const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
+        if (isRestricted) {
+            throw new Error("আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন উইথড্র করা সম্ভব নয়।");
+        }
         if ((userData.balance || 0) < amount) throw new Error("Insufficient balance");
 
         if (!userData.fiatWallet || !userData.fiatWallet.number) {
@@ -3414,6 +3443,17 @@ app.post('/api/miniapp/add-money', async (req, res) => {
             return res.status(400).json({ error: 'সঠিক টাকার পরিমাণ দিন' });
         }
 
+        if (userId) {
+            const userRef = db.collection('users').doc(userId.toString());
+            const userDoc = await userRef.get();
+            const userData = userDoc.data() || {};
+            const isBanned = userData.status === 'banned' || Boolean(userData.isBanned);
+            const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
+            if (isBanned || isRestricted) {
+                return res.status(403).json({ error: isBanned ? 'আপনার অ্যাকাউন্টটি নিষিদ্ধ করা হয়েছে।' : 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো লেনদেন করা যাবে না।' });
+            }
+        }
+
         const devInfo = extractClientDevice(req, req.body);
         recordAndVerifyDeviceAntiClone(userId, devInfo).catch(() => {});
 
@@ -3553,7 +3593,14 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        const currentBalance = userDoc.data()?.balance || 0;
+        const userData = userDoc.data() || {};
+        const isBanned = userData.status === 'banned' || Boolean(userData.isBanned);
+        const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
+        if (isBanned || isRestricted) {
+            return res.status(403).json({ error: isBanned ? 'আপনার অ্যাকাউন্টটি নিষিদ্ধ করা হয়েছে।' : 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো ক্রিপ্টো ক্রয় করা যাবে না।' });
+        }
+
+        const currentBalance = userData.balance || 0;
         if (currentBalance < bdtAmount) {
             return res.status(400).json({ 
                 error: `পর্যাপ্ত ব্যালেন্স নেই! আপনার ব্যালেন্স ৳${currentBalance} BDT, কিন্তু প্রয়োজন ৳${bdtAmount} BDT` 
@@ -3734,6 +3781,17 @@ app.post('/api/miniapp/buy', async (req, res) => {
     // If it has receiveAddress, route to buy-crypto or add-money
     try {
         let { userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress } = req.body;
+        if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        const userData = userDoc.data() || {};
+        const isBanned = userData.status === 'banned' || Boolean(userData.isBanned);
+        const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
+        if (isBanned || isRestricted) {
+            return res.status(403).json({ error: isBanned ? 'আপনার অ্যাকাউন্টটি নিষিদ্ধ করা হয়েছে।' : 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো লেনদেন করা যাবে না।' });
+        }
+
         if (!trxId || trxId.length < 5) {
             return res.status(400).json({ error: 'Please enter a valid Transaction ID (min 5 characters)' });
         }

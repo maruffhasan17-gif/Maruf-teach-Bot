@@ -1393,6 +1393,68 @@ const BannedSecurityScreen = ({ userId, reason, lang = 'bn' }) => {
   );
 };
 
+const RestrictedNoticeScreen = ({ onBack, reason, restrictedUntil, lang = 'bn', featureName = 'লেনদেন' }) => {
+  return (
+    <div className="animate-in fade-in zoom-in-95 duration-200 p-4 max-w-sm mx-auto text-center space-y-4 pt-8">
+      <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shadow-lg">
+        <AlertCircle size={44} className="text-amber-500 animate-pulse" />
+      </div>
+
+      <div className="space-y-1">
+        <span className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-700 text-[10px] font-black uppercase tracking-widest rounded-full">
+          ACCOUNT RESTRICTED
+        </span>
+        <h2 className="text-xl font-extrabold text-slate-900 pt-2">
+          {lang === 'bn' ? `${featureName} সাময়িকভাবে স্থগিত` : `${featureName} is Restricted`}
+        </h2>
+      </div>
+
+      <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 text-left space-y-2.5 text-xs">
+        <p className="text-amber-900 leading-relaxed font-medium">
+          {lang === 'bn' 
+            ? 'নিরাপত্তা বা পলিসি সংক্রান্ত পর্যালোচনার কারণে আপনার অ্যাকাউন্টটি সাময়িকভাবে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো ক্রিপ্টো ক্রয়, বিক্রয় বা উইথড্র করা সম্ভব নয়।' 
+            : 'Your account is currently restricted. Withdrawals, buying and selling crypto are disabled during the restriction period.'}
+        </p>
+
+        {restrictedUntil && (
+          <div className="flex justify-between py-1 border-t border-amber-200/60 text-slate-700 font-bold">
+            <span>{lang === 'bn' ? 'মেয়াদ শেষ:' : 'Expires At:'}</span>
+            <span className="text-amber-800">{new Date(restrictedUntil).toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+          </div>
+        )}
+
+        {reason && (
+          <div className="pt-1 text-[11px] text-amber-800 font-medium">
+            <span className="font-bold">{lang === 'bn' ? 'কারণ: ' : 'Reason: '}</span>
+            {reason}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2 pt-2">
+        <button
+          onClick={onBack}
+          type="button"
+          className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+        >
+          <ArrowLeft size={16} />
+          <span>{lang === 'bn' ? 'হোমে ফিরে যান' : 'Back to Home'}</span>
+        </button>
+
+        <a
+          href="https://t.me/maruff666"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center justify-center gap-2"
+        >
+          <Headphones size={15} />
+          <span>{lang === 'bn' ? 'সাপোর্টে যোগাযোগ করুন' : 'Contact Support'}</span>
+        </a>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('app_lang') || 'bn');
   const t = translations[lang] || translations.bn;
@@ -1576,6 +1638,7 @@ export default function App() {
   });
   const [balance, setBalance] = useState(0);
   const [balanceLoaded, setBalanceLoaded] = useState(true);
+  const [restrictionInfo, setRestrictionInfo] = useState(null);
   const [antiAbuseData, setAntiAbuseData] = useState({
     hasDepositWithoutTrade: false,
     hasSellBalance: false,
@@ -1619,6 +1682,16 @@ export default function App() {
           isBanned: true,
           reason: data.banReason || 'সাইবার ক্রাইম এবং জিরো-ব্যালেন্স ক্রিপ্টো ডিপোজিট প্রতারণা করার দায়ে আপনার অ্যাকাউন্ট ও ডিভাইস আজীবনের জন্য বহিষ্কার করা হয়েছে।'
         });
+      }
+
+      if (data.isRestricted || data.status === 'restricted') {
+        setRestrictionInfo({
+          isRestricted: true,
+          restrictedUntil: data.restrictedUntil || null,
+          reason: data.restrictReason || ''
+        });
+      } else {
+        setRestrictionInfo(null);
       }
 
       // Only restore backend themeMode if local storage was never set yet (prevents any light-to-dark flash)
@@ -1906,35 +1979,65 @@ export default function App() {
               />
           )}
           {activeTab === 'buy' && (
-              <BuyCryptoPage 
-                  user={user} 
-                  balance={balance} 
-                  lang={lang} 
-                  t={t} 
-                  onBack={() => setActiveTab('home')}
-                  reloadData={() => loadData(user?.id || 123456789)} 
-                  onGoToAddMoney={() => setActiveTab('add-money')} 
-              />
+              restrictionInfo?.isRestricted ? (
+                  <RestrictedNoticeScreen 
+                      onBack={() => setActiveTab('home')}
+                      featureName={lang === 'bn' ? 'ক্রিপ্টো ক্রয় (Buy Crypto)' : 'Buy Crypto'}
+                      reason={restrictionInfo.reason}
+                      restrictedUntil={restrictionInfo.restrictedUntil}
+                      lang={lang}
+                  />
+              ) : (
+                  <BuyCryptoPage 
+                      user={user} 
+                      balance={balance} 
+                      lang={lang} 
+                      t={t} 
+                      onBack={() => setActiveTab('home')}
+                      reloadData={() => loadData(user?.id || 123456789)} 
+                      onGoToAddMoney={() => setActiveTab('add-money')} 
+                  />
+              )
           )}
           {activeTab === 'add-money' && (
-              <AddMoneyPage 
-                  user={user} 
-                  lang={lang} 
-                  t={t} 
-                  onDone={() => setActiveTab('home')}
-                  onGoToBuyCrypto={() => setActiveTab('buy')}
-                  reloadData={() => loadData(user?.id || 123456789)}
-              />
+              restrictionInfo?.isRestricted ? (
+                  <RestrictedNoticeScreen 
+                      onBack={() => setActiveTab('home')}
+                      featureName={lang === 'bn' ? 'টাকা যোগ (Add Money)' : 'Add Money'}
+                      reason={restrictionInfo.reason}
+                      restrictedUntil={restrictionInfo.restrictedUntil}
+                      lang={lang}
+                  />
+              ) : (
+                  <AddMoneyPage 
+                      user={user} 
+                      lang={lang} 
+                      t={t} 
+                      onDone={() => setActiveTab('home')}
+                      onGoToBuyCrypto={() => setActiveTab('buy')}
+                      reloadData={() => loadData(user?.id || 123456789)}
+                  />
+              )
           )}
           {activeTab === 'sell' && (
-              <SellCryptoPage 
-                  user={user} 
-                  lang={lang} 
-                  t={t} 
-                  onDone={() => setActiveTab('home')} 
-                  onGoToWithdraw={() => setActiveTab('withdraw')} 
-                  reloadData={() => loadData(user?.id || 123456789)} 
-              />
+              restrictionInfo?.isRestricted ? (
+                  <RestrictedNoticeScreen 
+                      onBack={() => setActiveTab('home')}
+                      featureName={lang === 'bn' ? 'ক্রিপ্টো বিক্রয় (Sell Crypto)' : 'Sell Crypto'}
+                      reason={restrictionInfo.reason}
+                      restrictedUntil={restrictionInfo.restrictedUntil}
+                      lang={lang}
+                  />
+              ) : (
+                  <SellCryptoPage 
+                      user={user} 
+                      lang={lang} 
+                      t={t} 
+                      onDone={() => setActiveTab('home')} 
+                      onGoToWithdraw={() => setActiveTab('withdraw')} 
+                      reloadData={() => loadData(user?.id || 123456789)} 
+                  />
+              )
           )}
           {activeTab === 'history' && <HistoryPage user={user} lang={lang} t={t} onBack={() => setActiveTab('profile')} />}
           {activeTab === 'profile' && (
@@ -1979,19 +2082,29 @@ export default function App() {
           )}
           {activeTab === 'claim' && <ClaimPage user={user} lang={lang} t={t} onBack={() => setActiveTab('home')} />}
           {activeTab === 'withdraw' && (
-              <WithdrawFiatPage 
-                  user={user} 
-                  balance={balance} 
-                  lang={lang}
-                  t={t}
-                  fiatWallet={fiatWallet} 
-                  setFiatWallet={setFiatWallet}
-                  fiatWithdrawPending={fiatWithdrawPending} 
-                  antiAbuseData={antiAbuseData}
-                  setIsModalOpen={setIsModalOpen}
-                  onBack={() => setActiveTab('profile')} 
-                  reloadData={() => loadData(user?.id || 123456789)} 
-              />
+              restrictionInfo?.isRestricted ? (
+                  <RestrictedNoticeScreen 
+                      onBack={() => setActiveTab('profile')}
+                      featureName={lang === 'bn' ? 'টাকা উত্তোলন (Withdrawal)' : 'Withdrawal'}
+                      reason={restrictionInfo.reason}
+                      restrictedUntil={restrictionInfo.restrictedUntil}
+                      lang={lang}
+                  />
+              ) : (
+                  <WithdrawFiatPage 
+                      user={user} 
+                      balance={balance} 
+                      lang={lang}
+                      t={t}
+                      fiatWallet={fiatWallet} 
+                      setFiatWallet={setFiatWallet}
+                      fiatWithdrawPending={fiatWithdrawPending} 
+                      antiAbuseData={antiAbuseData}
+                      setIsModalOpen={setIsModalOpen}
+                      onBack={() => setActiveTab('profile')} 
+                      reloadData={() => loadData(user?.id || 123456789)} 
+                  />
+              )
           )}
         </div>
 
