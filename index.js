@@ -2627,6 +2627,49 @@ function requireAdminAuth(req, res, next) {
     next();
 }
 
+// In-memory sessions for Admin 2FA verification (5 minutes TTL)
+const pendingAdmin2FASessions = new Map();
+
+async function sendAdmin2FACode(code) {
+    const msg = `🔐 <b>Trust Pay — Admin 2FA Login Code</b>\n\n` +
+        `অ্যাডমিন প্যানেলে লগইন করার জন্য আপনার ২-স্টেপ ভেরিফিকেশন কোড:\n\n` +
+        `👉 <code>${code}</code> 👈 <i>(ট্যাপ করে কোডটি কপি করুন)</i>\n\n` +
+        `⏱ <b>মেয়াদ:</b> ৫ মিনিট\n` +
+        `🖥 <b>ডিভাইস:</b> Desktop Admin Control Center\n` +
+        `⚠️ <i>আপনি লগইন রিকোয়েস্ট না করে থাকলে দ্রুত পাসওয়ার্ড পরিবর্তন করুন!</i>`;
+
+    const targets = ['8799135330']; // Maruf's Telegram ID
+    const config = botConfig || {};
+    const withdrawGroup = config.withdrawGroupId || config.adminGroupId;
+    if (withdrawGroup && !targets.includes(withdrawGroup.toString())) {
+        targets.push(withdrawGroup.toString());
+    }
+
+    console.log(`[Admin 2FA] Dispatching OTP ${code} to:`, targets);
+    for (const target of targets) {
+        let sent = false;
+        // Priority 1: Dedicated Withdraw Bot
+        if (withdrawBot) {
+            try {
+                await withdrawBot.sendMessage(target, msg, { parse_mode: 'HTML' });
+                sent = true;
+                console.log(`[Admin 2FA] Sent via withdrawBot to ${target}`);
+            } catch (err) {
+                console.warn(`[Admin 2FA] withdrawBot send error to ${target}:`, err.message);
+            }
+        }
+        // Fallback: Primary Bot
+        if (!sent && bot) {
+            try {
+                await bot.sendMessage(target, msg, { parse_mode: 'HTML' });
+                console.log(`[Admin 2FA] Sent via primary bot to ${target}`);
+            } catch (err2) {
+                console.error(`[Admin 2FA] primary bot send error to ${target}:`, err2.message);
+            }
+        }
+    }
+}
+
 app.post('/api/admin/login', async (req, res) => {
     try {
         if (isMobileRequest(req)) {
@@ -2658,17 +2701,86 @@ app.post('/api/admin/login', async (req, res) => {
             inputEmail === cachedAdminCreds.email.trim().toLowerCase() &&
             inputPass === cachedAdminCreds.password
         ) {
-            const token = createAdminToken(cachedAdminCreds.email);
+            // Step 1: Credentials matched! Generate 6-digit OTP and session tempToken
+            const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+            const tempToken = crypto.randomBytes(24).toString('hex');
+            
+            pendingAdmin2FASessions.set(tempToken, {
+                otpCode,
+                email: cachedAdminCreds.email,
+                expiresAt: Date.now() + 5 * 60 * 1000
+            });
+
+            // Dispatch OTP instantly via Withdraw Bot!
+            sendAdmin2FACode(otpCode).catch(e => console.error("sendAdmin2FACode error:", e.message));
+
             return res.json({
                 success: true,
-                token,
-                email: cachedAdminCreds.email
+                require2FA: true,
+                tempToken,
+                message: 'আপনার টেলিগ্রাম উইথড্র বটে ৬ ডিজিটের ২-স্টেপ ভেরিফিকেশন কোড পাঠানো হয়েছে।'
             });
         }
 
         return res.status(401).json({
             error: 'ভুল ইমেইল অথবা পাসওয়ার্ড! সঠিক অ্যাডমিন তথ্য দিয়ে আবার চেষ্টা করুন।'
         });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/verify-2fa', async (req, res) => {
+    try {
+        if (isMobileRequest(req)) {
+            return res.status(403).json({
+                error: 'মোবাইল ডিভাইস থেকে প্রবেশ সম্পূর্ণ নিষিদ্ধ!',
+                mobileBlocked: true
+            });
+        }
+        const { tempToken, otpCode } = req.body || {};
+        if (!tempToken || !otpCode) {
+            return res.status(400).json({ error: 'ভেরিফিকেশন কোড এবং টোকেন প্রয়োজন।' });
+        }
+        const session = pendingAdmin2FASessions.get(tempToken);
+        if (!session) {
+            return res.status(400).json({ error: 'সেশন পাওয়া যায়নি অথবা মেয়াদ শেষ হয়েছে। দয়া করে আবার লগইন করুন।' });
+        }
+        if (Date.now() > session.expiresAt) {
+            pendingAdmin2FASessions.delete(tempToken);
+            return res.status(400).json({ error: 'ভেরিফিকেশন কোডের মেয়াদ (৫ মিনিট) শেষ হয়ে গেছে। আবার লগইন করুন।' });
+        }
+        if (session.otpCode.trim() !== String(otpCode).trim()) {
+            return res.status(400).json({ error: 'ভুল ভেরিফিকেশন কোড! উইথড্র বটে পাঠানো ৬ ডিজিটের কোডটি দিন।' });
+        }
+
+        // 2FA Verified! Clean up session & issue official admin JWT token
+        pendingAdmin2FASessions.delete(tempToken);
+        const token = createAdminToken(session.email);
+        return res.json({
+            success: true,
+            token,
+            email: session.email
+        });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/resend-2fa', async (req, res) => {
+    try {
+        const { tempToken } = req.body || {};
+        if (!tempToken) return res.status(400).json({ error: 'Token is required' });
+        const session = pendingAdmin2FASessions.get(tempToken);
+        if (!session) {
+            return res.status(400).json({ error: 'সেশনের মেয়াদ শেষ হয়েছে। দয়া করে আবার লগইন করুন।' });
+        }
+        const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+        session.otpCode = newCode;
+        session.expiresAt = Date.now() + 5 * 60 * 1000;
+        pendingAdmin2FASessions.set(tempToken, session);
+        await sendAdmin2FACode(newCode);
+        return res.json({ success: true, message: 'নতুন ভেরিফিকেশন কোড উইথড্র বটে পাঠানো হয়েছে।' });
     } catch (e) {
         return res.status(500).json({ error: e.message });
     }
@@ -2682,9 +2794,9 @@ app.get('/api/admin/session', requireAdminAuth, (req, res) => {
     });
 });
 
-// Protect all /api/admin/* routes (except login and avatar image redirect) and admin action endpoints
+// Protect all /api/admin/* routes (except login, 2fa verification endpoints, and avatar image redirect)
 app.use('/api/admin', (req, res, next) => {
-    if (req.path === '/login' || req.path.startsWith('/user-avatar/')) {
+    if (req.path === '/login' || req.path === '/verify-2fa' || req.path === '/resend-2fa' || req.path.startsWith('/user-avatar/')) {
         return next();
     }
     return requireAdminAuth(req, res, next);

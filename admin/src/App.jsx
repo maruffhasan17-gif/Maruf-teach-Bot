@@ -5770,18 +5770,24 @@ function BroadcastCenter() {
 }
 
 // =========================================================================
-// EXECUTIVE ADMIN LOGIN SCREEN (DATABASE-BACKED GMAIL & PASSWORD)
+// EXECUTIVE ADMIN LOGIN SCREEN (DATABASE-BACKED GMAIL & PASSWORD + 2FA)
 // =========================================================================
 function AdminLoginScreen({ onLoginSuccess }) {
+  const [step, setStep] = useState('credentials'); // 'credentials' | '2fa'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [tempToken, setTempToken] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMsg, setResendMsg] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setResendMsg('');
     if (isMobileDevice()) {
       setError('Mobile devices are strictly forbidden from accessing the Admin Panel.');
       return;
@@ -5802,9 +5808,15 @@ function AdminLoginScreen({ onLoginSuccess }) {
         })
       });
       const data = await res.json();
-      if (!res.ok || !data.success || !data.token) {
+      if (!res.ok || !data.success) {
         setError(data.error || 'Invalid Admin Gmail or Password. Access denied.');
-      } else {
+      } else if (data.require2FA) {
+        // Step 1 Success: Proceed to Telegram 2FA
+        setTempToken(data.tempToken);
+        setStep('2fa');
+        setOtpCode('');
+        setError('');
+      } else if (data.token) {
         localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
         localStorage.setItem(ADMIN_EMAIL_KEY, data.email || email.trim());
         onLoginSuccess(data.token);
@@ -5813,6 +5825,64 @@ function AdminLoginScreen({ onLoginSuccess }) {
       setError('Failed to connect to security server. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerify2FA = async (e) => {
+    e.preventDefault();
+    setError('');
+    setResendMsg('');
+    const cleanOtp = otpCode.trim();
+    if (!cleanOtp || cleanOtp.length < 6) {
+      setError('অনুগ্রহ করে ৬ ডিজিটের ওটিপি (OTP) কোডটি লিখুন।');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/verify-2fa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tempToken,
+          otpCode: cleanOtp
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.token) {
+        setError(data.error || 'ভুল বা মেয়াদোত্তীর্ণ ওটিপি কোড! অনুগ্রহ করে আবার চেষ্টা করুন।');
+      } else {
+        localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+        localStorage.setItem(ADMIN_EMAIL_KEY, data.email || email.trim());
+        onLoginSuccess(data.token);
+      }
+    } catch (err) {
+      setError('ভেরিফিকেশন সম্পন্ন করা সম্ভব হয়নি। আবার চেষ্টা করুন।');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setResendLoading(true);
+    setError('');
+    setResendMsg('');
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/resend-2fa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.error || 'কোড পুনরায় পাঠানো সম্ভব হয়নি।');
+      } else {
+        setResendMsg('নতুন ৬ ডিজিটের ওটিপি কোড টেলিগ্রাম উইথড্র বটে পাঠানো হয়েছে!');
+      }
+    } catch (err) {
+      setError('পুনরায় কোড পাঠাতে সমস্যা হচ্ছে।');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -5840,15 +5910,15 @@ function AdminLoginScreen({ onLoginSuccess }) {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black text-white tracking-tight">Trust Pay</h1>
             <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-widest">
-              PRO ADMIN
+              {step === '2fa' ? '2FA SECURED' : 'PRO ADMIN'}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1 font-medium">
-            Protected Executive Treasury & Order Control Center
+            {step === '2fa' ? 'Two-Factor Telegram Security Authorization' : 'Protected Executive Treasury & Order Control Center'}
           </p>
           <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-[10px] font-bold text-purple-300">
             <Lock size={11} className="text-purple-400" />
-            <span>Database-Verified Desktop Security</span>
+            <span>{step === '2fa' ? 'Telegram 2-Step OTP Verification' : 'Database-Verified Desktop Security'}</span>
           </div>
         </div>
 
@@ -5859,68 +5929,146 @@ function AdminLoginScreen({ onLoginSuccess }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
-              Admin Gmail Address
-            </label>
-            <input
-              type="email"
-              required
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="trustpaybot@gmail.com"
-              className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
-            />
+        {resendMsg && (
+          <div className="mb-4 p-3 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs font-bold flex items-center gap-2">
+            <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
+            <span>{resendMsg}</span>
           </div>
+        )}
 
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400">
-                Master Password
+        {step === '2fa' ? (
+          /* STEP 2: TELEGRAM 2FA OTP VERIFICATION */
+          <form onSubmit={handleVerify2FA} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-indigo-950/50 border border-indigo-500/40 text-indigo-200 text-xs flex items-start gap-2.5">
+              <Send size={16} className="text-indigo-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-white text-[12px]">টেলিগ্রাম উইথড্র বটে ওটিপি পাঠানো হয়েছে</p>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  আপনার <b>Withdraw Manager Bot</b> অথবা <b>Withdraw গ্রুপে</b> পাঠানো ৬ ডিজিটের কোডটি নিচে লিখুন:
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5 text-center">
+                6-Digit Security Code (OTP)
               </label>
+              <input
+                type="text"
+                required
+                maxLength={6}
+                autoFocus
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                className="w-full py-3.5 px-4 rounded-xl text-2xl font-black font-mono tracking-[0.45em] text-center text-emerald-400 bg-[#14102c] border border-purple-800/60 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || otpCode.length < 6}
+              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={15} className="animate-spin" />
+                  <span>Verifying Code...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={16} />
+                  <span>Verify & Unlock Control Center</span>
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center justify-between pt-2 text-xs">
               <button
                 type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="text-[10px] font-bold text-purple-400 hover:text-purple-300 cursor-pointer"
+                onClick={() => { setStep('credentials'); setError(''); setResendMsg(''); }}
+                className="text-slate-400 hover:text-slate-200 font-semibold cursor-pointer transition-colors"
               >
-                {showPass ? 'Hide' : 'Show'}
+                ← Back to Login
+              </button>
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resendLoading}
+                className="text-purple-400 hover:text-purple-300 font-bold cursor-pointer transition-colors flex items-center gap-1 disabled:opacity-50"
+              >
+                {resendLoading ? <RefreshCw size={12} className="animate-spin" /> : null}
+                <span>Resend Code</span>
               </button>
             </div>
-            <input
-              type={showPass ? 'text' : 'password'}
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••••••"
-              className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
-            />
-          </div>
+          </form>
+        ) : (
+          /* STEP 1: GMAIL & PASSWORD */
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
+                Admin Gmail Address
+              </label>
+              <input
+                type="email"
+                required
+                autoComplete="username"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="trustpaybot@gmail.com"
+                className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <RefreshCw size={15} className="animate-spin" />
-                <span>Verifying Credentials...</span>
-              </>
-            ) : (
-              <>
-                <Unlock size={15} />
-                <span>Unlock Admin Control Center</span>
-              </>
-            )}
-          </button>
-        </form>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400">
+                  Master Password
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="text-[10px] font-bold text-purple-400 hover:text-purple-300 cursor-pointer"
+                >
+                  {showPass ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              <input
+                type={showPass ? 'text' : 'password'}
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={15} className="animate-spin" />
+                  <span>Verifying Credentials...</span>
+                </>
+              ) : (
+                <>
+                  <Unlock size={15} />
+                  <span>Unlock Admin Control Center</span>
+                </>
+              )}
+            </button>
+          </form>
+        )}
 
         <div className="mt-6 pt-5 border-t border-purple-900/30 flex items-center justify-between text-[11px] text-slate-500 font-semibold">
           <span className="flex items-center gap-1.5">
-            <Shield size={12} className="text-emerald-400" /> Firestore Auth Guard
+            <Shield size={12} className="text-emerald-400" /> Telegram 2FA Auth Guard
           </span>
           <span>Desktop Only Mode</span>
         </div>
