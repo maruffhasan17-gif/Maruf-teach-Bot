@@ -9,6 +9,17 @@ const API_URL = isLocal
 // Default axios config with timeout to prevent hanging on mobile networks
 axios.defaults.timeout = 12000;
 
+// Automatically attach Telegram WebApp cryptographic initData to every outgoing API request
+axios.interceptors.request.use((config) => {
+    try {
+        const initData = window.Telegram?.WebApp?.initData || '';
+        if (initData) {
+            config.headers['X-Telegram-Init-Data'] = initData;
+        }
+    } catch (_) {}
+    return config;
+});
+
 // Simple fast deterministic string hash (FNV-1a 64-bit style hex)
 function hashString(str) {
     let h1 = 0xdeadbeef ^ str.length;

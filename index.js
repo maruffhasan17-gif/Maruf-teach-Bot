@@ -3,6 +3,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
+const crypto = require('crypto');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -389,6 +390,292 @@ const { beginCell, Address } = require('@ton/core');
 const app = express();
 const cors = require('cors');
 app.use(cors());
+
+app.disable('x-powered-by');
+
+// --- ENTERPRISE SECURITY HEADERS MIDDLEWARE (Prevents MIME Sniffing, Clickjacking & XSS) ---
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+});
+
+// --- PROTOTYPE POLLUTION & PARAMETER TAMPERING GUARD (PHP-Style Bug / Injection Immunity) ---
+function sanitizeInputPayload(obj, depth = 0) {
+    if (!obj || typeof obj !== 'object' || depth > 5) return;
+    for (const key of Object.keys(obj)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+            delete obj[key];
+            continue;
+        }
+        if (typeof obj[key] === 'object' && obj[key] !== null) {
+            sanitizeInputPayload(obj[key], depth + 1);
+        }
+    }
+}
+app.use((req, res, next) => {
+    if (req.body) sanitizeInputPayload(req.body);
+    if (req.query) sanitizeInputPayload(req.query);
+    if (req.params) sanitizeInputPayload(req.params);
+    next();
+});
+
+// --- SLIDING-WINDOW RATE LIMITER (Anti-DDoS, Anti-Flood & Brute-Force Defense) ---
+const rateLimitStore = new Map();
+function checkRateLimit(key, maxRequests = 100, windowMs = 60000) {
+    const now = Date.now();
+    const record = rateLimitStore.get(key) || { count: 0, resetAt: now + windowMs };
+    if (now > record.resetAt) {
+        record.count = 1;
+        record.resetAt = now + windowMs;
+    } else {
+        record.count++;
+    }
+    rateLimitStore.set(key, record);
+    return record.count <= maxRequests;
+}
+
+// Global General Rate Limiter (150 req/min per IP, excluding static assets)
+app.use((req, res, next) => {
+    if (req.path.startsWith('/assets') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.png') || req.path.endsWith('.jpg') || req.path.endsWith('.ico')) {
+        return next();
+    }
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    if (!checkRateLimit(`ip_${clientIp}`, 150, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    }
+    next();
+});
+
+// --- CONCURRENCY MUTEX LOCK (Prevents Double-Spending & Race Conditions) ---
+const financialUserLocks = new Map();
+function acquireUserFinancialLock(userId, timeoutMs = 15000) {
+    if (!userId) return true;
+    const key = String(userId);
+    const now = Date.now();
+    const existingUntil = financialUserLocks.get(key);
+    if (existingUntil && existingUntil > now) {
+        return false;
+    }
+    financialUserLocks.set(key, now + timeoutMs);
+    return true;
+}
+function releaseUserFinancialLock(userId) {
+    if (!userId) return;
+    financialUserLocks.delete(String(userId));
+}
+
+// --- TELEGRAM WEBAPP CRYPTOGRAPHIC AUTHENTICATION ---
+function verifyTelegramInitData(initDataString, botToken) {
+    if (!initDataString || !botToken) return null;
+    try {
+        const urlParams = new URLSearchParams(initDataString);
+        const hash = urlParams.get('hash');
+        if (!hash) return null;
+        urlParams.delete('hash');
+        const params = Array.from(urlParams.entries());
+        params.sort((a, b) => a[0].localeCompare(b[0]));
+        const dataCheckString = params.map(([k, v]) => `${k}=${v}`).join('\n');
+        const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+        const calcHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+        if (calcHash !== hash) return null;
+        const authDate = parseInt(urlParams.get('auth_date') || '0', 10);
+        const now = Math.floor(Date.now() / 1000);
+        if (now - authDate > 86400 * 7) return null;
+        const userJson = urlParams.get('user');
+        return userJson ? JSON.parse(userJson) : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+// Helper: Verify that calling request belongs to claimed userId
+function verifyRequestCallerIdentity(req, userId) {
+    const initDataRaw = req.headers['x-telegram-init-data'];
+    if (initDataRaw && bot?.token) {
+        const verifiedUser = verifyTelegramInitData(initDataRaw, bot.token);
+        if (verifiedUser && verifiedUser.id && String(verifiedUser.id) !== String(userId)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// --- DEEP BALANCE PROVENANCE & ILLEGAL AMOUNT AUDIT ENGINE ---
+async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 'Transaction') {
+    const strUserId = String(userId);
+    const numUserId = parseInt(userId, 10);
+    const userRef = db.collection('users').doc(strUserId);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+        return { ok: false, code: 'USER_NOT_FOUND', error: 'User not found' };
+    }
+    
+    const uData = userDoc.data() || {};
+    
+    // 1. Status Check
+    const isBanned = uData.status === 'banned' || Boolean(uData.isBanned);
+    const isRestricted = uData.status === 'restricted' && (!uData.restrictedUntil || new Date(uData.restrictedUntil) > new Date());
+    if (isBanned) {
+        return { ok: false, code: 'BANNED', error: 'আপনার অ্যাকাউন্টটি স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।' };
+    }
+    if (isRestricted) {
+        return { ok: false, code: 'RESTRICTED', error: 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো লেনদেন করা যাবে না।' };
+    }
+    
+    // 2. Numeric Balance & Requested Amount Validation
+    const currentBalance = Number(uData.balance || 0);
+    if (!Number.isFinite(currentBalance) || currentBalance < 0) {
+        return { ok: false, code: 'CORRUPTED_BALANCE', error: 'অ্যাকাউন্ট ব্যালেন্সে ত্রুটি পরিলক্ষিত হয়েছে।' };
+    }
+    
+    if (requestedAmount > 0) {
+        const reqAmt = Number(requestedAmount);
+        if (!Number.isFinite(reqAmt) || reqAmt <= 0) {
+            return { ok: false, code: 'INVALID_AMOUNT', error: 'সঠিক টাকার পরিমাণ দিন।' };
+        }
+        if (reqAmt > currentBalance) {
+            return { ok: false, code: 'INSUFFICIENT_BALANCE', error: `পর্যাপ্ত ব্যালেন্স নেই! আপনার ব্যালেন্স ৳${currentBalance.toFixed(2)} BDT, কিন্তু প্রয়োজন ৳${reqAmt.toFixed(2)} BDT` };
+        }
+    }
+    
+    if (currentBalance === 0 && requestedAmount === 0) {
+        return { ok: true, currentBalance: 0, maxPermissible: 0, userData: uData };
+    }
+    
+    // 3. Mathematical Ledger Reconciliation (Proof of Funds)
+    // A) Deposits (Add Money)
+    const depSnap1 = await db.collection('deposits').where('userId', '==', strUserId).where('status', '==', 'completed').get();
+    const depSnap2 = (numUserId && !isNaN(numUserId) && numUserId !== strUserId) 
+        ? await db.collection('deposits').where('userId', '==', numUserId).where('status', '==', 'completed').get() 
+        : { docs: [] };
+    
+    const seenDepIds = new Set();
+    let sumDeposits = 0;
+    for (const doc of [...depSnap1.docs, ...depSnap2.docs]) {
+        if (!seenDepIds.has(doc.id)) {
+            seenDepIds.add(doc.id);
+            sumDeposits += Number(doc.data().amount || 0);
+        }
+    }
+    
+    // B) Crypto Sells credited to BDT
+    const sellSnap1 = await db.collection('miniapp_sells').where('userId', '==', strUserId).where('status', '==', 'completed').get();
+    const sellSnap2 = (numUserId && !isNaN(numUserId) && numUserId !== strUserId) 
+        ? await db.collection('miniapp_sells').where('userId', '==', numUserId).where('status', '==', 'completed').get() 
+        : { docs: [] };
+        
+    const seenSellIds = new Set();
+    let sumSells = 0;
+    for (const doc of [...sellSnap1.docs, ...sellSnap2.docs]) {
+        if (!seenSellIds.has(doc.id)) {
+            seenSellIds.add(doc.id);
+            sumSells += Number(doc.data().estimatedTk || doc.data().actualTk || 0);
+        }
+    }
+    
+    // C) Spin Wheel Earnings
+    const spinEarnings = Number(uData.totalSpinWonBdt || uData.dailySpinWonBdt || 0);
+    
+    // D) Referral Earnings
+    const referralEarnings = Number(uData.referralEarnings || 0);
+    
+    // E) Legitimate Refunds from In-App Balance purchases
+    const buySnap1 = await db.collection('miniapp_buys').where('userId', '==', strUserId).get();
+    const buySnap2 = (numUserId && !isNaN(numUserId) && numUserId !== strUserId) 
+        ? await db.collection('miniapp_buys').where('userId', '==', numUserId).get() 
+        : { docs: [] };
+        
+    const seenBuyIds = new Set();
+    let sumBalanceBuys = 0;
+    let sumLegitRefunds = 0;
+    
+    for (const doc of [...buySnap1.docs, ...buySnap2.docs]) {
+        if (!seenBuyIds.has(doc.id)) {
+            seenBuyIds.add(doc.id);
+            const bData = doc.data();
+            const isWalletPayment = bData.paymentMethod === 'In-App Balance' || bData.paidWithWallet === true || bData.paymentMethod === 'wallet';
+            
+            if (isWalletPayment && bData.status === 'completed') {
+                sumBalanceBuys += Number(bData.totalBdt || bData.amountBdt || 0);
+            }
+            if (isWalletPayment && bData.status === 'rejected' && bData.refundRevoked !== true) {
+                sumLegitRefunds += Number(bData.refundedBdt || 0);
+            }
+        }
+    }
+    
+    // F) Withdrawals (both pending and completed)
+    const withSnap1 = await db.collection('fiat_withdrawals').where('userId', '==', strUserId).get();
+    const withSnap2 = (numUserId && !isNaN(numUserId) && numUserId !== strUserId) 
+        ? await db.collection('fiat_withdrawals').where('userId', '==', numUserId).get() 
+        : { docs: [] };
+        
+    const seenWithIds = new Set();
+    let sumWithdrawals = 0;
+    for (const doc of [...withSnap1.docs, ...withSnap2.docs]) {
+        if (!seenWithIds.has(doc.id)) {
+            seenWithIds.add(doc.id);
+            const wData = doc.data();
+            if (['completed', 'pending'].includes(wData.status)) {
+                sumWithdrawals += Number(wData.amount || 0);
+            }
+        }
+    }
+    
+    // Calculate provenance
+    const totalLegitimateIn = sumDeposits + sumSells + spinEarnings + referralEarnings + sumLegitRefunds;
+    const totalLegitimateOut = sumBalanceBuys + sumWithdrawals;
+    const maxPermissibleBalance = Math.max(0, totalLegitimateIn - totalLegitimateOut);
+    
+    // Discrepancy check (allowing 2 BDT tolerance for floating point / rounding)
+    const discrepancy = currentBalance - maxPermissibleBalance;
+    
+    if (currentBalance > 0 && discrepancy > 2) {
+        // AUTO-RESTRICT USER ACCOUNT
+        await userRef.set({
+            status: 'restricted',
+            restrictReason: 'অ্যাকাউন্টে অসামঞ্জস্যপূর্ণ/অবৈধ ব্যালেন্স পরিলক্ষিত হওয়ায় নিরাপত্তা পর্যালোচনার স্বার্থে অ্যাকাউন্ট সাময়িকভাবে স্থগিত করা হয়েছে।',
+            statusUpdatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        // SEND HIGH-PRIORITY FORENSIC SECURITY ALERT TO TELEGRAM DATA GROUP / ADMIN GROUP
+        const config = botConfig || {};
+        const alertGroup = config.dataGroupId || config.adminGroupId;
+        if (alertGroup && bot) {
+            const forensicAlert = `<blockquote><b>🚨 নিরাপত্তা সতর্কবার্তা: অবৈধ ব্যালেন্স শনাক্ত হয়েছে! (Illegal Balance Alert)</b>\n\n` +
+                `👤 <b>ইউজার:</b> <a href="tg://user?id=${strUserId}">${uData.firstName || uData.first_name || 'User'}</a> (<code>${strUserId}</code>)\n` +
+                `💰 <b>দাবিকৃত ব্যালেন্স:</b> <b>৳${currentBalance.toFixed(2)} BDT</b>\n` +
+                `📊 <b>আইনসম্মত সর্বোচ্চ ব্যালেন্স:</b> <b>৳${maxPermissibleBalance.toFixed(2)} BDT</b>\n` +
+                `⚠️ <b>অবৈধ অতিরিক্ত পরিমাণ:</b> <b>৳${discrepancy.toFixed(2)} BDT</b>\n` +
+                `🛑 <b>চেষ্টাকৃত অ্যাকশন:</b> <code>${actionType}</code> (৳${requestedAmount} BDT)\n\n` +
+                `<b>📋 লেজার অডিট রিপোর্ট:</b>\n` +
+                `• ডিপোজিট (Add Money): ৳${sumDeposits.toFixed(2)}\n` +
+                `• ক্রিপ্টো সেল: ৳${sumSells.toFixed(2)}\n` +
+                `• স্পিন উইন: ৳${spinEarnings.toFixed(2)}\n` +
+                `• রেফারেল আর্নিং: ৳${referralEarnings.toFixed(2)}\n` +
+                `• মোট খরচ (Buys + Withdrawals): ৳${totalLegitimateOut.toFixed(2)}\n\n` +
+                `🔒 <b>গৃহীত ব্যবস্থা:</b> ট্রানজেকশন সাথে সাথে বাতিল করা হয়েছে এবং অ্যাকাউন্টটি <b>RESTRICTED</b> করা হয়েছে।</blockquote>`;
+            bot.sendMessage(alertGroup, forensicAlert, { parse_mode: 'HTML' }).catch(err => console.error("Forensic alert send err:", err.message));
+        }
+
+        return {
+            ok: false,
+            code: 'ILLEGAL_BALANCE_DETECTED',
+            error: 'নিরাপত্তা পর্যালোচনায় আপনার অ্যাকাউন্টে অসামঞ্জস্যপূর্ণ ব্যালেন্স পরিলক্ষিত হয়েছে। স্বয়ংক্রিয় অডিট সম্পন্ন হওয়া পর্যন্ত লেনদেন স্থগিত করা হয়েছে। অনুগ্রহ করে সাপোর্টে যোগাযোগ করুন।'
+        };
+    }
+    
+    return {
+        ok: true,
+        currentBalance,
+        maxPermissibleBalance,
+        userData: uData
+    };
+}
 
 // Resilient raw-body middleware for SMS webhooks
 // Prevents Express from crashing with HTTP 400 when MacroDroid sends unescaped newlines/quotes in JSON
@@ -2362,12 +2649,15 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
     try {
         let { asset, amount, userAddress, userId } = req.body;
         if (userId) {
-            const uRef = db.collection('users').doc(userId.toString());
-            const uDoc = await uRef.get();
-            const uData = uDoc.data() || {};
-            const isRestricted = uData.status === 'restricted' && (!uData.restrictedUntil || new Date(uData.restrictedUntil) > new Date());
-            if (isRestricted || uData.status === 'banned') {
-                return res.status(403).json({ error: 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো লেনদেন করা যাবে না।' });
+            if (!verifyRequestCallerIdentity(req, userId)) {
+                return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+            }
+            if (!checkRateLimit(`build_tx_${userId}`, 30, 60000)) {
+                return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে কিছুক্ষণ অপেক্ষা করুন।' });
+            }
+            const audit = await auditBalanceProvenance(userId, 0, 'Build Sell TX');
+            if (!audit.ok) {
+                return res.status(403).json({ error: audit.error });
             }
         }
         amount = parseFloat(amount) || 0;
@@ -2544,22 +2834,37 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount }) {
 }
 
 app.post('/api/miniapp/sell', async (req, res) => {
+    const { userId, asset, amount, estimatedTk, wallet, status, orderId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+    // 1. Rate Limit check
+    if (!checkRateLimit(`sell_${userId}`, 15, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    }
+
+    // 2. Caller Identity Verification (Telegram WebApp initData HMAC)
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+    }
+
+    // 3. Concurrency Mutex Lock
+    const hasLock = acquireUserFinancialLock(userId);
+    if (!hasLock) {
+        return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
+    }
+
     try {
-        const { userId, asset, amount, estimatedTk, wallet, status, orderId } = req.body;
         const numEstimatedTk = parseFloat(estimatedTk) || 0;
         const numAmount = parseFloat(amount) || 0;
         
-        if (numEstimatedTk < 1 || numAmount <= 0) {
+        if (!Number.isFinite(numEstimatedTk) || numEstimatedTk < 1 || !Number.isFinite(numAmount) || numAmount <= 0) {
             return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা' });
         }
 
-        const userRef = db.collection('users').doc(userId.toString());
-        const userDoc = await userRef.get();
-        const userData = userDoc.data() || {};
-        const isBanned = userData.status === 'banned' || Boolean(userData.isBanned);
-        const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
-        if (isBanned || isRestricted) {
-            return res.status(403).json({ error: isBanned ? 'আপনার অ্যাকাউন্টটি নিষিদ্ধ করা হয়েছে।' : 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন ক্রিপ্টো বিক্রি করা যাবে না।' });
+        // 4. Mathematical Balance Provenance & Illegal Amount Audit
+        const audit = await auditBalanceProvenance(userId, 0, 'Crypto Sell');
+        if (!audit.ok) {
+            return res.status(403).json({ error: audit.error });
         }
 
         const devInfo = extractClientDevice(req, req.body);
@@ -2688,12 +2993,13 @@ app.post('/api/miniapp/sell', async (req, res) => {
     } catch(e) {
         console.error("Sell order error:", e);
         res.status(500).json({ error: e.message });
+    } finally {
+        releaseUserFinancialLock(userId);
     }
 });
 // =======================================================
 // ADMIN PANEL SECURITY: DESKTOP-ONLY + FIRESTORE AUTH
 // =======================================================
-const crypto = require('crypto');
 const ADMIN_DEFAULT_EMAIL = 'trustpaybot@gmail.com';
 const ADMIN_DEFAULT_PASS = 'Maruf1232#+';
 const ADMIN_TOKEN_SECRET = crypto
@@ -3165,22 +3471,45 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
 });
 
 app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
+    let { userId, amount, fee, receiveAmount } = req.body;
+    if (!userId) return res.status(400).json({ error: "User ID is required" });
+    
+    // 1. Rate Limit check (max 10 withdraw requests per min per user)
+    if (!checkRateLimit(`withdraw_${userId}`, 10, 60000)) {
+        return res.status(429).json({ error: "খুব বেশি উইথড্র রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।" });
+    }
+
+    // 2. Caller Identity Verification (Telegram WebApp initData HMAC)
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: "অননুমোদিত রিকোয়েস্ট (User ID mismatch)" });
+    }
+
+    // 3. Concurrency Mutex Lock
+    const hasLock = acquireUserFinancialLock(userId);
+    if (!hasLock) {
+        return res.status(429).json({ error: "আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।" });
+    }
+
     try {
-        const { userId, amount, fee, receiveAmount } = req.body;
-        if (!userId) throw new Error("User ID is required");
-        const userRef = db.collection('users').doc(userId.toString());
-        const userDoc = await userRef.get();
-        
-        if (!userDoc.exists) throw new Error("User not found");
-        const userData = userDoc.data();
-        if (userData.status === 'banned' || Boolean(userData.isBanned)) {
-            throw new Error("আপনার অ্যাকাউন্টটি স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।");
+        amount = parseFloat(amount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+            throw new Error("সঠিক টাকার পরিমাণ দিন");
         }
-        const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
-        if (isRestricted) {
-            throw new Error("আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন উইথড্র করা সম্ভব নয়।");
+        if (amount > 50000) {
+            throw new Error("একবারে সর্বোচ্চ ৫০,০০০ টাকা উত্তোলন করা সম্ভব");
         }
-        if ((userData.balance || 0) < amount) throw new Error("Insufficient balance");
+
+        // 4. Mathematical Balance Provenance & Illegal Amount Audit
+        const audit = await auditBalanceProvenance(userId, amount, 'Fiat Withdrawal');
+        if (!audit.ok) {
+            throw new Error(audit.error);
+        }
+        const userData = audit.userData;
+
+        // 5. Prevent stacking multiple pending withdrawals
+        if (userData.fiatWithdrawPending && userData.fiatWithdrawPending.status === 'pending') {
+            throw new Error("আপনার একটি উত্তোলন রিকোয়েস্ট ইতিমধ্যে পেন্ডিং রয়েছে। সেটি সম্পন্ন বা বাতিল না হওয়া পর্যন্ত নতুন রিকোয়েস্ট দেওয়া যাবে না।");
+        }
 
         if (!userData.fiatWallet || !userData.fiatWallet.number) {
             throw new Error("Please set your withdrawal wallet number first");
@@ -3269,6 +3598,7 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         const withdrawRef = await db.collection('fiat_withdrawals').add(withdrawDoc);
 
         // Deduct balance and update user fiatWithdrawPending with doc id
+        const userRef = db.collection('users').doc(userId.toString());
         await userRef.update({
             balance: FieldValue.increment(-amount),
             fiatWithdrawPending: {
@@ -3313,6 +3643,8 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         res.json({ success: true, serial: serialNum, withdrawId: withdrawRef.id });
     } catch(e) {
         res.status(500).json({ error: e.message });
+    } finally {
+        releaseUserFinancialLock(userId);
     }
 });
 
@@ -3432,26 +3764,39 @@ app.get('/api/settings', (req, res) => {
 
 
 app.post('/api/miniapp/add-money', async (req, res) => {
+    let { userId, amount, paymentMethod, trxId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+
+    // 1. Rate Limit check (max 15 requests/min per user)
+    if (!checkRateLimit(`add_money_${userId}`, 15, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    }
+
+    // 2. Caller Identity Verification (Telegram WebApp initData HMAC)
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+    }
+
+    // 3. Concurrency Mutex Lock
+    const hasLock = acquireUserFinancialLock(userId);
+    if (!hasLock) {
+        return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
+    }
+
     try {
-        let { userId, amount, paymentMethod, trxId } = req.body;
         if (!trxId || trxId.length < 5) {
             return res.status(400).json({ error: 'সঠিক Transaction ID দিন (কমপক্ষে ৫ অক্ষর)' });
         }
         trxId = trxId.trim().toUpperCase();
         amount = parseFloat(amount);
-        if (!amount || isNaN(amount) || amount <= 0) {
+        if (!Number.isFinite(amount) || amount <= 0) {
             return res.status(400).json({ error: 'সঠিক টাকার পরিমাণ দিন' });
         }
 
-        if (userId) {
-            const userRef = db.collection('users').doc(userId.toString());
-            const userDoc = await userRef.get();
-            const userData = userDoc.data() || {};
-            const isBanned = userData.status === 'banned' || Boolean(userData.isBanned);
-            const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
-            if (isBanned || isRestricted) {
-                return res.status(403).json({ error: isBanned ? 'আপনার অ্যাকাউন্টটি নিষিদ্ধ করা হয়েছে।' : 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো লেনদেন করা যাবে না।' });
-            }
+        // 4. Mathematical Balance Provenance & Illegal Amount Audit
+        const audit = await auditBalanceProvenance(userId, 0, 'Add Money');
+        if (!audit.ok) {
+            return res.status(403).json({ error: audit.error });
         }
 
         const devInfo = extractClientDevice(req, req.body);
@@ -3568,25 +3913,49 @@ app.post('/api/miniapp/add-money', async (req, res) => {
     } catch(e) {
         console.error("Add money error:", e);
         res.status(500).json({ error: e.message });
+    } finally {
+        releaseUserFinancialLock(userId);
     }
 });
 
 app.post('/api/miniapp/buy-crypto', async (req, res) => {
+    let { userId, asset, cryptoAmount, bdtAmount, receiveAddress } = req.body;
+    if (!userId || !cryptoAmount || !bdtAmount || !receiveAddress) {
+        return res.status(400).json({ error: 'সবগুলো তথ্য সঠিকভাবে পূরণ করুন' });
+    }
+
+    // 1. Rate Limit check
+    if (!checkRateLimit(`buy_crypto_${userId}`, 10, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    }
+
+    // 2. Caller Identity Verification (Telegram WebApp initData HMAC)
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+    }
+
+    // 3. Concurrency Mutex Lock
+    const hasLock = acquireUserFinancialLock(userId);
+    if (!hasLock) {
+        return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
+    }
+
     try {
-        let { userId, asset, cryptoAmount, bdtAmount, receiveAddress } = req.body;
-        if (!userId || !cryptoAmount || !bdtAmount || !receiveAddress) {
-            return res.status(400).json({ error: 'সবগুলো তথ্য সঠিকভাবে পূরণ করুন' });
-        }
         bdtAmount = parseFloat(bdtAmount);
         cryptoAmount = parseFloat(cryptoAmount);
         asset = (asset || 'TON').toUpperCase();
-        receiveAddress = receiveAddress.trim();
+        receiveAddress = String(receiveAddress || '').trim();
 
-        if (bdtAmount < 20 || cryptoAmount <= 0) {
+        if (!Number.isFinite(bdtAmount) || bdtAmount < 20 || !Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
             return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ২০ টাকা' });
         }
 
-        // 1. Verify User Balance First
+        // 4. Mathematical Balance Provenance & Illegal Amount Audit
+        const audit = await auditBalanceProvenance(userId, bdtAmount, 'Crypto Purchase via Balance');
+        if (!audit.ok) {
+            return res.status(403).json({ error: audit.error });
+        }
+
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
         if (!userDoc.exists) {
@@ -3594,16 +3963,10 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         }
 
         const userData = userDoc.data() || {};
-        const isBanned = userData.status === 'banned' || Boolean(userData.isBanned);
-        const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
-        if (isBanned || isRestricted) {
-            return res.status(403).json({ error: isBanned ? 'আপনার অ্যাকাউন্টটি নিষিদ্ধ করা হয়েছে।' : 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো ক্রিপ্টো ক্রয় করা যাবে না।' });
-        }
-
-        const currentBalance = userData.balance || 0;
+        const currentBalance = Number(userData.balance || 0);
         if (currentBalance < bdtAmount) {
             return res.status(400).json({ 
-                error: `পর্যাপ্ত ব্যালেন্স নেই! আপনার ব্যালেন্স ৳${currentBalance} BDT, কিন্তু প্রয়োজন ৳${bdtAmount} BDT` 
+                error: `পর্যাপ্ত ব্যালেন্স নেই! আপনার ব্যালেন্স ৳${currentBalance.toFixed(2)} BDT, কিন্তু প্রয়োজন ৳${bdtAmount.toFixed(2)} BDT` 
             });
         }
 
@@ -3769,6 +4132,8 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
     } catch(e) {
         console.error("Buy crypto error:", e);
         res.status(500).json({ error: e.message });
+    } finally {
+        releaseUserFinancialLock(userId);
     }
 });
 
@@ -3779,17 +4144,30 @@ app.post('/api/miniapp/buy', async (req, res) => {
         return app._router.handle({ ...req, url: '/api/miniapp/add-money' }, res);
     }
     // If it has receiveAddress, route to buy-crypto or add-money
-    try {
-        let { userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress } = req.body;
-        if (!userId) return res.status(400).json({ error: 'User ID is required' });
+    let { userId, asset, amount, totalBdt, paymentMethod, trxId, receiveAddress } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
-        const userRef = db.collection('users').doc(userId.toString());
-        const userDoc = await userRef.get();
-        const userData = userDoc.data() || {};
-        const isBanned = userData.status === 'banned' || Boolean(userData.isBanned);
-        const isRestricted = userData.status === 'restricted' && (!userData.restrictedUntil || new Date(userData.restrictedUntil) > new Date());
-        if (isBanned || isRestricted) {
-            return res.status(403).json({ error: isBanned ? 'আপনার অ্যাকাউন্টটি নিষিদ্ধ করা হয়েছে।' : 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো লেনদেন করা যাবে না।' });
+    // 1. Rate Limit check
+    if (!checkRateLimit(`buy_trx_${userId}`, 15, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    }
+
+    // 2. Caller Identity Verification (Telegram WebApp initData HMAC)
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+    }
+
+    // 3. Concurrency Mutex Lock
+    const hasLock = acquireUserFinancialLock(userId);
+    if (!hasLock) {
+        return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
+    }
+
+    try {
+        // 4. Mathematical Balance Provenance & Illegal Amount Audit
+        const audit = await auditBalanceProvenance(userId, 0, 'Manual Crypto Buy');
+        if (!audit.ok) {
+            return res.status(403).json({ error: audit.error });
         }
 
         if (!trxId || trxId.length < 5) {
@@ -3871,6 +4249,8 @@ app.post('/api/miniapp/buy', async (req, res) => {
     } catch (e) {
         console.error("Buy submission error:", e);
         res.status(500).json({ error: e.message });
+    } finally {
+        releaseUserFinancialLock(userId);
     }
 });
 
