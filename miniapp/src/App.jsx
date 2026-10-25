@@ -4301,30 +4301,6 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                         </div>
                     </div>
 
-                    {/* 3.5. 10-Digit Auto Comment Verification Code Box */}
-                    <div className="bg-emerald-50/75 border border-emerald-200/80 rounded-xl px-3 py-2 flex items-center justify-between gap-2 shrink-0">
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-1">
-                                <ShieldCheck size={12} className="text-emerald-600 shrink-0" />
-                                <span className="text-[9px] font-black text-emerald-900 uppercase tracking-wider truncate">
-                                    {lang === 'bn' ? '১০-ডিজিট কমেন্ট ভেরিফিকেশন কোড' : '10-Digit Comment Verify Code'}
-                                </span>
-                            </div>
-                            <span className="text-[9.5px] text-emerald-700 font-medium block leading-tight mt-0.5">
-                                {lang === 'bn' ? 'পেমেন্ট কমেন্টে এই কোডটি অটোমেটিক যুক্ত থাকবে' : 'Auto-attached in Tonkeeper payment comment'}
-                            </span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={handleCopySellCode}
-                            className="px-2.5 py-1 rounded-lg bg-white border border-emerald-300/90 text-emerald-800 font-mono font-black text-[12px] tracking-wider shadow-2xs flex items-center gap-1.5 active:scale-95 transition-all shrink-0 cursor-pointer"
-                            title="Copy 10-digit code"
-                        >
-                            <span>{sellCode}</span>
-                            {copiedCode ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} className="text-emerald-500" />}
-                        </button>
-                    </div>
-
                     {/* Error Banner */}
                     {errorMessage && (
                         <div className="bg-red-50 border border-red-200 rounded-xl p-2 flex items-start gap-1.5 animate-in fade-in shrink-0">

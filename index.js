@@ -2818,10 +2818,6 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
 
 // Function: Verify On-Chain payment via TonAPI (with 10-Digit Comment Code + Sender + Amount + Replay Protection)
 async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, userId }) {
-    if (!userWallet || userWallet === 'Manual' || userWallet === 'Direct') {
-        return { verified: false, error: 'বৈধ TON ওয়ালেট অ্যাড্রেস পাওয়া যায়নি।' };
-    }
-
     const cleanSellCode = String(sellCode || '').trim();
     if (!/^\d{10}$/.test(cleanSellCode)) {
         return { verified: false, error: 'বৈধ ১০-ডিজিটের ভেরিফিকেশন কমেন্ট কোড পাওয়া যায়নি। দয়া করে আবার চেষ্টা করুন।' };
@@ -2846,7 +2842,9 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
     let userRaw = '';
     try {
         adminRaw = Address.parse(adminWallet).toRawString().toLowerCase();
-        userRaw = Address.parse(userWallet).toRawString().toLowerCase();
+        if (userWallet && userWallet !== 'Manual' && userWallet !== 'Direct') {
+            userRaw = Address.parse(userWallet).toRawString().toLowerCase();
+        }
     } catch(e) {
         return { verified: false, error: 'ওয়ালেট অ্যাড্রেস পার্স করতে ব্যর্থ হয়েছে: ' + e.message };
     }
@@ -2882,8 +2880,8 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
 
                         const isUsdt = jt.jetton?.symbol?.includes('USD') || jt.jetton?.address?.includes('b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe');
 
-                        // Must match admin recipient, sender wallet, exact 10-digit comment code, and amount
-                        if (isUsdt && recipRaw === adminRaw && senderRaw === userRaw && txComment === cleanSellCode && jettonAmt >= (targetAmt * 0.99)) {
+                        // Match admin wallet recipient + exact 10-digit comment code + amount
+                        if (isUsdt && recipRaw === adminRaw && txComment === cleanSellCode && jettonAmt >= (targetAmt * 0.99)) {
                             const [eventDoc, codeDoc] = await Promise.all([
                                 db.collection('claimed_onchain_events').doc(ev.event_id).get(),
                                 db.collection('claimed_sell_codes').doc(cleanSellCode).get()
@@ -2901,8 +2899,8 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
                                     userId: String(userId || ''),
                                     asset: normAsset,
                                     amount: jettonAmt,
-                                    userWallet,
-                                    userRaw,
+                                    userWallet: userWallet || senderRaw,
+                                    userRaw: senderRaw || userRaw,
                                     adminRaw,
                                     claimedAt: FieldValue.serverTimestamp()
                                 }),
@@ -2912,7 +2910,7 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
                                     userId: String(userId || ''),
                                     asset: normAsset,
                                     amount: jettonAmt,
-                                    userWallet,
+                                    userWallet: userWallet || senderRaw,
                                     claimedAt: FieldValue.serverTimestamp()
                                 })
                             ]);
@@ -2926,8 +2924,8 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
                         const tonAmt = Number(tt.amount) / 1e9;
                         const txComment = String(tt.comment || '').trim();
 
-                        // Must match admin recipient, sender wallet, exact 10-digit comment code, and amount
-                        if (recipRaw === adminRaw && senderRaw === userRaw && txComment === cleanSellCode && tonAmt >= (targetAmt * 0.99)) {
+                        // Match admin wallet recipient + exact 10-digit comment code + amount
+                        if (recipRaw === adminRaw && txComment === cleanSellCode && tonAmt >= (targetAmt * 0.99)) {
                             const [eventDoc, codeDoc] = await Promise.all([
                                 db.collection('claimed_onchain_events').doc(ev.event_id).get(),
                                 db.collection('claimed_sell_codes').doc(cleanSellCode).get()
