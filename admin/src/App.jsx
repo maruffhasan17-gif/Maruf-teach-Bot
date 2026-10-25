@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, createContext, useContext } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -61,6 +61,7 @@ import {
   InfographicPillSliders, 
   InfographicLineChart 
 } from './components/DashboardCharts';
+import TreasuryDepositPage, { NetworkLogo, AssetLogo, ExchangeLogo } from './components/TreasuryDepositPage';
 
 export const API_BASE = (function() {
   if (typeof window === 'undefined') return 'https://maruf-teach-bot.onrender.com';
@@ -290,6 +291,14 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       name: 'Bot Treasury', 
       sub: 'GRAM & USDT Reserves', 
       icon: <Wallet size={19} /> 
+    },
+    { 
+      path: '/treasury-deposit', 
+      name: 'Exchange Deposit', 
+      sub: 'Multi-Chain & QR Vault', 
+      icon: <QrCode size={19} />,
+      badge: '6 NETS',
+      badgeColor: 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950'
     },
     { 
       path: '/buys', 
@@ -1178,6 +1187,7 @@ function BotWallet() {
   const { orders, refresh: refreshOrders } = useOrdersData();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const navigate = useNavigate();
   
   // TonConnect Hooks for Admin
   const userTonAddress = useTonAddress();
@@ -1385,11 +1395,10 @@ function BotWallet() {
     });
   }, [orders.buys, historyTab, search]);
 
-  // Modal Opener Handlers
+  // Dedicated Deposit Page & Withdraw Modal Handlers
   const handleOpenDeposit = (asset = 'USDT', preferredMode = 'exchange', preferredNetwork = 'TON') => {
-    setDepositAmount('');
     const net = (asset === 'GRAM' || asset === 'TON') ? 'TON' : (preferredNetwork || 'TON');
-    setDepositModal({ isOpen: true, asset, mode: preferredMode, network: net });
+    navigate(`/treasury-deposit?asset=${encodeURIComponent(asset)}&network=${encodeURIComponent(net)}&mode=${encodeURIComponent(preferredMode)}`);
   };
 
   const handleOpenWithdraw = (asset = 'USDT', network = 'TON') => {
@@ -2297,13 +2306,13 @@ function BotWallet() {
                   <button
                     type="button"
                     onClick={() => handleOpenDeposit('USDT', 'exchange', activeNet.id)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 cursor-pointer transition-all"
+                    className="px-3.5 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/25 flex items-center gap-1.5 cursor-pointer transition-all"
                   >
-                    <QrCode size={13} /> Show QR Code
+                    <QrCode size={14} /> Open Full Deposit Page
                   </button>
                 </div>
 
-                {/* Network Selector Pills */}
+                {/* Network Selector Pills with Official Network Logos */}
                 <div>
                   <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">
                     1. Select Deposit Network (নেটওয়ার্ক সিলেক্ট করুন):
@@ -2316,7 +2325,7 @@ function BotWallet() {
                           key={net.id}
                           type="button"
                           onClick={() => setSelectedDashNetwork(net.id)}
-                          className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
                             active
                               ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-md shadow-emerald-500/15'
                               : isDark
@@ -2324,12 +2333,15 @@ function BotWallet() {
                                 : 'bg-slate-50 border-slate-200 text-slate-700'
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-xs font-black truncate">{net.shortName}</span>
-                            {active && <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />}
-                          </div>
-                          <div className="text-[10px] font-mono text-emerald-400 mt-1">
-                            ${net.usdtBalance} USDT
+                          <NetworkLogo networkId={net.id} size={28} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-black truncate">{net.shortName}</span>
+                              {active && <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />}
+                            </div>
+                            <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
+                              ${net.usdtBalance} USDT
+                            </div>
                           </div>
                         </button>
                       );
@@ -2342,8 +2354,9 @@ function BotWallet() {
                   isDark ? 'bg-slate-950/80 border-emerald-500/30' : 'bg-emerald-50/60 border-emerald-200'
                 }`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-white">{activeNet.name}</span>
+                    <div className="flex items-center gap-2.5">
+                      <NetworkLogo networkId={activeNet.id} size={24} />
+                      <span className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeNet.name}</span>
                       <span className={`px-2 py-0.5 rounded-md text-[9px] font-black border ${activeNet.badgeColor}`}>
                         {activeNet.badge}
                       </span>
@@ -2378,13 +2391,14 @@ function BotWallet() {
                     </div>
                   </div>
 
-                  {/* Supported Exchanges & Live Chain Balance */}
+                  {/* Supported Exchanges with Logos & Live Chain Explorer */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
-                    <div className="flex flex-wrap items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-slate-400 font-bold mr-1">Exchanges:</span>
                       {activeNet.exchanges.map(ex => (
-                        <span key={ex} className="px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-200 font-bold text-[10px] border border-slate-700/70">
-                          {ex}
+                        <span key={ex} className="px-2 py-0.5 rounded-lg bg-slate-800/90 text-slate-200 font-bold text-[10px] border border-slate-700/70 flex items-center gap-1">
+                          <ExchangeLogo name={ex} size={13} />
+                          <span>{ex}</span>
                         </span>
                       ))}
                     </div>
@@ -2671,332 +2685,6 @@ function BotWallet() {
       </div>
 
       {/* ================================================================ */}
-      {/* 6. MULTI-NETWORK EXCHANGE & TONKEEPER DEPOSIT MODAL */}
-      {/* ================================================================ */}
-      {depositModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-          <div className={`w-full max-w-xl p-6 sm:p-7 rounded-[2.5rem] border relative shadow-2xl overflow-hidden my-8 ${
-            isDark ? 'bg-[#0b1426] border-emerald-500/40 text-white shadow-[0_0_80px_rgba(16,185,129,0.25)]' : 'bg-white border-slate-200 text-slate-900 shadow-2xl'
-          }`}>
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent"></div>
-
-            <button
-              onClick={() => setDepositModal({ ...depositModal, isOpen: false })}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer transition-all"
-            >
-              <X size={18} />
-            </button>
-
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                <ArrowDownToLine size={24} />
-              </div>
-              <div>
-                <h3 className="text-xl font-black">Deposit to Admin Treasury</h3>
-                <p className="text-xs text-slate-400">
-                  Deposit from Binance, Bybit, Bitget, OKX, MEXC, KuCoin or Tonkeeper Wallet
-                </p>
-              </div>
-            </div>
-
-            {/* Deposit Mode Selector: Exchange / Multi-Chain vs Direct Tonkeeper */}
-            <div className="grid grid-cols-2 gap-2 p-1.5 mb-5 rounded-2xl bg-black/40 border border-emerald-900/40">
-              <button
-                type="button"
-                onClick={() => setDepositModal({ ...depositModal, mode: 'exchange' })}
-                className={`py-2.5 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  depositModal.mode !== 'tonkeeper'
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <QrCode size={14} />
-                <span>Exchange / Multi-Network</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setDepositModal({ ...depositModal, mode: 'tonkeeper', network: 'TON' })}
-                className={`py-2.5 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  depositModal.mode === 'tonkeeper'
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Wallet size={14} />
-                <span>Tonkeeper 1-Click</span>
-              </button>
-            </div>
-
-            {/* Asset Selector Tabs: USDT, GRAM, TON */}
-            <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-slate-800">
-              {[
-                { id: 'USDT', label: 'USDT (Tether)' },
-                { id: 'GRAM', label: 'GRAM / TON' },
-                { id: 'TON', label: 'TON Gas' }
-              ].map(item => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    const nextNet = (item.id === 'GRAM' || item.id === 'TON') ? 'TON' : (depositModal.network || 'TON');
-                    setDepositModal({ ...depositModal, asset: item.id, network: nextNet });
-                  }}
-                  className={`flex-1 py-2 rounded-xl font-black text-xs transition-all cursor-pointer ${
-                    depositModal.asset === item.id
-                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            {depositModal.mode !== 'tonkeeper' ? (
-              /* ============================================================ */
-              /* MODE 1: MULTI-NETWORK EXCHANGE / EXTERNAL WALLET DEPOSIT      */
-              /* ============================================================ */
-              (() => {
-                const availableNets = (depositModal.asset === 'GRAM' || depositModal.asset === 'TON')
-                  ? DEPOSIT_NETWORKS.filter(n => n.id === 'TON')
-                  : DEPOSIT_NETWORKS;
-                const selectedNet = availableNets.find(n => n.id === depositModal.network) || availableNets[0];
-                const isAddrCopied = copiedAddrKey === `${selectedNet.address}_Modal`;
-
-                return (
-                  <div className="space-y-4">
-                    {/* Network Selector Grid */}
-                    <div>
-                      <label className="text-[11px] font-black uppercase tracking-wider text-emerald-300 block mb-2">
-                        1. Select Network on Exchange (Binance, Bybit, OKX, Bitget...):
-                      </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {availableNets.map(net => {
-                          const isSelected = net.id === selectedNet.id;
-                          return (
-                            <button
-                              key={net.id}
-                              type="button"
-                              onClick={() => setDepositModal({ ...depositModal, network: net.id })}
-                              className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
-                                isSelected
-                                  ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-md'
-                                  : 'bg-black/40 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-black truncate">{net.shortName}</span>
-                                {isSelected && <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />}
-                              </div>
-                              <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
-                                Bal: ${net.usdtBalance}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {(depositModal.asset === 'GRAM' || depositModal.asset === 'TON') && (
-                        <p className="text-[11px] text-purple-300 mt-1.5">
-                          ℹ️ GRAM এবং TON শুধুমাত্র <b>TON (The Open Network)</b> মেইননেটে ডিপোজিট করবেন। অন্য এক্সচেঞ্জ থেকে BEP20/Arbitrum দিয়ে USDT পাঠাতে চাইলে উপরে <b>USDT</b> সিলেক্ট করুন।
-                        </p>
-                      )}
-                    </div>
-
-                    {/* QR Code & Receive Address Card */}
-                    <div className="p-4 rounded-2xl bg-black/50 border border-emerald-500/30 flex flex-col sm:flex-row items-center gap-4">
-                      <div className="p-2.5 bg-white rounded-2xl shrink-0 shadow-lg">
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(selectedNet.address)}`}
-                          alt={`${selectedNet.shortName} Deposit QR`}
-                          className="w-32 h-32 rounded-lg"
-                        />
-                      </div>
-
-                      <div className="flex-1 space-y-2.5 w-full">
-                        <div className="flex flex-wrap items-center justify-between gap-1">
-                          <span className="text-xs font-black text-emerald-400 uppercase">
-                            {selectedNet.name}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                            No Memo Required
-                          </span>
-                        </div>
-
-                        <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 font-mono text-xs text-white break-all select-all">
-                          {selectedNet.address}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => copyAddress(selectedNet.address, 'Modal')}
-                          className={`w-full py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                            isAddrCopied
-                              ? 'bg-emerald-400 text-slate-950 shadow-lg'
-                              : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-md'
-                          }`}
-                        >
-                          {isAddrCopied ? <Check size={15} /> : <Copy size={15} />}
-                          <span>{isAddrCopied ? 'Receive Address Copied!' : `Copy ${selectedNet.shortName} Receive Address`}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Supported Exchanges & Safety Note */}
-                    <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-2 text-xs">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-slate-400 font-bold">Supported Exchanges:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedNet.exchanges.map(ex => (
-                            <span key={ex} className="px-2 py-0.5 rounded-md bg-slate-800 text-emerald-300 font-bold text-[10px] border border-slate-700">
-                              {ex}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-slate-400">
-                        <span>Estimated Arrival: <b className="text-white">{selectedNet.arrivalTime}</b></span>
-                        <span>Network Fee: <b className="text-emerald-400">{selectedNet.feeEst}</b></span>
-                      </div>
-                      <p className="text-[11px] text-amber-300/90 pt-1 border-t border-slate-800">
-                        ⚠️ ডিপোজিট করার সময় এক্সচেঞ্জে অবশ্যই <b>{selectedNet.shortName}</b> নেটওয়ার্ক সিলেক্ট করবেন। ডিপোজিট পাঠানোর পর নিচের <b>Refresh Balance</b> বাটনে ক্লিক করলেই ব্যালেন্স আপডেট হয়ে যাবে।
-                      </p>
-                    </div>
-
-                    {/* Modal Bottom Actions */}
-                    <div className="flex gap-3 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setDepositModal({ ...depositModal, isOpen: false })}
-                        className="flex-1 py-3 rounded-2xl font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer text-xs"
-                      >
-                        Close
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          refresh();
-                          setToast({ show: true, type: 'success', message: 'Refreshing live on-chain balances across all networks...' });
-                        }}
-                        className="flex-1 py-3 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
-                      >
-                        <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-                        <span>I Sent Deposit • Refresh Balance</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()
-            ) : (
-              /* ============================================================ */
-              /* MODE 2: DIRECT 1-CLICK TONKEEPER WALLET DEPOSIT              */
-              /* ============================================================ */
-              <div>
-                {/* Amount Input */}
-                <div className="mb-5 space-y-2">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-emerald-300/80">
-                    Amount to Deposit via Tonkeeper ({depositModal.asset})
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={depositAmount}
-                      onChange={e => {
-                        const v = e.target.value;
-                        if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setDepositAmount(v);
-                      }}
-                      className="w-full bg-black/50 border border-emerald-900/60 p-4 pl-6 pr-20 rounded-2xl text-2xl font-black text-white outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-mono"
-                      placeholder="0.00"
-                      autoFocus
-                    />
-                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-black text-emerald-400 uppercase">
-                      {depositModal.asset}
-                    </span>
-                  </div>
-
-                  {/* Quick Amount Pills */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {['1', '5', '10', '25', '50', '100'].map(val => (
-                      <button
-                        key={val}
-                        type="button"
-                        onClick={() => setDepositAmount(val)}
-                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800/80 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-700/60 transition-all cursor-pointer"
-                      >
-                        +{val} {depositModal.asset}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Connected Tonkeeper Status */}
-                <div className="mb-5 space-y-2">
-                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                    Source Wallet (Tonkeeper)
-                  </label>
-                  {userTonAddress ? (
-                    <div className="bg-black/40 p-3.5 rounded-2xl text-xs font-mono text-emerald-300 break-all border border-emerald-900/40 flex items-center justify-between gap-2 shadow-inner">
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shrink-0"></span>
-                        <span className="truncate">{userTonAddress}</span>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold shrink-0">Connected</span>
-                    </div>
-                  ) : (
-                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
-                      <span className="text-amber-300 font-bold">Tonkeeper not connected!</span>
-                      <button
-                        type="button"
-                        onClick={() => tonConnectUI.openModal()}
-                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all cursor-pointer"
-                      >
-                        Connect Wallet
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Target Bot Treasury */}
-                <div className="mb-5 text-[11px] text-slate-400 flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                  <span>Destination: Bot TON Treasury</span>
-                  <span className="font-mono text-emerald-400 truncate max-w-[200px]">{data.tonAddress}</span>
-                </div>
-
-                {/* Modal Actions */}
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setDepositModal({ ...depositModal, isOpen: false })}
-                    className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    disabled={depositing || !depositAmount || parseFloat(depositAmount) <= 0}
-                    onClick={executeDeposit}
-                    className="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-                  >
-                    {depositing ? (
-                      <>
-                        <RefreshCw size={15} className="animate-spin" />
-                        <span>Opening Tonkeeper...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ArrowDownToLine size={15} />
-                        <span>Pay via Tonkeeper</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ================================================================ */}
       {/* 7. INTERACTIVE MULTI-NETWORK ON-CHAIN WITHDRAWAL MODAL */}
       {/* ================================================================ */}
       {withdrawModal.isOpen && (
@@ -3023,12 +2711,12 @@ function BotWallet() {
               </div>
             </div>
 
-            {/* Network Selector */}
+            {/* Network Selector with Official Network Logos */}
             <div className="mb-4">
               <label className="text-[11px] font-black uppercase tracking-wider text-cyan-300/80 block mb-1.5">
                 Select Withdrawal Network
               </label>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {DEPOSIT_NETWORKS.map(net => {
                   const active = (withdrawModal.network || 'TON') === net.id;
                   return (
@@ -3044,14 +2732,17 @@ function BotWallet() {
                         setWithdrawAmount('');
                         setWithdrawDestination(net.id === 'TON' ? (userTonAddress || '') : '');
                       }}
-                      className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
                         active
-                          ? 'bg-cyan-500/20 border-cyan-400 text-white'
+                          ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-md'
                           : 'bg-black/40 border-slate-800 text-slate-400 hover:text-white'
                       }`}
                     >
-                      <div className="text-[11px] font-black truncate">{net.shortName}</div>
-                      <div className="text-[9px] font-mono text-cyan-300">${net.usdtBalance} USDT</div>
+                      <NetworkLogo networkId={net.id} size={24} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-black truncate">{net.shortName}</div>
+                        <div className="text-[9px] font-mono text-cyan-300">${net.usdtBalance} USDT</div>
+                      </div>
                     </button>
                   );
                 })}
@@ -6970,6 +6661,8 @@ export default function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/admin" element={<Dashboard />} />
               <Route path="/bot-wallet" element={<BotWallet />} />
+              <Route path="/treasury-deposit" element={<TreasuryDepositPage useBotDataHook={useBotData} useThemeHook={useTheme} apiBase={API_BASE} />} />
+              <Route path="/deposit" element={<TreasuryDepositPage useBotDataHook={useBotData} useThemeHook={useTheme} apiBase={API_BASE} />} />
               <Route path="/buys" element={<BuyOrders />} />
               <Route path="/sells" element={<SellOrders />} />
               <Route path="/withdraw" element={<FiatWithdrawals />} />
