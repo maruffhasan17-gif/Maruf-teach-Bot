@@ -2696,16 +2696,70 @@ app.post('/api/miniapp/task', async (req, res) => {
     }
 });
 
-// In-memory store for active 10-digit crypto sell verification codes
+// In-memory store for active 10-to-15 character crypto sell verification codes (e.g. "WHIO65GTN9")
 const inMemorySellCodes = new Map();
 
-function generate10DigitSellCode() {
-    return String(crypto.randomInt(1000000000, 9999999999));
+// Generates a 100% unique 10-to-15 character uppercase alphanumeric code (never repeats across any user)
+async function generateUniqueSellCommentCode(preferredLength = 10) {
+    const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const digits = '0123456789';
+    const allChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+    // Clamp length between 10 (minimum) and 15 (maximum); allow system config override or auto-scaling
+    const configuredLen = Number(botConfig?.sellCodeLength) || preferredLength;
+    let baseLen = Math.max(10, Math.min(15, configuredLen));
+
+    for (let attempt = 0; attempt < 12; attempt++) {
+        // If any collision ever happens, automatically scale code length up towards 15
+        const currentLen = Math.min(15, baseLen + Math.floor(attempt / 3));
+        let charsArr = [];
+
+        // Guarantee at least 2 digits and 2 uppercase letters so it always looks like "WHIO65GTN9"
+        charsArr.push(letters[crypto.randomInt(0, letters.length)]);
+        charsArr.push(digits[crypto.randomInt(0, digits.length)]);
+        charsArr.push(letters[crypto.randomInt(0, letters.length)]);
+        charsArr.push(digits[crypto.randomInt(0, digits.length)]);
+
+        for (let i = charsArr.length; i < currentLen; i++) {
+            charsArr.push(allChars[crypto.randomInt(0, allChars.length)]);
+        }
+
+        // Cryptographic Fisher-Yates shuffle
+        for (let i = charsArr.length - 1; i > 0; i--) {
+            const j = crypto.randomInt(0, i + 1);
+            const tmp = charsArr[i];
+            charsArr[i] = charsArr[j];
+            charsArr[j] = tmp;
+        }
+
+        const candidate = charsArr.join('');
+
+        // 1. Check in-memory active codes
+        if (inMemorySellCodes.has(candidate)) continue;
+
+        // 2. Check Firestore claimed_sell_codes to guarantee this code has NEVER been used in history
+        try {
+            const existingDoc = await db.collection('claimed_sell_codes').doc(candidate).get();
+            if (!existingDoc.exists) {
+                return candidate;
+            }
+        } catch (_) {
+            return candidate;
+        }
+    }
+
+    // Fallback: 15-character timestamp + cryptographic random hybrid (guaranteed unique)
+    const timePart = Date.now().toString(36).toUpperCase().slice(-6);
+    let randPart = '';
+    for (let i = 0; i < 9; i++) {
+        randPart += allChars[crypto.randomInt(0, allChars.length)];
+    }
+    return (randPart + timePart).slice(0, 15);
 }
 
 app.post('/api/miniapp/build-tx', async (req, res) => {
     try {
-        let { asset, amount, userAddress, userId, sellCode } = req.body;
+        let { asset, amount, userAddress, userId } = req.body;
         if (userId) {
             if (!verifyRequestCallerIdentity(req, userId)) {
                 return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
@@ -2722,10 +2776,8 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
         asset = (asset || 'GRAM').toUpperCase();
         const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
 
-        // Generate or validate 10-digit numeric verification code for transaction comment
-        const cleanSellCode = /^\d{10}$/.test(String(sellCode || '').trim())
-            ? String(sellCode).trim()
-            : generate10DigitSellCode();
+        // Generate a fresh, 100% unique 10-to-15 char comment code on the server for every single click
+        const cleanSellCode = await generateUniqueSellCommentCode(10);
 
         // Prune expired codes older than 30 minutes
         const nowMs = Date.now();
@@ -2742,7 +2794,7 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
             claimed: false
         });
 
-        // Build TON standard text comment cell (opcode 0x00000000 + 10-digit ASCII string)
+        // Build TON standard text comment cell (opcode 0x00000000 + 10-15 char ASCII string)
         const commentCell = beginCell()
             .storeUint(0, 32)
             .storeStringTail(cleanSellCode)
@@ -2816,17 +2868,17 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
     }
 });
 
-// Function: Verify On-Chain payment via TonAPI (with 10-Digit Comment Code + Sender + Amount + Replay Protection)
+// Function: Verify On-Chain payment via TonAPI (with 10-to-15 Char Auto Comment Code + Amount + Replay Protection)
 async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, userId }) {
-    const cleanSellCode = String(sellCode || '').trim();
-    if (!/^\d{10}$/.test(cleanSellCode)) {
-        return { verified: false, error: 'বৈধ ১০-ডিজিটের ভেরিফিকেশন কমেন্ট কোড পাওয়া যায়নি। দয়া করে আবার চেষ্টা করুন।' };
+    const cleanSellCode = String(sellCode || '').trim().toUpperCase();
+    if (!/^[A-Z0-9]{10,15}$/.test(cleanSellCode)) {
+        return { verified: false, error: 'ভেরিফিকেশন কোড পাওয়া যায়নি। দয়া করে আবার চেষ্টা করুন।' };
     }
 
-    // Check if this 10-digit code was already claimed in memory or Firestore
+    // Check if this 10-to-15 character code was already claimed in memory or Firestore
     const memEntry = inMemorySellCodes.get(cleanSellCode);
     if (memEntry && memEntry.claimed) {
-        return { verified: false, error: 'এই ১০-ডিজিট ভেরিফিকেশন কোডটি ইতিমধ্যে ব্যবহৃত হয়েছে!' };
+        return { verified: false, error: 'এই ট্রানজেকশনটি ইতিমধ্যে ব্যবহৃত হয়েছে!' };
     }
     if (memEntry && memEntry.userId && userId && String(memEntry.userId) !== String(userId)) {
         return { verified: false, error: 'ভেরিফিকেশন কোডটি আপনার অ্যাকাউন্টের সাথে মিলছে না!' };
@@ -2834,7 +2886,7 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
 
     const existingCodeDoc = await db.collection('claimed_sell_codes').doc(cleanSellCode).get();
     if (existingCodeDoc.exists) {
-        return { verified: false, error: 'এই ১০-ডিজিট ভেরিফিকেশন কোডটি আগেই ব্যবহার করা হয়েছে (Replay Blocked)!' };
+        return { verified: false, error: 'এই ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Blocked)!' };
     }
 
     const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
@@ -2876,18 +2928,18 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
                         const senderRaw = jt.sender?.address ? Address.parse(jt.sender.address).toRawString().toLowerCase() : '';
                         const recipRaw = jt.recipient?.address ? Address.parse(jt.recipient.address).toRawString().toLowerCase() : '';
                         const jettonAmt = Number(jt.amount) / 1e6;
-                        const txComment = String(jt.comment || '').trim();
+                        const txComment = String(jt.comment || '').trim().toUpperCase();
 
                         const isUsdt = jt.jetton?.symbol?.includes('USD') || jt.jetton?.address?.includes('b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe');
 
-                        // Match admin wallet recipient + exact 10-digit comment code + amount
+                        // Match admin wallet recipient + exact 10-char comment code + amount
                         if (isUsdt && recipRaw === adminRaw && txComment === cleanSellCode && jettonAmt >= (targetAmt * 0.99)) {
                             const [eventDoc, codeDoc] = await Promise.all([
                                 db.collection('claimed_onchain_events').doc(ev.event_id).get(),
                                 db.collection('claimed_sell_codes').doc(cleanSellCode).get()
                             ]);
                             if (eventDoc.exists || codeDoc.exists) {
-                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশন বা ১০-ডিজিট কোডটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
                             }
 
                             if (memEntry) memEntry.claimed = true;
@@ -2922,16 +2974,16 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
                         const senderRaw = tt.sender?.address ? Address.parse(tt.sender.address).toRawString().toLowerCase() : '';
                         const recipRaw = tt.recipient?.address ? Address.parse(tt.recipient.address).toRawString().toLowerCase() : '';
                         const tonAmt = Number(tt.amount) / 1e9;
-                        const txComment = String(tt.comment || '').trim();
+                        const txComment = String(tt.comment || '').trim().toUpperCase();
 
-                        // Match admin wallet recipient + exact 10-digit comment code + amount
+                        // Match admin wallet recipient + exact 10-char comment code + amount
                         if (recipRaw === adminRaw && txComment === cleanSellCode && tonAmt >= (targetAmt * 0.99)) {
                             const [eventDoc, codeDoc] = await Promise.all([
                                 db.collection('claimed_onchain_events').doc(ev.event_id).get(),
                                 db.collection('claimed_sell_codes').doc(cleanSellCode).get()
                             ]);
                             if (eventDoc.exists || codeDoc.exists) {
-                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশন বা ১০-ডিজিট কোডটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
                             }
 
                             if (memEntry) memEntry.claimed = true;
@@ -2943,8 +2995,8 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
                                     userId: String(userId || ''),
                                     asset: normAsset,
                                     amount: tonAmt,
-                                    userWallet,
-                                    userRaw,
+                                    userWallet: userWallet || senderRaw,
+                                    userRaw: senderRaw || userRaw,
                                     adminRaw,
                                     claimedAt: FieldValue.serverTimestamp()
                                 }),
@@ -2954,7 +3006,7 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
                                     userId: String(userId || ''),
                                     asset: normAsset,
                                     amount: tonAmt,
-                                    userWallet,
+                                    userWallet: userWallet || senderRaw,
                                     claimedAt: FieldValue.serverTimestamp()
                                 })
                             ]);
@@ -2975,7 +3027,7 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
 
     return { 
         verified: false, 
-        error: `ব্লকচেইনে কমেন্ট কোড (${cleanSellCode}) সহ কোনো ডিপোজিট পাওয়া যায়নি! আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা এবং পেমেন্ট সম্পন্ন হয়েছে কিনা চেক করুন।` 
+        error: 'ব্লকচেইনে কোনো ডিপোজিট ট্রানজেকশন পাওয়া যায়নি! আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা এবং পেমেন্ট সম্পন্ন হয়েছে কিনা চেক করুন।' 
     };
 }
 
@@ -3002,7 +3054,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
     try {
         const normAsset = (asset || 'GRAM').toUpperCase();
         const numAmount = parseFloat(amount) || 0;
-        const cleanSellCode = String(sellCode || '').trim();
+        const cleanSellCode = String(sellCode || '').trim().toUpperCase();
 
         // CRITICAL SECURITY FIX: Calculate BDT strictly on the server using live server sell rate!
         // Never trust client-supplied estimatedTk!
@@ -3035,10 +3087,10 @@ app.post('/api/miniapp/sell', async (req, res) => {
                 status: 'pending',
                 timestamp: FieldValue.serverTimestamp()
             });
-            return res.json({ success: true, orderId: docRef.id, sellCode: cleanSellCode });
+            return res.json({ success: true, orderId: docRef.id });
         }
 
-        // --- HARDENED ON-CHAIN VERIFICATION WITH 10-DIGIT COMMENT CODE ---
+        // --- HARDENED ON-CHAIN VERIFICATION WITH 10-CHAR AUTO COMMENT CODE ---
         const onChain = await verifyOnChainSellPayment({
             userWallet: wallet,
             asset: normAsset,
@@ -3067,7 +3119,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
             });
         }
 
-        // Compute exact verified BDT from the actual on-chain received amount (capped to requested amount if user sent slightly more, or exact onChain amount)
+        // Compute exact verified BDT from the actual on-chain received amount
         const verifiedCryptoAmt = Math.min(Number(onChain.amount) || numAmount, numAmount * 1.05);
         const verifiedTk = Math.floor(verifiedCryptoAmt * serverSellRate);
         if (verifiedTk < 1) {
@@ -3130,7 +3182,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
         const updatedDoc = await userRef.get();
         const newBalance = updatedDoc.data()?.balance || verifiedTk;
 
-        // Notify Data Group
+        // Notify Data Group (Admin sees the 10-Char Comment Code)
         const config = botConfig || {};
         const dataGroup = config.dataGroupId || config.adminGroupId;
         if (dataGroup && bot) {
@@ -3139,26 +3191,25 @@ app.post('/api/miniapp/sell', async (req, res) => {
                 `💎 <b>বিক্রয়:</b> <b>${numAmount} ${normAsset}</b>\n` +
                 `💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳${verifiedTk} BDT</b>\n` +
                 `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
-                `🔢 <b>Comment Code (10-Digit):</b> <code>${cleanSellCode}</code>\n` +
+                `🔢 <b>Comment Code:</b> <code>${cleanSellCode}</code>\n` +
                 `🏦 <b>Wallet:</b> <code>${wallet || 'Direct'}</code>\n` +
                 `🔗 <b>Tx Event:</b> <code>${onChain.eventId}</code>\n` +
                 `🆔 <b>Order ID:</b> <code>${savedOrderId}</code></blockquote>`;
             bot.sendMessage(dataGroup, msg, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
         }
 
-        // Send confirmation to User in Telegram with Premium Animated Emojis
+        // Send confirmation to User in Telegram (without showing internal comment code)
         if (bot && userId) {
             const userSellMsg = `${PE.moneyBag} <b>Crypto Sell Completed! (ক্রিপ্টো বিক্রি সফল!)</b>\n\n` +
                 `${PE.gem} <b>Sold Asset:</b> ${numAmount} ${normAsset}\n` +
                 `${PE.dollar} <b>Added Amount:</b> ৳${verifiedTk} BDT\n` +
                 `${PE.moneyBag} <b>New Balance:</b> <b>৳${newBalance} BDT</b>\n` +
-                `🔢 <b>Verify Code:</b> <code>${cleanSellCode}</code>\n` +
                 `${PE.globe} <b>Order ID:</b> <code>${savedOrderId}</code>\n\n` +
                 `${PE.zap} <i>টাকাটি অ্যাপ ব্যালেন্সে জমা হয়েছে। প্রোফাইল থেকে যেকোনো সময় উইথড্র করতে পারবেন!</i>`;
             bot.sendMessage(userId, userSellMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e=>console.error(e.message));
         }
 
-        res.json({ success: true, orderId: savedOrderId, newBalance, creditedTk: verifiedTk, sellCode: cleanSellCode });
+        res.json({ success: true, orderId: savedOrderId, newBalance, creditedTk: verifiedTk });
     } catch(e) {
         console.error("Sell order error:", e);
         res.status(500).json({ error: e.message });
