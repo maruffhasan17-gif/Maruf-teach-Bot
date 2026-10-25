@@ -3412,6 +3412,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         setStage('processing');
         setProcessStep(1); // Stage 1: Checking balance & reserves
         setErrorMessage('');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
         try {
             await new Promise(r => setTimeout(r, 900));
@@ -3460,26 +3461,28 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     };
 
     return (
-        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto">
-            {/* Header */}
-            <div className="flex items-center gap-2.5 py-0.5">
-                <button 
-                    type="button" 
-                    onClick={onBack} 
-                    className="p-1.5 bg-white rounded-full text-slate-700 active:scale-95 transition-transform border border-slate-200 shadow-xs"
-                >
-                    <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
-                </button>
-                <div className="flex-1">
-                    <h2 className="text-[15px] font-black text-slate-900 leading-tight flex items-center gap-1.5">
-                        <Coins size={16} className="text-indigo-600" />
-                        {t?.buyCrypto || 'Buy Crypto'}
-                    </h2>
-                    <p className="text-slate-500 text-[11px] font-medium leading-none">
-                        {lang === 'bn' ? 'ব্যালেন্স থেকে সরাসরি ওয়ালেটে ক্রিপ্টো ক্রয়' : 'Instant buy directly to your wallet'}
-                    </p>
+        <div className={`${stage === 'idle' ? 'space-y-3' : '-mt-1.5'} animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto`}>
+            {/* Header - hidden during processing/success/error stages so the card sits cleanly at the top */}
+            {stage === 'idle' && (
+                <div className="flex items-center gap-2.5 py-0.5">
+                    <button 
+                        type="button" 
+                        onClick={onBack} 
+                        className="p-1.5 bg-white rounded-full text-slate-700 active:scale-95 transition-transform border border-slate-200 shadow-xs"
+                    >
+                        <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
+                    </button>
+                    <div className="flex-1">
+                        <h2 className="text-[15px] font-black text-slate-900 leading-tight flex items-center gap-1.5">
+                            <Coins size={16} className="text-indigo-600" />
+                            {t?.buyCrypto || 'Buy Crypto'}
+                        </h2>
+                        <p className="text-slate-500 text-[11px] font-medium leading-none">
+                            {lang === 'bn' ? 'ব্যালেন্স থেকে সরাসরি ওয়ালেটে ক্রিপ্টো ক্রয়' : 'Instant buy directly to your wallet'}
+                        </p>
+                    </div>
                 </div>
-            </div>
+            )}
 
             <CutCornerCard className="p-3.5 space-y-3">
 
