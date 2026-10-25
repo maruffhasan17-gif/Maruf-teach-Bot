@@ -3534,32 +3534,148 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                         </CutCornerButton>
                     </div>
                 ) : stage === 'processing' ? (
-                    /* LIVE REALTIME PROCESSING STAGE */
-                    <div className="py-4 text-center animate-in fade-in duration-300 space-y-3 my-auto">
-                        <div className="relative inline-block">
-                            <div className="w-12 h-12 border-3 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin" />
-                            <div className="absolute inset-0 flex items-center justify-center text-indigo-600">
-                                <Coins size={20} className="animate-pulse" />
+                    /* ULTRA-PREMIUM LIVE ON-CHAIN PROCESSING STAGE */
+                    <div className="py-3 px-1 text-center animate-in fade-in zoom-in-95 duration-300 space-y-4 my-auto relative overflow-hidden">
+                        {/* Top Live Network Badge */}
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 text-[10px] font-black uppercase tracking-widest shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
+                            <Shield size={11} className="text-indigo-600" />
+                            <span>TON MAINNET • LIVE ON-CHAIN TRANSFER</span>
+                        </div>
+
+                        {/* Multi-Ring Orbital Crypto Portal */}
+                        <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
+                            {/* Ambient Glow */}
+                            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/25 via-purple-500/20 to-emerald-400/25 blur-xl animate-pulse" />
+                            
+                            {/* Outer Dashed Orbital Ring */}
+                            <div
+                                className="absolute inset-0 rounded-full border-2 border-dashed border-indigo-300/70"
+                                style={{ animation: 'spin 8s linear infinite reverse' }}
+                            />
+                            
+                            {/* Middle High-Speed Gradient Spinner Ring */}
+                            <div className="absolute inset-1.5 rounded-full border-[3px] border-indigo-100/80 border-t-indigo-600 border-r-purple-600 animate-spin shadow-inner" />
+                            
+                            {/* Inner Pulsing Halo */}
+                            <div className="absolute inset-3.5 rounded-full bg-gradient-to-br from-indigo-50 via-white to-purple-50 border border-indigo-100 shadow-md flex items-center justify-center">
+                                <img
+                                    src={`${import.meta.env.BASE_URL}${selectedAsset === 'USDT' ? 'usdt.svg' : 'gram.svg'}`}
+                                    alt={selectedAsset}
+                                    className="w-9 h-9 object-contain drop-shadow-sm animate-pulse"
+                                />
+                            </div>
+
+                            {/* Floating Sparkle Badge */}
+                            <div className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md border-2 border-white">
+                                <Zap size={13} className="animate-bounce" />
                             </div>
                         </div>
 
-                        <div>
-                            <h4 className="text-[14px] font-black text-slate-900 mb-0.5">
-                                {lang === 'bn' 
-                                    ? (processStep === 1 ? 'ব্যালেন্স যাচাই হচ্ছে...' : processStep === 2 ? `ওয়ালেটে ${selectedAsset} পাঠানো হচ্ছে...` : 'ব্লকচেইন কনফার্মেশন...')
-                                    : (processStep === 1 ? 'Checking Balance...' : processStep === 2 ? `Sending ${selectedAsset}...` : 'Confirming...')}
+                        {/* Dynamic Title & Subtitle */}
+                        <div className="space-y-1">
+                            <h4 className="text-[16px] font-black text-slate-900 tracking-tight">
+                                {lang === 'bn'
+                                    ? (processStep === 1
+                                        ? 'ব্যালেন্স ও সিকিউরিটি যাচাই হচ্ছে...'
+                                        : processStep === 2
+                                        ? `ওয়ালেটে ${calculatedCrypto} ${selectedAsset} পাঠানো হচ্ছে...`
+                                        : 'ব্লকচেইন কনফার্মেশন সম্পন্ন হচ্ছে...')
+                                    : (processStep === 1
+                                        ? 'Verifying Balance & Security...'
+                                        : processStep === 2
+                                        ? `Sending ${calculatedCrypto} ${selectedAsset} to Wallet...`
+                                        : 'Finalizing On-Chain Confirmation...')}
                             </h4>
-                            <p className="text-slate-400 text-[11px]">
-                                {lang === 'bn' 
-                                    ? (processStep === 1 ? 'একাউন্ট ব্যালেন্স ও রেট যাচাই চলছে' : processStep === 2 ? 'অন-চেইনে রিয়েলটাইমে ট্রান্সফার হচ্ছে' : 'অন-চেইন কনফার্মেশন সম্পন্ন হচ্ছে')
-                                    : (processStep === 1 ? 'Verifying balance & rate' : processStep === 2 ? 'Broadcasting live to wallet' : 'Finalizing confirmation')}
+                            <p className="text-slate-500 text-[11px] font-medium">
+                                {lang === 'bn'
+                                    ? 'অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন, পেজটি কাটবেন না'
+                                    : 'Please wait a few seconds while we broadcast on-chain'}
                             </p>
                         </div>
 
-                        <div className="flex items-center justify-center gap-1.5 max-w-[200px] mx-auto">
-                            <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${processStep >= 1 ? 'bg-indigo-600' : 'bg-slate-200'}`} />
-                            <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${processStep >= 2 ? 'bg-indigo-600' : 'bg-slate-200'}`} />
-                            <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${processStep >= 3 ? 'bg-indigo-600' : 'bg-slate-200'}`} />
+                        {/* Live Transfer Conversion Pill */}
+                        <div className="bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 border border-indigo-100/90 rounded-2xl p-2.5 flex items-center justify-between gap-2 text-left shadow-2xs">
+                            <div className="pl-1">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase block">BDT Amount</span>
+                                <span className="text-[13px] font-black text-slate-800">৳{bdtAmount} BDT</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-indigo-600 bg-white px-2.5 py-1 rounded-full border border-indigo-100 shadow-2xs">
+                                <ArrowRight size={13} className="animate-pulse" />
+                                <span className="text-[9px] font-black uppercase tracking-wider">Instant</span>
+                            </div>
+                            <div className="pr-1 text-right">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase block">Receiving</span>
+                                <span className="text-[13px] font-black text-indigo-600">{calculatedCrypto} {selectedAsset}</span>
+                            </div>
+                        </div>
+
+                        {/* 3-Step Live Blockchain Progress Tracker */}
+                        <div className="bg-slate-50/90 border border-slate-200/80 rounded-2xl p-3 text-left space-y-2">
+                            {[
+                                {
+                                    step: 1,
+                                    labelBn: 'অ্যাকাউন্ট ব্যালেন্স ও রিজার্ভ ভেরিফিকেশন',
+                                    labelEn: 'Account Balance & Treasury Verification'
+                                },
+                                {
+                                    step: 2,
+                                    labelBn: `TON মেইননেটে ${selectedAsset} ট্রানজেকশন ব্রডকাস্ট`,
+                                    labelEn: `Broadcasting ${selectedAsset} Transaction on TON`
+                                },
+                                {
+                                    step: 3,
+                                    labelBn: 'ওয়ালেটে ডেলিভারি ও ফাইনাল কনফার্মেশন',
+                                    labelEn: 'Wallet Delivery & Final Confirmation'
+                                }
+                            ].map(item => {
+                                const isDone = processStep > item.step;
+                                const isCurrent = processStep === item.step;
+                                return (
+                                    <div key={item.step} className="flex items-center gap-2.5">
+                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
+                                            isDone
+                                                ? 'bg-emerald-500 text-white shadow-2xs'
+                                                : isCurrent
+                                                ? 'bg-indigo-600 text-white ring-4 ring-indigo-100'
+                                                : 'bg-slate-200 text-slate-400'
+                                        }`}>
+                                            {isDone ? (
+                                                <Check size={11} strokeWidth={3} />
+                                            ) : isCurrent ? (
+                                                <div className="w-2 h-2 rounded-full bg-white animate-ping" />
+                                            ) : (
+                                                <span className="text-[9px] font-black">{item.step}</span>
+                                            )}
+                                        </div>
+                                        <span className={`text-[11px] transition-colors ${
+                                            isDone
+                                                ? 'font-bold text-emerald-700'
+                                                : isCurrent
+                                                ? 'font-black text-slate-900'
+                                                : 'font-medium text-slate-400'
+                                        }`}>
+                                            {lang === 'bn' ? item.labelBn : item.labelEn}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Smooth Gradient Progress Bar */}
+                        <div className="space-y-1 pt-0.5">
+                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 p-0.5">
+                                <div
+                                    className="h-full rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-emerald-500 transition-all duration-500"
+                                    style={{ width: processStep === 1 ? '36%' : processStep === 2 ? '74%' : '98%' }}
+                                />
+                            </div>
+                            <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 px-0.5">
+                                <span>ENCRYPTED SMART CONTRACT</span>
+                                <span className="text-indigo-600 font-black">
+                                    {processStep === 1 ? '36%' : processStep === 2 ? '74%' : '98%'}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 ) : (
