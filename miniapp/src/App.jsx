@@ -3903,12 +3903,18 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
 
 
 
+function generate10DigitCode() {
+    return String(Math.floor(1000000000 + Math.random() * 9000000000));
+}
+
 function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadData }) {
     const userTonAddress = useTonAddress();
     const [tonConnectUI] = useTonConnectUI();
     const [step, setStep] = useState(1);
     const [asset, setAsset] = useState('GRAM'); // 'GRAM' (TON) or 'USDT'
     const [cryptoAmount, setCryptoAmount] = useState('');
+    const [sellCode, setSellCode] = useState(() => generate10DigitCode());
+    const [copiedCode, setCopiedCode] = useState(false);
     const [trxId, setTrxId] = useState('');
     const [loading, setLoading] = useState(false);
     const [isTonSending, setIsTonSending] = useState(false);
@@ -3973,7 +3979,16 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // Direct Sell via Tonkeeper
+    const handleCopySellCode = () => {
+        navigator.clipboard.writeText(sellCode);
+        setCopiedCode(true);
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+        }
+        setTimeout(() => setCopiedCode(false), 2000);
+    };
+
+    // Direct Sell via Tonkeeper with 10-Digit On-Chain Comment Verification Code
     const handleDirectSell = async () => {
         if (!userTonAddress) {
             tonConnectUI.openModal();
@@ -3990,36 +4005,45 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 : alert("Minimum sell value is 1 BDT");
         }
 
+        const activeCode = /^\d{10}$/.test(sellCode) ? sellCode : generate10DigitCode();
+        setSellCode(activeCode);
         setIsTonSending(true);
         setErrorMessage('');
 
         try {
             const txRes = await buildTransaction({
+                userId: user?.id || 123456789,
                 asset,
                 amount: numAmount,
                 userAddress: userTonAddress,
-                adminWallet: botWalletAddress
+                adminWallet: botWalletAddress,
+                sellCode: activeCode
             });
 
             if (!txRes || !txRes.tx) {
                 throw new Error("Failed to prepare transaction");
             }
 
-            // Direct Tonkeeper Confirmation
-            const tonResult = await tonConnectUI.sendTransaction(txRes.tx);
+            const confirmedCode = txRes.sellCode || activeCode;
+            setSellCode(confirmedCode);
 
-            // Successfully signed and sent on-chain! Credit user balance!
+            // Direct Tonkeeper Confirmation (carries 10-digit comment code in payload)
+            await tonConnectUI.sendTransaction(txRes.tx);
+
+            // Successfully signed and sent on-chain! Verify 10-digit code on-chain & credit user balance!
             const res = await submitSellOrder({
                 userId: user?.id || 123456789,
                 asset,
                 amount: numAmount,
                 estimatedTk,
+                sellCode: confirmedCode,
                 wallet: userTonAddress,
                 status: 'completed'
             });
 
             if (res.success) {
-                setSellResult({ ...res, amount: numAmount, estimatedTk });
+                const finalCreditedTk = res.creditedTk || estimatedTk;
+                setSellResult({ ...res, amount: numAmount, estimatedTk: finalCreditedTk, sellCode: confirmedCode });
                 if (reloadData) reloadData();
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
@@ -4035,6 +4059,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
             setErrorMessage(isUserCancel 
                 ? (lang === 'bn' ? 'টোনকিপারে পেমেন্ট বাতিল করা হয়েছে।' : 'Payment rejected in Tonkeeper.')
                 : (err.message || (lang === 'bn' ? 'টোনকিপার দিয়ে পেমেন্ট ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Payment failed. Please try again.')));
+            setSellCode(generate10DigitCode());
             if (window.Telegram?.WebApp?.HapticFeedback) {
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             }
@@ -4045,6 +4070,8 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
 
     // LUXURY FINTECH SUCCESS RECEIPT WITH BLOOMING FLOWER
     if (step === 2) {
+        const creditedAmount = sellResult?.estimatedTk || estimatedTk;
+        const verifiedCode = sellResult?.sellCode || sellCode;
         return (
             <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-2 text-center pb-24 max-w-sm mx-auto">
                 <CutCornerCard className="p-6 text-center space-y-4" flower={<SellCryptoMandalaPattern />}>
@@ -4060,12 +4087,12 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
 
                     <div>
                         <h2 className="text-xl font-black text-slate-900 tracking-tight mb-1">
-                            ৳{estimatedTk} BDT Added! 🎉
+                            ৳{creditedAmount} BDT Added! 🎉
                         </h2>
                         <p className="text-slate-500 text-xs max-w-[280px] mx-auto leading-relaxed">
                             {lang === 'bn' 
-                                ? 'আপনার ক্রিপ্টো বিক্রয় সফল হয়েছে এবং ব্যালেন্সে টাকা যুক্ত করা হয়েছে।' 
-                                : 'Your crypto sale was successful and BDT balance has been credited.'}
+                                ? '১০-ডিজিট কমেন্ট কোড ভেরিফাই হয়ে আপনার ব্যালেন্সে টাকা যুক্ত করা হয়েছে।' 
+                                : '10-digit comment code verified on-chain and BDT balance credited.'}
                         </p>
                     </div>
 
@@ -4080,8 +4107,12 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                             <span className="font-bold text-slate-900">1 {asset} ≈ ৳{currentRate} TK</span>
                         </div>
                         <div className="flex justify-between items-center">
+                            <span className="text-slate-500 font-medium">{lang === 'bn' ? 'কমেন্ট কোড (10-Digit)' : 'Verify Comment Code'}</span>
+                            <span className="font-mono font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200/70">{verifiedCode}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
                             <span className="text-slate-500 font-medium">Amount Credited</span>
-                            <span className="font-extrabold text-emerald-600 text-sm">৳{estimatedTk} BDT</span>
+                            <span className="font-extrabold text-emerald-600 text-sm">৳{creditedAmount} BDT</span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-slate-500 font-medium">Destination</span>
@@ -4101,6 +4132,7 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                             onClick={() => {
                                 setStep(1);
                                 setCryptoAmount('');
+                                setSellCode(generate10DigitCode());
                                 setTrxId('');
                                 setErrorMessage('');
                                 onDone();
@@ -4267,6 +4299,30 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                             <span className="text-[16px] font-black text-indigo-700">৳{estimatedTk}</span>
                             <span className="text-[11px] font-extrabold text-indigo-900 ml-1">BDT</span>
                         </div>
+                    </div>
+
+                    {/* 3.5. 10-Digit Auto Comment Verification Code Box */}
+                    <div className="bg-emerald-50/75 border border-emerald-200/80 rounded-xl px-3 py-2 flex items-center justify-between gap-2 shrink-0">
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-1">
+                                <ShieldCheck size={12} className="text-emerald-600 shrink-0" />
+                                <span className="text-[9px] font-black text-emerald-900 uppercase tracking-wider truncate">
+                                    {lang === 'bn' ? '১০-ডিজিট কমেন্ট ভেরিফিকেশন কোড' : '10-Digit Comment Verify Code'}
+                                </span>
+                            </div>
+                            <span className="text-[9.5px] text-emerald-700 font-medium block leading-tight mt-0.5">
+                                {lang === 'bn' ? 'পেমেন্ট কমেন্টে এই কোডটি অটোমেটিক যুক্ত থাকবে' : 'Auto-attached in Tonkeeper payment comment'}
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleCopySellCode}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-emerald-300/90 text-emerald-800 font-mono font-black text-[12px] tracking-wider shadow-2xs flex items-center gap-1.5 active:scale-95 transition-all shrink-0 cursor-pointer"
+                            title="Copy 10-digit code"
+                        >
+                            <span>{sellCode}</span>
+                            {copiedCode ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} className="text-emerald-500" />}
+                        </button>
                     </div>
 
                     {/* Error Banner */}

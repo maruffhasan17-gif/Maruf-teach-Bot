@@ -198,7 +198,7 @@ export const submitSellOrder = async (payload) => {
             hwHash: fp.hwHash,
             deviceUid: fp.deviceUid,
             deviceModel: fp.deviceModel
-        });
+        }, { timeout: 35000 });
         return res.data;
     } catch (e) {
         console.error("submitSellOrder error:", e);
@@ -236,7 +236,7 @@ export const withdrawFiat = async (payload) => {
 
 export const buildTransaction = async (payload) => {
     try {
-        const res = await axios.post(`${API_URL}/api/miniapp/build-tx`, payload);
+        const res = await axios.post(`${API_URL}/api/miniapp/build-tx`, payload, { timeout: 15000 });
         return res.data;
     } catch (e) {
         console.error(e);
@@ -270,7 +270,7 @@ export const submitAddMoney = async (payload) => {
 
 export const submitBuyCrypto = async (payload) => {
     try {
-        const res = await axios.post(`${API_URL}/api/miniapp/buy-crypto`, payload);
+        const res = await axios.post(`${API_URL}/api/miniapp/buy-crypto`, payload, { timeout: 35000 });
         return res.data;
     } catch (e) {
         throw new Error(e.response?.data?.error || e.message || 'Failed to purchase crypto');

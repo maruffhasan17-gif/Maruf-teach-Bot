@@ -2696,9 +2696,16 @@ app.post('/api/miniapp/task', async (req, res) => {
     }
 });
 
+// In-memory store for active 10-digit crypto sell verification codes
+const inMemorySellCodes = new Map();
+
+function generate10DigitSellCode() {
+    return String(crypto.randomInt(1000000000, 9999999999));
+}
+
 app.post('/api/miniapp/build-tx', async (req, res) => {
     try {
-        let { asset, amount, userAddress, userId } = req.body;
+        let { asset, amount, userAddress, userId, sellCode } = req.body;
         if (userId) {
             if (!verifyRequestCallerIdentity(req, userId)) {
                 return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
@@ -2714,6 +2721,32 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
         amount = parseFloat(amount) || 0;
         asset = (asset || 'GRAM').toUpperCase();
         const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+
+        // Generate or validate 10-digit numeric verification code for transaction comment
+        const cleanSellCode = /^\d{10}$/.test(String(sellCode || '').trim())
+            ? String(sellCode).trim()
+            : generate10DigitSellCode();
+
+        // Prune expired codes older than 30 minutes
+        const nowMs = Date.now();
+        for (const [k, v] of inMemorySellCodes.entries()) {
+            if (nowMs - v.createdAt > 30 * 60 * 1000) inMemorySellCodes.delete(k);
+        }
+        inMemorySellCodes.set(cleanSellCode, {
+            sellCode: cleanSellCode,
+            userId: String(userId || ''),
+            asset,
+            amount,
+            userAddress: String(userAddress || ''),
+            createdAt: nowMs,
+            claimed: false
+        });
+
+        // Build TON standard text comment cell (opcode 0x00000000 + 10-digit ASCII string)
+        const commentCell = beginCell()
+            .storeUint(0, 32)
+            .storeStringTail(cleanSellCode)
+            .endCell();
 
         if (asset === 'USDT') {
             const amountInMicro = Math.floor(amount * 1e6);
@@ -2732,39 +2765,47 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
 
             let payload = null;
             try {
+                // TEP-74 Jetton transfer with forward_payload comment reference so TonAPI indexes JettonTransfer.comment = cleanSellCode
                 const body = beginCell()
                     .storeUint(0xf8a7ea5, 32)
                     .storeUint(0, 64)
                     .storeCoins(amountInMicro)
                     .storeAddress(Address.parse(adminWallet))
                     .storeAddress(Address.parse(userAddress || adminWallet))
-                    .storeBit(0)
-                    .storeCoins(1)
-                    .storeBit(0)
+                    .storeBit(0) // custom_payload: null
+                    .storeCoins(1) // 1 nanoton forward_ton_amount triggers transfer_notification with comment
+                    .storeBit(1) // forward_payload stored as ^Cell ref
+                    .storeRef(commentCell)
                     .endCell();
                 payload = body.toBoc().toString('base64');
-            } catch(e) {}
+            } catch(e) {
+                console.error("USDT comment payload build error:", e.message);
+            }
 
             res.json({
                 success: true,
+                sellCode: cleanSellCode,
                 tx: {
                     validUntil: Math.floor(Date.now() / 1000) + 600,
                     messages: [{
                         address: targetContract,
-                        amount: '50000000', // 0.05 TON
+                        amount: '50000000', // 0.05 TON gas
                         payload: payload || undefined
                     }]
                 }
             });
         } else {
             const amountInNano = Math.floor(amount * 1e9);
+            const commentPayload = commentCell.toBoc().toString('base64');
             res.json({
                 success: true,
+                sellCode: cleanSellCode,
                 tx: {
                     validUntil: Math.floor(Date.now() / 1000) + 600,
                     messages: [{
                         address: adminWallet,
-                        amount: amountInNano.toString()
+                        amount: amountInNano.toString(),
+                        payload: commentPayload
                     }]
                 }
             });
@@ -2775,10 +2816,29 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
     }
 });
 
-// Function: Verify On-Chain payment via TonAPI before crediting balance
-async function verifyOnChainSellPayment({ userWallet, asset, amount }) {
+// Function: Verify On-Chain payment via TonAPI (with 10-Digit Comment Code + Sender + Amount + Replay Protection)
+async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, userId }) {
     if (!userWallet || userWallet === 'Manual' || userWallet === 'Direct') {
         return { verified: false, error: 'বৈধ TON ওয়ালেট অ্যাড্রেস পাওয়া যায়নি।' };
+    }
+
+    const cleanSellCode = String(sellCode || '').trim();
+    if (!/^\d{10}$/.test(cleanSellCode)) {
+        return { verified: false, error: 'বৈধ ১০-ডিজিটের ভেরিফিকেশন কমেন্ট কোড পাওয়া যায়নি। দয়া করে আবার চেষ্টা করুন।' };
+    }
+
+    // Check if this 10-digit code was already claimed in memory or Firestore
+    const memEntry = inMemorySellCodes.get(cleanSellCode);
+    if (memEntry && memEntry.claimed) {
+        return { verified: false, error: 'এই ১০-ডিজিট ভেরিফিকেশন কোডটি ইতিমধ্যে ব্যবহৃত হয়েছে!' };
+    }
+    if (memEntry && memEntry.userId && userId && String(memEntry.userId) !== String(userId)) {
+        return { verified: false, error: 'ভেরিফিকেশন কোডটি আপনার অ্যাকাউন্টের সাথে মিলছে না!' };
+    }
+
+    const existingCodeDoc = await db.collection('claimed_sell_codes').doc(cleanSellCode).get();
+    if (existingCodeDoc.exists) {
+        return { verified: false, error: 'এই ১০-ডিজিট ভেরিফিকেশন কোডটি আগেই ব্যবহার করা হয়েছে (Replay Blocked)!' };
     }
 
     const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
@@ -2795,13 +2855,13 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount }) {
     const targetAmt = parseFloat(amount) || 0;
     if (targetAmt <= 0) return { verified: false, error: 'অবৈধ অ্যামাউন্ট।' };
 
-    // Retry loop: Tonkeeper can take 2-8 seconds to reflect in TonAPI events
-    const maxRetries = 5;
+    // Retry loop: Tonkeeper / blockchain indexing can take 3-18 seconds to appear in TonAPI events
+    const maxRetries = 8;
     const retryDelayMs = 2500;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            const tonApiRes = await axios.get(`https://tonapi.io/v2/accounts/${adminRaw}/events?limit=25`, { timeout: 7000 });
+            const tonApiRes = await axios.get(`https://tonapi.io/v2/accounts/${adminRaw}/events?limit=30`, { timeout: 8000 });
             const events = tonApiRes.data?.events || [];
             const nowSec = Math.floor(Date.now() / 1000);
 
@@ -2818,53 +2878,90 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount }) {
                         const senderRaw = jt.sender?.address ? Address.parse(jt.sender.address).toRawString().toLowerCase() : '';
                         const recipRaw = jt.recipient?.address ? Address.parse(jt.recipient.address).toRawString().toLowerCase() : '';
                         const jettonAmt = Number(jt.amount) / 1e6;
+                        const txComment = String(jt.comment || '').trim();
 
                         const isUsdt = jt.jetton?.symbol?.includes('USD') || jt.jetton?.address?.includes('b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe');
 
-                        if (isUsdt && recipRaw === adminRaw && senderRaw === userRaw && jettonAmt >= (targetAmt * 0.99)) {
-                            // Replay protection: Check if event_id already claimed
-                            const eventDoc = await db.collection('claimed_onchain_events').doc(ev.event_id).get();
-                            if (eventDoc.exists) {
-                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                        // Must match admin recipient, sender wallet, exact 10-digit comment code, and amount
+                        if (isUsdt && recipRaw === adminRaw && senderRaw === userRaw && txComment === cleanSellCode && jettonAmt >= (targetAmt * 0.99)) {
+                            const [eventDoc, codeDoc] = await Promise.all([
+                                db.collection('claimed_onchain_events').doc(ev.event_id).get(),
+                                db.collection('claimed_sell_codes').doc(cleanSellCode).get()
+                            ]);
+                            if (eventDoc.exists || codeDoc.exists) {
+                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশন বা ১০-ডিজিট কোডটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
                             }
 
-                            // Mark event as claimed
-                            await db.collection('claimed_onchain_events').doc(ev.event_id).set({
-                                eventId: ev.event_id,
-                                asset: normAsset,
-                                amount: jettonAmt,
-                                userWallet,
-                                userRaw,
-                                adminRaw,
-                                claimedAt: FieldValue.serverTimestamp()
-                            });
+                            if (memEntry) memEntry.claimed = true;
 
-                            return { verified: true, eventId: ev.event_id, amount: jettonAmt, timestamp: ev.timestamp };
+                            await Promise.all([
+                                db.collection('claimed_onchain_events').doc(ev.event_id).set({
+                                    eventId: ev.event_id,
+                                    sellCode: cleanSellCode,
+                                    userId: String(userId || ''),
+                                    asset: normAsset,
+                                    amount: jettonAmt,
+                                    userWallet,
+                                    userRaw,
+                                    adminRaw,
+                                    claimedAt: FieldValue.serverTimestamp()
+                                }),
+                                db.collection('claimed_sell_codes').doc(cleanSellCode).set({
+                                    sellCode: cleanSellCode,
+                                    eventId: ev.event_id,
+                                    userId: String(userId || ''),
+                                    asset: normAsset,
+                                    amount: jettonAmt,
+                                    userWallet,
+                                    claimedAt: FieldValue.serverTimestamp()
+                                })
+                            ]);
+
+                            return { verified: true, eventId: ev.event_id, amount: jettonAmt, sellCode: cleanSellCode, timestamp: ev.timestamp };
                         }
                     } else if ((normAsset === 'TON' || normAsset === 'GRAM') && act.type === 'TonTransfer') {
                         const tt = act.TonTransfer;
                         const senderRaw = tt.sender?.address ? Address.parse(tt.sender.address).toRawString().toLowerCase() : '';
                         const recipRaw = tt.recipient?.address ? Address.parse(tt.recipient.address).toRawString().toLowerCase() : '';
                         const tonAmt = Number(tt.amount) / 1e9;
+                        const txComment = String(tt.comment || '').trim();
 
-                        if (recipRaw === adminRaw && senderRaw === userRaw && tonAmt >= (targetAmt * 0.99)) {
-                            // Replay protection
-                            const eventDoc = await db.collection('claimed_onchain_events').doc(ev.event_id).get();
-                            if (eventDoc.exists) {
-                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                        // Must match admin recipient, sender wallet, exact 10-digit comment code, and amount
+                        if (recipRaw === adminRaw && senderRaw === userRaw && txComment === cleanSellCode && tonAmt >= (targetAmt * 0.99)) {
+                            const [eventDoc, codeDoc] = await Promise.all([
+                                db.collection('claimed_onchain_events').doc(ev.event_id).get(),
+                                db.collection('claimed_sell_codes').doc(cleanSellCode).get()
+                            ]);
+                            if (eventDoc.exists || codeDoc.exists) {
+                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশন বা ১০-ডিজিট কোডটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
                             }
 
-                            await db.collection('claimed_onchain_events').doc(ev.event_id).set({
-                                eventId: ev.event_id,
-                                asset: normAsset,
-                                amount: tonAmt,
-                                userWallet,
-                                userRaw,
-                                adminRaw,
-                                claimedAt: FieldValue.serverTimestamp()
-                            });
+                            if (memEntry) memEntry.claimed = true;
 
-                            return { verified: true, eventId: ev.event_id, amount: tonAmt, timestamp: ev.timestamp };
+                            await Promise.all([
+                                db.collection('claimed_onchain_events').doc(ev.event_id).set({
+                                    eventId: ev.event_id,
+                                    sellCode: cleanSellCode,
+                                    userId: String(userId || ''),
+                                    asset: normAsset,
+                                    amount: tonAmt,
+                                    userWallet,
+                                    userRaw,
+                                    adminRaw,
+                                    claimedAt: FieldValue.serverTimestamp()
+                                }),
+                                db.collection('claimed_sell_codes').doc(cleanSellCode).set({
+                                    sellCode: cleanSellCode,
+                                    eventId: ev.event_id,
+                                    userId: String(userId || ''),
+                                    asset: normAsset,
+                                    amount: tonAmt,
+                                    userWallet,
+                                    claimedAt: FieldValue.serverTimestamp()
+                                })
+                            ]);
+
+                            return { verified: true, eventId: ev.event_id, amount: tonAmt, sellCode: cleanSellCode, timestamp: ev.timestamp };
                         }
                     }
                 }
@@ -2880,12 +2977,12 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount }) {
 
     return { 
         verified: false, 
-        error: 'ব্লকচেইনে কোনো ডিপোজিট ট্রানজেকশন পাওয়া যায়নি! আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা এবং পেমেন্ট সম্পন্ন হয়েছে কিনা চেক করুন।' 
+        error: `ব্লকচেইনে কমেন্ট কোড (${cleanSellCode}) সহ কোনো ডিপোজিট পাওয়া যায়নি! আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা এবং পেমেন্ট সম্পন্ন হয়েছে কিনা চেক করুন।` 
     };
 }
 
 app.post('/api/miniapp/sell', async (req, res) => {
-    const { userId, asset, amount, estimatedTk, wallet, status, orderId } = req.body;
+    const { userId, asset, amount, wallet, status, orderId, sellCode } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
     // 1. Rate Limit check
@@ -2905,10 +3002,18 @@ app.post('/api/miniapp/sell', async (req, res) => {
     }
 
     try {
-        const numEstimatedTk = parseFloat(estimatedTk) || 0;
+        const normAsset = (asset || 'GRAM').toUpperCase();
         const numAmount = parseFloat(amount) || 0;
+        const cleanSellCode = String(sellCode || '').trim();
+
+        // CRITICAL SECURITY FIX: Calculate BDT strictly on the server using live server sell rate!
+        // Never trust client-supplied estimatedTk!
+        const serverSellRate = normAsset === 'USDT'
+            ? (Number(cachedMarketRates?.sellRates?.USDT) || 118)
+            : (Number(cachedMarketRates?.sellRates?.GRAM) || 146);
+        const serverExpectedTk = Math.floor(numAmount * serverSellRate);
         
-        if (!Number.isFinite(numEstimatedTk) || numEstimatedTk < 1 || !Number.isFinite(numAmount) || numAmount <= 0) {
+        if (!Number.isFinite(numAmount) || numAmount <= 0 || !Number.isFinite(serverExpectedTk) || serverExpectedTk < 1) {
             return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা' });
         }
 
@@ -2924,31 +3029,34 @@ app.post('/api/miniapp/sell', async (req, res) => {
         if (status === 'pending') {
             const docRef = await db.collection('miniapp_sells').add({
                 userId, 
-                asset: asset || 'TON', 
+                asset: normAsset, 
                 amount: numAmount, 
-                estimatedTk: numEstimatedTk, 
+                estimatedTk: serverExpectedTk, 
+                sellCode: cleanSellCode || null,
                 wallet: wallet || 'Manual',
                 status: 'pending',
                 timestamp: FieldValue.serverTimestamp()
             });
-            return res.json({ success: true, orderId: docRef.id });
+            return res.json({ success: true, orderId: docRef.id, sellCode: cleanSellCode });
         }
 
-        // --- HARDENED ON-CHAIN VERIFICATION ---
-        // For completed direct sells, verify on-chain via TonAPI before crediting any balance
+        // --- HARDENED ON-CHAIN VERIFICATION WITH 10-DIGIT COMMENT CODE ---
         const onChain = await verifyOnChainSellPayment({
             userWallet: wallet,
-            asset: asset || 'TON',
-            amount: numAmount
+            asset: normAsset,
+            amount: numAmount,
+            sellCode: cleanSellCode,
+            userId
         });
 
         if (!onChain.verified) {
             // Record failed attempt in database for security audit
             await db.collection('miniapp_sells').add({
                 userId,
-                asset: asset || 'TON',
+                asset: normAsset,
                 amount: numAmount,
-                estimatedTk: numEstimatedTk,
+                estimatedTk: serverExpectedTk,
+                sellCode: cleanSellCode || null,
                 wallet: wallet || 'Manual',
                 status: 'failed',
                 failureReason: onChain.error || 'On-chain verification failed',
@@ -2961,19 +3069,29 @@ app.post('/api/miniapp/sell', async (req, res) => {
             });
         }
 
+        // Compute exact verified BDT from the actual on-chain received amount (capped to requested amount if user sent slightly more, or exact onChain amount)
+        const verifiedCryptoAmt = Math.min(Number(onChain.amount) || numAmount, numAmount * 1.05);
+        const verifiedTk = Math.floor(verifiedCryptoAmt * serverSellRate);
+        if (verifiedTk < 1) {
+            return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা হতে হবে।' });
+        }
+
         let savedOrderId = orderId;
         if (orderId) {
             await db.collection('miniapp_sells').doc(orderId).update({ 
                 status: 'completed',
+                estimatedTk: verifiedTk,
+                sellCode: cleanSellCode,
                 onChainEventId: onChain.eventId,
                 completedAt: FieldValue.serverTimestamp()
             });
         } else {
             const docRef = await db.collection('miniapp_sells').add({
                 userId, 
-                asset: asset || 'TON', 
+                asset: normAsset, 
                 amount: numAmount, 
-                estimatedTk: numEstimatedTk, 
+                estimatedTk: verifiedTk, 
+                sellCode: cleanSellCode,
                 wallet: wallet || 'Manual', 
                 status: 'completed',
                 onChainEventId: onChain.eventId,
@@ -2982,7 +3100,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
             savedOrderId = docRef.id;
         }
 
-        // Increment user balance & track totalCryptoSellBdt for referral activation
+        // Increment user balance & track totalCryptoSellBdt for referral activation using strictly server-calculated verifiedTk
         const userRef = db.collection('users').doc(userId.toString());
         const userDoc = await userRef.get();
         const extraWalletField = (wallet && wallet !== 'Manual' && wallet !== 'Direct' && String(wallet).length >= 20)
@@ -2991,16 +3109,16 @@ app.post('/api/miniapp/sell', async (req, res) => {
 
         if (userDoc.exists) {
             await userRef.update({ 
-                balance: FieldValue.increment(numEstimatedTk),
-                totalCryptoSellBdt: FieldValue.increment(numEstimatedTk),
+                balance: FieldValue.increment(verifiedTk),
+                totalCryptoSellBdt: FieldValue.increment(verifiedTk),
                 hasSellBalance: true,
                 hasDepositWithoutTrade: false,
                 ...extraWalletField
             });
         } else {
             await userRef.set({ 
-                balance: numEstimatedTk, 
-                totalCryptoSellBdt: numEstimatedTk,
+                balance: verifiedTk, 
+                totalCryptoSellBdt: verifiedTk,
                 joinedAt: FieldValue.serverTimestamp(),
                 hasSellBalance: true,
                 hasDepositWithoutTrade: false,
@@ -3012,7 +3130,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
         checkAndRewardReferral(userId).catch(err => console.warn("Sell referral check err:", err.message));
 
         const updatedDoc = await userRef.get();
-        const newBalance = updatedDoc.data()?.balance || numEstimatedTk;
+        const newBalance = updatedDoc.data()?.balance || verifiedTk;
 
         // Notify Data Group
         const config = botConfig || {};
@@ -3020,9 +3138,10 @@ app.post('/api/miniapp/sell', async (req, res) => {
         if (dataGroup && bot) {
             const msg = `<blockquote><b>⚡ নতুন ক্রিপ্টো বিক্রয় (Crypto Sold - Verified)!</b>\n\n` +
                 `👤 <b>User:</b> <code>${userId}</code>\n` +
-                `💎 <b>বিক্রয়:</b> <b>${numAmount} ${asset || 'TON'}</b>\n` +
-                `💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳${numEstimatedTk} BDT</b>\n` +
+                `💎 <b>বিক্রয়:</b> <b>${numAmount} ${normAsset}</b>\n` +
+                `💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳${verifiedTk} BDT</b>\n` +
                 `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
+                `🔢 <b>Comment Code (10-Digit):</b> <code>${cleanSellCode}</code>\n` +
                 `🏦 <b>Wallet:</b> <code>${wallet || 'Direct'}</code>\n` +
                 `🔗 <b>Tx Event:</b> <code>${onChain.eventId}</code>\n` +
                 `🆔 <b>Order ID:</b> <code>${savedOrderId}</code></blockquote>`;
@@ -3032,15 +3151,16 @@ app.post('/api/miniapp/sell', async (req, res) => {
         // Send confirmation to User in Telegram with Premium Animated Emojis
         if (bot && userId) {
             const userSellMsg = `${PE.moneyBag} <b>Crypto Sell Completed! (ক্রিপ্টো বিক্রি সফল!)</b>\n\n` +
-                `${PE.gem} <b>Sold Asset:</b> ${numAmount} ${asset}\n` +
-                `${PE.dollar} <b>Added Amount:</b> ৳${numEstimatedTk} BDT\n` +
+                `${PE.gem} <b>Sold Asset:</b> ${numAmount} ${normAsset}\n` +
+                `${PE.dollar} <b>Added Amount:</b> ৳${verifiedTk} BDT\n` +
                 `${PE.moneyBag} <b>New Balance:</b> <b>৳${newBalance} BDT</b>\n` +
+                `🔢 <b>Verify Code:</b> <code>${cleanSellCode}</code>\n` +
                 `${PE.globe} <b>Order ID:</b> <code>${savedOrderId}</code>\n\n` +
                 `${PE.zap} <i>টাকাটি অ্যাপ ব্যালেন্সে জমা হয়েছে। প্রোফাইল থেকে যেকোনো সময় উইথড্র করতে পারবেন!</i>`;
             bot.sendMessage(userId, userSellMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e=>console.error(e.message));
         }
 
-        res.json({ success: true, orderId: savedOrderId, newBalance });
+        res.json({ success: true, orderId: savedOrderId, newBalance, creditedTk: verifiedTk, sellCode: cleanSellCode });
     } catch(e) {
         console.error("Sell order error:", e);
         res.status(500).json({ error: e.message });
@@ -3993,9 +4113,14 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
     try {
         bdtAmount = parseFloat(bdtAmount);
-        cryptoAmount = parseFloat(cryptoAmount);
         asset = (asset || 'TON').toUpperCase();
         receiveAddress = String(receiveAddress || '').trim();
+
+        // CRITICAL SECURITY FIX: Calculate cryptoAmount strictly on the server using live buy rate!
+        const serverBuyRate = asset === 'USDT'
+            ? (Number(cachedMarketRates?.buyRates?.USDT) || 130)
+            : (Number(cachedMarketRates?.buyRates?.GRAM) || 175);
+        cryptoAmount = parseFloat((bdtAmount / serverBuyRate).toFixed(4));
 
         if (!Number.isFinite(bdtAmount) || bdtAmount < 20 || !Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
             return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ২০ টাকা' });
