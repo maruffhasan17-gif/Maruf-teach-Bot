@@ -1,4 +1,4 @@
-﻿---
+---
 name: ytdata
 description: >-
   Use this skill whenever the user types "/ytdata" or asks for YouTube video details. It generates the perfect Thumbnail Prompt, Title, Description, and Tags based on Maruf's strict preferences.
@@ -10,12 +10,15 @@ When the user types `/ytdata [Project Name] [Details]`, strictly output the foll
 ## 1. Thumbnail AI Prompts
 Always provide 3 variations of Bing Image Creator prompts in pure BENGALI.
 Rules:
-- Background: Clean, Dark Navy Blue / Theme color, Neon glow.
+- Background: Deep Royal Purple / Dark Violet / Cyber Indigo aesthetic. ব্যাকগ্রাউন্ডে চমৎকার গর্জিয়াস ও সিনেম্যাটিক লাইটিং থাকবে (যেমন: ভায়োলেট এবং ইলেকট্রিক ব্লু রিম লাইটিং, নিওন পার্পল আভা, সফট ভলিউমেট্রিক ফগ/স্মোক এবং ডায়নামিক ব্যাকলাইট)। প্রতিটি ভ্যারিয়েশনের লাইটিং ও শেড আলাদা ও ইউনিক হতে হবে।
+- STRICT COLOR RULE: কোনো সোনালী বা গোল্ডেন (Gold/Golden) কালার ব্যবহার করা যাবে না, গোল্ডেন কালার সম্পূর্ণ নিষিদ্ধ।
+- PROMPT QUALITY: প্রম্পট অত্যন্ত বিস্তারিত, সিনেম্যাটিক এবং প্রফেশনাল হতে হবে—একদম সাদামাটা বা সিম্পল প্রম্পট দেওয়া যাবে না।
 - NO "hijibiji" (messy) designs, NO extra emojis.
-- Left side: Project Logo + Live Payment Proof screenshot.
-- Right side: A smart boy in a black blazer holding an iPhone.
-- *DYNAMIC EXPRESSION*: If the user uploads a payment proof screenshot, the boy MUST have a surprised expression (???? ??? ?????? ???). If NO payment proof is uploaded, the boy should just be pointing normally with his finger (??? ???? ?????? ??? ????????).
-- Top Text: A massive, bold, catchy 3D Bengali text highlighting the amount earned (e.g. "[Project] তে ২ ডলার কোপ দিলাম").
+- Left side: Project Logo + Live Payment Proof screenshot frame.
+- Right side: A smart handsome boy in a stylish black blazer.
+- NO PHONE: হাতে কোনো মোবাইল ফোন থাকবে না (Hands completely free, no smartphone/devices).
+- EXPRESSION: মাথায় হাত দিয়ে চরম অবাক/চমকে যাওয়ার এক্সপ্রেশন (Surprised expression with hands on head / hand on forehead, mouth open in shock/disbelief).
+- Top Text: A massive, bold, catchy 3D Bengali text highlighting the amount earned (e.g. "[Project] তে ফ্রি ১ ডলার কোপ").
 
 ## 2. YouTube Title
 Provide 2 highly catchy titles combining Bengali and English. Example: "[Project] তে কোপ দিলাম! 😱 Live Withdraw Proof".

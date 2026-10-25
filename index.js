@@ -310,6 +310,9 @@ async function loadConfig() {
     try {
         const doc = await db.collection('settings').doc('config').get();
         if (doc.exists) botConfig = { ...botConfig, ...doc.data() };
+        if (!botConfig.adminNagad || botConfig.adminNagad === '01878580320') {
+            botConfig.adminNagad = '9856000927953436';
+        }
     } catch(e) { console.error("Config load error:", e); }
 }
 loadConfig();
@@ -503,7 +506,29 @@ function verifyRequestCallerIdentity(req, userId) {
     return true;
 }
 
+// Helper: Fast Account Status Check for Inflow Endpoints (Add Money / Crypto Sell)
+// Never blocks legitimate deposits (even 20,000+ BDT) with balance audits; only blocks banned/restricted accounts.
+async function checkUserAccountActive(userId) {
+    const strUserId = String(userId);
+    const userDoc = await db.collection('users').doc(strUserId).get();
+    if (!userDoc.exists) {
+        return { ok: true, userData: {} };
+    }
+    const uData = userDoc.data() || {};
+    const isBanned = uData.status === 'banned' || Boolean(uData.isBanned);
+    const isRestricted = uData.status === 'restricted' && (!uData.restrictedUntil || new Date(uData.restrictedUntil) > new Date());
+    if (isBanned) {
+        return { ok: false, code: 'BANNED', error: 'আপনার অ্যাকাউন্টটি স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।' };
+    }
+    if (isRestricted) {
+        return { ok: false, code: 'RESTRICTED', error: 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে। রেস্ট্রিকশন চলাকালীন কোনো লেনদেন করা যাবে না।' };
+    }
+    return { ok: true, userData: uData };
+}
+
 // --- DEEP BALANCE PROVENANCE & ILLEGAL AMOUNT AUDIT ENGINE ---
+// Runs ONLY when spending/withdrawing in-app balance (/api/miniapp/withdraw-fiat & /api/miniapp/buy-crypto).
+// Detects if a user's balance increased WITHOUT Add Money, Crypto Sell, Spin, Referral, or Admin Credit.
 async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 'Transaction') {
     const strUserId = String(userId);
     const numUserId = parseInt(userId, 10);
@@ -547,73 +572,94 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     }
     
     // 3. Mathematical Ledger Reconciliation (Proof of Funds)
-    // A) Deposits (Add Money)
-    const depSnap1 = await db.collection('deposits').where('userId', '==', strUserId).where('status', '==', 'completed').get();
-    const depSnap2 = (numUserId && !isNaN(numUserId) && numUserId !== strUserId) 
-        ? await db.collection('deposits').where('userId', '==', numUserId).where('status', '==', 'completed').get() 
-        : { docs: [] };
+    // A) Deposits (Add Money) across both 'deposits' and completed fiat 'miniapp_buys'
+    const [depSnap1, depSnap2, buySnap1, buySnap2, sellSnap1, sellSnap2, withSnap1, withSnap2] = await Promise.all([
+        db.collection('deposits').where('userId', '==', strUserId).where('status', '==', 'completed').get(),
+        (numUserId && !isNaN(numUserId) && numUserId !== strUserId)
+            ? db.collection('deposits').where('userId', '==', numUserId).where('status', '==', 'completed').get()
+            : Promise.resolve({ docs: [] }),
+        db.collection('miniapp_buys').where('userId', '==', strUserId).get(),
+        (numUserId && !isNaN(numUserId) && numUserId !== strUserId)
+            ? db.collection('miniapp_buys').where('userId', '==', numUserId).get()
+            : Promise.resolve({ docs: [] }),
+        db.collection('miniapp_sells').where('userId', '==', strUserId).where('status', '==', 'completed').get(),
+        (numUserId && !isNaN(numUserId) && numUserId !== strUserId)
+            ? db.collection('miniapp_sells').where('userId', '==', numUserId).where('status', '==', 'completed').get()
+            : Promise.resolve({ docs: [] }),
+        db.collection('fiat_withdrawals').where('userId', '==', strUserId).get(),
+        (numUserId && !isNaN(numUserId) && numUserId !== strUserId)
+            ? db.collection('fiat_withdrawals').where('userId', '==', numUserId).get()
+            : Promise.resolve({ docs: [] })
+    ]);
     
     const seenDepIds = new Set();
-    let sumDeposits = 0;
+    let sumDepositsCollection = 0;
     for (const doc of [...depSnap1.docs, ...depSnap2.docs]) {
         if (!seenDepIds.has(doc.id)) {
             seenDepIds.add(doc.id);
-            sumDeposits += Number(doc.data().amount || 0);
+            sumDepositsCollection += Number(doc.data().amount || 0);
         }
     }
     
-    // B) Crypto Sells credited to BDT
-    const sellSnap1 = await db.collection('miniapp_sells').where('userId', '==', strUserId).where('status', '==', 'completed').get();
-    const sellSnap2 = (numUserId && !isNaN(numUserId) && numUserId !== strUserId) 
-        ? await db.collection('miniapp_sells').where('userId', '==', numUserId).where('status', '==', 'completed').get() 
-        : { docs: [] };
-        
-    const seenSellIds = new Set();
-    let sumSells = 0;
-    for (const doc of [...sellSnap1.docs, ...sellSnap2.docs]) {
-        if (!seenSellIds.has(doc.id)) {
-            seenSellIds.add(doc.id);
-            sumSells += Number(doc.data().estimatedTk || doc.data().actualTk || 0);
-        }
-    }
-    
-    // C) Spin Wheel Earnings
-    const spinEarnings = Number(uData.totalSpinWonBdt || uData.dailySpinWonBdt || 0);
-    
-    // D) Referral Earnings
-    const referralEarnings = Number(uData.referralEarnings || 0);
-    
-    // E) Legitimate Refunds from In-App Balance purchases
-    const buySnap1 = await db.collection('miniapp_buys').where('userId', '==', strUserId).get();
-    const buySnap2 = (numUserId && !isNaN(numUserId) && numUserId !== strUserId) 
-        ? await db.collection('miniapp_buys').where('userId', '==', numUserId).get() 
-        : { docs: [] };
-        
+    // Also union any completed bKash/Nagad deposits recorded in 'miniapp_buys' (by doc.id / trxId)
     const seenBuyIds = new Set();
     let sumBalanceBuys = 0;
     let sumLegitRefunds = 0;
+    let illegalRefundBdt = 0;
     
     for (const doc of [...buySnap1.docs, ...buySnap2.docs]) {
         if (!seenBuyIds.has(doc.id)) {
             seenBuyIds.add(doc.id);
             const bData = doc.data();
-            const isWalletPayment = bData.paymentMethod === 'In-App Balance' || bData.paidWithWallet === true || bData.paymentMethod === 'wallet';
+            const isWalletPayment = bData.paymentMethod === 'In-App Balance' || bData.paidWithWallet === true || bData.paidFromBalance === true || bData.paymentMethod === 'wallet';
             
+            if (!isWalletPayment && bData.status === 'completed') {
+                // Completed bKash/Nagad deposit or Add Money
+                if (!seenDepIds.has(doc.id)) {
+                    seenDepIds.add(doc.id);
+                    sumDepositsCollection += Number(bData.totalBdt || bData.amount || 0);
+                }
+            }
             if (isWalletPayment && bData.status === 'completed') {
                 sumBalanceBuys += Number(bData.totalBdt || bData.amountBdt || 0);
             }
             if (isWalletPayment && bData.status === 'rejected' && bData.refundRevoked !== true) {
                 sumLegitRefunds += Number(bData.refundedBdt || 0);
             }
+            // Detect illegal refund from an unverified manual bKash/Nagad buy order
+            if (!isWalletPayment && bData.status === 'rejected' && !bData.autoVerified && bData.refundRevoked !== true && Number(bData.refundedBdt || 0) > 0) {
+                illegalRefundBdt += Number(bData.refundedBdt || 0);
+            }
         }
     }
     
-    // F) Withdrawals (both pending and completed)
-    const withSnap1 = await db.collection('fiat_withdrawals').where('userId', '==', strUserId).get();
-    const withSnap2 = (numUserId && !isNaN(numUserId) && numUserId !== strUserId) 
-        ? await db.collection('fiat_withdrawals').where('userId', '==', numUserId).get() 
-        : { docs: [] };
-        
+    const sumDeposits = Math.max(sumDepositsCollection, Number(uData.totalAddMoneyBdt || 0));
+    
+    // B) Crypto Sells credited to BDT
+    const seenSellIds = new Set();
+    let sumSellsCollection = 0;
+    for (const doc of [...sellSnap1.docs, ...sellSnap2.docs]) {
+        if (!seenSellIds.has(doc.id)) {
+            seenSellIds.add(doc.id);
+            sumSellsCollection += Number(doc.data().estimatedTk || doc.data().actualTk || 0);
+        }
+    }
+    const sumSells = Math.max(sumSellsCollection, Number(uData.totalCryptoSellBdt || 0));
+    
+    // C) Spin Wheel Earnings & Referral Earnings & Admin Manual Credits
+    const spinEarnings = Math.max(
+        Number(uData.totalSpinWonBdt || 0),
+        Number(uData.dailySpinWonBdt || 0),
+        Math.min(10, Number(uData.totalSpinsByUser || 0) * 2)
+    );
+    const referralEarnings = Math.max(
+        Number(uData.referralEarnings || 0),
+        Number(uData.activeReferralsCount || 0) * 5
+    );
+    const adminAddedBdt = Number(uData.adminAddedBdt || 0);
+    const hasAdminManualUpdate = Boolean(uData.lastBalanceUpdate) || adminAddedBdt > 0;
+    
+    // D) Withdrawals (both pending and completed)
     const seenWithIds = new Set();
     let sumWithdrawals = 0;
     for (const doc of [...withSnap1.docs, ...withSnap2.docs]) {
@@ -627,14 +673,19 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     }
     
     // Calculate provenance
-    const totalLegitimateIn = sumDeposits + sumSells + spinEarnings + referralEarnings + sumLegitRefunds;
+    const totalLegitimateIn = sumDeposits + sumSells + spinEarnings + referralEarnings + sumLegitRefunds + adminAddedBdt;
     const totalLegitimateOut = sumBalanceBuys + sumWithdrawals;
-    const maxPermissibleBalance = Math.max(0, totalLegitimateIn - totalLegitimateOut);
+    const maxPermissibleBalance = hasAdminManualUpdate
+        ? Math.max(currentBalance, totalLegitimateIn - totalLegitimateOut)
+        : Math.max(0, totalLegitimateIn - totalLegitimateOut);
     
-    // Discrepancy check (allowing 2 BDT tolerance for floating point / rounding)
-    const discrepancy = currentBalance - maxPermissibleBalance;
+    // Discrepancy check:
+    // Flag ONLY when balance increased WITHOUT Add Money, Crypto Sell, Spin, Referral, or Admin Credit (or via unverified fake-order refund)
+    const discrepancy = (illegalRefundBdt > 0 && !hasAdminManualUpdate)
+        ? illegalRefundBdt
+        : (currentBalance - maxPermissibleBalance);
     
-    if (currentBalance > 0 && discrepancy > 2) {
+    if (currentBalance > 0 && discrepancy > 5 && !hasAdminManualUpdate) {
         // AUTO-RESTRICT USER ACCOUNT
         await userRef.set({
             status: 'restricted',
@@ -2655,9 +2706,9 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
             if (!checkRateLimit(`build_tx_${userId}`, 30, 60000)) {
                 return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে কিছুক্ষণ অপেক্ষা করুন।' });
             }
-            const audit = await auditBalanceProvenance(userId, 0, 'Build Sell TX');
-            if (!audit.ok) {
-                return res.status(403).json({ error: audit.error });
+            const statusCheck = await checkUserAccountActive(userId);
+            if (!statusCheck.ok) {
+                return res.status(403).json({ error: statusCheck.error });
             }
         }
         amount = parseFloat(amount) || 0;
@@ -2861,10 +2912,10 @@ app.post('/api/miniapp/sell', async (req, res) => {
             return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা' });
         }
 
-        // 4. Mathematical Balance Provenance & Illegal Amount Audit
-        const audit = await auditBalanceProvenance(userId, 0, 'Crypto Sell');
-        if (!audit.ok) {
-            return res.status(403).json({ error: audit.error });
+        // 4. Account Active Check (Ban/Restriction check only; never block Crypto Sell with balance audit)
+        const statusCheck = await checkUserAccountActive(userId);
+        if (!statusCheck.ok) {
+            return res.status(403).json({ error: statusCheck.error });
         }
 
         const devInfo = extractClientDevice(req, req.body);
@@ -3755,10 +3806,10 @@ app.get('/api/settings', (req, res) => {
     try {
         const config = botConfig || {};
         if (!config.adminBkash) config.adminBkash = '01752561935';
-        if (!config.adminNagad) config.adminNagad = '01878580320';
+        if (!config.adminNagad || config.adminNagad === '01878580320') config.adminNagad = '9856000927953436';
         res.json(config);
     } catch (e) {
-        res.json({ gramAmount: '0.07', usdtAmount: '0.05', freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328', adminBkash: '01752561935', adminNagad: '01878580320' });
+        res.json({ gramAmount: '0.07', usdtAmount: '0.05', freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328', adminBkash: '01752561935', adminNagad: '9856000927953436' });
     }
 });
 
@@ -3793,10 +3844,10 @@ app.post('/api/miniapp/add-money', async (req, res) => {
             return res.status(400).json({ error: 'সঠিক টাকার পরিমাণ দিন' });
         }
 
-        // 4. Mathematical Balance Provenance & Illegal Amount Audit
-        const audit = await auditBalanceProvenance(userId, 0, 'Add Money');
-        if (!audit.ok) {
-            return res.status(403).json({ error: audit.error });
+        // 4. Account Active Check (Ban/Restriction check only; never block Add Money with balance audit)
+        const statusCheck = await checkUserAccountActive(userId);
+        if (!statusCheck.ok) {
+            return res.status(403).json({ error: statusCheck.error });
         }
 
         const devInfo = extractClientDevice(req, req.body);
@@ -4164,10 +4215,10 @@ app.post('/api/miniapp/buy', async (req, res) => {
     }
 
     try {
-        // 4. Mathematical Balance Provenance & Illegal Amount Audit
-        const audit = await auditBalanceProvenance(userId, 0, 'Manual Crypto Buy');
-        if (!audit.ok) {
-            return res.status(403).json({ error: audit.error });
+        // 4. Account Active Check (Ban/Restriction check only; never block deposit with balance audit)
+        const statusCheck = await checkUserAccountActive(userId);
+        if (!statusCheck.ok) {
+            return res.status(403).json({ error: statusCheck.error });
         }
 
         if (!trxId || trxId.length < 5) {
@@ -4216,10 +4267,21 @@ app.post('/api/miniapp/buy', async (req, res) => {
         const userRef = db.collection('users').doc(userId.toString());
         await userRef.set({
             balance: FieldValue.increment(totalBdt),
+            totalAddMoneyBdt: FieldValue.increment(totalBdt),
             hasDepositWithoutTrade: true,
             spentSinceLastDeposit: 0,
             lastDepositAt: Date.now()
         }, { merge: true });
+
+        await db.collection('deposits').doc(trxId).set({
+            userId,
+            amount: totalBdt,
+            paymentMethod,
+            trxId,
+            status: 'completed',
+            type: 'add_money',
+            timestamp: FieldValue.serverTimestamp()
+        });
 
         await db.collection('miniapp_buys').doc(trxId).set({
             userId, asset: asset || 'BDT', amount, totalBdt, paymentMethod, trxId, receiveAddress: receiveAddress || '',
@@ -4706,8 +4768,13 @@ app.post('/api/admin/bonus', async (req, res) => {
         if (snapshot.empty) return res.status(404).json({ error: 'User not found' });
         
         const doc = snapshot.docs[0];
-        const newBalance = (doc.data().balance || 0) + parseFloat(amount);
-        await doc.ref.update({ balance: newBalance });
+        const parsedBonus = parseFloat(amount) || 0;
+        const newBalance = (doc.data().balance || 0) + parsedBonus;
+        await doc.ref.set({
+            balance: newBalance,
+            adminAddedBdt: FieldValue.increment(Math.max(0, parsedBonus)),
+            lastBalanceUpdate: FieldValue.serverTimestamp()
+        }, { merge: true });
         
         const bonusMsg = `<b>${PE.gift} বোনাস ব্যালেন্স প্রাপ্তি! (Bonus Received!)</b>\n\n` +
             `<blockquote>${PE.dollar} <b>Bonus Amount:</b> <b>৳${amount} BDT</b>\n` +
@@ -4737,6 +4804,7 @@ app.post('/api/admin/user/balance', async (req, res) => {
 
         await userRef.set({
             balance: newBalance,
+            ...(action === 'add' ? { adminAddedBdt: FieldValue.increment(Math.max(0, parseFloat(amount) || 0)) } : {}),
             lastBalanceUpdate: FieldValue.serverTimestamp()
         }, { merge: true });
 

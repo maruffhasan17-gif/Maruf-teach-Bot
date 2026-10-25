@@ -2883,7 +2883,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
     const [errorMessage, setErrorMessage] = useState('');
     const [copied, setCopied] = useState(false);
     const [adminBkash, setAdminBkash] = useState("01752561935");
-    const [adminNagad, setAdminNagad] = useState("01878580320");
+    const [adminNagad, setAdminNagad] = useState("9856000927953436");
     const [depositResult, setDepositResult] = useState(null);
 
     useEffect(() => {
@@ -2891,7 +2891,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
             .then(res => res.json())
             .then(data => {
                 if (data.adminBkash) setAdminBkash(data.adminBkash);
-                if (data.adminNagad) setAdminNagad(data.adminNagad);
+                if (data.adminNagad && data.adminNagad !== '01878580320') setAdminNagad(data.adminNagad);
             }).catch(e => console.log(e));
     }, []);
 
@@ -2914,8 +2914,8 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
         if (!num || isNaN(num) || num < 20) {
             return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("নূন্যতম অ্যাড মানি ২০ টাকা") : alert("Minimum amount is 20 BDT");
         }
-        if (num > 30000) {
-            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("সর্বোচ্চ অ্যাড মানি ৩০,০০০ টাকা") : alert("Maximum amount is 30,000 BDT");
+        if (num > 100000) {
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("সর্বোচ্চ অ্যাড মানি ১,০০,০০০ টাকা") : alert("Maximum amount is 100,000 BDT");
         }
         setErrorMessage('');
         setStep(2);

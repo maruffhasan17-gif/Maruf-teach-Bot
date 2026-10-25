@@ -4029,7 +4029,7 @@ function BotSettings() {
 
   const [settings, setSettings] = useState({
     adminBkash: '01752561935',
-    adminNagad: '01878580320',
+    adminNagad: '9856000927953436',
     gramAmount: '0.07',
     usdtAmount: '0.05',
     dailyWithdrawLimit: 50,
