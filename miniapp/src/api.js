@@ -270,7 +270,7 @@ export const submitAddMoney = async (payload) => {
 
 export const submitBuyCrypto = async (payload) => {
     try {
-        const res = await axios.post(`${API_URL}/api/miniapp/buy-crypto`, payload, { timeout: 35000 });
+        const res = await axios.post(`${API_URL}/api/miniapp/buy-crypto`, payload, { timeout: 65000 });
         return res.data;
     } catch (e) {
         throw new Error(e.response?.data?.error || e.message || 'Failed to purchase crypto');

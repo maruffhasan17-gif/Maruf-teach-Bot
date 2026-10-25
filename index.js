@@ -29,9 +29,18 @@ function invalidateOrdersCache() {
     ordersCache = { data: null, timestamp: 0 };
 }
 
+function normalizeTrxId(raw) {
+    if (!raw) return '';
+    const str = String(raw).trim();
+    const match = str.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|Transaction\s*ID)[\s:.\-_=]*([A-Za-z0-9]{4,25})/i);
+    if (match && match[1]) return match[1].toUpperCase();
+    return str.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+}
+
 async function getVerifiedTrxRecord(trxId) {
-    if (!trxId) return null;
-    const cleanId = trxId.toString().trim().toUpperCase();
+    const cleanId = normalizeTrxId(trxId);
+    if (!cleanId) return null;
+
     if (inMemoryVerifiedTrx.has(cleanId)) {
         return {
             isInMemory: true,
@@ -39,6 +48,16 @@ async function getVerifiedTrxRecord(trxId) {
             ref: null
         };
     }
+    for (const [k, v] of inMemoryVerifiedTrx.entries()) {
+        if (String(k).toUpperCase() === cleanId || String(v?.trxId || v?.id || '').toUpperCase() === cleanId) {
+            return {
+                isInMemory: true,
+                data: v,
+                ref: null
+            };
+        }
+    }
+
     try {
         const snap = await db.collection('verified_trx').doc(cleanId).get();
         if (snap.exists) {
@@ -48,6 +67,17 @@ async function getVerifiedTrxRecord(trxId) {
                 ref: snap.ref
             };
         }
+        const rawTrimmed = String(trxId).trim();
+        if (rawTrimmed && rawTrimmed !== cleanId) {
+            const snapRaw = await db.collection('verified_trx').doc(rawTrimmed).get();
+            if (snapRaw.exists) {
+                return {
+                    isInMemory: false,
+                    data: snapRaw.data(),
+                    ref: snapRaw.ref
+                };
+            }
+        }
     } catch (err) {
         console.warn("Firestore verified_trx lookup error:", err.message);
     }
@@ -55,7 +85,7 @@ async function getVerifiedTrxRecord(trxId) {
 }
 
 async function markVerifiedTrxClaimed(recordInfo, trxId, userId) {
-    const cleanId = trxId.toString().trim().toUpperCase();
+    const cleanId = normalizeTrxId(trxId);
     if (recordInfo?.isInMemory || inMemoryVerifiedTrx.has(cleanId)) {
         const memData = inMemoryVerifiedTrx.get(cleanId) || recordInfo?.data;
         if (memData) {
@@ -507,14 +537,23 @@ function verifyRequestCallerIdentity(req, userId) {
 }
 
 // Helper: Fast Account Status Check for Inflow Endpoints (Add Money / Crypto Sell)
-// Never blocks legitimate deposits (even 20,000+ BDT) with balance audits; only blocks banned/restricted accounts.
+// Never blocks legitimate deposits (even 20,000+ BDT) with balance audits; only blocks admin-banned/restricted accounts.
 async function checkUserAccountActive(userId) {
     const strUserId = String(userId);
-    const userDoc = await db.collection('users').doc(strUserId).get();
-    if (!userDoc.exists) {
+    const userRef = db.collection('users').doc(strUserId);
+    const userDoc = await userRef.get().catch(() => null);
+    if (!userDoc || !userDoc.exists) {
         return { ok: true, userData: {} };
     }
     const uData = userDoc.data() || {};
+
+    // Auto-clear any legacy false-positive automated balance restriction
+    if (uData.status === 'restricted' && !uData.restrictedUntil && String(uData.restrictReason || '').includes('অসামঞ্জস্যপূর্ণ')) {
+        uData.status = 'active';
+        uData.restrictReason = null;
+        userRef.set({ status: 'active', restrictReason: null }, { merge: true }).catch(() => {});
+    }
+
     const isBanned = uData.status === 'banned' || Boolean(uData.isBanned);
     const isRestricted = uData.status === 'restricted' && (!uData.restrictedUntil || new Date(uData.restrictedUntil) > new Date());
     if (isBanned) {
@@ -540,6 +579,13 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     }
     
     const uData = userDoc.data() || {};
+
+    // Auto-clear any legacy false-positive automated balance restriction before evaluating fresh ledger
+    if (uData.status === 'restricted' && !uData.restrictedUntil && String(uData.restrictReason || '').includes('অসামঞ্জস্যপূর্ণ')) {
+        uData.status = 'active';
+        uData.restrictReason = null;
+        await userRef.set({ status: 'active', restrictReason: null }, { merge: true }).catch(() => {});
+    }
     
     // 1. Status Check
     const isBanned = uData.status === 'banned' || Boolean(uData.isBanned);
@@ -572,32 +618,33 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     }
     
     // 3. Mathematical Ledger Reconciliation (Proof of Funds)
-    // A) Deposits (Add Money) across both 'deposits' and completed fiat 'miniapp_buys'
+    // Use single-field .where('userId', '==', ...) with .catch() so Firestore composite index is never required
     const [depSnap1, depSnap2, buySnap1, buySnap2, sellSnap1, sellSnap2, withSnap1, withSnap2] = await Promise.all([
-        db.collection('deposits').where('userId', '==', strUserId).where('status', '==', 'completed').get(),
-        (numUserId && !isNaN(numUserId) && numUserId !== strUserId)
-            ? db.collection('deposits').where('userId', '==', numUserId).where('status', '==', 'completed').get()
+        db.collection('deposits').where('userId', '==', strUserId).get().catch(() => ({ docs: [] })),
+        (numUserId && !isNaN(numUserId))
+            ? db.collection('deposits').where('userId', '==', numUserId).get().catch(() => ({ docs: [] }))
             : Promise.resolve({ docs: [] }),
-        db.collection('miniapp_buys').where('userId', '==', strUserId).get(),
-        (numUserId && !isNaN(numUserId) && numUserId !== strUserId)
-            ? db.collection('miniapp_buys').where('userId', '==', numUserId).get()
+        db.collection('miniapp_buys').where('userId', '==', strUserId).get().catch(() => ({ docs: [] })),
+        (numUserId && !isNaN(numUserId))
+            ? db.collection('miniapp_buys').where('userId', '==', numUserId).get().catch(() => ({ docs: [] }))
             : Promise.resolve({ docs: [] }),
-        db.collection('miniapp_sells').where('userId', '==', strUserId).where('status', '==', 'completed').get(),
-        (numUserId && !isNaN(numUserId) && numUserId !== strUserId)
-            ? db.collection('miniapp_sells').where('userId', '==', numUserId).where('status', '==', 'completed').get()
+        db.collection('miniapp_sells').where('userId', '==', strUserId).get().catch(() => ({ docs: [] })),
+        (numUserId && !isNaN(numUserId))
+            ? db.collection('miniapp_sells').where('userId', '==', numUserId).get().catch(() => ({ docs: [] }))
             : Promise.resolve({ docs: [] }),
-        db.collection('fiat_withdrawals').where('userId', '==', strUserId).get(),
-        (numUserId && !isNaN(numUserId) && numUserId !== strUserId)
-            ? db.collection('fiat_withdrawals').where('userId', '==', numUserId).get()
+        db.collection('fiat_withdrawals').where('userId', '==', strUserId).get().catch(() => ({ docs: [] })),
+        (numUserId && !isNaN(numUserId))
+            ? db.collection('fiat_withdrawals').where('userId', '==', numUserId).get().catch(() => ({ docs: [] }))
             : Promise.resolve({ docs: [] })
     ]);
     
     const seenDepIds = new Set();
     let sumDepositsCollection = 0;
-    for (const doc of [...depSnap1.docs, ...depSnap2.docs]) {
-        if (!seenDepIds.has(doc.id)) {
+    for (const doc of [...(depSnap1?.docs || []), ...(depSnap2?.docs || [])]) {
+        const dData = doc.data() || {};
+        if (!seenDepIds.has(doc.id) && (!dData.status || dData.status === 'completed' || dData.status === 'verified')) {
             seenDepIds.add(doc.id);
-            sumDepositsCollection += Number(doc.data().amount || 0);
+            sumDepositsCollection += Number(dData.amount || 0);
         }
     }
     
@@ -607,13 +654,13 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     let sumLegitRefunds = 0;
     let illegalRefundBdt = 0;
     
-    for (const doc of [...buySnap1.docs, ...buySnap2.docs]) {
+    for (const doc of [...(buySnap1?.docs || []), ...(buySnap2?.docs || [])]) {
         if (!seenBuyIds.has(doc.id)) {
             seenBuyIds.add(doc.id);
-            const bData = doc.data();
+            const bData = doc.data() || {};
             const isWalletPayment = bData.paymentMethod === 'In-App Balance' || bData.paidWithWallet === true || bData.paidFromBalance === true || bData.paymentMethod === 'wallet';
             
-            if (!isWalletPayment && bData.status === 'completed') {
+            if (!isWalletPayment && (bData.status === 'completed' || bData.status === 'verified' || bData.type === 'add_money')) {
                 // Completed bKash/Nagad deposit or Add Money
                 if (!seenDepIds.has(doc.id)) {
                     seenDepIds.add(doc.id);
@@ -638,10 +685,11 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     // B) Crypto Sells credited to BDT
     const seenSellIds = new Set();
     let sumSellsCollection = 0;
-    for (const doc of [...sellSnap1.docs, ...sellSnap2.docs]) {
-        if (!seenSellIds.has(doc.id)) {
+    for (const doc of [...(sellSnap1?.docs || []), ...(sellSnap2?.docs || [])]) {
+        const sData = doc.data() || {};
+        if (!seenSellIds.has(doc.id) && sData.status === 'completed') {
             seenSellIds.add(doc.id);
-            sumSellsCollection += Number(doc.data().estimatedTk || doc.data().actualTk || 0);
+            sumSellsCollection += Number(sData.estimatedTk || sData.actualTk || 0);
         }
     }
     const sumSells = Math.max(sumSellsCollection, Number(uData.totalCryptoSellBdt || 0));
@@ -662,10 +710,10 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     // D) Withdrawals (both pending and completed)
     const seenWithIds = new Set();
     let sumWithdrawals = 0;
-    for (const doc of [...withSnap1.docs, ...withSnap2.docs]) {
+    for (const doc of [...(withSnap1?.docs || []), ...(withSnap2?.docs || [])]) {
         if (!seenWithIds.has(doc.id)) {
             seenWithIds.add(doc.id);
-            const wData = doc.data();
+            const wData = doc.data() || {};
             if (['completed', 'pending'].includes(wData.status)) {
                 sumWithdrawals += Number(wData.amount || 0);
             }
@@ -846,16 +894,17 @@ async function getAdminTreasuryBalances() {
     let tonBalance = 0;
     let usdtBalance = 0;
     const adminAddress = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+    const cacheBuster = Date.now();
 
     // 1. Fetch live native TON balance
     try {
-        const res = await axios.get(`https://tonapi.io/v2/accounts/${adminAddress}`, { timeout: 4000 });
+        const res = await axios.get(`https://tonapi.io/v2/accounts/${adminAddress}?_t=${cacheBuster}`, { timeout: 4500 });
         if (res.data && res.data.balance !== undefined) {
             tonBalance = parseFloat(res.data.balance) / 1e9;
         }
     } catch (e) {
         try {
-            const res2 = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${adminAddress}`, { timeout: 4000 });
+            const res2 = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${adminAddress}&_t=${cacheBuster}`, { timeout: 4500 });
             if (res2.data?.result?.balance !== undefined) {
                 tonBalance = parseFloat(res2.data.result.balance) / 1e9;
             }
@@ -865,17 +914,22 @@ async function getAdminTreasuryBalances() {
     }
 
     // 2. Fetch live USDT (Jetton) balance on TON
+    let adminUsdtJettonWallet = 'EQDE4Uycx9ZudIjjmaqmLx3MFTHjURx2FCU6nlH1bzFWCvZA';
     try {
-        const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${adminAddress}/jettons`, { timeout: 4000 });
+        const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${adminAddress}/jettons?_t=${cacheBuster}`, { timeout: 4500 });
         if (jettonRes.data && Array.isArray(jettonRes.data.balances)) {
             const usdtItem = jettonRes.data.balances.find(j => 
                 j.jetton?.symbol === 'USD₮' || 
                 j.jetton?.symbol === 'USDT' || 
-                j.jetton?.address?.includes('EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs')
+                j.jetton?.address?.includes('EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs') ||
+                j.jetton?.address?.includes('0:b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe')
             );
             if (usdtItem && usdtItem.balance) {
                 const decimals = usdtItem.jetton?.decimals || 6;
                 usdtBalance = parseFloat(usdtItem.balance) / Math.pow(10, decimals);
+                if (usdtItem.wallet_address?.address) {
+                    adminUsdtJettonWallet = usdtItem.wallet_address.address;
+                }
             }
         }
     } catch (e) {
@@ -885,8 +939,504 @@ async function getAdminTreasuryBalances() {
     return {
         ton: Number(tonBalance.toFixed(4)),
         usdt: Number(usdtBalance.toFixed(4)),
-        address: adminAddress
+        address: adminAddress,
+        usdtJettonWallet: adminUsdtJettonWallet
     };
+}
+
+// ==================== RELIABLE SEQNO & ON-CHAIN AUTO-SWAP ENGINE ====================
+let lastBroadcastedAdminSeqno = 0;
+let lastBroadcastedAdminAt = 0;
+let isAdminSwapInProgress = false;
+
+async function getReliableAdminSeqno(walletAddrStr) {
+    const fetchRpcSeqno = async () => {
+        const [r1, r2] = await Promise.allSettled([
+            axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${walletAddrStr}&_t=${Date.now()}`, { timeout: 4500 }),
+            axios.get(`https://tonapi.io/v2/accounts/${walletAddrStr}?_t=${Date.now()}`, { timeout: 4500 })
+        ]);
+        const s1 = r1.status === 'fulfilled' ? (Number(r1.value.data?.result?.seqno) || 0) : 0;
+        const s2 = r2.status === 'fulfilled' ? (Number(r2.value.data?.seqno) || 0) : 0;
+        return Math.max(s1, s2);
+    };
+
+    let seqno = await fetchRpcSeqno();
+    // If an admin tx was broadcasted within the last 25 seconds and RPC hasn't caught up to lastBroadcastedAdminSeqno yet, wait briefly and re-fetch
+    if (lastBroadcastedAdminSeqno > 0 && (Date.now() - lastBroadcastedAdminAt < 25000) && seqno < lastBroadcastedAdminSeqno) {
+        for (let retry = 0; retry < 4; retry++) {
+            await new Promise(r => setTimeout(r, 2200));
+            seqno = await fetchRpcSeqno();
+            if (seqno >= lastBroadcastedAdminSeqno) break;
+        }
+        seqno = Math.max(seqno, lastBroadcastedAdminSeqno);
+    }
+    return seqno;
+}
+
+function recordAdminBroadcastSeqno(usedSeqno) {
+    lastBroadcastedAdminSeqno = Number(usedSeqno) + 1;
+    lastBroadcastedAdminAt = Date.now();
+}
+
+async function broadcastTonBoc(boc) {
+    try {
+        const res = await axios.post('https://tonapi.io/v2/blockchain/message', { boc }, { timeout: 8000 });
+        return { success: true, boc, provider: 'tonapi', result: res.data };
+    } catch (err1) {
+        try {
+            const res2 = await axios.post('https://toncenter.com/api/v2/sendBoc', { boc }, { timeout: 8000 });
+            return { success: true, boc, provider: 'toncenter', result: res2.data };
+        } catch (err2) {
+            const errMsg = err2.response?.data?.error || err1.response?.data?.error || err2.message;
+            throw new Error("Blockchain broadcast rejected: " + errMsg);
+        }
+    }
+}
+
+/**
+ * Automatically swaps USDT -> TON (GRAM) on-chain from the Admin Treasury Wallet.
+ * Uses STON.fi v2.2 when TON gas >= 0.30, or DeDust V2 when TON gas is between 0.155 and 0.30 (e.g., 0.25 GRAM).
+ */
+async function swapAdminUsdtToTon(usdtAmountToSwap) {
+    const { WalletContractV4, internal, external, storeMessage } = require('@ton/ton');
+    const { beginCell, Address } = require('@ton/core');
+    const { mnemonicToPrivateKey } = require('@ton/crypto');
+
+    if (!process.env.BOT_TON_SEED) {
+        throw new Error("BOT_TON_SEED is not configured in .env");
+    }
+
+    const beforeTreasury = await getAdminTreasuryBalances();
+    let reqUsdt = parseFloat(Number(usdtAmountToSwap).toFixed(4));
+    if (!Number.isFinite(reqUsdt) || reqUsdt < 0.10) {
+        throw new Error(`সোয়াপের জন্য নূন্যতম 0.10 USDT প্রয়োজন (প্রদত্ত: ${usdtAmountToSwap})`);
+    }
+    if (reqUsdt > beforeTreasury.usdt && (reqUsdt - beforeTreasury.usdt) <= 0.08) {
+        reqUsdt = beforeTreasury.usdt;
+    }
+    if (beforeTreasury.usdt < reqUsdt) {
+        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত USDT নেই! বর্তমান ব্যালেন্স: ${beforeTreasury.usdt} USDT, সোয়াপের জন্য প্রয়োজন: ${reqUsdt} USDT`);
+    }
+    if (beforeTreasury.ton < 0.155) {
+        throw new Error(`USDT থেকে GRAM সোয়াপ করার জন্য এডমিন ওয়ালেটে নূন্যতম 0.16 TON গ্যাস ফি থাকতে হবে (বর্তমান: ${beforeTreasury.ton} TON)`);
+    }
+
+    const seedWords = process.env.BOT_TON_SEED.trim().split(/\s+/);
+    const keyPair = await mnemonicToPrivateKey(seedWords);
+    const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
+    const walletAddrStr = wallet.address.toString({ bounceable: false });
+
+    const offerUnits = BigInt(Math.floor(reqUsdt * 1e6));
+    let adminJettonWallet = beforeTreasury.usdtJettonWallet || 'EQDE4Uycx9ZudIjjmaqmLx3MFTHjURx2FCU6nlH1bzFWCvZA';
+    const seqno = await getReliableAdminSeqno(walletAddrStr);
+
+    let jettonBody = null;
+    let outerTonValue = 160000000n; // 0.16 TON default for low-gas DeDust V2
+    let usedDex = 'DeDust V2';
+
+    // Strategy 1: If Admin Wallet has >= 0.30 TON, try STON.fi v2.2 simulation first
+    if (beforeTreasury.ton >= 0.30) {
+        try {
+            const simRes = await axios.post('https://api.ston.fi/v1/swap/simulate', null, {
+                params: {
+                    offer_address: 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs',
+                    ask_address: 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c',
+                    units: offerUnits.toString(),
+                    slippage_tolerance: '0.025'
+                },
+                timeout: 4500
+            });
+            const sim = simRes.data;
+            if (sim && sim.router_address && sim.ask_jetton_wallet) {
+                const minOut = BigInt(sim.min_ask_units || 0);
+                const txDeadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+
+                const crossSwapBody = beginCell()
+                    .storeCoins(minOut)
+                    .storeAddress(wallet.address)
+                    .storeCoins(0n)
+                    .storeBit(false)
+                    .storeCoins(0n)
+                    .storeBit(false)
+                    .storeUint(0, 16)
+                    .storeAddress(null)
+                    .endCell();
+
+                const swapPayload = beginCell()
+                    .storeUint(0x6664de2a, 32)
+                    .storeAddress(Address.parse(sim.ask_jetton_wallet))
+                    .storeAddress(wallet.address)
+                    .storeAddress(wallet.address)
+                    .storeUint(txDeadline, 64)
+                    .storeRef(crossSwapBody)
+                    .endCell();
+
+                const fwdTon = beforeTreasury.ton >= 0.34 ? 235000000n : 210000000n;
+                outerTonValue = beforeTreasury.ton >= 0.34 ? 285000000n : 260000000n;
+
+                jettonBody = beginCell()
+                    .storeUint(0x0f8a7ea5, 32)
+                    .storeUint(BigInt(Date.now()), 64)
+                    .storeCoins(offerUnits)
+                    .storeAddress(Address.parse(sim.router_address))
+                    .storeAddress(wallet.address)
+                    .storeBit(false)
+                    .storeCoins(fwdTon)
+                    .storeBit(true)
+                    .storeRef(swapPayload)
+                    .endCell();
+                usedDex = 'STON.fi v2.2';
+            }
+        } catch (simErr) {
+            console.warn("STON.fi simulation fallback to DeDust V2:", simErr.message);
+        }
+    }
+
+    // Strategy 2: DeDust V2 (Works even with 0.16 - 0.25 TON in Admin Wallet!)
+    if (!jettonBody) {
+        const dedustUsdtVault = 'EQAYqo4u7VF0fa4DPAebk4g9lBytj2VFny7pzXR0trjtXQaO';
+        const dedustTonUsdtPool = 'EQA-X_yo3fzzbDbJ_0bzFWKqtRuZFIRa1sJsveZJ1YpViO3r';
+
+        // Dynamically scale gas attachment so it succeeds even when wallet only has 0.16 - 0.25 TON
+        if (beforeTreasury.ton >= 0.27) {
+            outerTonValue = 220000000n; // 0.22 TON (refunds ~0.215 TON)
+        } else if (beforeTreasury.ton >= 0.21) {
+            outerTonValue = 175000000n; // 0.175 TON (works cleanly for 0.25 TON wallet!)
+        } else {
+            outerTonValue = 150000000n; // 0.15 TON (minimum 1-hop DeDust threshold)
+        }
+        const forwardTonAmount = outerTonValue - 45000000n; // e.g., 0.13 TON or 0.105 TON
+
+        const swapParams = beginCell()
+            .storeUint(Math.floor(Date.now() / 1000) + 3600, 32)
+            .storeAddress(wallet.address)
+            .storeAddress(null)
+            .storeMaybeRef(null)
+            .storeMaybeRef(null)
+            .endCell();
+
+        const forwardPayload = beginCell()
+            .storeUint(0xe3a0d482, 32) // dedust_swap_external
+            .storeAddress(Address.parse(dedustTonUsdtPool))
+            .storeUint(0, 1) // kind = 0 (exact in)
+            .storeCoins(0n) // limit = 0 (market execution)
+            .storeMaybeRef(null) // next = null (direct 1-hop USDT -> TON)
+            .storeRef(swapParams)
+            .endCell();
+
+        jettonBody = beginCell()
+            .storeUint(0x0f8a7ea5, 32)
+            .storeUint(BigInt(Date.now()), 64)
+            .storeCoins(offerUnits)
+            .storeAddress(Address.parse(dedustUsdtVault))
+            .storeAddress(wallet.address)
+            .storeBit(false)
+            .storeCoins(forwardTonAmount)
+            .storeBit(true)
+            .storeRef(forwardPayload)
+            .endCell();
+        usedDex = 'DeDust V2';
+    }
+
+    const transfer = wallet.createTransfer({
+        seqno,
+        secretKey: keyPair.secretKey,
+        messages: [
+            internal({
+                to: Address.parse(adminJettonWallet),
+                value: outerTonValue,
+                bounce: true,
+                body: jettonBody
+            })
+        ]
+    });
+
+    const extMsg = beginCell().store(storeMessage(external({
+        to: wallet.address,
+        body: transfer
+    }))).endCell();
+
+    const boc = extMsg.toBoc().toString('base64');
+    console.log(`[AUTO-SWAP] Broadcasting USDT -> GRAM swap (${reqUsdt} USDT via ${usedDex}, seqno=${seqno})...`);
+    await broadcastTonBoc(boc);
+    recordAdminBroadcastSeqno(seqno);
+
+    // Poll until swapped TON lands in Admin Wallet (up to ~35 seconds)
+    let afterTreasury = beforeTreasury;
+    let swapConfirmed = false;
+    for (let i = 1; i <= 14; i++) {
+        await new Promise(r => setTimeout(r, 2500));
+        afterTreasury = await getAdminTreasuryBalances();
+        const tonGain = afterTreasury.ton - beforeTreasury.ton;
+        const usdtDrop = beforeTreasury.usdt - afterTreasury.usdt;
+        console.log(`[AUTO-SWAP POLL #${i}] TON: ${afterTreasury.ton} (gain: ${tonGain.toFixed(4)}), USDT: ${afterTreasury.usdt}`);
+        if (tonGain >= 0.04 || (usdtDrop >= reqUsdt * 0.5 && afterTreasury.ton > beforeTreasury.ton)) {
+            swapConfirmed = true;
+            break;
+        }
+    }
+
+    statsCache.timestamp = 0;
+    if (!swapConfirmed) {
+        throw new Error(`সোয়াপ ট্রানজেকশন ব্রডকাস্ট হয়েছে কিন্তু ব্লকচেইন কনফার্মেশনে সময় লাগছে। কিছুক্ষণ পর আবার চেষ্টা করুন।`);
+    }
+
+    return {
+        success: true,
+        direction: 'USDT_TO_GRAM',
+        dex: usedDex,
+        swappedUsdt: reqUsdt,
+        receivedTon: Math.max(0, Number((afterTreasury.ton - beforeTreasury.ton).toFixed(4))),
+        beforeTreasury,
+        afterTreasury
+    };
+}
+
+/**
+ * Automatically swaps TON (GRAM) -> USDT on-chain from the Admin Treasury Wallet via DeDust V2.
+ */
+async function swapAdminTonToUsdt(tonAmountToSwap) {
+    const { WalletContractV4, internal, external, storeMessage } = require('@ton/ton');
+    const { beginCell, Address } = require('@ton/core');
+    const { mnemonicToPrivateKey } = require('@ton/crypto');
+
+    if (!process.env.BOT_TON_SEED) {
+        throw new Error("BOT_TON_SEED is not configured in .env");
+    }
+
+    const beforeTreasury = await getAdminTreasuryBalances();
+    const reqTon = parseFloat(Number(tonAmountToSwap).toFixed(4));
+    if (!Number.isFinite(reqTon) || reqTon < 0.10) {
+        throw new Error(`সোয়াপের জন্য নূন্যতম 0.10 GRAM/TON প্রয়োজন (প্রদত্ত: ${tonAmountToSwap})`);
+    }
+    if (beforeTreasury.ton < reqTon + 0.26) {
+        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত GRAM/TON নেই! বর্তমান ব্যালেন্স: ${beforeTreasury.ton} GRAM, সোয়াপ ও গ্যাস ফিসহ প্রয়োজন: ${(reqTon + 0.26).toFixed(4)} GRAM`);
+    }
+
+    const seedWords = process.env.BOT_TON_SEED.trim().split(/\s+/);
+    const keyPair = await mnemonicToPrivateKey(seedWords);
+    const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
+    const walletAddrStr = wallet.address.toString({ bounceable: false });
+    const seqno = await getReliableAdminSeqno(walletAddrStr);
+
+    const dedustNativeVault = 'EQDa4VOnTYlLvDJ0gZjNYm5PXfSmmtL6Vs6A_CZEtXCNICq_';
+    const dedustTonUsdtPool = 'EQA-X_yo3fzzbDbJ_0bzFWKqtRuZFIRa1sJsveZJ1YpViO3r';
+
+    const amountNano = BigInt(Math.floor(reqTon * 1e9));
+    const outerValueNano = amountNano + 250000000n; // +0.25 TON gas buffer (excess refunded to wallet)
+
+    const swapParams = beginCell()
+        .storeUint(Math.floor(Date.now() / 1000) + 3600, 32)
+        .storeAddress(wallet.address)
+        .storeAddress(null)
+        .storeMaybeRef(null)
+        .storeMaybeRef(null)
+        .endCell();
+
+    const swapBody = beginCell()
+        .storeUint(0xea06185d, 32) // dedust_swap (native TON)
+        .storeUint(BigInt(Date.now()), 64)
+        .storeCoins(amountNano)
+        .storeAddress(Address.parse(dedustTonUsdtPool))
+        .storeUint(0, 1) // kind = 0
+        .storeCoins(0n) // limit = 0
+        .storeMaybeRef(null)
+        .storeRef(swapParams)
+        .endCell();
+
+    const transfer = wallet.createTransfer({
+        seqno,
+        secretKey: keyPair.secretKey,
+        messages: [
+            internal({
+                to: Address.parse(dedustNativeVault),
+                value: outerValueNano,
+                bounce: true,
+                body: swapBody
+            })
+        ]
+    });
+
+    const extMsg = beginCell().store(storeMessage(external({
+        to: wallet.address,
+        body: transfer
+    }))).endCell();
+
+    const boc = extMsg.toBoc().toString('base64');
+    console.log(`[AUTO-SWAP] Broadcasting GRAM -> USDT swap (${reqTon} GRAM via DeDust V2, seqno=${seqno})...`);
+    await broadcastTonBoc(boc);
+    recordAdminBroadcastSeqno(seqno);
+
+    let afterTreasury = beforeTreasury;
+    let swapConfirmed = false;
+    for (let i = 1; i <= 14; i++) {
+        await new Promise(r => setTimeout(r, 2500));
+        afterTreasury = await getAdminTreasuryBalances();
+        const usdtGain = afterTreasury.usdt - beforeTreasury.usdt;
+        console.log(`[AUTO-SWAP POLL #${i}] USDT: ${afterTreasury.usdt} (gain: ${usdtGain.toFixed(4)}), TON: ${afterTreasury.ton}`);
+        if (usdtGain >= 0.04) {
+            swapConfirmed = true;
+            break;
+        }
+    }
+
+    statsCache.timestamp = 0;
+    if (!swapConfirmed) {
+        throw new Error(`GRAM থেকে USDT সোয়াপ ট্রানজেকশন ব্রডকাস্ট হয়েছে কিন্তু ব্লকচেইন কনফার্মেশনে সময় লাগছে। কিছুক্ষণ পর আবার চেষ্টা করুন।`);
+    }
+
+    return {
+        success: true,
+        direction: 'GRAM_TO_USDT',
+        dex: 'DeDust V2',
+        swappedTon: reqTon,
+        receivedUsdt: Math.max(0, Number((afterTreasury.usdt - beforeTreasury.usdt).toFixed(4))),
+        beforeTreasury,
+        afterTreasury
+    };
+}
+
+/**
+ * Ensures the Admin Treasury has enough of `asset` ('GRAM', 'TON', or 'USDT') to send `requiredCryptoAmount`.
+ * If the requested asset is short, but the other asset has sufficient balance, automatically swaps on-chain first!
+ */
+async function ensureAdminTreasuryForOrder(asset, requiredCryptoAmount, meta = {}) {
+    const cleanAsset = (asset || 'GRAM').toUpperCase();
+    const isTonAsset = (cleanAsset === 'GRAM' || cleanAsset === 'TON');
+    const reqAmount = parseFloat(requiredCryptoAmount);
+
+    // Wait if another auto-swap is currently running
+    let waitTicks = 0;
+    while (isAdminSwapInProgress && waitTicks < 16) {
+        await new Promise(r => setTimeout(r, 2000));
+        waitTicks++;
+    }
+
+    let treasury = await getAdminTreasuryBalances();
+    const MIN_TON_TRANSFER_GAS = 0.02;
+    const liveTonPrice = Number(cachedMarketRates?.realGramUsdt) || 1.32;
+    const config = botConfig || {};
+    const adminGroupId = config.adminGroupId || 8799135330;
+
+    if (isTonAsset) {
+        const requiredTon = reqAmount + MIN_TON_TRANSFER_GAS;
+        if (treasury.ton >= requiredTon) {
+            return { ok: true, treasury, autoSwapped: false };
+        }
+
+        // Shortfall of GRAM/TON! Check if we can auto-swap USDT -> GRAM
+        const minShortfallTon = (requiredTon - treasury.ton) + 0.06;
+        // Ideal shortfall leaves ~0.30 TON gas reserve in the wallet after sending to the user so future swaps also have gas
+        const idealShortfallTon = (requiredTon - treasury.ton) + 0.30;
+
+        const minUsdtNeeded = Math.max(0.20, parseFloat((minShortfallTon * liveTonPrice * 1.05).toFixed(2)));
+        const idealUsdtNeeded = Math.max(0.35, parseFloat((idealShortfallTon * liveTonPrice * 1.06).toFixed(2)));
+
+        if (treasury.usdt >= minUsdtNeeded && treasury.ton >= 0.155) {
+            const usdtToSwap = parseFloat(Math.min(treasury.usdt, idealUsdtNeeded).toFixed(4));
+            isAdminSwapInProgress = true;
+            try {
+                const swapRes = await swapAdminUsdtToTon(usdtToSwap);
+                treasury = swapRes.afterTreasury || await getAdminTreasuryBalances();
+
+                if (treasury.ton >= reqAmount + 0.015) {
+                    if (adminGroupId && bot) {
+                        const swapMsg = `<blockquote><b>🔄 অটো-সোয়াপ সম্পন্ন (Auto-Swap USDT ➔ ${cleanAsset})!</b>\n\n` +
+                            `👤 <b>ইউজার অর্ডার:</b> <code>${meta.userId || 'Admin'}</code> — <b>${reqAmount} ${cleanAsset}</b>\n` +
+                            `💎 <b>পূর্বের ব্যালেন্স ছিল:</b> <code>${swapRes.beforeTreasury.ton} GRAM | ${swapRes.beforeTreasury.usdt} USDT</code>\n` +
+                            `⚡ <b>অটো-সোয়াপ:</b> <b>${swapRes.swappedUsdt} USDT ➔ +${swapRes.receivedTon} GRAM</b> (${swapRes.dex})\n` +
+                            `✅ <b>সোয়াপ পরবর্তী ব্যালেন্স:</b> <b>${treasury.ton} GRAM | ${treasury.usdt} USDT</b>\n\n` +
+                            `🚀 <i>এখন স্বয়ংক্রিয়ভাবে ইউজারের ওয়ালেটে ${reqAmount} ${cleanAsset} পাঠানো হচ্ছে...</i></blockquote>`;
+                        bot.sendMessage(adminGroupId, swapMsg, { parse_mode: 'HTML' }).catch(() => {});
+                    }
+                    return { ok: true, treasury, autoSwapped: true, swapDetails: swapRes };
+                }
+            } catch (swapErr) {
+                console.error("Auto-swap USDT -> GRAM error:", swapErr.message);
+                return {
+                    ok: false,
+                    treasury,
+                    reason: 'swap_failed',
+                    swapError: swapErr.message,
+                    requiredTon,
+                    minUsdtNeeded
+                };
+            } finally {
+                isAdminSwapInProgress = false;
+            }
+        }
+
+        return {
+            ok: false,
+            treasury,
+            reason: treasury.ton < 0.155 ? 'insufficient_ton_gas_for_swap' : 'insufficient_ton_and_usdt',
+            requiredTon,
+            minUsdtNeeded
+        };
+    } else if (cleanAsset === 'USDT') {
+        if (treasury.usdt >= reqAmount && treasury.ton >= 0.05) {
+            return { ok: true, treasury, autoSwapped: false };
+        }
+
+        // Case 1: Have enough USDT, but TON gas is < 0.05 (cannot even swap without TON gas)
+        if (treasury.usdt >= reqAmount && treasury.ton < 0.05) {
+            return {
+                ok: false,
+                treasury,
+                reason: 'insufficient_ton_gas',
+                requiredUsdt: reqAmount
+            };
+        }
+
+        // Case 2: Insufficient USDT, check if we have excess GRAM/TON to swap into USDT!
+        const shortfallUsdt = (reqAmount - treasury.usdt) + 0.15;
+        const tonNeededForSwap = Math.max(0.20, parseFloat(((shortfallUsdt / liveTonPrice) * 1.06).toFixed(4)));
+        // Need tonNeededForSwap + 0.26 TON (swap gas, mostly refunded) + 0.06 TON (for USDT transfer after swap)
+        const minTonRequiredTotal = parseFloat((tonNeededForSwap + 0.32).toFixed(4));
+
+        if (treasury.ton >= minTonRequiredTotal) {
+            isAdminSwapInProgress = true;
+            try {
+                const swapRes = await swapAdminTonToUsdt(tonNeededForSwap);
+                treasury = swapRes.afterTreasury || await getAdminTreasuryBalances();
+
+                if (treasury.usdt >= reqAmount && treasury.ton >= 0.05) {
+                    if (adminGroupId && bot) {
+                        const swapMsg = `<blockquote><b>🔄 অটো-সোয়াপ সম্পন্ন (Auto-Swap GRAM ➔ USDT)!</b>\n\n` +
+                            `👤 <b>ইউজার অর্ডার:</b> <code>${meta.userId || 'Admin'}</code> — <b>${reqAmount} USDT</b>\n` +
+                            `💵 <b>পূর্বের ব্যালেন্স ছিল:</b> <code>${swapRes.beforeTreasury.usdt} USDT | ${swapRes.beforeTreasury.ton} GRAM</code>\n` +
+                            `⚡ <b>অটো-সোয়াপ:</b> <b>${swapRes.swappedTon} GRAM ➔ +${swapRes.receivedUsdt} USDT</b> (${swapRes.dex})\n` +
+                            `✅ <b>সোয়াপ পরবর্তী ব্যালেন্স:</b> <b>${treasury.usdt} USDT | ${treasury.ton} GRAM</b>\n\n` +
+                            `🚀 <i>এখন স্বয়ংক্রিয়ভাবে ইউজারের ওয়ালেটে ${reqAmount} USDT পাঠানো হচ্ছে...</i></blockquote>`;
+                        bot.sendMessage(adminGroupId, swapMsg, { parse_mode: 'HTML' }).catch(() => {});
+                    }
+                    return { ok: true, treasury, autoSwapped: true, swapDetails: swapRes };
+                }
+            } catch (swapErr) {
+                console.error("Auto-swap GRAM -> USDT error:", swapErr.message);
+                return {
+                    ok: false,
+                    treasury,
+                    reason: 'swap_failed',
+                    swapError: swapErr.message,
+                    requiredUsdt: reqAmount,
+                    minTonRequiredTotal
+                };
+            } finally {
+                isAdminSwapInProgress = false;
+            }
+        }
+
+        return {
+            ok: false,
+            treasury,
+            reason: 'insufficient_usdt_and_ton',
+            requiredUsdt: reqAmount,
+            minTonRequiredTotal
+        };
+    }
+
+    return { ok: false, treasury, reason: 'unsupported_asset' };
 }
 
 async function sendTonOnChain(destination, amount) {
@@ -899,12 +1449,12 @@ async function sendTonOnChain(destination, amount) {
         throw new Error("BOT_TON_SEED is not configured in .env");
     }
 
-    // 1. Strict Treasury Check before creating tx
-    const treasury = await getAdminTreasuryBalances();
-    const MIN_TON_GAS = 0.02;
+    // 1. Strict Treasury Check (with Auto-Swap if needed) before creating tx
     const reqTon = parseFloat(amount);
-    if (treasury.ton < reqTon + MIN_TON_GAS) {
-        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত TON ব্যালেন্স নেই! বর্তমান ব্যালেন্স: ${treasury.ton} TON, প্রয়োজন: ${(reqTon + MIN_TON_GAS).toFixed(4)} TON (গ্যাস ফিসহ)`);
+    const ensureRes = await ensureAdminTreasuryForOrder('GRAM', reqTon, { receiveAddress: destination });
+    if (!ensureRes.ok) {
+        const t = ensureRes.treasury || { ton: 0, usdt: 0 };
+        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত TON/GRAM বা সোয়াপ করার মতো USDT নেই! বর্তমান ব্যালেন্স: ${t.ton} GRAM | ${t.usdt} USDT, প্রয়োজন: ${(reqTon + 0.02).toFixed(4)} GRAM`);
     }
 
     const seedWords = process.env.BOT_TON_SEED.trim().split(/\s+/);
@@ -912,20 +1462,8 @@ async function sendTonOnChain(destination, amount) {
     const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
     const walletAddrStr = wallet.address.toString({ bounceable: false });
 
-    let seqno = 0;
-    try {
-        const seqnoRes = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${walletAddrStr}`);
-        seqno = seqnoRes.data?.result?.seqno || 0;
-    } catch (e) {
-        try {
-            const tonapiRes = await axios.get(`https://tonapi.io/v2/accounts/${walletAddrStr}`);
-            seqno = tonapiRes.data?.seqno || 0;
-        } catch (e2) {
-            seqno = 0;
-        }
-    }
-
-    const amountNano = ethers.parseUnits(amount.toString(), 9);
+    const seqno = await getReliableAdminSeqno(walletAddrStr);
+    const amountNano = ethers.parseUnits(reqTon.toFixed(6), 9);
 
     const transfer = wallet.createTransfer({
         seqno,
@@ -949,20 +1487,10 @@ async function sendTonOnChain(destination, amount) {
     }))).endCell();
 
     const boc = extMsg.toBoc().toString('base64');
-
-    try {
-        const res = await axios.post('https://toncenter.com/api/v2/sendBoc', { boc });
-        return { success: true, boc, provider: 'toncenter', result: res.data };
-    } catch (err) {
-        console.warn("Toncenter sendBoc failed, trying TonAPI:", err.response?.data || err.message);
-        try {
-            const res2 = await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
-            return { success: true, boc, provider: 'tonapi', result: res2.data };
-        } catch (err2) {
-            const errMsg = err2.response?.data?.error || err2.message;
-            throw new Error("Blockchain transfer rejected: " + errMsg);
-        }
-    }
+    const bRes = await broadcastTonBoc(boc);
+    recordAdminBroadcastSeqno(seqno);
+    statsCache.timestamp = 0;
+    return { ...bRes, autoSwapped: ensureRes.autoSwapped, swapDetails: ensureRes.swapDetails || null };
 }
 
 async function sendJettonUsdtOnChain(destination, amount) {
@@ -975,14 +1503,12 @@ async function sendJettonUsdtOnChain(destination, amount) {
         throw new Error("BOT_TON_SEED is not configured in .env");
     }
 
-    // 1. Strict Treasury & Gas Check
-    const treasury = await getAdminTreasuryBalances();
+    // 1. Strict Treasury & Gas Check (with Auto-Swap if needed)
     const reqUsdt = parseFloat(amount);
-    if (treasury.usdt < reqUsdt) {
-        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত USDT নেই! বর্তমান ব্যালেন্স: ${treasury.usdt} USDT, প্রয়োজন: ${reqUsdt} USDT`);
-    }
-    if (treasury.ton < 0.05) {
-        throw new Error(`এডমিন ওয়ালেটে গ্যাস ফি (TON) অপর্যাপ্ত! বর্তমান TON ব্যালেন্স: ${treasury.ton} TON, প্রয়োজন: 0.05 TON`);
+    const ensureRes = await ensureAdminTreasuryForOrder('USDT', reqUsdt, { receiveAddress: destination });
+    if (!ensureRes.ok) {
+        const t = ensureRes.treasury || { ton: 0, usdt: 0 };
+        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত USDT বা গ্যাস ফি নেই! বর্তমান ব্যালেন্স: ${t.usdt} USDT | ${t.ton} GRAM, প্রয়োজন: ${reqUsdt} USDT`);
     }
 
     const seedWords = process.env.BOT_TON_SEED.trim().split(/\s+/);
@@ -991,31 +1517,21 @@ async function sendJettonUsdtOnChain(destination, amount) {
     const walletAddrStr = wallet.address.toString({ bounceable: false });
 
     // 2. Resolve admin's USDT Jetton Wallet
-    const usdtMaster = 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs';
-    let adminJettonWallet = null;
-    try {
-        const jwRes = await axios.get(`https://tonapi.io/v2/blockchain/accounts/${usdtMaster}/methods/get_wallet_address?args=${walletAddrStr}`);
-        if (jwRes.data?.decoded?.jetton_wallet_address) {
-            adminJettonWallet = jwRes.data.decoded.jetton_wallet_address;
-        }
-    } catch(e) {}
+    let adminJettonWallet = ensureRes.treasury?.usdtJettonWallet || null;
+    if (!adminJettonWallet) {
+        const usdtMaster = 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs';
+        try {
+            const jwRes = await axios.get(`https://tonapi.io/v2/blockchain/accounts/${usdtMaster}/methods/get_wallet_address?args=${walletAddrStr}`);
+            if (jwRes.data?.decoded?.jetton_wallet_address) {
+                adminJettonWallet = jwRes.data.decoded.jetton_wallet_address;
+            }
+        } catch(e) {}
+    }
     if (!adminJettonWallet) {
         adminJettonWallet = 'EQDE4Uycx9ZudIjjmaqmLx3MFTHjURx2FCU6nlH1bzFWCvZA';
     }
 
-    let seqno = 0;
-    try {
-        const seqnoRes = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${walletAddrStr}`);
-        seqno = seqnoRes.data?.result?.seqno || 0;
-    } catch (e) {
-        try {
-            const tonapiRes = await axios.get(`https://tonapi.io/v2/accounts/${walletAddrStr}`);
-            seqno = tonapiRes.data?.seqno || 0;
-        } catch (e2) {
-            seqno = 0;
-        }
-    }
-
+    const seqno = await getReliableAdminSeqno(walletAddrStr);
     const amountInMicro = Math.floor(reqUsdt * 1e6); // 6 decimals for USDT
 
     const commentCell = beginCell()
@@ -1054,19 +1570,10 @@ async function sendJettonUsdtOnChain(destination, amount) {
     }))).endCell();
 
     const boc = extMsg.toBoc().toString('base64');
-
-    try {
-        const res = await axios.post('https://toncenter.com/api/v2/sendBoc', { boc });
-        return { success: true, boc, provider: 'toncenter', result: res.data };
-    } catch (err) {
-        try {
-            const res2 = await axios.post('https://tonapi.io/v2/blockchain/message', { boc });
-            return { success: true, boc, provider: 'tonapi', result: res2.data };
-        } catch (err2) {
-            const errMsg = err2.response?.data?.error || err2.message;
-            throw new Error("Blockchain USDT transfer rejected: " + errMsg);
-        }
-    }
+    const bRes = await broadcastTonBoc(boc);
+    recordAdminBroadcastSeqno(seqno);
+    statsCache.timestamp = 0;
+    return { ...bRes, autoSwapped: ensureRes.autoSwapped, swapDetails: ensureRes.swapDetails || null };
 }
 
 function getMenu(lang) {
@@ -2639,6 +3146,12 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             }
         }
 
+        if (data.status === 'restricted' && !data.restrictedUntil && String(data.restrictReason || '').includes('অসামঞ্জস্যপূর্ণ')) {
+            data.status = 'active';
+            data.isRestricted = false;
+            userRef.set({ status: 'active', isRestricted: false, restrictReason: null }, { merge: true }).catch(() => {});
+        }
+
         const isBanned = data.status === 'banned' || Boolean(data.isBanned);
         const isRestricted = data.status === 'restricted' && (!data.restrictedUntil || new Date(data.restrictedUntil) > new Date());
         res.json({ 
@@ -3495,9 +4008,112 @@ app.use('/api/admin', (req, res, next) => {
 });
 app.use(['/api/stats', '/api/withdraw', '/api/approve-fraud', '/api/transactions'], requireAdminAuth);
 
+const EVM_NETWORKS_CONFIG = {
+    BEP20: {
+        id: 'BEP20',
+        name: 'BNB Smart Chain (BEP20)',
+        shortName: 'BSC (BEP20)',
+        chainId: 56,
+        rpc: 'https://bsc.publicnode.com',
+        usdtContract: '0x55d398326f99059fF775485246999027B3197955',
+        usdtDecimals: 18,
+        nativeSymbol: 'BNB',
+        explorer: 'https://bscscan.com'
+    },
+    ARBITRUM: {
+        id: 'ARBITRUM',
+        name: 'Arbitrum One (ARB)',
+        shortName: 'Arbitrum One',
+        chainId: 42161,
+        rpc: 'https://arbitrum-one.publicnode.com',
+        usdtContract: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+        usdtDecimals: 6,
+        nativeSymbol: 'ETH',
+        explorer: 'https://arbiscan.io'
+    },
+    AVAXC: {
+        id: 'AVAXC',
+        name: 'Avalanche C-Chain (AVAX-C)',
+        shortName: 'AVAX C-Chain',
+        chainId: 43114,
+        rpc: 'https://avalanche-c-chain-rpc.publicnode.com',
+        usdtContract: '0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7',
+        usdtDecimals: 6,
+        nativeSymbol: 'AVAX',
+        explorer: 'https://snowtrace.io'
+    },
+    POLYGON: {
+        id: 'POLYGON',
+        name: 'Polygon POS (MATIC / POL)',
+        shortName: 'Polygon POS',
+        chainId: 137,
+        rpc: 'https://polygon-bor-rpc.publicnode.com',
+        usdtContract: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        usdtDecimals: 6,
+        nativeSymbol: 'POL',
+        explorer: 'https://polygonscan.com'
+    },
+    ERC20: {
+        id: 'ERC20',
+        name: 'Ethereum Mainnet (ERC20)',
+        shortName: 'Ethereum (ERC20)',
+        chainId: 1,
+        rpc: 'https://ethereum-rpc.publicnode.com',
+        usdtContract: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+        usdtDecimals: 6,
+        nativeSymbol: 'ETH',
+        explorer: 'https://etherscan.io'
+    }
+};
+
+async function fetchMultiChainEvmBalances(evmAddr) {
+    const defaultBalances = {
+        BEP20: { usdt: "0.00", native: "0.0000", nativeSymbol: "BNB" },
+        ARBITRUM: { usdt: "0.00", native: "0.0000", nativeSymbol: "ETH" },
+        AVAXC: { usdt: "0.00", native: "0.0000", nativeSymbol: "AVAX" },
+        POLYGON: { usdt: "0.00", native: "0.0000", nativeSymbol: "POL" },
+        ERC20: { usdt: "0.00", native: "0.0000", nativeSymbol: "ETH" }
+    };
+    if (!evmAddr) return { networks: defaultBalances, totalEvmUsdt: "0.00" };
+
+    let totalUsdt = 0;
+    const entries = Object.values(EVM_NETWORKS_CONFIG);
+    await Promise.allSettled(entries.map(async (net) => {
+        try {
+            const provider = new ethers.JsonRpcProvider(net.rpc);
+            const usdtContract = new ethers.Contract(
+                net.usdtContract,
+                ['function balanceOf(address) view returns (uint256)'],
+                provider
+            );
+            const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('RPC timeout')), 4200));
+            const [balWei, natWei] = await Promise.race([
+                Promise.all([usdtContract.balanceOf(evmAddr), provider.getBalance(evmAddr)]),
+                timeoutPromise
+            ]);
+            const usdtVal = parseFloat(ethers.formatUnits(balWei, net.usdtDecimals));
+            const natVal = parseFloat(ethers.formatEther(natWei));
+            defaultBalances[net.id] = {
+                usdt: usdtVal.toFixed(2),
+                native: natVal.toFixed(4),
+                nativeSymbol: net.nativeSymbol
+            };
+            totalUsdt += usdtVal;
+        } catch (err) {
+            // Keep default 0.00 if individual RPC times out
+        }
+    }));
+
+    return {
+        networks: defaultBalances,
+        totalEvmUsdt: totalUsdt.toFixed(2)
+    };
+}
+
 app.get('/api/stats', async (req, res) => {
     const now = Date.now();
-    if (statsCache.data && (now - statsCache.timestamp < 25000)) {
+    const forceRefresh = req.query.refresh === 'true' || req.query.force === '1';
+    if (!forceRefresh && statsCache.data && (now - statsCache.timestamp < 25000)) {
         return res.json(statsCache.data);
     }
 
@@ -3563,46 +4179,41 @@ app.get('/api/stats', async (req, res) => {
             if (statsCache.data?.failedScreenshots) failedScreenshots = statsCache.data.failedScreenshots;
         }
 
-        console.log("Fetching TON balances (USDT, TON, GRAM)...");
+        console.log("Fetching TON & Multi-Chain EVM balances...");
         let tonBalance = "0.00";
         let tonNativeBalance = "0.00";
         let tonUsdtBalance = "0.00";
         let gramBalance = "0.00";
-        try {
-            if (process.env.BOT_TON_ADDRESS) {
-                const treasury = await getAdminTreasuryBalances();
-                tonNativeBalance = treasury.ton.toFixed(2);
-                tonUsdtBalance = treasury.usdt.toFixed(2);
-                tonBalance = tonNativeBalance;
+        const evmAddr = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS || "";
+        const tonAddr = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
 
-                // Also check GRAM jetton
-                try {
-                    const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${process.env.BOT_TON_ADDRESS}/jettons?_t=${Date.now()}`, { timeout: 3000 });
-                    if (jettonRes.data && Array.isArray(jettonRes.data.balances)) {
-                        const gramJetton = jettonRes.data.balances.find(j => j.jetton?.symbol === 'GRAM');
-                        if (gramJetton) {
-                            gramBalance = tonNativeBalance;
-                        }
-                    }
-                } catch(e) {}
-            }
-        } catch(e) {
-            console.error("TON Error:", e.message);
+        const [tonTreasuryRes, evmMultiRes] = await Promise.allSettled([
+            getAdminTreasuryBalances(),
+            fetchMultiChainEvmBalances(evmAddr)
+        ]);
+
+        if (tonTreasuryRes.status === 'fulfilled' && tonTreasuryRes.value) {
+            tonNativeBalance = tonTreasuryRes.value.ton.toFixed(2);
+            tonUsdtBalance = tonTreasuryRes.value.usdt.toFixed(2);
+            tonBalance = tonNativeBalance;
+            gramBalance = tonNativeBalance;
         }
 
-        console.log("Fetching EVM balance...");
-        let evmBalance = "0.00";
-        try {
-            const evmAddr = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
-            if (evmAddr) {
-                const provider = new ethers.JsonRpcProvider('https://bsc.publicnode.com');
-                const usdtContract = new ethers.Contract('0x55d398326f99059fF775485246999027B3197955', ['function balanceOf(address) view returns (uint256)'], provider);
-                const balanceWei = await usdtContract.balanceOf(evmAddr);
-                evmBalance = parseFloat(ethers.formatUnits(balanceWei, 18)).toFixed(2);
-            }
-        } catch (e) {
-            console.error("EVM Error:", e.message);
-        }
+        const evmData = (evmMultiRes.status === 'fulfilled' && evmMultiRes.value)
+            ? evmMultiRes.value
+            : { networks: {}, totalEvmUsdt: "0.00" };
+        const evmBalance = evmData.totalEvmUsdt || "0.00";
+
+        const networkBalances = {
+            TON: {
+                usdt: tonUsdtBalance,
+                gram: gramBalance,
+                native: tonNativeBalance,
+                nativeSymbol: 'TON',
+                address: tonAddr
+            },
+            ...(evmData.networks || {})
+        };
 
         const resultData = {
             users: users,
@@ -3612,8 +4223,15 @@ app.get('/api/stats', async (req, res) => {
             tonUsdtBalance: tonUsdtBalance,
             gramBalance: (parseFloat(gramBalance) > 0 ? gramBalance : tonNativeBalance),
             evmBalance: evmBalance,
-            evmAddress: process.env.BOT_EVM_ADDRESS,
-            tonAddress: process.env.BOT_TON_ADDRESS
+            bep20UsdtBalance: evmData.networks?.BEP20?.usdt || "0.00",
+            arbitrumUsdtBalance: evmData.networks?.ARBITRUM?.usdt || "0.00",
+            avaxUsdtBalance: evmData.networks?.AVAXC?.usdt || "0.00",
+            polygonUsdtBalance: evmData.networks?.POLYGON?.usdt || "0.00",
+            erc20UsdtBalance: evmData.networks?.ERC20?.usdt || "0.00",
+            networkBalances: networkBalances,
+            evmAddress: evmAddr,
+            tonAddress: tonAddr,
+            liveTonUsdtRate: cachedMarketRates?.realGramUsdt || 1.32
         };
 
         statsCache = { data: resultData, timestamp: now };
@@ -3631,6 +4249,7 @@ app.get('/api/stats', async (req, res) => {
             tonUsdtBalance: "0.00",
             gramBalance: "0.00",
             evmBalance: "0.00",
+            networkBalances: {},
             evmAddress: process.env.BOT_EVM_ADDRESS || "",
             tonAddress: process.env.BOT_TON_ADDRESS || ""
         });
@@ -3868,69 +4487,121 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
     }
 });
 
+// Admin Manual & Instant Treasury Swap Endpoint (USDT ⇄ GRAM/TON)
+app.post('/api/admin/swap-treasury', async (req, res) => {
+    if (isAdminSwapInProgress) {
+        return res.status(429).json({ error: 'একটি অন-চেইন সোয়াপ ইতিমধ্যে চলমান রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।' });
+    }
+    const { direction, amount } = req.body || {};
+    const numAmount = parseFloat(amount);
+    if (!direction || !Number.isFinite(numAmount) || numAmount <= 0) {
+        return res.status(400).json({ error: 'সঠিক সোয়াপ ডিরেকশন এবং পরিমাণ দিন।' });
+    }
+
+    isAdminSwapInProgress = true;
+    try {
+        let swapResult = null;
+        if (direction === 'USDT_TO_GRAM' || direction === 'USDT_TO_TON') {
+            swapResult = await swapAdminUsdtToTon(numAmount);
+        } else if (direction === 'GRAM_TO_USDT' || direction === 'TON_TO_USDT') {
+            swapResult = await swapAdminTonToUsdt(numAmount);
+        } else {
+            return res.status(400).json({ error: 'Invalid swap direction. Use USDT_TO_GRAM or GRAM_TO_USDT.' });
+        }
+
+        statsCache.timestamp = 0;
+        return res.json({
+            success: true,
+            message: direction.startsWith('USDT')
+                ? `সফলভাবে ${swapResult.swappedUsdt} USDT সোয়াপ করে +${swapResult.receivedTon} GRAM পাওয়া গেছে!`
+                : `সফলভাবে ${swapResult.swappedTon} GRAM সোয়াপ করে +${swapResult.receivedUsdt} USDT পাওয়া গেছে!`,
+            ...swapResult
+        });
+    } catch (err) {
+        console.error("Admin manual swap error:", err.message);
+        return res.status(500).json({ error: err.message });
+    } finally {
+        isAdminSwapInProgress = false;
+    }
+});
+
 app.post('/api/withdraw', async (req, res) => {
     try {
         const { amount, destination, network, asset } = req.body;
-        
-        if (network === 'TON') {
-            if (asset === 'USDT') {
-                const txRes = await sendJettonUsdtOnChain(destination, amount);
+        const cleanNet = (network || 'TON').toUpperCase();
+        const cleanAsset = (asset || 'TON').toUpperCase();
+        const reqAmt = parseFloat(amount);
+        if (!destination || !Number.isFinite(reqAmt) || reqAmt <= 0) {
+            return res.status(400).json({ error: "সঠিক রিসিভ অ্যাড্রেস এবং পরিমাণ দিন।" });
+        }
+
+        if (cleanNet === 'TON') {
+            if (cleanAsset === 'USDT') {
+                const txRes = await sendJettonUsdtOnChain(destination, reqAmt);
                 return res.json({ 
                     success: true, 
-                    message: `Successfully transferred ${amount} USDT on-chain to ${destination}`,
+                    message: `Successfully transferred ${reqAmt} USDT on-chain to ${destination}`,
                     tx: txRes 
                 });
+            } else {
+                const txRes = await sendTonOnChain(destination, reqAmt);
+                return res.json({
+                    success: true,
+                    message: `Successfully sent ${reqAmt} ${cleanAsset} on-chain to ${destination}`,
+                    tx: txRes
+                });
             }
+        }
 
-            const { WalletContractV4, internal, beginCell, external, storeMessage } = require('@ton/ton');
-            const { mnemonicToPrivateKey } = require('@ton/crypto');
-            const { ethers } = require('ethers');
+        // Multi-Chain EVM Withdrawal Support (BEP20, ARBITRUM, AVAXC, POLYGON, ERC20)
+        const netKey = cleanNet === 'EVM' || cleanNet === 'BSC' ? 'BEP20' : cleanNet;
+        const netCfg = EVM_NETWORKS_CONFIG[netKey];
+        if (!netCfg) {
+            return res.status(400).json({ error: `Unsupported network: ${network}` });
+        }
 
-            const keyPair = await mnemonicToPrivateKey(process.env.BOT_TON_SEED.split(' '));
-            const wallet = WalletContractV4.create({ workchain: 0, publicKey: keyPair.publicKey });
-            
-            let seqno = 0;
-            try {
-                // Fetch seqno from Toncenter
-                const seqnoRes = await axios.get(`https://toncenter.com/api/v2/getWalletInformation?address=${wallet.address.toString(true, true, true)}`);
-                seqno = seqnoRes.data?.result?.seqno || 0;
-            } catch(e) {
-                seqno = 0;
+        const privKey = process.env.BOT_EVM_PRIVATE_KEY || process.env.EVM_PRIVATE_KEY;
+        if (!privKey) {
+            return res.status(500).json({ error: "BOT_EVM_PRIVATE_KEY is not configured in .env" });
+        }
+
+        const provider = new ethers.JsonRpcProvider(netCfg.rpc);
+        const wallet = new ethers.Wallet(privKey.trim(), provider);
+
+        if (cleanAsset === 'USDT') {
+            const usdtContract = new ethers.Contract(
+                netCfg.usdtContract,
+                [
+                    'function balanceOf(address) view returns (uint256)',
+                    'function transfer(address to, uint256 amount) returns (bool)'
+                ],
+                wallet
+            );
+            const units = ethers.parseUnits(reqAmt.toString(), netCfg.usdtDecimals);
+            const curBal = await usdtContract.balanceOf(wallet.address);
+            if (curBal < units) {
+                return res.status(400).json({
+                    error: `${netCfg.shortName} নেটওয়ার্কে পর্যাপ্ত USDT নেই! বর্তমান ব্যালেন্স: ${ethers.formatUnits(curBal, netCfg.usdtDecimals)} USDT`
+                });
             }
-
-            const amountNano = ethers.parseUnits(amount.toString(), 9);
-
-            const transfer = wallet.createTransfer({
-                seqno,
-                secretKey: keyPair.secretKey,
-                messages: [
-                    internal({
-                        to: destination,
-                        value: amountNano,
-                        bounce: false,
-                        body: "Withdrawal from Trust Pay"
-                    })
-                ]
+            const tx = await usdtContract.transfer(destination, units);
+            await tx.wait(1);
+            statsCache.timestamp = 0;
+            return res.json({
+                success: true,
+                message: `Successfully sent ${reqAmt} USDT on ${netCfg.shortName} to ${destination}`,
+                txHash: tx.hash
             });
-            
-            // Wrap in External Message for Toncenter
-            const extMsg = beginCell().store(storeMessage(external({
-                to: wallet.address,
-                body: transfer
-            }))).endCell();
-
-            const boc = extMsg.toBoc().toString('base64');
-            
-            try {
-                await axios.post('https://toncenter.com/api/v2/sendBoc', { boc });
-                res.json({ success: true, message: `Successfully sent ${amount} TON/GRAM to ${destination}` });
-            } catch (err) {
-                console.error(err.response?.data || err.message);
-                const apiErr = err.response?.data?.error || err.message;
-                res.status(500).json({ error: "Blockchain rejected transfer: " + apiErr });
-            }
         } else {
-            res.status(400).json({ error: "EVM Withdrawal not fully implemented yet." });
+            const units = ethers.parseEther(reqAmt.toString());
+            const tx = await wallet.sendTransaction({ to: destination, value: units });
+            await tx.wait(1);
+            statsCache.timestamp = 0;
+            return res.json({
+                success: true,
+                message: `Successfully sent ${reqAmt} ${netCfg.nativeSymbol} on ${netCfg.shortName} to ${destination}`,
+                txHash: tx.hash
+            });
         }
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -3987,33 +4658,29 @@ app.post('/api/miniapp/add-money', async (req, res) => {
     let { userId, amount, paymentMethod, trxId } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
-    // 1. Rate Limit check (max 15 requests/min per user)
-    if (!checkRateLimit(`add_money_${userId}`, 15, 60000)) {
-        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    // 1. Rate Limit check (max 30 requests/min per user)
+    if (!checkRateLimit(`add_money_${userId}`, 30, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে কয়েক সেকেন্ড অপেক্ষা করুন।' });
     }
 
-    // 2. Caller Identity Verification (Telegram WebApp initData HMAC)
-    if (!verifyRequestCallerIdentity(req, userId)) {
-        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
-    }
-
-    // 3. Concurrency Mutex Lock
+    // 2. Concurrency Mutex Lock
     const hasLock = acquireUserFinancialLock(userId);
     if (!hasLock) {
         return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
     }
 
     try {
-        if (!trxId || trxId.length < 5) {
-            return res.status(400).json({ error: 'সঠিক Transaction ID দিন (কমপক্ষে ৫ অক্ষর)' });
+        trxId = normalizeTrxId(trxId);
+        if (!trxId || trxId.length < 4) {
+            return res.status(400).json({ error: 'সঠিক Transaction ID (TrxID) দিন' });
         }
-        trxId = trxId.trim().toUpperCase();
-        amount = parseFloat(amount);
+
+        amount = parseFloat(String(amount ?? '').replace(/,/g, '').trim());
         if (!Number.isFinite(amount) || amount <= 0) {
             return res.status(400).json({ error: 'সঠিক টাকার পরিমাণ দিন' });
         }
 
-        // 4. Account Active Check (Ban/Restriction check only; never block Add Money with balance audit)
+        // 3. Account Active Check (Ban/Restriction check only; never block Add Money with balance audit or limits)
         const statusCheck = await checkUserAccountActive(userId);
         if (!statusCheck.ok) {
             return res.status(403).json({ error: statusCheck.error });
@@ -4022,12 +4689,17 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         const devInfo = extractClientDevice(req, req.body);
         recordAndVerifyDeviceAntiClone(userId, devInfo).catch(() => {});
 
-        const verifiedRecord = await getVerifiedTrxRecord(trxId);
-        
+        let verifiedRecord = await getVerifiedTrxRecord(trxId);
+        // If SMS webhook is arriving right now, wait 1.2s and check once more
+        if (!verifiedRecord || !verifiedRecord.data) {
+            await new Promise(r => setTimeout(r, 1200));
+            verifiedRecord = await getVerifiedTrxRecord(trxId);
+        }
+
         // STRICT: If not found in database or memory, REJECT IMMEDIATELY! NO PENDING!
         if (!verifiedRecord || !verifiedRecord.data) {
             return res.status(400).json({ 
-                error: 'ভুল অথবা আনভেরিফাইড Transaction ID! টাকা পাঠিয়ে সঠিক TrxID দিন বা এসএমএস আসা পর্যন্ত ১ মিনিট অপেক্ষা করে আবার চেষ্টা করুন।' 
+                error: 'ভুল অথবা আনভেরিফাইড Transaction ID! টাকা পাঠিয়ে সঠিক TrxID দিন বা এসএমএস আসা পর্যন্ত কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন।' 
             });
         }
 
@@ -4040,8 +4712,9 @@ app.post('/api/miniapp/add-money', async (req, res) => {
             });
         }
 
+        const verifiedAmount = parseFloat(String(verifiedData.amount ?? 0).replace(/,/g, ''));
         // If amount mismatch, REJECT without leaking actual SMS amount to the user!
-        if (verifiedData.amount && Math.abs(verifiedData.amount - amount) > 1) {
+        if (Number.isFinite(verifiedAmount) && verifiedAmount > 0 && Math.abs(verifiedAmount - amount) > 1) {
             // Secretly notify Data Group (Admin only)
             const config = botConfig || {};
             const dataGroup = config.dataGroupId || config.adminGroupId;
@@ -4049,7 +4722,7 @@ app.post('/api/miniapp/add-money', async (req, res) => {
                 const mismatchAlert = `<blockquote><b>⚠️ টাকার পরিমাণে অমিল সতর্কবার্তা (Add Money Mismatch)!</b>\n\n` +
                     `👤 <b>User:</b> <code>${userId}</code>\n` +
                     `💰 <b>ইউজার ইনপুট (Selected):</b> <b>৳${amount} BDT</b>\n` +
-                    `💵 <b>প্রকৃত এসএমএস (Actual SMS):</b> <b>৳${verifiedData.amount} BDT</b>\n` +
+                    `💵 <b>প্রকৃত এসএমএস (Actual SMS):</b> <b>৳${verifiedAmount} BDT</b>\n` +
                     `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
                     `🔒 <b>স্ট্যাটাস:</b> ট্রানজেকশন ক্লেইম ব্লক করা হয়েছে (Protected)</blockquote>`;
                 bot.sendMessage(dataGroup, mismatchAlert, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
@@ -4063,7 +4736,8 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         // MATCH! Claim TrxID and instantly add money to user's balance!
         await markVerifiedTrxClaimed(verifiedRecord, trxId, userId);
 
-        const userRef = db.collection('users').doc(userId.toString());
+        const strUserId = String(userId);
+        const userRef = db.collection('users').doc(strUserId);
         await userRef.set({
             balance: FieldValue.increment(amount),
             totalAddMoneyBdt: FieldValue.increment(amount),
@@ -4075,8 +4749,9 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         // Record completed deposit in database
         await db.collection('deposits').doc(trxId).set({
             userId,
+            userIdStr: strUserId,
             amount,
-            paymentMethod,
+            paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
             trxId,
             status: 'completed',
             type: 'add_money',
@@ -4086,10 +4761,11 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         // Also record in miniapp_buys for Admin Orders List history
         await db.collection('miniapp_buys').doc(trxId).set({
             userId,
+            userIdStr: strUserId,
             asset: 'BDT',
             amount,
             totalBdt: amount,
-            paymentMethod,
+            paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
             trxId,
             status: 'completed',
             type: 'add_money',
@@ -4101,10 +4777,11 @@ app.post('/api/miniapp/add-money', async (req, res) => {
 
         const updatedDoc = await userRef.get();
         const newBalance = updatedDoc.data()?.balance || amount;
+        const gatewayLabel = String(paymentMethod || verifiedData.sender || 'bKash').toUpperCase();
 
         const userAddMoneyMsg = `<b>${PE.moneyBag} ব্যালেন্স ডিপোজিট সফল! (Deposit Approved!)</b>\n\n` +
             `<blockquote>${PE.dollar} <b>Amount:</b> <code>৳${amount} BDT</code>\n` +
-            `${PE.bank} <b>Gateway:</b> <code>${paymentMethod.toUpperCase()}</code>\n` +
+            `${PE.bank} <b>Gateway:</b> <code>${gatewayLabel}</code>\n` +
             `${PE.note} <b>TrxID:</b> <code>${trxId}</code>\n` +
             `${PE.moneyBag} <b>New Balance:</b> <b>৳${newBalance} BDT</b>\n` +
             `${PE.check} <b>Status:</b> <code>Auto-Verified &amp; Credited</code></blockquote>\n\n` +
@@ -4117,7 +4794,7 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         if (dataGroup && bot) {
             const dataAddMoneyMsg = `<blockquote><b>${PE.moneyBag} নতুন টাকা যুক্ত (Add Money)!</b>\n\n` +
                 `${PE.user} <b>User:</b> <code>${userId}</code>\n` +
-                `${PE.dollar} <b>পরিমাণ:</b> <b>৳${amount} BDT</b> (${paymentMethod})\n` +
+                `${PE.dollar} <b>পরিমাণ:</b> <b>৳${amount} BDT</b> (${gatewayLabel})\n` +
                 `${PE.moneyBag} <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
                 `${PE.note} <b>TrxID:</b> <code>${trxId}</code>\n` +
                 `${PE.check} <b>স্ট্যাটাস:</b> ব্যালেন্সে অটো যোগ হয়েছে</blockquote>`;
@@ -4195,68 +4872,41 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             });
         }
 
-        // 2. CRITICAL: CHECK ADMIN TREASURY & GAS FEE BEFORE DEDUCTING USER BALANCE!
-        const treasury = await getAdminTreasuryBalances();
+        // 2. CRITICAL: CHECK ADMIN TREASURY & AUTO-SWAP (USDT ⇄ GRAM) BEFORE DEDUCTING USER BALANCE!
         const isTonAsset = (asset === 'GRAM' || asset === 'TON');
-        const MIN_TON_GAS = 0.02;
+        const gasFee = (asset === 'USDT') ? 0.008 : 0.0015;
+        const netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - gasFee).toFixed(6)));
 
         const config = botConfig || {};
         const adminGroupId = config.adminGroupId || 8799135330;
 
-        if (isTonAsset) {
-            const requiredTon = cryptoAmount + MIN_TON_GAS;
-            if (treasury.ton < requiredTon) {
-                // Insufficient TON/gas in Admin Wallet: DO NOT DEDUCT! DO NOT SAY SUCCESS!
-                if (adminGroupId && bot) {
-                    const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে ক্রিপ্টো বা গ্যাস ফি অপর্যাপ্ত!</b>\n\n` +
-                        `👤 ইউজার: <code>${userId}</code>\n` +
-                        `💎 কিনতে চেয়েছে: <b>${cryptoAmount} ${asset}</b> (৳${bdtAmount} BDT)\n` +
-                        `🏷 রিসিভ ওয়ালেট: <code>${receiveAddress}</code>\n\n` +
-                        `🏦 <b>এডমিন ওয়ালেট ব্যালেন্স:</b>\n` +
-                        `💎 বর্তমান TON: <b>${treasury.ton} TON</b>\n` +
-                        `⛽ প্রয়োজনীয় TON: <b>${requiredTon.toFixed(4)} TON</b> (গ্যাস ফিসহ)\n\n` +
-                        `<i>ইউজারের ব্যালেন্স কাটা হয়নি। এডমিন ওয়ালেটে ক্রিপ্টো ডিপোজিট করুন!</i>`;
-                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                }
+        const ensureRes = await ensureAdminTreasuryForOrder(asset, netCryptoAmount, {
+            userId,
+            bdtAmount,
+            receiveAddress
+        });
 
-                return res.status(400).json({
-                    error: 'সার্ভার বা ব্লকচেইন নেটওয়ার্কে সাময়িক ট্রাফিকের কারণে ক্রিপ্টো ট্রান্সফার সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।'
-                });
-            }
-        } else if (asset === 'USDT') {
-            if (treasury.usdt < cryptoAmount) {
-                if (adminGroupId && bot) {
-                    const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে USDT অপর্যাপ্ত!</b>\n\n` +
-                        `👤 ইউজার: <code>${userId}</code>\n` +
-                        `💵 কিনতে চেয়েছে: <b>${cryptoAmount} USDT</b> (৳${bdtAmount} BDT)\n` +
-                        `🏷 রিসিভ ওয়ালেট: <code>${receiveAddress}</code>\n\n` +
-                        `🏦 বর্তমান এডমিন USDT: <b>${treasury.usdt} USDT</b> (প্রয়োজন: ${cryptoAmount} USDT)\n\n` +
-                        `<i>ইউজারের ব্যালেন্স কাটা হয়নি। এডমিন ওয়ালেটে USDT ডিপোজিট করুন!</i>`;
-                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                }
-
-                return res.status(400).json({
-                    error: 'সার্ভার বা ব্লকচেইন নেটওয়ার্কে সাময়িক ট্রাফিকের কারণে ক্রিপ্টো ট্রান্সফার সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।'
-                });
+        if (!ensureRes.ok) {
+            const treasury = ensureRes.treasury || { ton: 0, usdt: 0 };
+            if (adminGroupId && bot) {
+                const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে ক্রিপ্টো বা গ্যাস ফি অপর্যাপ্ত (অটো-সোয়াপ সম্ভব হয়নি)!</b>\n\n` +
+                    `👤 ইউজার: <code>${userId}</code>\n` +
+                    `💎 কিনতে চেয়েছে: <b>${cryptoAmount} ${asset}</b> (৳${bdtAmount} BDT)\n` +
+                    `🏷 রিসিভ ওয়ালেট: <code>${receiveAddress}</code>\n\n` +
+                    `🏦 <b>বর্তমান এডমিন ওয়ালেট ব্যালেন্স:</b>\n` +
+                    `• <b>GRAM / TON:</b> <code>${treasury.ton} GRAM</code>\n` +
+                    `• <b>USDT:</b> <code>${treasury.usdt} USDT</code>\n` +
+                    (ensureRes.swapError ? `• <b>সোয়াপ ত্রুটি:</b> <i>${ensureRes.swapError}</i>\n` : '') +
+                    `\n<i>ইউজারের ব্যালেন্স কাটা হয়নি। এডমিন ওয়ালেটে USDT বা GRAM ডিপোজিট করুন!</i>`;
+                bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
             }
 
-            if (treasury.ton < 0.05) {
-                if (adminGroupId && bot) {
-                    const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে গ্যাস ফি (TON) অপর্যাপ্ত!</b>\n\n` +
-                        `👤 ইউজার: <code>${userId}</code>\n` +
-                        `💵 USDT অর্ডারের জন্য প্রয়োজনীয় গ্যাস: 0.05 TON\n` +
-                        `🏦 বর্তমান এডমিন TON গ্যাস: <b>${treasury.ton} TON</b>\n\n` +
-                        `<i>ইউজারের ব্যালেন্স কাটা হয়নি। এডমিন ওয়ালেটে TON গ্যাস ফি ডিপোজিট করুন!</i>`;
-                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                }
-
-                return res.status(400).json({
-                    error: 'সার্ভার বা ব্লকচেইন নেটওয়ার্কে সাময়িক ট্রাফিকের কারণে ক্রিপ্টো ট্রান্সফার সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।'
-                });
-            }
+            return res.status(400).json({
+                error: 'সার্ভার বা ব্লকচেইন নেটওয়ার্কে সাময়িক ট্রাফিকের কারণে ক্রিপ্টো ট্রান্সফার সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।'
+            });
         }
 
-        // 3. ADMIN WALLET HAS VERIFIED FUNDS: NOW DEDUCT USER BDT BALANCE
+        // 3. ADMIN WALLET HAS VERIFIED FUNDS (OR COMPLETED AUTO-SWAP): NOW DEDUCT USER BDT BALANCE
         const prevSpent = userDoc.data()?.spentSinceLastDeposit || 0;
         const newSpent = prevSpent + bdtAmount;
         const buyUpdates = {
@@ -4269,10 +4919,6 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         await userRef.update(buyUpdates);
 
         // 4. BROADCAST ON-CHAIN TRANSACTION!
-        // Deduct gas fee from cryptoAmount (0.005 for TON/GRAM, 0.03 for USDT)
-        const gasFee = (asset === 'USDT') ? 0.008 : 0.0015;
-        const netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - gasFee).toFixed(6)));
-
         let txResult = null;
         try {
             if (isTonAsset) {
@@ -4373,36 +5019,38 @@ app.post('/api/miniapp/buy', async (req, res) => {
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
     // 1. Rate Limit check
-    if (!checkRateLimit(`buy_trx_${userId}`, 15, 60000)) {
-        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    if (!checkRateLimit(`buy_trx_${userId}`, 30, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে কয়েক সেকেন্ড অপেক্ষা করুন।' });
     }
 
-    // 2. Caller Identity Verification (Telegram WebApp initData HMAC)
-    if (!verifyRequestCallerIdentity(req, userId)) {
-        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
-    }
-
-    // 3. Concurrency Mutex Lock
+    // 2. Concurrency Mutex Lock
     const hasLock = acquireUserFinancialLock(userId);
     if (!hasLock) {
         return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
     }
 
     try {
-        // 4. Account Active Check (Ban/Restriction check only; never block deposit with balance audit)
+        // 3. Account Active Check (Ban/Restriction check only; never block deposit with balance audit)
         const statusCheck = await checkUserAccountActive(userId);
         if (!statusCheck.ok) {
             return res.status(403).json({ error: statusCheck.error });
         }
 
-        if (!trxId || trxId.length < 5) {
-            return res.status(400).json({ error: 'Please enter a valid Transaction ID (min 5 characters)' });
+        trxId = normalizeTrxId(trxId);
+        if (!trxId || trxId.length < 4) {
+            return res.status(400).json({ error: 'সঠিক Transaction ID (TrxID) দিন' });
         }
-        trxId = trxId.trim().toUpperCase();
-        amount = parseFloat(amount || totalBdt);
-        totalBdt = parseFloat(totalBdt || amount);
+        amount = parseFloat(String(amount || totalBdt || '').replace(/,/g, '').trim());
+        totalBdt = parseFloat(String(totalBdt || amount || '').replace(/,/g, '').trim());
+        if (!Number.isFinite(totalBdt) || totalBdt <= 0) {
+            return res.status(400).json({ error: 'সঠিক টাকার পরিমাণ দিন' });
+        }
 
-        const verifiedRecord = await getVerifiedTrxRecord(trxId);
+        let verifiedRecord = await getVerifiedTrxRecord(trxId);
+        if (!verifiedRecord || !verifiedRecord.data) {
+            await new Promise(r => setTimeout(r, 1200));
+            verifiedRecord = await getVerifiedTrxRecord(trxId);
+        }
         if (!verifiedRecord || !verifiedRecord.data) {
             return res.status(400).json({ 
                 error: 'ভুল অথবা আনভেরিফাইড Transaction ID! টাকা পাঠিয়ে সঠিক TrxID দিন বা কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন।' 
@@ -4414,7 +5062,8 @@ app.post('/api/miniapp/buy', async (req, res) => {
             return res.status(400).json({ error: "এই Transaction ID টি ইতিমধ্যে ব্যবহার করা হয়েছে!" });
         }
 
-        const amountDiff = verifiedData.amount ? Math.abs(verifiedData.amount - totalBdt) : 0;
+        const verifiedAmount = parseFloat(String(verifiedData.amount ?? 0).replace(/,/g, ''));
+        const amountDiff = (Number.isFinite(verifiedAmount) && verifiedAmount > 0) ? Math.abs(verifiedAmount - totalBdt) : 0;
         if (amountDiff > 1) {
             // Secretly notify Data Group (Admin only)
             const config = botConfig || {};
@@ -4423,7 +5072,7 @@ app.post('/api/miniapp/buy', async (req, res) => {
                 const mismatchAlert = `<blockquote><b>⚠️ টাকার পরিমাণে অমিল সতর্কবার্তা (Buy Order Mismatch)!</b>\n\n` +
                     `👤 <b>User:</b> <code>${userId}</code>\n` +
                     `💰 <b>ইউজার ইনপুট (Selected):</b> <b>৳${totalBdt} BDT</b>\n` +
-                    `💵 <b>প্রকৃত এসএমএস (Actual SMS):</b> <b>৳${verifiedData.amount} BDT</b>\n` +
+                    `💵 <b>প্রকৃত এসএমএস (Actual SMS):</b> <b>৳${verifiedAmount} BDT</b>\n` +
                     `#️⃣ <b>TrxID:</b> <code>${trxId}</code>\n` +
                     `🔒 <b>স্ট্যাটাস:</b> ট্রানজেকশন ক্লেইম ব্লক করা হয়েছে (Protected)</blockquote>`;
                 bot.sendMessage(dataGroup, mismatchAlert, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
@@ -4438,7 +5087,8 @@ app.post('/api/miniapp/buy', async (req, res) => {
         await markVerifiedTrxClaimed(verifiedRecord, trxId, userId);
 
         // Credit to balance!
-        const userRef = db.collection('users').doc(userId.toString());
+        const strUserId = String(userId);
+        const userRef = db.collection('users').doc(strUserId);
         await userRef.set({
             balance: FieldValue.increment(totalBdt),
             totalAddMoneyBdt: FieldValue.increment(totalBdt),
@@ -4449,8 +5099,9 @@ app.post('/api/miniapp/buy', async (req, res) => {
 
         await db.collection('deposits').doc(trxId).set({
             userId,
+            userIdStr: strUserId,
             amount: totalBdt,
-            paymentMethod,
+            paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
             trxId,
             status: 'completed',
             type: 'add_money',
@@ -4458,7 +5109,14 @@ app.post('/api/miniapp/buy', async (req, res) => {
         });
 
         await db.collection('miniapp_buys').doc(trxId).set({
-            userId, asset: asset || 'BDT', amount, totalBdt, paymentMethod, trxId, receiveAddress: receiveAddress || '',
+            userId,
+            userIdStr: strUserId,
+            asset: asset || 'BDT',
+            amount,
+            totalBdt,
+            paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
+            trxId,
+            receiveAddress: receiveAddress || '',
             status: 'completed',
             autoVerified: true,
             timestamp: FieldValue.serverTimestamp()
@@ -4514,12 +5172,13 @@ function parsePaymentSms(msg, rawSenderList) {
     const senderCombined = senders.join(' ');
 
     // Authentic verification check for bKash and Nagad
+    // Note: Standard bKash SMS bodies ("You have received Tk 500.00... TrxID ...") contain "TrxID" without the word "bKash" in the body.
     let provider = null;
     const isBkashSender = senderCombined.includes('bkash') || senderCombined.includes('16247');
     const isNagadSender = senderCombined.includes('nagad') || senderCombined.includes('16167');
     
-    const isBkashBody = textLower.includes('bkash') && textLower.includes('trxid');
-    const isNagadBody = (textLower.includes('nagad') || textLower.includes('txnid')) && (textLower.includes('txnid') || textLower.includes('trxid'));
+    const isNagadBody = textLower.includes('nagad') || textLower.includes('txnid') || textLower.includes('txn id');
+    const isBkashBody = textLower.includes('bkash') || textLower.includes('trxid') || textLower.includes('trx id') || textLower.includes('transaction id');
 
     if (isNagadSender || isNagadBody) {
         provider = 'nagad';
@@ -4530,22 +5189,27 @@ function parsePaymentSms(msg, rawSenderList) {
         return { isFraud: true };
     }
 
-    const trxMatch = text.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|Transaction\s*ID|TrxID\s*is|TxnID\s*is)[\s:.\-_=]*([A-Za-z0-9]{5,25})/i);
+    const trxMatch = text.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|Transaction\s*ID|TrxID\s*is|TxnID\s*is)[\s:.\-_=]*([A-Za-z0-9]{4,25})/i);
     if (!trxMatch) return null;
-    const trxId = trxMatch[1].toUpperCase();
+    const trxId = normalizeTrxId(trxMatch[1]);
+
+    // Remove Fee and Balance segments before fallback amount extraction so Fee/Balance is never mistaken for the received amount
+    const cleanedForFallback = text
+        .replace(/(?:fee|charge|vat|comm(?:ission)?)[\s:]*(?:Tk|BDT|টাকা|৳)?[\s.:]*[\d,]+(?:\.\d+)?/gi, ' ')
+        .replace(/(?:balance|bal|current\s*balance|new\s*balance)[\s:]*(?:Tk|BDT|টাকা|৳)?[\s.:]*[\d,]+(?:\.\d+)?/gi, ' ');
 
     let amount = 0;
-    const recvMatch = text.match(/(?:received|cash in|deposit|payment of|transfer received)[\s:]*(?:Tk|BDT|টাকা)?\.?\s*([\d,]+(?:\.\d+)?)/i) ||
-                      text.match(/(?:Tk|BDT|টাকা)\.?\s*([\d,]+(?:\.\d+)?)\s*(?:from|received|has been)/i) ||
-                      text.match(/(?:Tk|BDT|টাকা)\.?\s*([\d,]+(?:\.\d+)?)/i) ||
-                      text.match(/([\d,]+(?:\.\d+)?)\s*(?:Tk|BDT|টাকা)/i);
+    const recvMatch = text.match(/(?:received|cash\s*in|send\s*money|deposit|payment\s*of|transfer\s*received|amount|পরিমাণ)[\s:]*(?:Tk|BDT|টাকা|৳)?[\s.:]*([\d,]+(?:\.\d+)?)/i) ||
+                      text.match(/(?:Tk|BDT|টাকা|৳)[\s.:]*([\d,]+(?:\.\d+)?)\s*(?:from|received|has\s*been|successful)/i) ||
+                      cleanedForFallback.match(/(?:Tk|BDT|টাকা|৳)[\s.:]*([\d,]+(?:\.\d+)?)/i) ||
+                      cleanedForFallback.match(/([\d,]+(?:\.\d+)?)\s*(?:Tk|BDT|টাকা|৳)/i);
 
     if (recvMatch) {
         amount = parseFloat(recvMatch[1].replace(/,/g, ''));
     }
 
     let senderPhone = '';
-    const phoneMatch = text.match(/(?:from|by)[\s:]*(01[3-9]\d{8})/i);
+    const phoneMatch = text.match(/(?:from|by|sender|account)[\s:]*(01[3-9]\d{8})/i);
     if (phoneMatch) {
         senderPhone = phoneMatch[1];
     }
@@ -4609,6 +5273,12 @@ async function handleIncomingSmsWebhook(req, res) {
 
         const { trxId, amount, provider, senderPhone } = parsed;
 
+        // Preserve claimed status if this TrxID was already claimed (prevents duplicate webhook retries from resetting claimed)
+        const existingMem = inMemoryVerifiedTrx.get(trxId);
+        const verifiedRef = db.collection('verified_trx').doc(trxId);
+        const existingDoc = await verifiedRef.get().catch(() => null);
+        const alreadyClaimed = Boolean(existingMem?.claimed || (existingDoc && existingDoc.exists && existingDoc.data()?.claimed));
+
         // 1. Save to in-memory store immediately
         const memItem = {
             id: trxId,
@@ -4617,23 +5287,29 @@ async function handleIncomingSmsWebhook(req, res) {
             senderPhone: senderPhone || '',
             message: rawMessage,
             amount: amount,
-            claimed: false,
+            claimed: alreadyClaimed,
             timestamp: new Date()
         };
         inMemoryVerifiedTrx.set(trxId, memItem);
-        inMemoryMockTrxs.unshift(memItem);
-        if (inMemoryMockTrxs.length > 50) inMemoryMockTrxs.pop();
+        if (!existingMem) {
+            inMemoryMockTrxs.unshift(memItem);
+            if (inMemoryMockTrxs.length > 50) inMemoryMockTrxs.pop();
+        }
 
         // 2. Save to Firestore verified_trx
-        const verifiedRef = db.collection('verified_trx').doc(trxId);
-        await verifiedRef.set({
+        const firestorePayload = {
+            id: trxId,
+            trxId: trxId,
             message: rawMessage,
             amount: amount,
             sender: provider,
             senderPhone: senderPhone || '',
-            claimed: false,
             timestamp: FieldValue.serverTimestamp()
-        }, { merge: true }).catch(err => {
+        };
+        if (!alreadyClaimed) {
+            firestorePayload.claimed = false;
+        }
+        await verifiedRef.set(firestorePayload, { merge: true }).catch(err => {
             console.warn("Firestore verified_trx write warning:", err.message);
         });
 

@@ -2906,35 +2906,45 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const quickAmounts = [100, 200, 500, 1000, 2000];
+    const quickAmounts = [50, 100, 500, 1000, 5000, 20000];
+
+    const extractCleanTrxId = (raw) => {
+        if (!raw) return '';
+        const str = String(raw).trim();
+        const match = str.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|Transaction\s*ID)[\s:.\-_=]*([A-Za-z0-9]{5,25})/i);
+        if (match && match[1]) return match[1].toUpperCase();
+        return str.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    };
 
     const handleContinue = (e) => {
         if (e && e.preventDefault) e.preventDefault();
-        const num = parseFloat(amount);
-        if (!num || isNaN(num) || num < 20) {
-            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("নূন্যতম অ্যাড মানি ২০ টাকা") : alert("Minimum amount is 20 BDT");
+        const cleanAmt = String(amount || '').replace(/,/g, '').trim();
+        const num = parseFloat(cleanAmt);
+        if (!num || isNaN(num) || num <= 0) {
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("অনুগ্রহ করে সঠিক টাকার পরিমাণ দিন") : alert("Please enter a valid amount");
         }
-        if (num > 100000) {
-            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("সর্বোচ্চ অ্যাড মানি ১,০০,০০০ টাকা") : alert("Maximum amount is 100,000 BDT");
-        }
+        setAmount(num.toString());
         setErrorMessage('');
         setStep(2);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleSubmit = async () => {
-        if (!trxId || trxId.trim().length < 5) {
-            setErrorMessage('অনুগ্রহ করে সঠিক Transaction ID (কমপক্ষে ৫ অক্ষর) দিন');
+        const cleanId = extractCleanTrxId(trxId);
+        if (!cleanId || cleanId.length < 4) {
+            setErrorMessage('অনুগ্রহ করে সঠিক Transaction ID দিন');
             return;
         }
+        setTrxId(cleanId);
         setLoading(true);
         setErrorMessage('');
         try {
+            const cleanAmt = parseFloat(String(amount || '').replace(/,/g, '').trim());
             const res = await submitAddMoney({
                 userId: user?.id || 123456789,
-                amount: parseFloat(amount),
+                amount: cleanAmt,
                 paymentMethod,
-                trxId: trxId.trim().toUpperCase()
+                trxId: cleanId
             });
 
             if (res.success) {
@@ -3140,7 +3150,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                             onClick={async () => { 
                                 try { 
                                     const text = await navigator.clipboard.readText(); 
-                                    if (text) setTrxId(text.trim().toUpperCase()); 
+                                    if (text) setTrxId(extractCleanTrxId(text)); 
                                 } catch(e){} 
                             }} 
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white text-gray-400 hover:text-emerald-600 rounded-lg transition-all shadow-sm border border-gray-200"
@@ -3318,7 +3328,7 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
             <div className="mt-4">
                 <CutCornerButton 
                     onClick={handleContinue} 
-                    disabled={!amount || parseFloat(amount) < 20}
+                    disabled={!amount || parseFloat(String(amount).replace(/,/g, '')) <= 0}
                     icon={ArrowDown}
                 >
                     {t?.continuePayment || 'CONTINUE TO PAYMENT'}

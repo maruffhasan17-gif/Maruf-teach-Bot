@@ -170,11 +170,11 @@ function useBotData() {
     try {
       let res;
       try {
-        res = await fetch(`${API_BASE}/api/stats?_t=${Date.now()}`);
+        res = await fetch(`${API_BASE}/api/stats?_t=${Date.now()}${isManual ? '&refresh=true' : ''}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       } catch (err) {
         if (API_BASE !== 'https://maruf-teach-bot.onrender.com') {
-          res = await fetch(`https://maruf-teach-bot.onrender.com/api/stats?_t=${Date.now()}`);
+          res = await fetch(`https://maruf-teach-bot.onrender.com/api/stats?_t=${Date.now()}${isManual ? '&refresh=true' : ''}`);
         } else {
           throw err;
         }
@@ -1188,15 +1188,136 @@ function BotWallet() {
   const [search, setSearch] = useState('');
   const [copiedHash, setCopiedHash] = useState(null);
 
-  // Deposit & Withdraw Modal States
-  const [depositModal, setDepositModal] = useState({ isOpen: false, asset: 'USDT' });
-  const [withdrawModal, setWithdrawModal] = useState({ isOpen: false, asset: 'USDT' });
+  // Deposit, Withdraw & Auto-Swap Modal States
+  const [depositModal, setDepositModal] = useState({ isOpen: false, asset: 'USDT', mode: 'exchange', network: 'TON' });
+  const [withdrawModal, setWithdrawModal] = useState({ isOpen: false, asset: 'USDT', network: 'TON' });
+  const [selectedDashNetwork, setSelectedDashNetwork] = useState('TON');
+  const [copiedAddrKey, setCopiedAddrKey] = useState(null);
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawDestination, setWithdrawDestination] = useState('');
   const [depositing, setDepositing] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+
+  // Manual / Instant On-Chain Swap States
+  const [swapDirection, setSwapDirection] = useState('USDT_TO_GRAM'); // 'USDT_TO_GRAM' | 'GRAM_TO_USDT'
+  const [swapAmount, setSwapAmount] = useState('');
+  const [swapping, setSwapping] = useState(false);
+
+  const DEPOSIT_NETWORKS = useMemo(() => {
+    const netBals = data.networkBalances || {};
+    return [
+      {
+        id: 'TON',
+        name: 'TON (The Open Network)',
+        shortName: 'TON Mainnet',
+        badge: 'DIRECT AUTO-SWAP',
+        badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+        address: data.tonAddress || 'UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb',
+        supportedAssets: ['USDT', 'GRAM', 'TON'],
+        usdtBalance: data.tonUsdtBalance || '0.00',
+        nativeBalance: parseFloat(data.tonNativeBalance || data.tonBalance || 0).toFixed(2),
+        nativeSymbol: 'GRAM/TON',
+        feeEst: '~$0.02 – $0.15',
+        arrivalTime: '~30 – 60 sec',
+        memoRequired: false,
+        exchanges: ['Binance', 'Bybit', 'OKX', 'Bitget', 'MEXC', 'KuCoin', 'Gate.io'],
+        explorerUrl: `https://tonviewer.com/${data.tonAddress || ''}`,
+        note: 'সরাসরি এডমিন হট ওয়ালেটে জমা হবে এবং অটো-সোয়াপ ও ইউজার পেমেন্টে তাৎক্ষণিক ব্যবহৃত হবে।'
+      },
+      {
+        id: 'BEP20',
+        name: 'BNB Smart Chain (BEP20)',
+        shortName: 'BEP20 (BSC)',
+        badge: 'POPULAR • LOW FEE',
+        badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+        address: data.evmAddress || '0x14dA1Ab05ED10a960441577D39e6aeac46159967',
+        supportedAssets: ['USDT', 'BNB'],
+        usdtBalance: netBals.BEP20?.usdt || data.bep20UsdtBalance || '0.00',
+        nativeBalance: netBals.BEP20?.native || '0.0000',
+        nativeSymbol: 'BNB',
+        feeEst: '~$0.05 – $0.15',
+        arrivalTime: '~15 – 45 sec',
+        memoRequired: false,
+        exchanges: ['Binance', 'Bybit', 'Bitget', 'OKX', 'KuCoin', 'MEXC'],
+        explorerUrl: `https://bscscan.com/address/${data.evmAddress || ''}`,
+        note: 'Binance, Bybit বা যেকোনো এক্সচেঞ্জ থেকে BEP20 (BNB Smart Chain) সিলেক্ট করে USDT ডিপোজিট করুন।'
+      },
+      {
+        id: 'ARBITRUM',
+        name: 'Arbitrum One (ARB)',
+        shortName: 'Arbitrum One',
+        badge: 'FAST L2',
+        badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+        address: data.evmAddress || '0x14dA1Ab05ED10a960441577D39e6aeac46159967',
+        supportedAssets: ['USDT', 'ETH'],
+        usdtBalance: netBals.ARBITRUM?.usdt || data.arbitrumUsdtBalance || '0.00',
+        nativeBalance: netBals.ARBITRUM?.native || '0.0000',
+        nativeSymbol: 'ETH',
+        feeEst: '~$0.10',
+        arrivalTime: '~10 – 30 sec',
+        memoRequired: false,
+        exchanges: ['Binance', 'Bybit', 'OKX', 'Bitget', 'KuCoin', 'MEXC', 'Gate.io'],
+        explorerUrl: `https://arbiscan.io/address/${data.evmAddress || ''}`,
+        note: 'এক্সচেঞ্জ থেকে Arbitrum One নেটওয়ার্ক সিলেক্ট করে দ্রুত ও কম ফিতে USDT ডিপোজিট করুন।'
+      },
+      {
+        id: 'AVAXC',
+        name: 'Avalanche C-Chain (AVAX-C)',
+        shortName: 'AVAX C-Chain',
+        badge: 'INSTANT FINALITY',
+        badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+        address: data.evmAddress || '0x14dA1Ab05ED10a960441577D39e6aeac46159967',
+        supportedAssets: ['USDT', 'AVAX'],
+        usdtBalance: netBals.AVAXC?.usdt || data.avaxUsdtBalance || '0.00',
+        nativeBalance: netBals.AVAXC?.native || '0.0000',
+        nativeSymbol: 'AVAX',
+        feeEst: '~$0.10 – $0.20',
+        arrivalTime: '~15 – 30 sec',
+        memoRequired: false,
+        exchanges: ['Binance', 'Bybit', 'OKX', 'Bitget', 'KuCoin'],
+        explorerUrl: `https://snowtrace.io/address/${data.evmAddress || ''}`,
+        note: 'এক্সচেঞ্জ থেকে AVAX C-Chain (Avalanche C-Chain) সিলেক্ট করে USDT ডিপোজিট করুন।'
+      },
+      {
+        id: 'POLYGON',
+        name: 'Polygon POS (MATIC / POL)',
+        shortName: 'Polygon POS',
+        badge: 'MULTI-EXCHANGE',
+        badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+        address: data.evmAddress || '0x14dA1Ab05ED10a960441577D39e6aeac46159967',
+        supportedAssets: ['USDT', 'POL'],
+        usdtBalance: netBals.POLYGON?.usdt || data.polygonUsdtBalance || '0.00',
+        nativeBalance: netBals.POLYGON?.native || '0.0000',
+        nativeSymbol: 'POL',
+        feeEst: '~$0.05',
+        arrivalTime: '~20 – 45 sec',
+        memoRequired: false,
+        exchanges: ['Binance', 'Bybit', 'OKX', 'Bitget', 'KuCoin', 'MEXC'],
+        explorerUrl: `https://polygonscan.com/address/${data.evmAddress || ''}`,
+        note: 'এক্সচেঞ্জ থেকে Polygon (POS) নেটওয়ার্ক সিলেক্ট করে USDT ডিপোজিট করুন।'
+      },
+      {
+        id: 'ERC20',
+        name: 'Ethereum Mainnet (ERC20)',
+        shortName: 'Ethereum (ERC20)',
+        badge: 'GLOBAL STANDARD',
+        badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+        address: data.evmAddress || '0x14dA1Ab05ED10a960441577D39e6aeac46159967',
+        supportedAssets: ['USDT', 'ETH'],
+        usdtBalance: netBals.ERC20?.usdt || data.erc20UsdtBalance || '0.00',
+        nativeBalance: netBals.ERC20?.native || '0.0000',
+        nativeSymbol: 'ETH',
+        feeEst: '~$1.00 – $3.00',
+        arrivalTime: '~1 – 3 min',
+        memoRequired: false,
+        exchanges: ['Binance', 'Bybit', 'OKX', 'Bitget', 'Coinbase', 'Kraken'],
+        explorerUrl: `https://etherscan.io/address/${data.evmAddress || ''}`,
+        note: 'যেকোনো এক্সচেঞ্জ থেকে Ethereum (ERC20) নেটওয়ার্কে USDT বা ETH ডিপোজিট করুন।'
+      }
+    ];
+  }, [data]);
 
   const gramBuys = useMemo(() => {
     return orders.buys.filter(b => {
@@ -1214,8 +1335,11 @@ function BotWallet() {
   const totalBuys = orders.buys.length;
 
   const gramBalanceVal = parseFloat(data.tonNativeBalance || data.gramBalance || 0);
-  const usdtBalanceVal = parseFloat(data.tonUsdtBalance || 0);
+  const tonUsdtVal = parseFloat(data.tonUsdtBalance || 0);
+  const evmUsdtVal = parseFloat(data.evmBalance || 0);
+  const usdtBalanceVal = tonUsdtVal + evmUsdtVal;
   const tonGasVal = parseFloat(data.tonNativeBalance || data.tonBalance || 0);
+  const liveTonUsdtRate = parseFloat(data.liveTonUsdtRate || 1.32);
 
   const gramBdtVal = gramBalanceVal * 220;
   const usdtBdtVal = usdtBalanceVal * 130;
@@ -1262,15 +1386,48 @@ function BotWallet() {
   }, [orders.buys, historyTab, search]);
 
   // Modal Opener Handlers
-  const handleOpenDeposit = (asset = 'USDT') => {
+  const handleOpenDeposit = (asset = 'USDT', preferredMode = 'exchange', preferredNetwork = 'TON') => {
     setDepositAmount('');
-    setDepositModal({ isOpen: true, asset });
+    const net = (asset === 'GRAM' || asset === 'TON') ? 'TON' : (preferredNetwork || 'TON');
+    setDepositModal({ isOpen: true, asset, mode: preferredMode, network: net });
   };
 
-  const handleOpenWithdraw = (asset = 'USDT') => {
+  const handleOpenWithdraw = (asset = 'USDT', network = 'TON') => {
     setWithdrawAmount('');
-    setWithdrawDestination(userTonAddress || '');
-    setWithdrawModal({ isOpen: true, asset });
+    setWithdrawDestination(network === 'TON' ? (userTonAddress || '') : '');
+    setWithdrawModal({ isOpen: true, asset, network });
+  };
+
+  // 0. MANUAL / INSTANT ON-CHAIN TREASURY SWAP EXECUTION (USDT ⇄ GRAM)
+  const executeManualSwap = async () => {
+    const numAmt = parseFloat(swapAmount);
+    if (!swapAmount || isNaN(numAmt) || numAmt <= 0) {
+      setToast({ show: true, type: 'error', message: 'সোয়াপ করার জন্য সঠিক পরিমাণ (Amount) লিখুন।' });
+      return;
+    }
+    setSwapping(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/swap-treasury`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          direction: swapDirection,
+          amount: numAmt
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        setSwapAmount('');
+        setToast({ show: true, type: 'success', message: json.message || 'অন-চেইন সোয়াপ সফলভাবে সম্পন্ন হয়েছে!' });
+        refresh();
+      } else {
+        setToast({ show: true, type: 'error', message: json.error || 'সোয়াপ ব্যর্থ হয়েছে।' });
+      }
+    } catch (err) {
+      setToast({ show: true, type: 'error', message: err.message || 'নেটওয়ার্ক ত্রুটির কারণে সোয়াপ করা যায়নি।' });
+    } finally {
+      setSwapping(false);
+    }
   };
 
   // 1. TONKEEPER DEPOSIT EXECUTION
@@ -1289,18 +1446,18 @@ function BotWallet() {
       const numAmt = parseFloat(depositAmount);
       let tx;
 
-      if (depositModal.asset === 'TON') {
+      if (depositModal.asset === 'TON' || depositModal.asset === 'GRAM') {
         tx = {
           validUntil: Math.floor(Date.now() / 1000) + 360,
           messages: [
             {
               address: data.tonAddress,
-              amount: (numAmt * 1e9).toString()
+              amount: Math.floor(numAmt * 1e9).toString()
             }
           ]
         };
       } else {
-        // Jetton (USDT or GRAM) via backend transaction builder
+        // Jetton (USDT) via backend transaction builder
         const res = await fetch(`${API_BASE}/api/miniapp/build-tx`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1320,7 +1477,7 @@ function BotWallet() {
       // Prompt Tonkeeper on Admin device
       await tonConnectUI.sendTransaction(tx);
 
-      setDepositModal({ isOpen: false, asset: 'USDT' });
+      setDepositModal({ ...depositModal, isOpen: false });
       setDepositAmount('');
       setToast({ show: true, type: 'success', message: `Deposit transaction sent via Tonkeeper! Your ${depositModal.asset} balance will update in moments.` });
       setTimeout(() => { refresh(); }, 3500);
@@ -1332,15 +1489,15 @@ function BotWallet() {
     }
   };
 
-  // 2. ON-CHAIN WITHDRAWAL EXECUTION
+  // 2. ON-CHAIN WITHDRAWAL EXECUTION (SUPPORTS TON, BEP20, ARBITRUM, AVAX-C, POLYGON, ERC20)
   const executeWithdraw = async () => {
     if (!withdrawAmount || isNaN(withdrawAmount) || parseFloat(withdrawAmount) <= 0) {
       setToast({ show: true, type: 'error', message: 'Please enter a valid withdrawal amount.' });
       return;
     }
-    const dest = (withdrawDestination || userTonAddress || '').trim();
+    const dest = (withdrawDestination || (withdrawModal.network === 'TON' ? userTonAddress : '') || '').trim();
     if (!dest) {
-      setToast({ show: true, type: 'error', message: 'Please enter or connect a destination wallet address.' });
+      setToast({ show: true, type: 'error', message: 'Please enter a valid destination wallet address.' });
       return;
     }
 
@@ -1350,7 +1507,7 @@ function BotWallet() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          network: 'TON',
+          network: withdrawModal.network || 'TON',
           asset: withdrawModal.asset,
           amount: parseFloat(withdrawAmount),
           destination: dest
@@ -1358,7 +1515,7 @@ function BotWallet() {
       });
       const json = await res.json();
       if (json.success) {
-        setWithdrawModal({ isOpen: false, asset: 'USDT' });
+        setWithdrawModal({ ...withdrawModal, isOpen: false });
         setWithdrawAmount('');
         setToast({ show: true, type: 'success', message: json.message || 'Withdrawal initiated successfully on-chain!' });
         setTimeout(() => { refresh(); }, 2500);
@@ -1374,7 +1531,7 @@ function BotWallet() {
   };
 
   const handleApproveBuy = async (id) => {
-    if (!window.confirm("Approve this crypto order? Net crypto after gas fee will be sent automatically on-chain with memo 'TrustPay'.")) return;
+    if (!window.confirm("Approve this crypto order? Net crypto after gas fee will be sent automatically on-chain (with Auto-Swap if needed).")) return;
     try {
       const res = await fetch(`${API_BASE}/api/admin/approve-buy`, {
         method: 'POST',
@@ -1416,9 +1573,12 @@ function BotWallet() {
     }
   };
 
-  const copyAddress = (addr) => {
+  const copyAddress = (addr, label = 'Treasury') => {
+    if (!addr) return;
     navigator.clipboard.writeText(addr);
-    setToast({ show: true, type: 'success', message: 'Treasury address copied to clipboard!' });
+    setCopiedAddrKey(addr + '_' + label);
+    setTimeout(() => setCopiedAddrKey(null), 2200);
+    setToast({ show: true, type: 'success', message: `${label} Receive Address copied to clipboard!` });
   };
 
   const copyTrxId = (id) => {
@@ -1438,17 +1598,26 @@ function BotWallet() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">
-            <Wallet size={14} /> Bot Treasury & Hot Wallet Vault
+            <Wallet size={14} /> Bot Treasury • Auto-Swap & Multi-Chain Vault
           </div>
           <h2 className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
             Treasury & Crypto Reserves
           </h2>
           <p className={`text-xs mt-1 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Autonomous hot wallet liquidity, TON network gas telemetry & automated on-chain contract settlements.
+            Autonomous USDT ⇄ GRAM on-chain auto-swap, multi-network exchange deposits (TON, BEP20, Arbitrum, AVAX-C) & instant settlements.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Live Auto-Swap Engine Status */}
+          <div className={`px-3.5 py-2 rounded-2xl border text-xs font-bold flex items-center gap-2 shadow-sm ${
+            isDark ? 'bg-[#121036] border-purple-500/30 text-purple-300' : 'bg-white border-purple-200 text-purple-800'
+          }`}>
+            <Repeat size={14} className="text-purple-400" />
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Auto-Swap: <b>ACTIVE</b></span>
+          </div>
+
           {/* Live Gas Reserve Status */}
           <div className={`px-3.5 py-2 rounded-2xl border text-xs font-bold flex items-center gap-2 shadow-sm ${
             isDark ? 'bg-[#0f1738] border-cyan-500/30 text-cyan-300' : 'bg-white border-cyan-200 text-cyan-800'
@@ -1457,23 +1626,23 @@ function BotWallet() {
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
             <span>Gas: <b>{tonGasVal.toFixed(3)} TON</b></span>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
-              tonGasVal >= 0.2 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              tonGasVal >= 0.16 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
             }`}>
-              {tonGasVal >= 0.2 ? 'OPTIMAL' : 'LOW'}
+              {tonGasVal >= 0.16 ? 'READY' : 'LOW'}
             </span>
           </div>
 
-          {/* TONKEEPER DEPOSIT TRIGGER BUTTON */}
+          {/* MULTI-NETWORK EXCHANGE / WALLET DEPOSIT TRIGGER BUTTON */}
           <button
-            onClick={() => handleOpenDeposit('USDT')}
+            onClick={() => handleOpenDeposit('USDT', 'exchange', selectedDashNetwork)}
             className="px-4 py-2 rounded-2xl text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
           >
-            <ArrowDownToLine size={15} /> Deposit (Tonkeeper)
+            <ArrowDownToLine size={15} /> Deposit (Exchange / Wallet)
           </button>
 
           {/* ON-CHAIN WITHDRAW TRIGGER BUTTON */}
           <button
-            onClick={() => handleOpenWithdraw('USDT')}
+            onClick={() => handleOpenWithdraw('USDT', 'TON')}
             className="px-4 py-2 rounded-2xl text-xs font-black bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-600/30 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
           >
             <ArrowUpRight size={15} /> Withdraw Funds
@@ -1521,22 +1690,22 @@ function BotWallet() {
 
           <div className="relative z-10 space-y-5">
             {/* Top Status */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
                 <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400">
-                  TON MAINNET • HOT WALLET ACTIVE
+                  TON + EVM MULTI-NETWORK • AUTO-SWAP ACTIVE
                 </span>
               </div>
               <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
-                <ShieldCheck size={13} className="text-purple-400" /> AES-256 SIGNED
+                <ShieldCheck size={13} className="text-purple-400" /> USDT ⇄ GRAM SMART ROUTER
               </span>
             </div>
 
             {/* Total Valuation */}
             <div>
               <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
-                COMBINED TREASURY LIQUIDITY
+                COMBINED TREASURY LIQUIDITY (ALL NETWORKS)
               </div>
               <div className="flex items-baseline gap-3">
                 <span className={`text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight font-mono ${
@@ -1548,17 +1717,19 @@ function BotWallet() {
                   BDT
                 </span>
               </div>
-              <div className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-2">
+              <div className="text-xs font-bold text-slate-400 mt-1 flex flex-wrap items-center gap-2">
                 <span>≈ ${(totalVaultBdt / 120).toFixed(2)} USD</span>
                 <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-                <span className="text-emerald-400">Backing 100% of User Orders</span>
+                <span className="text-emerald-400">
+                  Auto-Swappable Capacity: ~{(gramBalanceVal + Math.max(0, (tonUsdtVal / liveTonUsdtRate) * 0.96)).toFixed(2)} GRAM
+                </span>
               </div>
             </div>
 
             {/* Asset Allocation Gradient Progress Strip */}
             <div className="space-y-2 pt-2">
               <div className="flex items-center justify-between text-xs font-bold text-slate-400">
-                <span>Asset Allocation</span>
+                <span>Asset Allocation (Auto-Rebalanced on Demand)</span>
                 <span>{gramPercent}% GRAM / {usdtPercent}% USDT</span>
               </div>
 
@@ -1583,11 +1754,11 @@ function BotWallet() {
                 </div>
                 <div className="flex items-center gap-1.5 text-emerald-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                  <span>USDT Pool: <b>${usdtBalanceVal.toFixed(2)}</b> (৳{usdtBdtVal.toFixed(0)})</span>
+                  <span>TON USDT: <b>${tonUsdtVal.toFixed(2)}</b></span>
                 </div>
-                <div className="flex items-center gap-1.5 text-cyan-300">
-                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
-                  <span>Gas Reserve: <b>{tonGasVal.toFixed(2)} TON</b></span>
+                <div className="flex items-center gap-1.5 text-amber-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                  <span>EVM Chains USDT: <b>${evmUsdtVal.toFixed(2)}</b></span>
                 </div>
               </div>
             </div>
@@ -1595,26 +1766,35 @@ function BotWallet() {
             {/* Quick Action Button Hub */}
             <div className="pt-2 flex flex-wrap items-center gap-2.5">
               <button
-                onClick={() => handleOpenDeposit('USDT')}
+                onClick={() => handleOpenDeposit('USDT', 'exchange', 'TON')}
                 className="py-2.5 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-md shadow-emerald-600/30 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
               >
-                <ArrowDownToLine size={14} /> Deposit via Tonkeeper
+                <ArrowDownToLine size={14} /> Deposit (Binance / Bybit / Wallet)
               </button>
 
               <button
-                onClick={() => handleOpenWithdraw('USDT')}
+                onClick={() => handleOpenWithdraw('USDT', 'TON')}
                 className="py-2.5 px-4 rounded-xl text-xs font-black bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-400 text-white shadow-md shadow-cyan-600/30 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
               >
                 <ArrowUpRight size={14} /> Withdraw to Wallet
               </button>
 
               <button
-                onClick={() => copyAddress(data.tonAddress)}
+                onClick={() => copyAddress(data.tonAddress, 'TON Mainnet')}
                 className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                   isDark ? 'bg-slate-900/60 border-slate-700/60 text-slate-300 hover:text-white' : 'bg-white border-slate-200 text-slate-700'
                 }`}
               >
-                <Copy size={12} /> Copy Address
+                <Copy size={12} /> Copy TON Addr
+              </button>
+
+              <button
+                onClick={() => copyAddress(data.evmAddress, 'BEP20 / Arbitrum / AVAX-C')}
+                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isDark ? 'bg-slate-900/60 border-slate-700/60 text-amber-300 hover:text-white' : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                <Copy size={12} /> Copy EVM Addr
               </button>
 
               <button
@@ -1623,7 +1803,7 @@ function BotWallet() {
                   isDark ? 'bg-slate-900/60 border-slate-700/60 text-slate-300 hover:text-white' : 'bg-white border-slate-200 text-slate-700'
                 }`}
               >
-                <QrCode size={12} /> QR / Info
+                <QrCode size={12} /> All Addresses & QR
               </button>
             </div>
           </div>
@@ -1646,21 +1826,21 @@ function BotWallet() {
                 </div>
                 <div>
                   <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
-                    Gas Fuel Station
+                    Gas & Auto-Swap Fuel
                   </span>
                   <div className="text-[11px] font-bold text-slate-400">
-                    TON On-Chain Gas Engine
+                    DeDust V2 + STON.fi Gas Engine
                   </div>
                 </div>
               </div>
 
               <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${
-                tonGasVal >= 0.2 
+                tonGasVal >= 0.16 
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
                   : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
               }`}>
-                <span className={`w-2 h-2 rounded-full ${tonGasVal >= 0.2 ? 'bg-emerald-400' : 'bg-amber-400 animate-ping'}`}></span>
-                {tonGasVal >= 0.2 ? 'HEALTHY FUEL' : 'REFILL NEEDED'}
+                <span className={`w-2 h-2 rounded-full ${tonGasVal >= 0.16 ? 'bg-emerald-400' : 'bg-amber-400 animate-ping'}`}></span>
+                {tonGasVal >= 0.16 ? 'AUTO-SWAP READY' : 'REFILL NEEDED'}
               </span>
             </div>
 
@@ -1701,7 +1881,7 @@ function BotWallet() {
                     {tonGasVal.toFixed(2)}
                   </div>
                   <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                    TON FUEL
+                    GRAM / TON
                   </div>
                 </div>
               </div>
@@ -1721,18 +1901,18 @@ function BotWallet() {
               </div>
 
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                {tonGasVal >= 0.2 
-                  ? 'Reserve is optimal. Auto-dispatches for GRAM and USDT jettons will execute instantly on-chain.' 
-                  : '⚠️ Gas reserve is low. Top up at least 1-2 TON to prevent user order timeouts.'}
+                {tonGasVal >= 0.16 
+                  ? ` মাত্র 0.16+ GRAM/TON থাকলেই সিস্টেম নিজে থেকে USDT সোয়াপ করে GRAM বানিয়ে ইউজারকে পাঠাতে পারবে (বর্তমান গ্যাস: ${tonGasVal.toFixed(3)} TON)।` 
+                  : '⚠️ অটো-সোয়াপ সচল রাখতে ওয়ালেটে অন্তত 0.20 TON/GRAM গ্যাস রাখুন।'}
               </p>
             </div>
 
-            {/* Quick Refill Button via Tonkeeper */}
+            {/* Quick Refill Button */}
             <button
-              onClick={() => handleOpenDeposit('TON')}
+              onClick={() => handleOpenDeposit('TON', 'exchange', 'TON')}
               className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md"
             >
-              <Fuel size={14} /> Refill TON Gas (via Tonkeeper)
+              <Fuel size={14} /> Refill TON / GRAM (Exchange or Tonkeeper)
             </button>
           </div>
         </div>
@@ -1744,7 +1924,7 @@ function BotWallet() {
       {/* ================================================================ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* VAULT 1: GRAM JETTON */}
+        {/* VAULT 1: GRAM JETTON / NATIVE */}
         <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden transition-all duration-300 hover:scale-[1.01] ${
           isDark 
             ? 'bg-gradient-to-br from-[#1c123d] via-[#150d30] to-[#0c081e] border-purple-500/30 shadow-[0_20px_50px_rgba(147,51,234,0.18)]' 
@@ -1763,7 +1943,7 @@ function BotWallet() {
                     GRAM Treasury Reserve
                   </span>
                   <div className="text-[11px] font-bold text-slate-400">
-                    On-Chain TON Jetton Pool
+                    On-Chain TON Pool + Auto-Swap Backed
                   </div>
                 </div>
               </div>
@@ -1785,19 +1965,30 @@ function BotWallet() {
               </span>
             </div>
 
+            {/* Auto-Swap Backup Capacity Pill */}
+            <div className="px-3.5 py-2 rounded-2xl bg-purple-950/50 border border-purple-500/30 flex items-center justify-between text-xs">
+              <span className="text-purple-200 font-bold flex items-center gap-1.5">
+                <Repeat size={13} className="text-emerald-400" />
+                USDT Auto-Swap Backup:
+              </span>
+              <span className="font-mono font-black text-emerald-400">
+                +{Math.max(0, (tonUsdtVal / liveTonUsdtRate) * 0.96).toFixed(2)} GRAM Available
+              </span>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-purple-900/30 text-xs">
               <span className="font-bold text-purple-300">
                 ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
               </span>
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => handleOpenDeposit('GRAM')}
+                  onClick={() => handleOpenDeposit('GRAM', 'exchange', 'TON')}
                   className="px-3 py-1.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1 transition-all cursor-pointer shadow-sm"
                 >
                   <ArrowDownToLine size={12} /> Deposit
                 </button>
                 <button
-                  onClick={() => handleOpenWithdraw('GRAM')}
+                  onClick={() => handleOpenWithdraw('GRAM', 'TON')}
                   className="px-3 py-1.5 rounded-xl text-xs font-black bg-purple-950/60 border border-purple-600/40 text-purple-300 hover:text-white flex items-center gap-1 transition-all cursor-pointer"
                 >
                   <ArrowUpRight size={12} /> Withdraw
@@ -1813,7 +2004,7 @@ function BotWallet() {
           </div>
         </div>
 
-        {/* VAULT 2: USDT JETTON */}
+        {/* VAULT 2: USDT MULTI-NETWORK */}
         <div className={`p-8 rounded-[2.5rem] border relative overflow-hidden transition-all duration-300 hover:scale-[1.01] ${
           isDark 
             ? 'bg-gradient-to-br from-[#0e2422] via-[#091a18] to-[#040e0d] border-emerald-500/30 shadow-[0_20px_50px_rgba(16,185,129,0.18)]' 
@@ -1832,7 +2023,7 @@ function BotWallet() {
                     USDT Treasury Reserve
                   </span>
                   <div className="text-[11px] font-bold text-slate-400">
-                    Tether USD (Jetton Contract)
+                    TON + BEP20 + Arbitrum + AVAX-C
                   </div>
                 </div>
               </div>
@@ -1854,19 +2045,29 @@ function BotWallet() {
               </span>
             </div>
 
+            {/* Network Breakdown Pill */}
+            <div className="px-3.5 py-2 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 flex items-center justify-between text-xs">
+              <span className="text-emerald-200 font-bold">
+                TON Mainnet: <b className="font-mono text-white">${tonUsdtVal.toFixed(2)}</b>
+              </span>
+              <span className="text-amber-300 font-bold">
+                EVM Networks: <b className="font-mono text-white">${evmUsdtVal.toFixed(2)}</b>
+              </span>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-emerald-900/30 text-xs">
               <span className="font-bold text-emerald-300">
                 ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
               </span>
               <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => handleOpenDeposit('USDT')}
+                  onClick={() => handleOpenDeposit('USDT', 'exchange', selectedDashNetwork)}
                   className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 transition-all cursor-pointer shadow-sm"
                 >
                   <ArrowDownToLine size={12} /> Deposit
                 </button>
                 <button
-                  onClick={() => handleOpenWithdraw('USDT')}
+                  onClick={() => handleOpenWithdraw('USDT', 'TON')}
                   className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-950/60 border border-emerald-600/40 text-emerald-300 hover:text-white flex items-center gap-1 transition-all cursor-pointer"
                 >
                   <ArrowUpRight size={12} /> Withdraw
@@ -1880,6 +2081,331 @@ function BotWallet() {
               </div>
             </div>
           </div>
+        </div>
+
+      </div>
+
+      {/* ================================================================ */}
+      {/* 3.5 SMART ON-CHAIN AUTO-SWAP (USDT ⇄ GRAM) & MULTI-NETWORK EXCHANGE DEPOSIT HUB */}
+      {/* ================================================================ */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+
+        {/* LEFT PANEL (6 COLS): AUTOMATIC & INSTANT ON-CHAIN SWAP ENGINE (USDT ⇄ GRAM) */}
+        <div className={`lg:col-span-6 p-7 rounded-[2.5rem] border relative overflow-hidden flex flex-col justify-between ${
+          isDark
+            ? 'bg-gradient-to-br from-[#17113a] via-[#100d2b] to-[#08071a] border-purple-500/30 shadow-[0_20px_50px_rgba(139,92,246,0.15)]'
+            : 'bg-white border-purple-200 shadow-xl'
+        }`}>
+          <div className="space-y-5 relative z-10">
+            {/* Header */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 to-emerald-500 text-white flex items-center justify-center shadow-lg shadow-purple-500/25">
+                  <Repeat size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                      Smart Auto-Swap Engine (USDT ⇄ GRAM)
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    DeDust V2 & STON.fi v2.2 Autonomous Liquidity Router
+                  </p>
+                </div>
+              </div>
+
+              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                AUTO-SWAP 24/7 ON
+              </span>
+            </div>
+
+            {/* Explanation Box */}
+            <div className={`p-4 rounded-2xl border text-xs leading-relaxed space-y-2 ${
+              isDark ? 'bg-slate-900/70 border-purple-500/30 text-slate-300' : 'bg-purple-50 border-purple-200 text-slate-700'
+            }`}>
+              <div className="font-black text-purple-300 flex items-center gap-1.5">
+                <Sparkles size={14} className="text-amber-400" />
+                অটোমেটিক ইউজার অর্ডার প্রটেকশন (উদাহরণ: 0.25 GRAM + 10 USDT):
+              </div>
+              <p className="text-[11px] text-slate-300">
+                যখন কোনো ইউজার <b>GRAM</b> কিনতে চায় (যেমন <b>2 GRAM</b>) কিন্তু এডমিন ওয়ালেটে কম GRAM থাকে (যেমন <b>0.25 GRAM</b>) এবং ওয়ালেটে <b>USDT</b> থাকে, তখন সিস্টেম <b>অটোমেটিক অন-চেইনে প্রয়োজনীয় USDT সোয়াপ করে GRAM বানিয়ে নেয়</b> এবং সাথে সাথেই ইউজারের ওয়ালেটে পাঠিয়ে দেয়! আবার USDT কম থাকলে অতিরিক্ত GRAM সোয়াপ করে USDT পাঠিয়ে দেয়।
+              </p>
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="p-2 rounded-xl bg-black/40 border border-slate-800 text-center">
+                  <div className="text-[10px] text-slate-400">Current GRAM</div>
+                  <div className="text-sm font-black font-mono text-purple-300">{gramBalanceVal.toFixed(2)}</div>
+                </div>
+                <div className="p-2 rounded-xl bg-black/40 border border-slate-800 text-center">
+                  <div className="text-[10px] text-slate-400">TON USDT</div>
+                  <div className="text-sm font-black font-mono text-emerald-400">${tonUsdtVal.toFixed(2)}</div>
+                </div>
+                <div className="p-2 rounded-xl bg-black/40 border border-slate-800 text-center">
+                  <div className="text-[10px] text-slate-400">Max Auto GRAM</div>
+                  <div className="text-sm font-black font-mono text-cyan-300">
+                    ~{Math.max(0, gramBalanceVal + (tonUsdtVal / liveTonUsdtRate) * 0.96 - 0.08).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Instant Manual Swap Control */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-300">
+                  Instant Manual Treasury Swap
+                </span>
+                <span className="text-[11px] font-mono text-slate-400">
+                  Live Rate: 1 GRAM ≈ ${liveTonUsdtRate.toFixed(3)} USDT
+                </span>
+              </div>
+
+              {/* Swap Direction Toggle */}
+              <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-black/40 border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => { setSwapDirection('USDT_TO_GRAM'); setSwapAmount(''); }}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    swapDirection === 'USDT_TO_GRAM'
+                      ? 'bg-gradient-to-r from-emerald-600 to-purple-600 text-white shadow-lg'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>USDT ➔ GRAM</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSwapDirection('GRAM_TO_USDT'); setSwapAmount(''); }}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    swapDirection === 'GRAM_TO_USDT'
+                      ? 'bg-gradient-to-r from-purple-600 to-emerald-600 text-white shadow-lg'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>GRAM ➔ USDT</span>
+                </button>
+              </div>
+
+              {/* Swap Amount Input & Estimated Output */}
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={swapAmount}
+                    onChange={e => {
+                      const v = e.target.value;
+                      if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setSwapAmount(v);
+                    }}
+                    placeholder={swapDirection === 'USDT_TO_GRAM' ? 'Enter USDT amount (e.g. 3.5)' : 'Enter GRAM amount (e.g. 2.0)'}
+                    className="w-full bg-black/50 border border-purple-800/60 p-3.5 pr-20 rounded-2xl text-sm font-black text-white outline-none focus:border-purple-400 font-mono"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-purple-300">
+                    {swapDirection === 'USDT_TO_GRAM' ? 'USDT' : 'GRAM'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={swapping || !swapAmount || parseFloat(swapAmount) <= 0}
+                  onClick={executeManualSwap}
+                  className="px-5 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+                >
+                  {swapping ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      <span>Swapping On-Chain...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Repeat size={14} />
+                      <span>Swap Now</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Quick Swap Pills & Output Preview */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {(swapDirection === 'USDT_TO_GRAM' ? ['1', '2', '5', '10'] : ['0.5', '1', '2', '5']).map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setSwapAmount(val)}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800/80 hover:bg-purple-500/20 text-slate-300 hover:text-purple-300 border border-slate-700/60 transition-all cursor-pointer"
+                    >
+                      {val} {swapDirection === 'USDT_TO_GRAM' ? 'USDT' : 'GRAM'}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (swapDirection === 'USDT_TO_GRAM') {
+                        setSwapAmount(Math.max(0, tonUsdtVal).toFixed(2));
+                      } else {
+                        setSwapAmount(Math.max(0, gramBalanceVal - 0.30).toFixed(2));
+                      }
+                    }}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer"
+                  >
+                    MAX SAFE
+                  </button>
+                </div>
+
+                {swapAmount && parseFloat(swapAmount) > 0 && (
+                  <div className="text-xs font-mono font-bold text-emerald-400">
+                    Est. Receive: ≈{' '}
+                    {swapDirection === 'USDT_TO_GRAM'
+                      ? `${((parseFloat(swapAmount) / liveTonUsdtRate) * 0.985).toFixed(3)} GRAM`
+                      : `${(parseFloat(swapAmount) * liveTonUsdtRate * 0.985).toFixed(2)} USDT`}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT PANEL (6 COLS): MULTI-NETWORK EXCHANGE DEPOSIT HUB (BINANCE, BYBIT, OKX, BITGET...) */}
+        <div className={`lg:col-span-6 p-7 rounded-[2.5rem] border relative overflow-hidden flex flex-col justify-between ${
+          isDark
+            ? 'bg-gradient-to-br from-[#0c2229] via-[#091822] to-[#050d14] border-emerald-500/30 shadow-[0_20px_50px_rgba(16,185,129,0.15)]'
+            : 'bg-white border-emerald-200 shadow-xl'
+        }`}>
+          {(() => {
+            const activeNet = DEPOSIT_NETWORKS.find(n => n.id === selectedDashNetwork) || DEPOSIT_NETWORKS[0];
+            const isCopied = copiedAddrKey === `${activeNet.address}_${activeNet.shortName}`;
+            return (
+              <div className="space-y-4 relative z-10">
+                {/* Header */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                      <QrCode size={22} />
+                    </div>
+                    <div>
+                      <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        Multi-Network Exchange Deposit Hub
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Deposit from Binance, Bybit, Bitget, OKX, MEXC, KuCoin or any Wallet
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenDeposit('USDT', 'exchange', activeNet.id)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 cursor-pointer transition-all"
+                  >
+                    <QrCode size={13} /> Show QR Code
+                  </button>
+                </div>
+
+                {/* Network Selector Pills */}
+                <div>
+                  <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">
+                    1. Select Deposit Network (নেটওয়ার্ক সিলেক্ট করুন):
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {DEPOSIT_NETWORKS.map(net => {
+                      const active = net.id === activeNet.id;
+                      return (
+                        <button
+                          key={net.id}
+                          type="button"
+                          onClick={() => setSelectedDashNetwork(net.id)}
+                          className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                            active
+                              ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-md shadow-emerald-500/15'
+                              : isDark
+                                ? 'bg-slate-900/70 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                                : 'bg-slate-50 border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-black truncate">{net.shortName}</span>
+                            {active && <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />}
+                          </div>
+                          <div className="text-[10px] font-mono text-emerald-400 mt-1">
+                            ${net.usdtBalance} USDT
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Selected Network Details & Copy Receive Address Box */}
+                <div className={`p-4 rounded-2xl border space-y-3 ${
+                  isDark ? 'bg-slate-950/80 border-emerald-500/30' : 'bg-emerald-50/60 border-emerald-200'
+                }`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-white">{activeNet.name}</span>
+                      <span className={`px-2 py-0.5 rounded-md text-[9px] font-black border ${activeNet.badgeColor}`}>
+                        {activeNet.badge}
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      No Memo / Tag Needed
+                    </span>
+                  </div>
+
+                  {/* Receive Address + 1-Click Copy */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+                      <span>2. Receive Address ({activeNet.supportedAssets.join(' / ')}):</span>
+                      <span className="text-emerald-400 font-mono">Arrival: {activeNet.arrivalTime}</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <div className="flex-1 p-3 rounded-xl bg-black/60 border border-slate-800 font-mono text-xs text-emerald-300 break-all select-all">
+                        {activeNet.address}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyAddress(activeNet.address, activeNet.shortName)}
+                        className={`px-4 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 ${
+                          isCopied
+                            ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30'
+                            : 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white shadow-md'
+                        }`}
+                      >
+                        {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                        <span>{isCopied ? 'Copied!' : 'Copy Address'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Supported Exchanges & Live Chain Balance */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="text-slate-400 font-bold mr-1">Exchanges:</span>
+                      {activeNet.exchanges.map(ex => (
+                        <span key={ex} className="px-2 py-0.5 rounded-md bg-slate-800/90 text-slate-200 font-bold text-[10px] border border-slate-700/70">
+                          {ex}
+                        </span>
+                      ))}
+                    </div>
+                    <a
+                      href={activeNet.explorerUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-cyan-400 hover:underline font-bold flex items-center gap-1"
+                    >
+                      <span>Explorer</span>
+                      <ExternalLink size={11} />
+                    </a>
+                  </div>
+
+                  <p className="text-[11px] text-slate-300 leading-relaxed border-t border-slate-800/80 pt-2">
+                    💡 {activeNet.note}
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
       </div>
@@ -1938,22 +2464,22 @@ function BotWallet() {
             </div>
             <div>
               <div className="text-xs font-black uppercase text-slate-400">ON-CHAIN ENGINE</div>
-              <div className="text-sm font-bold text-white">Tonweb Jetton Engine</div>
+              <div className="text-sm font-bold text-white">Auto-Swap & Jetton Router</div>
             </div>
           </div>
 
           <div className="space-y-2.5 pt-2 text-xs">
             <div className="flex items-center justify-between font-bold">
-              <span className="text-slate-400">Execution Speed:</span>
-              <span className="text-emerald-400 font-mono">&lt; 2.8s confirmation</span>
+              <span className="text-slate-400">DEX Liquidity Pools:</span>
+              <span className="text-emerald-400 font-mono">DeDust V2 + STON.fi</span>
             </div>
             <div className="flex items-center justify-between font-bold">
-              <span className="text-slate-400">Memo Enforcement:</span>
-              <span className="text-purple-300 font-mono font-black">'TrustPay' attached</span>
+              <span className="text-slate-400">Auto-Rebalance:</span>
+              <span className="text-purple-300 font-mono font-black">USDT ⇄ GRAM Instant</span>
             </div>
             <div className="flex items-center justify-between font-bold">
               <span className="text-slate-400">Fail-Safe Refund:</span>
-              <span className="text-cyan-400 font-bold">Instant BDT rollback</span>
+              <span className="text-cyan-400 font-bold">Zero BDT Loss Guarantee</span>
             </div>
           </div>
         </div>
@@ -2145,11 +2671,11 @@ function BotWallet() {
       </div>
 
       {/* ================================================================ */}
-      {/* 6. INTERACTIVE TONKEEPER DEPOSIT MODAL */}
+      {/* 6. MULTI-NETWORK EXCHANGE & TONKEEPER DEPOSIT MODAL */}
       {/* ================================================================ */}
       {depositModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className={`w-full max-w-md p-7 rounded-[2.5rem] border relative shadow-2xl overflow-hidden ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+          <div className={`w-full max-w-xl p-6 sm:p-7 rounded-[2.5rem] border relative shadow-2xl overflow-hidden my-8 ${
             isDark ? 'bg-[#0b1426] border-emerald-500/40 text-white shadow-[0_0_80px_rgba(16,185,129,0.25)]' : 'bg-white border-slate-200 text-slate-900 shadow-2xl'
           }`}>
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent"></div>
@@ -2161,162 +2687,321 @@ function BotWallet() {
               <X size={18} />
             </button>
 
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30">
                 <ArrowDownToLine size={24} />
               </div>
               <div>
-                <h3 className="text-xl font-black">Deposit via Tonkeeper</h3>
-                <p className="text-xs text-slate-400">Recharge Bot Treasury balance via Tonkeeper wallet</p>
+                <h3 className="text-xl font-black">Deposit to Admin Treasury</h3>
+                <p className="text-xs text-slate-400">
+                  Deposit from Binance, Bybit, Bitget, OKX, MEXC, KuCoin or Tonkeeper Wallet
+                </p>
               </div>
             </div>
 
-            {/* Asset Selector Tabs: USDT & GRAM (or TON Gas if opened from Gas Station) */}
-            {depositModal.asset === 'TON' ? (
-              <div className="mb-5 p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <Fuel size={20} className="text-cyan-400 shrink-0" />
-                  <div>
-                    <div className="text-xs font-black text-cyan-300">TON Gas Refill (Network Fee)</div>
-                    <div className="text-[10px] text-slate-400">Needed to pay TON blockchain network fees when sending USDT/GRAM</div>
+            {/* Deposit Mode Selector: Exchange / Multi-Chain vs Direct Tonkeeper */}
+            <div className="grid grid-cols-2 gap-2 p-1.5 mb-5 rounded-2xl bg-black/40 border border-emerald-900/40">
+              <button
+                type="button"
+                onClick={() => setDepositModal({ ...depositModal, mode: 'exchange' })}
+                className={`py-2.5 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  depositModal.mode !== 'tonkeeper'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <QrCode size={14} />
+                <span>Exchange / Multi-Network</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDepositModal({ ...depositModal, mode: 'tonkeeper', network: 'TON' })}
+                className={`py-2.5 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  depositModal.mode === 'tonkeeper'
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Wallet size={14} />
+                <span>Tonkeeper 1-Click</span>
+              </button>
+            </div>
+
+            {/* Asset Selector Tabs: USDT, GRAM, TON */}
+            <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-slate-800">
+              {[
+                { id: 'USDT', label: 'USDT (Tether)' },
+                { id: 'GRAM', label: 'GRAM / TON' },
+                { id: 'TON', label: 'TON Gas' }
+              ].map(item => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    const nextNet = (item.id === 'GRAM' || item.id === 'TON') ? 'TON' : (depositModal.network || 'TON');
+                    setDepositModal({ ...depositModal, asset: item.id, network: nextNet });
+                  }}
+                  className={`flex-1 py-2 rounded-xl font-black text-xs transition-all cursor-pointer ${
+                    depositModal.asset === item.id
+                      ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {depositModal.mode !== 'tonkeeper' ? (
+              /* ============================================================ */
+              /* MODE 1: MULTI-NETWORK EXCHANGE / EXTERNAL WALLET DEPOSIT      */
+              /* ============================================================ */
+              (() => {
+                const availableNets = (depositModal.asset === 'GRAM' || depositModal.asset === 'TON')
+                  ? DEPOSIT_NETWORKS.filter(n => n.id === 'TON')
+                  : DEPOSIT_NETWORKS;
+                const selectedNet = availableNets.find(n => n.id === depositModal.network) || availableNets[0];
+                const isAddrCopied = copiedAddrKey === `${selectedNet.address}_Modal`;
+
+                return (
+                  <div className="space-y-4">
+                    {/* Network Selector Grid */}
+                    <div>
+                      <label className="text-[11px] font-black uppercase tracking-wider text-emerald-300 block mb-2">
+                        1. Select Network on Exchange (Binance, Bybit, OKX, Bitget...):
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {availableNets.map(net => {
+                          const isSelected = net.id === selectedNet.id;
+                          return (
+                            <button
+                              key={net.id}
+                              type="button"
+                              onClick={() => setDepositModal({ ...depositModal, network: net.id })}
+                              className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-emerald-500/20 border-emerald-400 text-white shadow-md'
+                                  : 'bg-black/40 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black truncate">{net.shortName}</span>
+                                {isSelected && <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />}
+                              </div>
+                              <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
+                                Bal: ${net.usdtBalance}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {(depositModal.asset === 'GRAM' || depositModal.asset === 'TON') && (
+                        <p className="text-[11px] text-purple-300 mt-1.5">
+                          ℹ️ GRAM এবং TON শুধুমাত্র <b>TON (The Open Network)</b> মেইননেটে ডিপোজিট করবেন। অন্য এক্সচেঞ্জ থেকে BEP20/Arbitrum দিয়ে USDT পাঠাতে চাইলে উপরে <b>USDT</b> সিলেক্ট করুন।
+                        </p>
+                      )}
+                    </div>
+
+                    {/* QR Code & Receive Address Card */}
+                    <div className="p-4 rounded-2xl bg-black/50 border border-emerald-500/30 flex flex-col sm:flex-row items-center gap-4">
+                      <div className="p-2.5 bg-white rounded-2xl shrink-0 shadow-lg">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(selectedNet.address)}`}
+                          alt={`${selectedNet.shortName} Deposit QR`}
+                          className="w-32 h-32 rounded-lg"
+                        />
+                      </div>
+
+                      <div className="flex-1 space-y-2.5 w-full">
+                        <div className="flex flex-wrap items-center justify-between gap-1">
+                          <span className="text-xs font-black text-emerald-400 uppercase">
+                            {selectedNet.name}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            No Memo Required
+                          </span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 font-mono text-xs text-white break-all select-all">
+                          {selectedNet.address}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => copyAddress(selectedNet.address, 'Modal')}
+                          className={`w-full py-2.5 px-4 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                            isAddrCopied
+                              ? 'bg-emerald-400 text-slate-950 shadow-lg'
+                              : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white shadow-md'
+                          }`}
+                        >
+                          {isAddrCopied ? <Check size={15} /> : <Copy size={15} />}
+                          <span>{isAddrCopied ? 'Receive Address Copied!' : `Copy ${selectedNet.shortName} Receive Address`}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Supported Exchanges & Safety Note */}
+                    <div className="p-3.5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-2 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-slate-400 font-bold">Supported Exchanges:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedNet.exchanges.map(ex => (
+                            <span key={ex} className="px-2 py-0.5 rounded-md bg-slate-800 text-emerald-300 font-bold text-[10px] border border-slate-700">
+                              {ex}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Estimated Arrival: <b className="text-white">{selectedNet.arrivalTime}</b></span>
+                        <span>Network Fee: <b className="text-emerald-400">{selectedNet.feeEst}</b></span>
+                      </div>
+                      <p className="text-[11px] text-amber-300/90 pt-1 border-t border-slate-800">
+                        ⚠️ ডিপোজিট করার সময় এক্সচেঞ্জে অবশ্যই <b>{selectedNet.shortName}</b> নেটওয়ার্ক সিলেক্ট করবেন। ডিপোজিট পাঠানোর পর নিচের <b>Refresh Balance</b> বাটনে ক্লিক করলেই ব্যালেন্স আপডেট হয়ে যাবে।
+                      </p>
+                    </div>
+
+                    {/* Modal Bottom Actions */}
+                    <div className="flex gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setDepositModal({ ...depositModal, isOpen: false })}
+                        className="flex-1 py-3 rounded-2xl font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer text-xs"
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          refresh();
+                          setToast({ show: true, type: 'success', message: 'Refreshing live on-chain balances across all networks...' });
+                        }}
+                        className="flex-1 py-3 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                        <span>I Sent Deposit • Refresh Balance</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              /* ============================================================ */
+              /* MODE 2: DIRECT 1-CLICK TONKEEPER WALLET DEPOSIT              */
+              /* ============================================================ */
+              <div>
+                {/* Amount Input */}
+                <div className="mb-5 space-y-2">
+                  <label className="text-[11px] font-black uppercase tracking-wider text-emerald-300/80">
+                    Amount to Deposit via Tonkeeper ({depositModal.asset})
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={depositAmount}
+                      onChange={e => {
+                        const v = e.target.value;
+                        if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setDepositAmount(v);
+                      }}
+                      className="w-full bg-black/50 border border-emerald-900/60 p-4 pl-6 pr-20 rounded-2xl text-2xl font-black text-white outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-mono"
+                      placeholder="0.00"
+                      autoFocus
+                    />
+                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-black text-emerald-400 uppercase">
+                      {depositModal.asset}
+                    </span>
+                  </div>
+
+                  {/* Quick Amount Pills */}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {['1', '5', '10', '25', '50', '100'].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setDepositAmount(val)}
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800/80 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-700/60 transition-all cursor-pointer"
+                      >
+                        +{val} {depositModal.asset}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setDepositModal({ ...depositModal, asset: 'USDT' })}
-                  className="text-[11px] font-bold text-cyan-400 hover:underline px-2 py-1 rounded-lg bg-cyan-500/20 cursor-pointer"
-                >
-                  Deposit USDT
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-emerald-900/40">
-                {['USDT', 'GRAM'].map(asset => (
+
+                {/* Connected Tonkeeper Status */}
+                <div className="mb-5 space-y-2">
+                  <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                    Source Wallet (Tonkeeper)
+                  </label>
+                  {userTonAddress ? (
+                    <div className="bg-black/40 p-3.5 rounded-2xl text-xs font-mono text-emerald-300 break-all border border-emerald-900/40 flex items-center justify-between gap-2 shadow-inner">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shrink-0"></span>
+                        <span className="truncate">{userTonAddress}</span>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold shrink-0">Connected</span>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
+                      <span className="text-amber-300 font-bold">Tonkeeper not connected!</span>
+                      <button
+                        type="button"
+                        onClick={() => tonConnectUI.openModal()}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all cursor-pointer"
+                      >
+                        Connect Wallet
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Target Bot Treasury */}
+                <div className="mb-5 text-[11px] text-slate-400 flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                  <span>Destination: Bot TON Treasury</span>
+                  <span className="font-mono text-emerald-400 truncate max-w-[200px]">{data.tonAddress}</span>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex gap-3">
                   <button
-                    key={asset}
                     type="button"
-                    onClick={() => { setDepositModal({ ...depositModal, asset }); }}
-                    className={`flex-1 py-2.5 rounded-xl font-black text-xs transition-all cursor-pointer ${
-                      depositModal.asset === asset
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    onClick={() => setDepositModal({ ...depositModal, isOpen: false })}
+                    className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
                   >
-                    {asset}
+                    Cancel
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    disabled={depositing || !depositAmount || parseFloat(depositAmount) <= 0}
+                    onClick={executeDeposit}
+                    className="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    {depositing ? (
+                      <>
+                        <RefreshCw size={15} className="animate-spin" />
+                        <span>Opening Tonkeeper...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ArrowDownToLine size={15} />
+                        <span>Pay via Tonkeeper</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             )}
-
-            {/* Amount Input */}
-            <div className="mb-5 space-y-2">
-              <label className="text-[11px] font-black uppercase tracking-wider text-emerald-300/80">
-                Amount to Deposit ({depositModal.asset})
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={depositAmount}
-                  onChange={e => {
-                    const v = e.target.value;
-                    if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setDepositAmount(v);
-                  }}
-                  className="w-full bg-black/50 border border-emerald-900/60 p-4 pl-6 pr-20 rounded-2xl text-2xl font-black text-white outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all font-mono"
-                  placeholder="0.00"
-                  autoFocus
-                />
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-black text-emerald-400 uppercase">
-                  {depositModal.asset}
-                </span>
-              </div>
-
-              {/* Quick Amount Pills */}
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {['1', '5', '10', '25', '50', '100'].map(val => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setDepositAmount(val)}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800/80 hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-300 border border-slate-700/60 transition-all cursor-pointer"
-                  >
-                    +{val} {depositModal.asset}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Connected Tonkeeper Status */}
-            <div className="mb-6 space-y-2">
-              <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                Source Wallet (Tonkeeper)
-              </label>
-              {userTonAddress ? (
-                <div className="bg-black/40 p-3.5 rounded-2xl text-xs font-mono text-emerald-300 break-all border border-emerald-900/40 flex items-center justify-between gap-2 shadow-inner">
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shrink-0"></span>
-                    <span className="truncate">{userTonAddress}</span>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold shrink-0">Connected</span>
-                </div>
-              ) : (
-                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
-                  <span className="text-amber-300 font-bold">Tonkeeper not connected!</span>
-                  <button
-                    type="button"
-                    onClick={() => tonConnectUI.openModal()}
-                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all cursor-pointer"
-                  >
-                    Connect Wallet
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Target Bot Treasury */}
-            <div className="mb-6 text-[11px] text-slate-400 flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-              <span>Destination: Bot Treasury</span>
-              <span className="font-mono text-emerald-400 truncate max-w-[170px]">{data.tonAddress}</span>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setDepositModal({ ...depositModal, isOpen: false })}
-                className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={depositing || !depositAmount || parseFloat(depositAmount) <= 0}
-                onClick={executeDeposit}
-                className="flex-1 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
-              >
-                {depositing ? (
-                  <>
-                    <RefreshCw size={15} className="animate-spin" />
-                    <span>Opening Tonkeeper...</span>
-                  </>
-                ) : (
-                  <>
-                    <ArrowDownToLine size={15} />
-                    <span>Pay via Tonkeeper</span>
-                  </>
-                )}
-              </button>
-            </div>
           </div>
         </div>
       )}
 
       {/* ================================================================ */}
-      {/* 7. INTERACTIVE ON-CHAIN WITHDRAWAL MODAL */}
+      {/* 7. INTERACTIVE MULTI-NETWORK ON-CHAIN WITHDRAWAL MODAL */}
       {/* ================================================================ */}
       {withdrawModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-          <div className={`w-full max-w-md p-7 rounded-[2.5rem] border relative shadow-2xl overflow-hidden ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+          <div className={`w-full max-w-lg p-7 rounded-[2.5rem] border relative shadow-2xl overflow-hidden my-8 ${
             isDark ? 'bg-[#0b1426] border-cyan-500/40 text-white shadow-[0_0_80px_rgba(6,182,212,0.25)]' : 'bg-white border-slate-200 text-slate-900 shadow-2xl'
           }`}>
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent"></div>
@@ -2328,37 +3013,99 @@ function BotWallet() {
               <X size={18} />
             </button>
 
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white flex items-center justify-center shadow-lg shadow-cyan-500/30">
                 <ArrowUpRight size={24} />
               </div>
               <div>
                 <h3 className="text-xl font-black">Withdraw from Treasury</h3>
-                <p className="text-xs text-slate-400">Transfer crypto from Bot Treasury on-chain to your wallet</p>
+                <p className="text-xs text-slate-400">Transfer crypto on-chain across TON, BEP20, Arbitrum, AVAX-C, Polygon or ERC20</p>
+              </div>
+            </div>
+
+            {/* Network Selector */}
+            <div className="mb-4">
+              <label className="text-[11px] font-black uppercase tracking-wider text-cyan-300/80 block mb-1.5">
+                Select Withdrawal Network
+              </label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {DEPOSIT_NETWORKS.map(net => {
+                  const active = (withdrawModal.network || 'TON') === net.id;
+                  return (
+                    <button
+                      key={net.id}
+                      type="button"
+                      onClick={() => {
+                        setWithdrawModal({
+                          ...withdrawModal,
+                          network: net.id,
+                          asset: net.id === 'TON' ? withdrawModal.asset : 'USDT'
+                        });
+                        setWithdrawAmount('');
+                        setWithdrawDestination(net.id === 'TON' ? (userTonAddress || '') : '');
+                      }}
+                      className={`p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                        active
+                          ? 'bg-cyan-500/20 border-cyan-400 text-white'
+                          : 'bg-black/40 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <div className="text-[11px] font-black truncate">{net.shortName}</div>
+                      <div className="text-[9px] font-mono text-cyan-300">${net.usdtBalance} USDT</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Asset Selector Tabs with Live Balances */}
-            <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-cyan-900/40">
-              {[
-                { id: 'USDT', label: `USDT (${data.tonUsdtBalance || '0.00'})` },
-                { id: 'TON', label: `TON Gas (${parseFloat(data.tonNativeBalance || data.tonBalance || 0).toFixed(2)})` },
-                { id: 'GRAM', label: `GRAM (${parseFloat(data.gramBalance || 0).toFixed(2)})` }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => { setWithdrawModal({ ...withdrawModal, asset: tab.id }); setWithdrawAmount(''); }}
-                  className={`flex-1 py-2 px-1 rounded-xl font-black text-[11px] truncate transition-all cursor-pointer ${
-                    withdrawModal.asset === tab.id
-                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            {(withdrawModal.network || 'TON') === 'TON' ? (
+              <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-cyan-900/40">
+                {[
+                  { id: 'USDT', label: `USDT ($${data.tonUsdtBalance || '0.00'})` },
+                  { id: 'GRAM', label: `GRAM (${parseFloat(data.gramBalance || 0).toFixed(2)})` },
+                  { id: 'TON', label: `TON (${parseFloat(data.tonNativeBalance || data.tonBalance || 0).toFixed(2)})` }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => { setWithdrawModal({ ...withdrawModal, asset: tab.id }); setWithdrawAmount(''); }}
+                    className={`flex-1 py-2 px-1 rounded-xl font-black text-[11px] truncate transition-all cursor-pointer ${
+                      withdrawModal.asset === tab.id
+                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              (() => {
+                const curNet = DEPOSIT_NETWORKS.find(n => n.id === withdrawModal.network) || DEPOSIT_NETWORKS[1];
+                return (
+                  <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-cyan-900/40">
+                    {[
+                      { id: 'USDT', label: `USDT ($${curNet.usdtBalance})` },
+                      { id: curNet.nativeSymbol, label: `${curNet.nativeSymbol} (${curNet.nativeBalance})` }
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => { setWithdrawModal({ ...withdrawModal, asset: tab.id }); setWithdrawAmount(''); }}
+                        className={`flex-1 py-2 px-2 rounded-xl font-black text-xs truncate transition-all cursor-pointer ${
+                          withdrawModal.asset === tab.id
+                            ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()
+            )}
 
             {/* Amount Input with MAX button */}
             <div className="mb-5 space-y-2">
@@ -2369,14 +3116,22 @@ function BotWallet() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (withdrawModal.asset === 'USDT') {
-                      setWithdrawAmount(data.tonUsdtBalance || '0');
-                    } else if (withdrawModal.asset === 'TON') {
-                      const curTon = parseFloat(data.tonNativeBalance || data.tonBalance || 0);
-                      const safeMax = Math.max(0, curTon - 0.05); // keep 0.05 TON for gas
-                      setWithdrawAmount(safeMax.toFixed(2));
+                    const netId = withdrawModal.network || 'TON';
+                    if (netId === 'TON') {
+                      if (withdrawModal.asset === 'USDT') {
+                        setWithdrawAmount(data.tonUsdtBalance || '0');
+                      } else {
+                        const curTon = parseFloat(data.tonNativeBalance || data.tonBalance || 0);
+                        const safeMax = Math.max(0, curTon - 0.05);
+                        setWithdrawAmount(safeMax.toFixed(2));
+                      }
                     } else {
-                      setWithdrawAmount((parseFloat(data.gramBalance || 0)).toFixed(2));
+                      const curNet = DEPOSIT_NETWORKS.find(n => n.id === netId);
+                      if (withdrawModal.asset === 'USDT') {
+                        setWithdrawAmount(curNet?.usdtBalance || '0');
+                      } else {
+                        setWithdrawAmount(curNet?.nativeBalance || '0');
+                      }
                     }
                   }}
                   className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 transition-all cursor-pointer"
@@ -2408,9 +3163,9 @@ function BotWallet() {
             <div className="mb-6 space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                  Destination TON Address
+                  Destination {(withdrawModal.network || 'TON') === 'TON' ? 'TON' : 'EVM (0x...)'} Address
                 </label>
-                {userTonAddress && (
+                {(withdrawModal.network || 'TON') === 'TON' && userTonAddress && (
                   <button
                     type="button"
                     onClick={() => setWithdrawDestination(userTonAddress)}
@@ -2424,7 +3179,7 @@ function BotWallet() {
                 type="text"
                 value={withdrawDestination}
                 onChange={e => setWithdrawDestination(e.target.value)}
-                placeholder="Enter recipient TON wallet address..."
+                placeholder={(withdrawModal.network || 'TON') === 'TON' ? 'Enter recipient TON wallet address (UQ... / EQ...)' : 'Enter recipient 0x... wallet or exchange deposit address'}
                 className="w-full bg-black/50 border border-cyan-900/60 p-3.5 rounded-2xl text-xs font-mono text-cyan-300 outline-none focus:border-cyan-400"
               />
             </div>
@@ -2462,11 +3217,11 @@ function BotWallet() {
       )}
 
       {/* ================================================================ */}
-      {/* 8. ADDRESS & QR INFO MODAL */}
+      {/* 8. MULTI-NETWORK ADDRESS & QR INFO MODAL */}
       {/* ================================================================ */}
       {infoModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-          <div className={`w-full max-w-lg p-7 rounded-[2rem] border relative shadow-2xl ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+          <div className={`w-full max-w-lg p-7 rounded-[2rem] border relative shadow-2xl my-8 ${
             isDark ? 'bg-[#0f1236] border-purple-500/40 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
             <button
@@ -2481,24 +3236,43 @@ function BotWallet() {
                 <Wallet size={24} />
               </div>
               <div>
-                <h3 className="text-xl font-black">Bot Treasury Address & Info</h3>
-                <p className="text-xs text-slate-400">On-chain address for manual deposits or external wallet monitoring</p>
+                <h3 className="text-xl font-black">All Treasury Receive Addresses</h3>
+                <p className="text-xs text-slate-400">Official addresses for TON, BEP20, Arbitrum One, AVAX C-Chain, Polygon & ERC20</p>
               </div>
             </div>
 
             <div className="space-y-4">
+              {/* TON Address */}
               <div className="p-4 rounded-2xl bg-slate-900/80 border border-purple-900/40 space-y-2">
-                <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Bot Treasury TON Address
+                <div className="flex items-center justify-between text-[11px] font-bold text-purple-300 uppercase tracking-wider">
+                  <span>1. TON Mainnet (USDT • GRAM • TON)</span>
+                  <span className="text-emerald-400">No Memo Required</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-black/40 border border-slate-800 font-mono text-xs text-purple-300 break-all select-all">
                   {data.tonAddress}
                 </div>
                 <button
-                  onClick={() => copyAddress(data.tonAddress)}
+                  onClick={() => copyAddress(data.tonAddress, 'TON Mainnet')}
                   className="w-full py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md"
                 >
-                  <Copy size={13} /> Copy Full Address
+                  <Copy size={13} /> Copy TON Address
+                </button>
+              </div>
+
+              {/* Multi-Chain EVM Address */}
+              <div className="p-4 rounded-2xl bg-slate-900/80 border border-emerald-900/40 space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-emerald-300 uppercase tracking-wider">
+                  <span>2. BEP20 • Arbitrum One • AVAX C-Chain • Polygon • ERC20</span>
+                  <span className="text-amber-300">Multi-Chain EVM</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-black/40 border border-slate-800 font-mono text-xs text-emerald-300 break-all select-all">
+                  {data.evmAddress}
+                </div>
+                <button
+                  onClick={() => copyAddress(data.evmAddress, 'EVM Multi-Network')}
+                  className="w-full py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md"
+                >
+                  <Copy size={13} /> Copy EVM Address (BEP20 / Arbitrum / AVAX-C)
                 </button>
               </div>
 
@@ -2509,7 +3283,15 @@ function BotWallet() {
                   rel="noreferrer"
                   className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5 transition-all"
                 >
-                  <ExternalLink size={13} /> View on Tonviewer
+                  <ExternalLink size={13} /> Tonviewer
+                </a>
+                <a
+                  href={`https://bscscan.com/address/${data.evmAddress}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5 transition-all"
+                >
+                  <ExternalLink size={13} /> BscScan
                 </a>
                 <button
                   onClick={() => setInfoModalOpen(false)}
