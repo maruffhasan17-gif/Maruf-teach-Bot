@@ -5419,10 +5419,11 @@ app.get('/api/admin/orders', async (req, res) => {
         let buys = [];
         let sells = [];
         let withdrawals = [];
+        let deposits = [];
         const seenWithdrawIds = new Set();
 
         try {
-            const buysSnapshot = await db.collection('miniapp_buys').orderBy('timestamp', 'desc').limit(50).get();
+            const buysSnapshot = await db.collection('miniapp_buys').orderBy('timestamp', 'desc').limit(60).get();
             buys = buysSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         } catch(e) {
             console.warn("Warning fetching miniapp_buys:", e.message);
@@ -5430,16 +5431,24 @@ app.get('/api/admin/orders', async (req, res) => {
         }
 
         try {
-            const sellsSnapshot = await db.collection('miniapp_sells').orderBy('timestamp', 'desc').limit(50).get();
+            const sellsSnapshot = await db.collection('miniapp_sells').orderBy('timestamp', 'desc').limit(60).get();
             sells = sellsSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         } catch(e) {
             console.warn("Warning fetching miniapp_sells:", e.message);
             if (ordersCache.data?.sells) sells = ordersCache.data.sells;
         }
 
+        try {
+            const depSnapshot = await db.collection('deposits').orderBy('timestamp', 'desc').limit(60).get();
+            deposits = depSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch(e) {
+            console.warn("Warning fetching deposits:", e.message);
+            if (ordersCache.data?.deposits) deposits = ordersCache.data.deposits;
+        }
+
         // 1. Get from fiat_withdrawals collection
         try {
-            const fwSnap = await db.collection('fiat_withdrawals').orderBy('timestamp', 'desc').limit(50).get();
+            const fwSnap = await db.collection('fiat_withdrawals').orderBy('timestamp', 'desc').limit(60).get();
             fwSnap.forEach(doc => {
                 const data = doc.data();
                 seenWithdrawIds.add(doc.id);
@@ -5465,7 +5474,7 @@ app.get('/api/admin/orders', async (req, res) => {
             return timeB - timeA;
         });
 
-        const ordersResult = { buys, sells, withdrawals };
+        const ordersResult = { buys, sells, withdrawals, deposits };
         ordersCache = { data: ordersResult, timestamp: now };
         res.json(ordersResult);
     } catch(e) {

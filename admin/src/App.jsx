@@ -62,6 +62,7 @@ import {
   InfographicLineChart 
 } from './components/DashboardCharts';
 import TreasuryDepositPage, { NetworkLogo, AssetLogo, ExchangeLogo } from './components/TreasuryDepositPage';
+import FinancialHistoryHub from './components/FinancialHistoryHub';
 
 export const API_BASE = (function() {
   if (typeof window === 'undefined') return 'https://maruf-teach-bot.onrender.com';
@@ -209,7 +210,7 @@ function useBotData() {
 
 // Global Orders Hook
 function useOrdersData() {
-  const [orders, setOrders] = useState({ buys: [], sells: [], withdrawals: [] });
+  const [orders, setOrders] = useState({ buys: [], sells: [], withdrawals: [], deposits: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -273,7 +274,7 @@ function Toast({ show, type = 'success', message, onClose }) {
   );
 }
 
-// Sidebar Component (All English)
+// Sidebar Component (Slim Icon-Only Dock with Floating Tooltips)
 function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLogout }) {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
@@ -284,27 +285,35 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       path: '/', 
       name: 'Dashboard', 
       sub: 'Overview & Treasury', 
-      icon: <LayoutDashboard size={19} /> 
+      icon: <LayoutDashboard size={20} /> 
     },
     { 
       path: '/bot-wallet', 
       name: 'Bot Treasury', 
       sub: 'GRAM & USDT Reserves', 
-      icon: <Wallet size={19} /> 
+      icon: <Wallet size={20} /> 
     },
     { 
       path: '/treasury-deposit', 
       name: 'Exchange Deposit', 
       sub: 'Multi-Chain & QR Vault', 
-      icon: <QrCode size={19} />,
+      icon: <QrCode size={20} />,
       badge: '6 NETS',
       badgeColor: 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950'
+    },
+    { 
+      path: '/transactions', 
+      name: 'Financial Records', 
+      sub: 'History & Revenue Hub', 
+      icon: <Coins size={20} />,
+      badge: 'REVENUE',
+      badgeColor: 'bg-amber-500 text-slate-950 font-black'
     },
     { 
       path: '/buys', 
       name: 'Buy Orders', 
       sub: 'Crypto Purchases', 
-      icon: <ShoppingCart size={19} />,
+      icon: <ShoppingCart size={20} />,
       badge: pendingBuysCount > 0 ? pendingBuysCount : null,
       badgeColor: 'bg-emerald-500 text-white'
     },
@@ -312,13 +321,13 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       path: '/sells', 
       name: 'Sell Orders', 
       sub: 'Crypto Sales History', 
-      icon: <Repeat size={19} /> 
+      icon: <Repeat size={20} /> 
     },
     { 
       path: '/withdraw', 
       name: 'Fiat Cashouts', 
       sub: 'bKash & Nagad Payouts', 
-      icon: <CreditCard size={19} />,
+      icon: <CreditCard size={20} />,
       badge: pendingWithdrawCount > 0 ? pendingWithdrawCount : null,
       badgeColor: 'bg-rose-500 text-white'
     },
@@ -326,13 +335,13 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       path: '/users', 
       name: 'User Management', 
       sub: 'Accounts & Direct Bonus', 
-      icon: <Users size={19} /> 
+      icon: <Users size={20} /> 
     },
     { 
       path: '/broadcast', 
       name: 'Broadcast Center', 
       sub: '20 Templates & Bot DM', 
-      icon: <Send size={19} />,
+      icon: <Send size={20} />,
       badge: '20',
       badgeColor: 'bg-purple-600 text-white'
     },
@@ -340,167 +349,165 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       path: '/bot-settings', 
       name: 'Bot Settings', 
       sub: 'Rates & Accounts', 
-      icon: <Settings size={19} /> 
+      icon: <Settings size={20} /> 
     },
     { 
       path: '/fraud', 
       name: 'Security Logs', 
       sub: 'Fraud Detection & Audit', 
-      icon: <ShieldAlert size={19} /> 
+      icon: <ShieldAlert size={20} /> 
     },
     { 
       path: '/mock-tool', 
       name: 'Mock Trx Tool', 
       sub: 'SMS Verification Testing', 
-      icon: <Zap size={19} /> 
+      icon: <Zap size={20} /> 
     },
   ];
 
   return (
-    <aside className={`w-72 h-screen fixed left-0 top-0 flex flex-col z-40 transition-colors duration-200 border-r ${
+    <aside className={`w-20 h-screen fixed left-0 top-0 flex flex-col items-center justify-between z-40 transition-colors duration-200 border-r select-none ${
       isDark 
-        ? 'bg-[#0b091a] border-purple-900/30 text-slate-200 shadow-2xl shadow-purple-950/20' 
+        ? 'bg-[#090717] border-purple-900/30 text-slate-200 shadow-2xl shadow-purple-950/30' 
         : 'bg-white border-slate-200 text-slate-800 shadow-xl'
     }`}>
-      {/* Brand Header */}
-      <div className={`p-5 flex items-center justify-between border-b ${
+      {/* Brand Header with Tooltip */}
+      <div className={`p-3.5 flex flex-col items-center border-b w-full ${
         isDark ? 'border-purple-900/20' : 'border-slate-100'
       }`}>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <img 
-              src="/logo.png" 
-              alt="Trust Pay Logo" 
-              onError={(e) => { e.target.onerror = null; e.target.src = '/app/trustpaylogo.png'; }}
-              className="w-11 h-11 rounded-2xl object-cover shadow-lg shadow-purple-600/30 border border-purple-500/30" 
-            />
-            <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-[#0b091a] animate-pulse"></span>
-          </div>
-          <div>
+        <Link to="/" className="relative group cursor-pointer">
+          <img 
+            src="/logo.png" 
+            alt="Trust Pay Logo" 
+            onError={(e) => { e.target.onerror = null; e.target.src = '/app/trustpaylogo.png'; }}
+            className="w-11 h-11 rounded-2xl object-cover shadow-lg shadow-purple-600/30 border border-purple-500/30 transition-transform group-hover:scale-105" 
+          />
+          <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-[#090717] animate-pulse"></span>
+
+          {/* Floating Brand Tooltip */}
+          <div className="absolute left-16 top-1 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-900/95 border border-purple-500/40 text-white shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50">
             <div className="flex items-center gap-1.5">
-              <h1 className={`font-black text-base tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Trust Pay
-              </h1>
-              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-widest">
-                PRO
-              </span>
+              <span className="font-black text-xs">Trust Pay</span>
+              <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white">PRO</span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-0.5 font-bold">Admin Control Center</p>
+            <div className="text-[10px] text-slate-400 font-bold">Admin Control Center</div>
           </div>
-        </div>
-
-        {/* Theme Toggle Button */}
-        <button
-          onClick={toggleTheme}
-          title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          className={`p-2 rounded-xl transition-all cursor-pointer ${
-            isDark 
-              ? 'bg-purple-950/40 text-yellow-400 hover:bg-purple-900/40' 
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          {isDark ? <Sun size={17} /> : <Moon size={17} />}
-        </button>
+        </Link>
       </div>
 
-      {/* TonConnect Admin Wallet Bar */}
-      <div className={`p-4 border-b ${isDark ? 'border-purple-900/20 bg-purple-950/20' : 'border-slate-100 bg-slate-50'}`}>
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-            <Wallet size={12} className="text-purple-400" /> Tonkeeper Admin
-          </span>
-          <span className="text-[10px] font-bold text-purple-400">TON Connect</span>
-        </div>
-        <div className="ton-connect-custom-wrapper">
-          <TonConnectButton className="w-full" />
+      {/* TonConnect Admin Wallet Mini Bar */}
+      <div className={`p-2 border-b w-full flex items-center justify-center ${isDark ? 'border-purple-900/20 bg-purple-950/20' : 'border-slate-100 bg-slate-50'}`}>
+        <div className="ton-connect-custom-wrapper scale-75 origin-center">
+          <TonConnectButton />
         </div>
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-1.5 custom-scrollbar">
+      {/* Navigation Links (Icon-Only + Floating Tooltip on Hover) */}
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-2 w-full flex flex-col items-center custom-scrollbar">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl transition-all font-medium text-xs group ${
+              className={`relative group w-12 h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
                 isActive
                   ? isDark
-                    ? 'bg-gradient-to-r from-purple-600/30 to-indigo-600/20 text-white font-bold border border-purple-500/40 shadow-lg shadow-purple-900/20'
-                    : 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 shadow-sm'
+                    ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 border border-purple-400/50'
+                    : 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : isDark
-                    ? 'text-slate-400 hover:bg-purple-950/30 hover:text-slate-200'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'text-slate-400 hover:text-white hover:bg-purple-950/40 border border-transparent hover:border-purple-800/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <span className={`transition-transform duration-200 group-hover:scale-110 ${
-                  isActive ? (isDark ? 'text-purple-400' : 'text-indigo-600') : 'text-slate-400'
-                }`}>
-                  {item.icon}
-                </span>
-                <div>
-                  <div className="font-bold">{item.name}</div>
-                  <div className={`text-[10px] ${isActive ? (isDark ? 'text-purple-300' : 'text-indigo-500') : 'text-slate-500'}`}>
-                    {item.sub}
-                  </div>
-                </div>
-              </div>
+              {/* Icon */}
+              <span className="transition-transform duration-200 group-hover:scale-110">
+                {item.icon}
+              </span>
 
+              {/* Notification Badge Dot or Pill */}
               {item.badge && (
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${item.badgeColor} shadow-sm animate-pulse`}>
-                  {item.badge}
+                <span className={`absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full text-[8.5px] font-black ${item.badgeColor} shadow-md`}>
+                  {typeof item.badge === 'number' ? (item.badge > 99 ? '99+' : item.badge) : '•'}
                 </span>
               )}
+
+              {/* Floating Tooltip Appearing Smoothly on Hover */}
+              <div className="absolute left-16 ml-2.5 px-3 py-2 rounded-2xl bg-slate-950/95 border border-purple-500/40 text-white shadow-[0_10px_30px_rgba(0,0,0,0.5)] opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 flex flex-col gap-0.5 backdrop-blur-md">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-xs text-white">{item.name}</span>
+                  {item.badge && (
+                    <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-black ${item.badgeColor}`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium">{item.sub}</span>
+              </div>
             </Link>
           );
         })}
       </nav>
 
-      {/* Bottom Action Footer */}
-      <div className={`p-4 border-t space-y-2 ${isDark ? 'border-purple-900/20' : 'border-slate-100'}`}>
+      {/* Bottom Action Footer (Create TrxID, Open Bot, Theme, Lock) */}
+      <div className={`p-3 border-t w-full flex flex-col items-center gap-2 ${isDark ? 'border-purple-900/20' : 'border-slate-100'}`}>
+        {/* Create TrxID */}
         <button
           onClick={onOpenCreateTrx}
-          className="w-full py-2.5 px-3.5 rounded-xl font-bold text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/25 flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+          className="relative group w-11 h-11 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/25 flex items-center justify-center transition-all active:scale-95 cursor-pointer"
         >
-          <PlusCircle size={15} />
-          <span>Create TrxID</span>
+          <PlusCircle size={18} />
+          <div className="absolute left-16 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-950/95 border border-purple-500/40 text-white shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 text-xs font-black">
+            Create Custom TrxID
+          </div>
         </button>
 
-        <div className="grid grid-cols-2 gap-2">
-          <a
-            href="https://t.me/bd_trust_pay_bot"
-            target="_blank"
-            rel="noreferrer"
-            className={`py-2 px-2.5 rounded-xl font-bold text-[11px] border flex items-center justify-center gap-1.5 transition-all ${
-              isDark 
-                ? 'bg-purple-950/30 border-purple-800/30 text-purple-300 hover:bg-purple-900/40' 
-                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <ExternalLink size={12} />
-            <span>Open Bot</span>
-          </a>
+        {/* Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          className={`relative group w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'bg-purple-950/40 text-yellow-400 hover:bg-purple-900/40' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          {isDark ? <Sun size={16} /> : <Moon size={16} />}
+          <div className="absolute left-16 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-950/95 border border-purple-500/40 text-white shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 text-xs font-black">
+            {isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          </div>
+        </button>
 
-          <button
-            onClick={onLogout}
-            className={`py-2 px-2.5 rounded-xl font-bold text-[11px] border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              isDark
-                ? 'bg-rose-950/30 border-rose-500/30 text-rose-400 hover:bg-rose-900/40 hover:text-rose-200'
-                : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
-            }`}
-          >
-            <LogOut size={12} />
-            <span>Lock Panel</span>
-          </button>
-        </div>
+        {/* Open Bot */}
+        <a
+          href="https://t.me/bd_trust_pay_bot"
+          target="_blank"
+          rel="noreferrer"
+          className={`relative group w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+            isDark ? 'bg-purple-950/30 border border-purple-800/30 text-purple-300 hover:bg-purple-900/40' : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <ExternalLink size={15} />
+          <div className="absolute left-16 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-950/95 border border-purple-500/40 text-white shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 text-xs font-black">
+            Open Telegram Bot
+          </div>
+        </a>
+
+        {/* Lock Panel */}
+        <button
+          onClick={onLogout}
+          className={`relative group w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'bg-rose-950/30 border border-rose-500/30 text-rose-400 hover:bg-rose-900/40 hover:text-rose-200' : 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100'
+          }`}
+        >
+          <LogOut size={15} />
+          <div className="absolute left-16 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-950/95 border border-rose-500/40 text-white shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 text-xs font-black">
+            Lock Admin Panel
+          </div>
+        </button>
       </div>
     </aside>
   );
 }
 
-// Layout Wrapper
+// Layout Wrapper (Compact ml-20 for Ultra-Spacious Workspace)
 function Layout({ children, onOpenCreateTrx, onLogout }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -517,8 +524,8 @@ function Layout({ children, onOpenCreateTrx, onLogout }) {
         pendingWithdrawCount={pendingWithdrawCount}
         onLogout={onLogout}
       />
-      <main className="flex-1 ml-72 p-6 md:p-8 transition-colors duration-200">
-        <div className="max-w-[1780px] w-full mx-auto">
+      <main className="flex-1 ml-20 p-5 md:p-7 transition-colors duration-200 overflow-x-hidden">
+        <div className="max-w-[1850px] w-full mx-auto">
           {children}
         </div>
       </main>
@@ -527,7 +534,7 @@ function Layout({ children, onOpenCreateTrx, onLogout }) {
 }
 
 // =========================================================================
-// REUSABLE LIVE ORDER FEED COMPONENT (FOR GRAM & USDT COLUMNS)
+// REUSABLE SLIM LIVE ORDER FEED COMPONENT (CHIKON & ULTRA-COMPACT ROWS)
 // =========================================================================
 function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject }) {
   const [copiedId, setCopiedId] = useState(null);
@@ -541,67 +548,68 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
   const isGram = asset === 'GRAM';
 
   return (
-    <div className={`rounded-3xl border p-6 flex flex-col h-full transition-all ${
+    <div className={`rounded-3xl border p-4 sm:p-5 flex flex-col h-full transition-all ${
       isDark 
         ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' 
         : 'bg-white border-slate-200 shadow-md'
     }`}>
       {/* Column Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-800/20 mb-4">
-        <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+      <div className="flex items-center justify-between pb-3 border-b border-slate-800/20 mb-3">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
             isGram ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'
           }`}>
             {icon}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className={`font-black text-base ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              <h3 className={`font-black text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 {title}
               </h3>
-              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black ${
+              <span className={`inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[9px] font-black ${
                 isGram ? 'bg-purple-500/15 text-purple-300' : 'bg-emerald-500/15 text-emerald-300'
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full animate-ping ${isGram ? 'bg-purple-400' : 'bg-emerald-400'}`}></span>
-                Live Feed
+                Live
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              Live purchase orders & on-chain dispatch history
+            <p className="text-[10px] text-slate-400">
+              Live crypto purchase dispatch records
             </p>
           </div>
         </div>
 
-        <span className={`px-2.5 py-1 rounded-xl text-xs font-black ${
+        <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black ${
           isDark ? 'bg-purple-950/50 text-purple-300 border border-purple-800/40' : 'bg-slate-100 text-slate-700'
         }`}>
           {items.length} Orders
         </span>
       </div>
 
-      {/* Orders List */}
-      <div className="flex-1 space-y-3 overflow-y-auto max-h-[520px] pr-1 custom-scrollbar">
+      {/* Slim & Compact Orders List ("chikon kore") */}
+      <div className="flex-1 space-y-2 overflow-y-auto max-h-[500px] pr-1 custom-scrollbar">
         {items.map((order) => {
           const isPending = order.status === 'pending' || order.status === 'verified';
           const isCompleted = order.status === 'completed' || order.status === 'paid';
           const isRejected = order.status === 'rejected';
           const method = (order.method || 'bKash').toLowerCase();
+          const orderKey = order.id || order.trxId || Math.random();
 
           return (
             <div 
-              key={order.id || order.trxId || Math.random()} 
-              className={`p-4 rounded-2xl border transition-all ${
+              key={orderKey} 
+              className={`p-2.5 px-3.5 rounded-2xl border transition-all ${
                 isDark 
                   ? 'bg-slate-900/60 border-slate-800/80 hover:border-purple-600/40' 
                   : 'bg-slate-50 border-slate-200/90 hover:border-indigo-300'
               }`}
             >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-slate-400">
-                    User: <span className="text-purple-400 font-extrabold">{order.userId}</span>
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[11px] font-bold text-slate-400">
+                    User: <strong className="text-purple-400 font-extrabold">{order.userId}</strong>
                   </span>
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                  <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
                     method === 'nagad' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30' : 'bg-pink-500/15 text-pink-400 border border-pink-500/30'
                   }`}>
                     {method}
@@ -610,68 +618,65 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
 
                 {/* Status Badge */}
                 {isCompleted && (
-                  <span className="px-2 py-0.5 rounded-lg text-[10.5px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                    <CheckCircle2 size={11} /> Completed
+                  <span className="px-2 py-0.2 rounded-md text-[9.5px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                    <CheckCircle2 size={10} /> Completed
                   </span>
                 )}
                 {isPending && (
-                  <span className="px-2 py-0.5 rounded-lg text-[10.5px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1 animate-pulse">
-                    <Clock size={11} /> Pending
+                  <span className="px-2 py-0.2 rounded-md text-[9.5px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1 animate-pulse">
+                    <Clock size={10} /> Pending
                   </span>
                 )}
                 {isRejected && (
-                  <span className="px-2 py-0.5 rounded-lg text-[10.5px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1">
-                    <XCircle size={11} /> Rejected
+                  <span className="px-2 py-0.2 rounded-md text-[9.5px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1">
+                    <XCircle size={10} /> Rejected
                   </span>
                 )}
               </div>
 
-              {/* Amount Info */}
-              <div className="flex items-baseline justify-between mb-2">
-                <div className="flex items-baseline gap-1.5">
-                  <span className={`text-xl font-black ${isGram ? 'text-purple-400' : 'text-emerald-400'}`}>
-                    +{order.amount} {asset}
-                  </span>
-
-                </div>
-                <div className="text-sm font-black text-slate-300">
-                  ৳{order.totalBdt || order.amountBdt || 0} <span className="text-xs font-normal text-slate-400">BDT</span>
-                </div>
+              {/* Amount Info (Compact & Clean) */}
+              <div className="flex items-baseline justify-between mb-1.5">
+                <span className={`text-base font-black ${isGram ? 'text-purple-400' : 'text-emerald-400'}`}>
+                  +{order.amount} {asset}
+                </span>
+                <span className="text-xs font-mono font-black text-slate-300">
+                  ৳{order.totalBdt || order.amountBdt || 0} <span className="text-[10px] text-slate-400 font-normal">BDT</span>
+                </span>
               </div>
 
-              {/* TrxID & Address */}
-              <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono pt-2 border-t border-slate-800/20">
+              {/* TrxID & Timestamp snippet */}
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-1.5 border-t border-slate-800/30">
                 <div className="flex items-center gap-1">
                   <span>Trx:</span>
                   <span className="font-bold text-slate-300">{order.trxId || order.id || 'N/A'}</span>
                   <button 
-                    onClick={() => handleCopy(order.trxId || order.id, order.trxId || order.id)} 
-                    className="p-1 hover:text-white transition-colors cursor-pointer"
+                    onClick={() => handleCopy(order.trxId || order.id, orderKey)} 
+                    className="p-0.5 hover:text-white transition-colors cursor-pointer"
                     title="Copy TrxID"
                   >
-                    {copiedId === (order.trxId || order.id) ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+                    {copiedId === orderKey ? <Check size={10} className="text-emerald-400" /> : <Copy size={10} />}
                   </button>
                 </div>
-                <div className="text-slate-500 text-[10px]">
+                <div className="text-slate-500 text-[9.5px]">
                   {formatTimestamp(order.timestamp)}
                 </div>
               </div>
 
               {/* Quick Actions if Pending */}
               {isPending && onApprove && (
-                <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-slate-800/40">
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-800/40">
                   <button
                     onClick={() => onApprove(order.id || order.trxId)}
-                    className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-black bg-emerald-500 hover:bg-emerald-400 text-white shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                    className="flex-1 py-1 px-2 rounded-lg text-[10px] font-black bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
                   >
-                    <Check size={12} /> Dispatch On-Chain
+                    <Check size={11} /> Dispatch
                   </button>
                   {onReject && (
                     <button
                       onClick={() => onReject(order.id || order.trxId)}
-                      className="py-1.5 px-3 rounded-xl text-[11px] font-black bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                      className="py-1 px-2.5 rounded-lg text-[10px] font-black bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border border-rose-500/30 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
                     >
-                      <X size={12} /> Reject
+                      <X size={11} /> Reject
                     </button>
                   )}
                 </div>
@@ -681,11 +686,11 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
         })}
 
         {items.length === 0 && (
-          <div className="py-12 text-center text-slate-500">
-            <div className="w-12 h-12 rounded-2xl bg-slate-800/30 flex items-center justify-center mx-auto mb-3 text-slate-600">
+          <div className="py-8 text-center text-slate-500">
+            <div className="w-10 h-10 rounded-xl bg-slate-800/30 flex items-center justify-center mx-auto mb-2 text-slate-600">
               {icon}
             </div>
-            <p className="text-xs font-bold">No {asset} buy transactions recorded yet.</p>
+            <p className="text-[11px] font-bold">No {asset} orders yet.</p>
           </div>
         )}
       </div>
@@ -697,11 +702,84 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
 // 1. DASHBOARD COMPONENT (WITH 2 HERO CARDS & 2 LIVE HISTORY COLUMNS)
 // =========================================================================
 function Dashboard() {
+  const navigate = useNavigate();
+  const [tickerIndex, setTickerIndex] = useState(0);
   const { data, refresh, refreshing } = useBotData();
   const { orders, refresh: refreshOrders } = useOrdersData();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  // Combined real-time activities for the top-right live ticker
+  const recentActivities = useMemo(() => {
+    const list = [];
+    (orders.buys || []).slice(0, 15).forEach(b => {
+      list.push({
+        id: b.id || b.trxId,
+        type: 'buy',
+        title: `Buy ${b.asset || 'GRAM'}`,
+        color: 'text-purple-400',
+        badgeBg: 'bg-purple-500/15 border-purple-500/30 text-purple-300',
+        amount: `+${b.amount || b.cryptoAmount} ${b.asset || 'GRAM'}`,
+        bdt: `৳${b.totalBdt || b.amountBdt || 0}`,
+        user: b.userId,
+        status: b.status || 'completed',
+        ts: b.timestamp
+      });
+    });
+    (orders.sells || []).slice(0, 10).forEach(s => {
+      list.push({
+        id: s.id || Math.random(),
+        type: 'sell',
+        title: `Sell ${s.asset || 'GRAM'}`,
+        color: 'text-cyan-400',
+        badgeBg: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300',
+        amount: `${s.cryptoAmount || s.amount} ${s.asset || 'GRAM'}`,
+        bdt: `৳${s.bdtAmount || s.totalBdt || s.estimatedTk || 0}`,
+        user: s.userId,
+        status: s.status || 'completed',
+        ts: s.timestamp
+      });
+    });
+    (orders.deposits || []).slice(0, 10).forEach(d => {
+      list.push({
+        id: d.id || d.trxId,
+        type: 'deposit',
+        title: 'Add Money',
+        color: 'text-emerald-400',
+        badgeBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+        amount: `৳${d.amount || d.totalBdt}`,
+        bdt: `৳${d.amount || d.totalBdt}`,
+        user: d.userId,
+        status: 'completed',
+        ts: d.timestamp
+      });
+    });
+    (orders.withdrawals || []).slice(0, 10).forEach(w => {
+      list.push({
+        id: w.id || w.withdrawId,
+        type: 'withdrawal',
+        title: 'Fiat Cashout',
+        color: 'text-rose-400',
+        badgeBg: 'bg-rose-500/15 border-rose-500/30 text-rose-300',
+        amount: `৳${w.amount}`,
+        bdt: `৳${w.amount}`,
+        user: w.userId,
+        status: w.status === 'approved' ? 'completed' : (w.status || 'pending'),
+        ts: w.timestamp
+      });
+    });
+    return list;
+  }, [orders]);
+
+  // Auto-cycle ticker every 3.5 seconds
+  useEffect(() => {
+    if (recentActivities.length <= 1) return;
+    const interval = setInterval(() => {
+      setTickerIndex(prev => (prev + 1) % recentActivities.length);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [recentActivities]);
 
   const gramBuys = useMemo(() => {
     return orders.buys.filter(b => {
@@ -775,45 +853,127 @@ function Dashboard() {
     <div className="space-y-8 animate-in fade-in duration-300">
       <Toast {...toast} onClose={() => setToast({ ...toast, show: false })} />
 
-      {/* Top Hero Banner */}
-      <div className={`p-8 rounded-3xl border relative overflow-hidden ${
+      {/* Top Hero Banner & Live Activity Marquee Ticker */}
+      <div className={`p-6 sm:p-7 rounded-[2.2rem] border relative overflow-hidden ${
         isDark 
           ? 'bg-gradient-to-br from-[#181238] via-[#120e2b] to-[#0c0a1a] border-purple-800/30 shadow-2xl shadow-purple-950/40' 
           : 'bg-gradient-to-br from-indigo-50 via-purple-50 to-white border-indigo-100 shadow-xl'
       }`}>
         <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          
+          {/* Left Greeting & Gas Controls (7 cols) */}
+          <div className="lg:col-span-7 space-y-2.5">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 border border-purple-500/20 text-purple-400">
               <Sparkles size={14} /> Trust Pay Control Center
             </div>
-            <h2 className={`text-3xl md:text-4xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <h2 className={`text-2xl sm:text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
               Welcome back, Admin! 👋
             </h2>
-            <p className={`text-sm max-w-xl font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            <p className={`text-xs max-w-lg font-medium leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
               Real-time oversight for bot treasury balances, live crypto purchase feeds, and instant fiat cashout fulfillment.
             </p>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Native TON Gas Pill */}
-            <div className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-2 shadow-sm ${
-              isDark ? 'bg-cyan-950/40 border-cyan-800/40 text-cyan-300' : 'bg-white border-cyan-200 text-cyan-800'
-            }`}>
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
-              <span>Gas Reserve: <b>{data.tonNativeBalance || data.tonBalance || '0.00'} TON</b></span>
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-2 shadow-sm ${
+                isDark ? 'bg-cyan-950/40 border-cyan-800/40 text-cyan-300' : 'bg-white border-cyan-200 text-cyan-800'
+              }`}>
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                <span>Gas Reserve: <b>{data.tonNativeBalance || data.tonBalance || '0.00'} TON</b></span>
+              </div>
+
+              <button
+                onClick={() => { refresh(); refreshOrders(); }}
+                className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isDark ? 'bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-900/40' : 'bg-white border-slate-200 text-slate-700 shadow-sm'
+                }`}
+              >
+                <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+                Refresh
+              </button>
             </div>
-
-            <button
-              onClick={() => { refresh(); refreshOrders(); }}
-              className={`px-4 py-2.5 rounded-2xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                isDark ? 'bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-900/40' : 'bg-white border-slate-200 text-slate-700 shadow-sm'
-              }`}
-            >
-              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-              Refresh
-            </button>
           </div>
+
+          {/* Right Top Live Activity Ticker (5 cols - Clicking opens /transactions) */}
+          <div className="lg:col-span-5">
+            {recentActivities.length > 0 ? (
+              (() => {
+                const currentItem = recentActivities[tickerIndex % recentActivities.length] || recentActivities[0];
+                return (
+                  <div
+                    onClick={() => navigate('/transactions')}
+                    className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer group hover:scale-[1.02] relative overflow-hidden ${
+                      isDark 
+                        ? 'bg-slate-950/80 border-purple-500/30 hover:border-purple-400 shadow-xl shadow-purple-950/40' 
+                        : 'bg-white border-indigo-200 hover:border-indigo-400 shadow-md'
+                    }`}
+                    title="Click to view all buy, sell, add money & withdrawal records"
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                          LIVE ACTIVITY FEED
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-purple-500/20 text-purple-300 font-bold font-mono">
+                          {((tickerIndex % recentActivities.length) + 1)}/{recentActivities.length}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-black text-indigo-400 group-hover:text-indigo-300 flex items-center gap-1">
+                        <span>All Records</span>
+                        <ArrowUpRight size={12} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                      </span>
+                    </div>
+
+                    {/* Animated Transaction Card */}
+                    <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-black/40 border border-slate-800/80">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${currentItem.badgeBg}`}>
+                          {currentItem.type === 'buy' && <ShoppingCart size={14} />}
+                          {currentItem.type === 'sell' && <Repeat size={14} />}
+                          {currentItem.type === 'deposit' && <PlusCircle size={14} />}
+                          {currentItem.type === 'withdrawal' && <CreditCard size={14} />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-black text-white truncate">{currentItem.title}</span>
+                            <span className="text-[9px] font-mono text-purple-300 truncate">ID: {currentItem.user}</span>
+                          </div>
+                          <div className={`text-xs font-mono font-black ${currentItem.color}`}>
+                            {currentItem.amount} <span className="text-slate-400 font-normal">({currentItem.bdt})</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          {currentItem.status}
+                        </span>
+                        <div className="text-[9px] text-slate-500 mt-0.5 font-mono">
+                          {formatTimestamp(currentItem.ts)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer Prompt */}
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold mt-2 pt-1 border-t border-slate-800/60">
+                      <span>Click to view Full Revenue & History Hub</span>
+                      <span className="text-purple-400 group-hover:underline flex items-center gap-0.5">Open Page <ArrowRight size={11} /></span>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <div 
+                onClick={() => navigate('/transactions')}
+                className="p-4 rounded-2xl border border-dashed border-slate-700 text-center text-xs text-slate-400 cursor-pointer hover:border-purple-400"
+              >
+                Click to open Financial History & Revenue Hub ↗
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 
@@ -6672,7 +6832,9 @@ export default function App() {
               <Route path="/bot-settings" element={<BotSettings />} />
               <Route path="/fraud" element={<FraudLogs />} />
               <Route path="/mock-tool" element={<MockTrxTool />} />
-              <Route path="/transactions" element={<BuyOrders />} />
+              <Route path="/transactions" element={<FinancialHistoryHub useOrdersDataHook={useOrdersData} useBotDataHook={useBotData} useThemeHook={useTheme} apiBase={API_BASE} />} />
+              <Route path="/history" element={<FinancialHistoryHub useOrdersDataHook={useOrdersData} useBotDataHook={useBotData} useThemeHook={useTheme} apiBase={API_BASE} />} />
+              <Route path="/revenue" element={<FinancialHistoryHub useOrdersDataHook={useOrdersData} useBotDataHook={useBotData} useThemeHook={useTheme} apiBase={API_BASE} />} />
               <Route path="*" element={<Dashboard />} />
             </Routes>
           </Layout>
