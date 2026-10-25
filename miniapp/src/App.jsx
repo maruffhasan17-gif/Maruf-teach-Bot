@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, User, Users, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun } from 'lucide-react';
+import { Home, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -3404,20 +3404,23 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         setErrorMessage('');
 
         try {
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 900));
             setProcessStep(2); // Stage 2: Broadcasting on-chain transaction
 
-            const res = await submitBuyCrypto({
-                userId: user?.id || 123456789,
-                asset: selectedAsset,
-                cryptoAmount: parseFloat(calculatedCrypto),
-                bdtAmount: numBdt,
-                receiveAddress: receiveAddress.trim()
-            });
+            const [res] = await Promise.all([
+                submitBuyCrypto({
+                    userId: user?.id || 123456789,
+                    asset: selectedAsset,
+                    cryptoAmount: parseFloat(calculatedCrypto),
+                    bdtAmount: numBdt,
+                    receiveAddress: receiveAddress.trim()
+                }),
+                new Promise(r => setTimeout(r, 1100))
+            ]);
 
             if (res.success) {
                 setProcessStep(3); // Stage 3: Awaiting on-chain confirmation
-                await new Promise(r => setTimeout(r, 600));
+                await new Promise(r => setTimeout(r, 800));
                 setTxResult(res);
                 setStage('success');
                 if (reloadData) reloadData();
