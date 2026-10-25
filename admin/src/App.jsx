@@ -274,7 +274,7 @@ function Toast({ show, type = 'success', message, onClose }) {
   );
 }
 
-// Sidebar Component (Slim Icon-Only Dock with Floating Tooltips)
+// Sidebar Component (Large Icons + Slide-Down Underneath Section Name Animation)
 function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLogout }) {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
@@ -285,124 +285,120 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       path: '/', 
       name: 'Dashboard', 
       sub: 'Overview & Treasury', 
-      icon: <LayoutDashboard size={20} /> 
+      icon: <LayoutDashboard size={27} strokeWidth={2.2} /> 
     },
     { 
       path: '/bot-wallet', 
-      name: 'Bot Treasury', 
+      name: 'Treasury', 
       sub: 'GRAM & USDT Reserves', 
-      icon: <Wallet size={20} /> 
+      icon: <Wallet size={27} strokeWidth={2.2} /> 
     },
     { 
       path: '/treasury-deposit', 
-      name: 'Exchange Deposit', 
+      name: 'Deposit', 
       sub: 'Multi-Chain & QR Vault', 
-      icon: <QrCode size={20} />,
+      icon: <QrCode size={27} strokeWidth={2.2} />,
       badge: '6 NETS',
-      badgeColor: 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950'
+      badgeColor: 'bg-emerald-500 text-slate-950 font-black'
     },
     { 
       path: '/transactions', 
-      name: 'Financial Records', 
+      name: 'Records', 
       sub: 'History & Revenue Hub', 
-      icon: <Coins size={20} />,
-      badge: 'REVENUE',
+      icon: <Coins size={27} strokeWidth={2.2} />,
+      badge: 'REV',
       badgeColor: 'bg-amber-500 text-slate-950 font-black'
     },
     { 
       path: '/buys', 
-      name: 'Buy Orders', 
+      name: 'Buys', 
       sub: 'Crypto Purchases', 
-      icon: <ShoppingCart size={20} />,
+      icon: <ShoppingCart size={27} strokeWidth={2.2} />,
       badge: pendingBuysCount > 0 ? pendingBuysCount : null,
-      badgeColor: 'bg-emerald-500 text-white'
+      badgeColor: 'bg-emerald-500 text-white font-black'
     },
     { 
       path: '/sells', 
-      name: 'Sell Orders', 
+      name: 'Sells', 
       sub: 'Crypto Sales History', 
-      icon: <Repeat size={20} /> 
+      icon: <Repeat size={27} strokeWidth={2.2} /> 
     },
     { 
       path: '/withdraw', 
-      name: 'Fiat Cashouts', 
+      name: 'Cashouts', 
       sub: 'bKash & Nagad Payouts', 
-      icon: <CreditCard size={20} />,
+      icon: <CreditCard size={27} strokeWidth={2.2} />,
       badge: pendingWithdrawCount > 0 ? pendingWithdrawCount : null,
-      badgeColor: 'bg-rose-500 text-white'
+      badgeColor: 'bg-rose-500 text-white font-black'
     },
     { 
       path: '/users', 
-      name: 'User Management', 
+      name: 'Users', 
       sub: 'Accounts & Direct Bonus', 
-      icon: <Users size={20} /> 
+      icon: <Users size={27} strokeWidth={2.2} /> 
     },
     { 
       path: '/broadcast', 
-      name: 'Broadcast Center', 
+      name: 'Broadcast', 
       sub: '20 Templates & Bot DM', 
-      icon: <Send size={20} />,
+      icon: <Send size={27} strokeWidth={2.2} />,
       badge: '20',
-      badgeColor: 'bg-purple-600 text-white'
+      badgeColor: 'bg-purple-600 text-white font-black'
     },
     { 
       path: '/bot-settings', 
-      name: 'Bot Settings', 
+      name: 'Settings', 
       sub: 'Rates & Accounts', 
-      icon: <Settings size={20} /> 
+      icon: <Settings size={27} strokeWidth={2.2} /> 
     },
     { 
       path: '/fraud', 
-      name: 'Security Logs', 
+      name: 'Security', 
       sub: 'Fraud Detection & Audit', 
-      icon: <ShieldAlert size={20} /> 
+      icon: <ShieldAlert size={27} strokeWidth={2.2} /> 
     },
     { 
       path: '/mock-tool', 
-      name: 'Mock Trx Tool', 
+      name: 'Mock Trx', 
       sub: 'SMS Verification Testing', 
-      icon: <Zap size={20} /> 
+      icon: <Zap size={27} strokeWidth={2.2} /> 
     },
   ];
 
   return (
-    <aside className={`w-20 h-screen fixed left-0 top-0 flex flex-col items-center justify-between z-40 transition-colors duration-200 border-r select-none ${
+    <aside className={`w-[94px] h-screen fixed left-0 top-0 flex flex-col items-center justify-between z-40 transition-colors duration-200 border-r select-none ${
       isDark 
-        ? 'bg-[#090717] border-purple-900/30 text-slate-200 shadow-2xl shadow-purple-950/30' 
+        ? 'bg-[#090717] border-purple-900/30 text-slate-200 shadow-2xl shadow-purple-950/40' 
         : 'bg-white border-slate-200 text-slate-800 shadow-xl'
     }`}>
-      {/* Brand Header with Tooltip */}
+      {/* Brand Header */}
       <div className={`p-3.5 flex flex-col items-center border-b w-full ${
         isDark ? 'border-purple-900/20' : 'border-slate-100'
       }`}>
-        <Link to="/" className="relative group cursor-pointer">
+        <Link to="/" className="relative group cursor-pointer flex flex-col items-center">
           <img 
             src="/logo.png" 
             alt="Trust Pay Logo" 
             onError={(e) => { e.target.onerror = null; e.target.src = '/app/trustpaylogo.png'; }}
-            className="w-11 h-11 rounded-2xl object-cover shadow-lg shadow-purple-600/30 border border-purple-500/30 transition-transform group-hover:scale-105" 
+            className="w-12 h-12 rounded-2xl object-cover shadow-lg shadow-purple-600/30 border border-purple-500/30 transition-transform group-hover:scale-105" 
           />
-          <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-[#090717] animate-pulse"></span>
-
-          {/* Floating Brand Tooltip */}
-          <div className="absolute left-16 top-1 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-900/95 border border-purple-500/40 text-white shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50">
-            <div className="flex items-center gap-1.5">
-              <span className="font-black text-xs">Trust Pay</span>
-              <span className="text-[9px] font-black px-1.5 py-0.2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white">PRO</span>
-            </div>
-            <div className="text-[10px] text-slate-400 font-bold">Admin Control Center</div>
+          <span className="absolute -bottom-1 right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-[#090717] animate-pulse"></span>
+          
+          {/* Animated Subtitle on Hover under Logo */}
+          <div className="overflow-hidden transition-all duration-300 max-h-0 opacity-0 -translate-y-1 group-hover:max-h-6 group-hover:opacity-100 group-hover:translate-y-0 text-center">
+            <span className="text-[9px] font-black text-purple-400 block pt-1 tracking-wider uppercase">TrustPay</span>
           </div>
         </Link>
       </div>
 
       {/* TonConnect Admin Wallet Mini Bar */}
-      <div className={`p-2 border-b w-full flex items-center justify-center ${isDark ? 'border-purple-900/20 bg-purple-950/20' : 'border-slate-100 bg-slate-50'}`}>
-        <div className="ton-connect-custom-wrapper scale-75 origin-center">
+      <div className={`p-2 border-b w-full flex items-center justify-center overflow-hidden ${isDark ? 'border-purple-900/20 bg-purple-950/20' : 'border-slate-100 bg-slate-50'}`}>
+        <div className="ton-connect-custom-wrapper scale-[0.68] origin-center -my-1">
           <TonConnectButton />
         </div>
       </div>
 
-      {/* Navigation Links (Icon-Only + Floating Tooltip on Hover) */}
+      {/* Navigation Links: Large Icons + Name Animated Out from Underneath on Hover */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-2 w-full flex flex-col items-center custom-scrollbar">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
@@ -410,104 +406,97 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
             <Link
               key={item.path}
               to={item.path}
-              className={`relative group w-12 h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
+              className={`group relative w-[76px] p-2 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 cursor-pointer ${
                 isActive
                   ? isDark
-                    ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 border border-purple-400/50'
+                    ? 'bg-gradient-to-br from-purple-600 via-indigo-600 to-purple-700 text-white shadow-xl shadow-purple-600/40 border border-purple-400/60'
                     : 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : isDark
-                    ? 'text-slate-400 hover:text-white hover:bg-purple-950/40 border border-transparent hover:border-purple-800/30'
+                    ? 'text-slate-400 hover:text-white hover:bg-purple-950/45 border border-transparent hover:border-purple-800/40 hover:shadow-lg'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              {/* Icon */}
-              <span className="transition-transform duration-200 group-hover:scale-110">
+              {/* Large Icon (size 27) with Hover Zoom */}
+              <div className="w-11 h-11 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110">
                 {item.icon}
-              </span>
+              </div>
 
               {/* Notification Badge Dot or Pill */}
               {item.badge && (
-                <span className={`absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full text-[8.5px] font-black ${item.badgeColor} shadow-md`}>
-                  {typeof item.badge === 'number' ? (item.badge > 99 ? '99+' : item.badge) : '•'}
+                <span className={`absolute top-1 right-1.5 px-1.5 py-0.2 rounded-full text-[8.5px] font-black ${item.badgeColor} shadow-md`}>
+                  {item.badge}
                 </span>
               )}
 
-              {/* Floating Tooltip Appearing Smoothly on Hover */}
-              <div className="absolute left-16 ml-2.5 px-3 py-2 rounded-2xl bg-slate-950/95 border border-purple-500/40 text-white shadow-[0_10px_30px_rgba(0,0,0,0.5)] opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 flex flex-col gap-0.5 backdrop-blur-md">
-                <div className="flex items-center gap-2">
-                  <span className="font-black text-xs text-white">{item.name}</span>
-                  {item.badge && (
-                    <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-black ${item.badgeColor}`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[10px] text-slate-400 font-medium">{item.sub}</span>
+              {/* Animated Section Name Emerging from Underneath the Icon on Hover */}
+              <div className="overflow-hidden transition-all duration-300 ease-out max-h-0 opacity-0 -translate-y-2 group-hover:max-h-8 group-hover:opacity-100 group-hover:translate-y-0 text-center w-full">
+                <span className="text-[10px] font-black text-white text-center block pt-0.5 leading-tight tracking-tight drop-shadow-md truncate">
+                  {item.name}
+                </span>
               </div>
             </Link>
           );
         })}
       </nav>
 
-      {/* Bottom Action Footer (Create TrxID, Open Bot, Theme, Lock) */}
-      <div className={`p-3 border-t w-full flex flex-col items-center gap-2 ${isDark ? 'border-purple-900/20' : 'border-slate-100'}`}>
+      {/* Bottom Action Footer with Large Icons & Underneath Slide Animations */}
+      <div className={`p-2.5 border-t w-full flex flex-col items-center gap-2 ${isDark ? 'border-purple-900/20' : 'border-slate-100'}`}>
         {/* Create TrxID */}
         <button
           onClick={onOpenCreateTrx}
-          className="relative group w-11 h-11 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/25 flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+          className="group w-[72px] p-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-md shadow-purple-600/25 flex flex-col items-center justify-center transition-all active:scale-95 cursor-pointer"
         >
-          <PlusCircle size={18} />
-          <div className="absolute left-16 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-950/95 border border-purple-500/40 text-white shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 text-xs font-black">
-            Create Custom TrxID
+          <div className="w-8 h-8 flex items-center justify-center transition-transform group-hover:scale-110">
+            <PlusCircle size={22} />
+          </div>
+          <div className="overflow-hidden transition-all duration-300 max-h-0 opacity-0 -translate-y-1 group-hover:max-h-6 group-hover:opacity-100 group-hover:translate-y-0 text-center w-full">
+            <span className="text-[9px] font-black block pt-0.5 tracking-tight truncate">Create Trx</span>
           </div>
         </button>
 
-        {/* Theme Toggle */}
-        <button
-          onClick={toggleTheme}
-          className={`relative group w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-            isDark ? 'bg-purple-950/40 text-yellow-400 hover:bg-purple-900/40' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          {isDark ? <Sun size={16} /> : <Moon size={16} />}
-          <div className="absolute left-16 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-950/95 border border-purple-500/40 text-white shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 text-xs font-black">
-            {isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          </div>
-        </button>
+        {/* Action Row: Theme, Open Bot, Lock */}
+        <div className="grid grid-cols-3 gap-1 w-[76px]">
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className={`group relative p-2 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              isDark ? 'bg-purple-950/40 text-yellow-400 hover:bg-purple-900/40' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+            title={isDark ? 'Light Mode' : 'Dark Mode'}
+          >
+            <Sun size={17} />
+          </button>
 
-        {/* Open Bot */}
-        <a
-          href="https://t.me/bd_trust_pay_bot"
-          target="_blank"
-          rel="noreferrer"
-          className={`relative group w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-            isDark ? 'bg-purple-950/30 border border-purple-800/30 text-purple-300 hover:bg-purple-900/40' : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          <ExternalLink size={15} />
-          <div className="absolute left-16 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-950/95 border border-purple-500/40 text-white shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 text-xs font-black">
-            Open Telegram Bot
-          </div>
-        </a>
+          {/* Open Bot */}
+          <a
+            href="https://t.me/bd_trust_pay_bot"
+            target="_blank"
+            rel="noreferrer"
+            className={`group relative p-2 rounded-xl flex items-center justify-center transition-all ${
+              isDark ? 'bg-purple-950/30 border border-purple-800/30 text-purple-300 hover:bg-purple-900/40' : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'
+            }`}
+            title="Open Telegram Bot"
+          >
+            <ExternalLink size={17} />
+          </a>
 
-        {/* Lock Panel */}
-        <button
-          onClick={onLogout}
-          className={`relative group w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
-            isDark ? 'bg-rose-950/30 border border-rose-500/30 text-rose-400 hover:bg-rose-900/40 hover:text-rose-200' : 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100'
-          }`}
-        >
-          <LogOut size={15} />
-          <div className="absolute left-16 ml-2.5 px-3 py-1.5 rounded-xl bg-slate-950/95 border border-rose-500/40 text-white shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 whitespace-nowrap z-50 text-xs font-black">
-            Lock Admin Panel
-          </div>
-        </button>
+          {/* Lock Panel */}
+          <button
+            onClick={onLogout}
+            className={`group relative p-2 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+              isDark ? 'bg-rose-950/30 border border-rose-500/30 text-rose-400 hover:bg-rose-900/40 hover:text-rose-200' : 'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100'
+            }`}
+            title="Lock Panel"
+          >
+            <LogOut size={17} />
+          </button>
+        </div>
       </div>
     </aside>
   );
 }
 
-// Layout Wrapper (Compact ml-20 for Ultra-Spacious Workspace)
+// Layout Wrapper (Compact ml-[94px] for Large-Icon Sidebar Workspace)
 function Layout({ children, onOpenCreateTrx, onLogout }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -524,7 +513,7 @@ function Layout({ children, onOpenCreateTrx, onLogout }) {
         pendingWithdrawCount={pendingWithdrawCount}
         onLogout={onLogout}
       />
-      <main className="flex-1 ml-20 p-5 md:p-7 transition-colors duration-200 overflow-x-hidden">
+      <main className="flex-1 ml-[94px] p-5 md:p-7 transition-colors duration-200 overflow-x-hidden">
         <div className="max-w-[1850px] w-full mx-auto">
           {children}
         </div>
@@ -532,7 +521,6 @@ function Layout({ children, onOpenCreateTrx, onLogout }) {
     </div>
   );
 }
-
 // =========================================================================
 // REUSABLE SLIM LIVE ORDER FEED COMPONENT (CHIKON & ULTRA-COMPACT ROWS)
 // =========================================================================
