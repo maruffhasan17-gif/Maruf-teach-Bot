@@ -334,7 +334,7 @@ export function buildDepositNetworks(data = {}) {
       exchanges: ['Binance', 'Bybit', 'OKX', 'Bitget', 'KuCoin', 'MEXC', 'Gate.io'],
       explorerName: 'Arbiscan',
       explorerUrl: `https://arbiscan.io/address/${data.evmAddress || ''}`,
-      note: 'এক্সচেঞ্জ থেকে Arbitrum One নেটওয়ার্ক সিলেক্ট করে মাত্র কয়েক সেকেন্ডে কম ফিতে USDT ডিপোজিট করুন।'
+      note: 'Arbitrum One EVM হট ওয়ালেট। (সতর্কতা: মিনিঅ্যাপে অটো-সোয়াপের জন্য TON নেটওয়ার্কে USDT ডিপোজিট আবশ্যক)।'
     },
     {
       id: 'AVAXC',

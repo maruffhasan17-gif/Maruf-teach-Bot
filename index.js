@@ -366,7 +366,7 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261016v25';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261027v30';
 const appOpenMarkup = {
     reply_markup: {
         inline_keyboard: [
@@ -1324,7 +1324,7 @@ async function ensureAdminTreasuryForOrder(asset, requiredCryptoAmount, meta = {
             return { ok: true, treasury, autoSwapped: false };
         }
 
-        // Shortfall of GRAM/TON! Check if we can auto-swap USDT -> GRAM
+        // Shortfall of GRAM/TON! Check if we can auto-swap USDT -> TON
         const minShortfallTon = (requiredTon - treasury.ton) + 0.06;
         // Ideal shortfall leaves ~0.30 TON gas reserve in the wallet after sending to the user so future swaps also have gas
         const idealShortfallTon = (requiredTon - treasury.ton) + 0.30;
@@ -1343,16 +1343,16 @@ async function ensureAdminTreasuryForOrder(asset, requiredCryptoAmount, meta = {
                     if (adminGroupId && bot) {
                         const swapMsg = `<blockquote><b>🔄 অটো-সোয়াপ সম্পন্ন (Auto-Swap USDT ➔ ${cleanAsset})!</b>\n\n` +
                             `👤 <b>ইউজার অর্ডার:</b> <code>${meta.userId || 'Admin'}</code> — <b>${reqAmount} ${cleanAsset}</b>\n` +
-                            `💎 <b>পূর্বের ব্যালেন্স ছিল:</b> <code>${swapRes.beforeTreasury.ton} GRAM | ${swapRes.beforeTreasury.usdt} USDT</code>\n` +
-                            `⚡ <b>অটো-সোয়াপ:</b> <b>${swapRes.swappedUsdt} USDT ➔ +${swapRes.receivedTon} GRAM</b> (${swapRes.dex})\n` +
-                            `✅ <b>সোয়াপ পরবর্তী ব্যালেন্স:</b> <b>${treasury.ton} GRAM | ${treasury.usdt} USDT</b>\n\n` +
+                            `💎 <b>পূর্বের ব্যালেন্স ছিল:</b> <code>${swapRes.beforeTreasury.ton} TON | ${swapRes.beforeTreasury.usdt} USDT</code>\n` +
+                            `⚡ <b>অটো-সোয়াপ:</b> <b>${swapRes.swappedUsdt} USDT ➔ +${swapRes.receivedTon} TON</b> (${swapRes.dex})\n` +
+                            `✅ <b>সোয়াপ পরবর্তী ব্যালেন্স:</b> <b>${treasury.ton} TON | ${treasury.usdt} USDT</b>\n\n` +
                             `🚀 <i>এখন স্বয়ংক্রিয়ভাবে ইউজারের ওয়ালেটে ${reqAmount} ${cleanAsset} পাঠানো হচ্ছে...</i></blockquote>`;
                         bot.sendMessage(adminGroupId, swapMsg, { parse_mode: 'HTML' }).catch(() => {});
                     }
                     return { ok: true, treasury, autoSwapped: true, swapDetails: swapRes };
                 }
             } catch (swapErr) {
-                console.error("Auto-swap USDT -> GRAM error:", swapErr.message);
+                console.error("Auto-swap USDT -> TON error:", swapErr.message);
                 return {
                     ok: false,
                     treasury,
@@ -1366,10 +1366,14 @@ async function ensureAdminTreasuryForOrder(asset, requiredCryptoAmount, meta = {
             }
         }
 
+        const failReason = (treasury.usdt < minUsdtNeeded)
+            ? (treasury.usdt <= 0.001 ? 'zero_admin_usdt_balance' : 'insufficient_usdt_for_swap')
+            : (treasury.ton < 0.155 ? 'insufficient_ton_gas_for_swap' : 'insufficient_ton_and_usdt');
+
         return {
             ok: false,
             treasury,
-            reason: treasury.ton < 0.155 ? 'insufficient_ton_gas_for_swap' : 'insufficient_ton_and_usdt',
+            reason: failReason,
             requiredTon,
             minUsdtNeeded
         };
@@ -1439,7 +1443,7 @@ async function ensureAdminTreasuryForOrder(asset, requiredCryptoAmount, meta = {
     return { ok: false, treasury, reason: 'unsupported_asset' };
 }
 
-async function sendTonOnChain(destination, amount) {
+async function sendTonOnChain(destination, amount, options = {}) {
     const { WalletContractV4, internal, external, storeMessage } = require('@ton/ton');
     const { beginCell } = require('@ton/core');
     const { mnemonicToPrivateKey } = require('@ton/crypto');
@@ -1449,12 +1453,20 @@ async function sendTonOnChain(destination, amount) {
         throw new Error("BOT_TON_SEED is not configured in .env");
     }
 
-    // 1. Strict Treasury Check (with Auto-Swap if needed) before creating tx
     const reqTon = parseFloat(amount);
-    const ensureRes = await ensureAdminTreasuryForOrder('GRAM', reqTon, { receiveAddress: destination });
-    if (!ensureRes.ok) {
-        const t = ensureRes.treasury || { ton: 0, usdt: 0 };
-        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত TON/GRAM বা সোয়াপ করার মতো USDT নেই! বর্তমান ব্যালেন্স: ${t.ton} GRAM | ${t.usdt} USDT, প্রয়োজন: ${(reqTon + 0.02).toFixed(4)} GRAM`);
+    let autoSwapped = false;
+    let swapDetails = null;
+
+    if (!options?.skipTreasuryCheck) {
+        // Strict Treasury Check (with Auto-Swap if needed) before creating tx
+        const targetAsset = (options?.asset || 'TON').toUpperCase();
+        const ensureRes = await ensureAdminTreasuryForOrder(targetAsset, reqTon, { receiveAddress: destination });
+        if (!ensureRes.ok) {
+            const t = ensureRes.treasury || { ton: 0, usdt: 0 };
+            throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত TON বা সোয়াপ করার মতো USDT নেই! বর্তমান ব্যালেন্স: ${t.ton} TON | ${t.usdt} USDT, প্রয়োজন: ${(reqTon + 0.02).toFixed(4)} TON`);
+        }
+        autoSwapped = ensureRes.autoSwapped;
+        swapDetails = ensureRes.swapDetails || null;
     }
 
     const seedWords = process.env.BOT_TON_SEED.trim().split(/\s+/);
@@ -1490,10 +1502,10 @@ async function sendTonOnChain(destination, amount) {
     const bRes = await broadcastTonBoc(boc);
     recordAdminBroadcastSeqno(seqno);
     statsCache.timestamp = 0;
-    return { ...bRes, autoSwapped: ensureRes.autoSwapped, swapDetails: ensureRes.swapDetails || null };
+    return { ...bRes, autoSwapped, swapDetails };
 }
 
-async function sendJettonUsdtOnChain(destination, amount) {
+async function sendJettonUsdtOnChain(destination, amount, options = {}) {
     const { WalletContractV4, internal, external, storeMessage } = require('@ton/ton');
     const { beginCell, Address } = require('@ton/core');
     const { mnemonicToPrivateKey } = require('@ton/crypto');
@@ -1503,12 +1515,19 @@ async function sendJettonUsdtOnChain(destination, amount) {
         throw new Error("BOT_TON_SEED is not configured in .env");
     }
 
-    // 1. Strict Treasury & Gas Check (with Auto-Swap if needed)
     const reqUsdt = parseFloat(amount);
-    const ensureRes = await ensureAdminTreasuryForOrder('USDT', reqUsdt, { receiveAddress: destination });
-    if (!ensureRes.ok) {
-        const t = ensureRes.treasury || { ton: 0, usdt: 0 };
-        throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত USDT বা গ্যাস ফি নেই! বর্তমান ব্যালেন্স: ${t.usdt} USDT | ${t.ton} GRAM, প্রয়োজন: ${reqUsdt} USDT`);
+    let autoSwapped = false;
+    let swapDetails = null;
+
+    if (!options?.skipTreasuryCheck) {
+        // Strict Treasury & Gas Check (with Auto-Swap if needed)
+        const ensureRes = await ensureAdminTreasuryForOrder('USDT', reqUsdt, { receiveAddress: destination });
+        if (!ensureRes.ok) {
+            const t = ensureRes.treasury || { ton: 0, usdt: 0 };
+            throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত USDT বা গ্যাস ফি নেই! বর্তমান ব্যালেন্স: ${t.usdt} USDT | ${t.ton} TON, প্রয়োজন: ${reqUsdt} USDT`);
+        }
+        autoSwapped = ensureRes.autoSwapped;
+        swapDetails = ensureRes.swapDetails || null;
     }
 
     const seedWords = process.env.BOT_TON_SEED.trim().split(/\s+/);
@@ -3026,14 +3045,14 @@ async function safeUpdateMarketRates() {
     }
 }
 
-// Initial fetch on server startup and hourly interval (every 60 minutes)
+// Initial fetch on server startup and 30-second live market interval
 safeUpdateMarketRates();
-setInterval(safeUpdateMarketRates, 60 * 60 * 1000);
+setInterval(safeUpdateMarketRates, 30 * 1000);
 
 // ==================== MINI APP APIs ====================
 app.get('/api/miniapp/rates', async (req, res) => {
-    // If cache older than 1 hour, refresh in background without blocking
-    if (Date.now() - cachedMarketRates.lastUpdated > 60 * 60 * 1000) {
+    // Refresh live rate if cache older than 30 seconds
+    if (Date.now() - cachedMarketRates.lastUpdated > 30 * 1000) {
         safeUpdateMarketRates().catch(e => console.error("Rate update error:", e.message));
     }
     res.json({
@@ -4816,7 +4835,7 @@ app.post('/api/miniapp/add-money', async (req, res) => {
 });
 
 app.post('/api/miniapp/buy-crypto', async (req, res) => {
-    let { userId, asset, cryptoAmount, bdtAmount, receiveAddress } = req.body;
+    let { userId, asset, cryptoAmount, bdtAmount, receiveAddress, network } = req.body;
     if (!userId || !cryptoAmount || !bdtAmount || !receiveAddress) {
         return res.status(400).json({ error: 'সবগুলো তথ্য সঠিকভাবে পূরণ করুন' });
     }
@@ -4839,14 +4858,43 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
     try {
         bdtAmount = parseFloat(bdtAmount);
-        asset = (asset || 'TON').toUpperCase();
+        let cleanAsset = (asset || 'GRAM').toUpperCase();
+        if (cleanAsset === 'TON') cleanAsset = 'GRAM';
+        asset = cleanAsset;
         receiveAddress = String(receiveAddress || '').trim();
 
-        // CRITICAL SECURITY FIX: Calculate cryptoAmount strictly on the server using live buy rate!
+        // Determine target network (TON, BEP20, ARBITRUM)
+        let selectedNetwork = 'TON';
+        if (cleanAsset === 'USDT') {
+            const rawNet = String(network || 'TON').toUpperCase().trim();
+            if (rawNet === 'BEP20' || rawNet === 'BSC') {
+                selectedNetwork = 'BEP20';
+            } else if (rawNet === 'ARBITRUM' || rawNet === 'ARB' || rawNet === 'ARBITRUM ONE') {
+                selectedNetwork = 'ARBITRUM';
+            } else {
+                selectedNetwork = 'TON';
+            }
+        }
+
+        // CRITICAL SECURITY & SLIPPAGE PROTECTION:
+        // Calculate cryptoAmount with ±3% rate lock protection for instant clicks
         const serverBuyRate = asset === 'USDT'
             ? (Number(cachedMarketRates?.buyRates?.USDT) || 130)
             : (Number(cachedMarketRates?.buyRates?.GRAM) || 175);
-        cryptoAmount = parseFloat((bdtAmount / serverBuyRate).toFixed(4));
+
+        let effectiveRate = serverBuyRate;
+        const clientExpectedRate = parseFloat(req.body.expectedRate);
+        if (clientExpectedRate && Number.isFinite(clientExpectedRate) && clientExpectedRate > 0) {
+            const diffPercent = ((serverBuyRate - clientExpectedRate) / clientExpectedRate) * 100;
+            if (diffPercent > 3.0) {
+                return res.status(400).json({
+                    error: `লাইভ মূল্য পরিবর্তিত হয়েছে! ১ ${asset} = ৳${serverBuyRate} TK (পূর্বে ছিল ৳${clientExpectedRate} TK)। অনুগ্রহ করে নতুন রেটে আবার কনফার্ম করুন।`
+                });
+            } else if (diffPercent >= -3.0 && diffPercent <= 3.0) {
+                effectiveRate = clientExpectedRate;
+            }
+        }
+        cryptoAmount = parseFloat((bdtAmount / effectiveRate).toFixed(4));
 
         if (!Number.isFinite(bdtAmount) || bdtAmount < 20 || !Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
             return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ২০ টাকা' });
@@ -4872,41 +4920,9 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             });
         }
 
-        // 2. CRITICAL: CHECK ADMIN TREASURY & AUTO-SWAP (USDT ⇄ GRAM) BEFORE DEDUCTING USER BALANCE!
-        const isTonAsset = (asset === 'GRAM' || asset === 'TON');
-        const gasFee = (asset === 'USDT') ? 0.008 : 0.0015;
-        const netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - gasFee).toFixed(6)));
-
         const config = botConfig || {};
         const adminGroupId = config.adminGroupId || 8799135330;
 
-        const ensureRes = await ensureAdminTreasuryForOrder(asset, netCryptoAmount, {
-            userId,
-            bdtAmount,
-            receiveAddress
-        });
-
-        if (!ensureRes.ok) {
-            const treasury = ensureRes.treasury || { ton: 0, usdt: 0 };
-            if (adminGroupId && bot) {
-                const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে ক্রিপ্টো বা গ্যাস ফি অপর্যাপ্ত (অটো-সোয়াপ সম্ভব হয়নি)!</b>\n\n` +
-                    `👤 ইউজার: <code>${userId}</code>\n` +
-                    `💎 কিনতে চেয়েছে: <b>${cryptoAmount} ${asset}</b> (৳${bdtAmount} BDT)\n` +
-                    `🏷 রিসিভ ওয়ালেট: <code>${receiveAddress}</code>\n\n` +
-                    `🏦 <b>বর্তমান এডমিন ওয়ালেট ব্যালেন্স:</b>\n` +
-                    `• <b>GRAM / TON:</b> <code>${treasury.ton} GRAM</code>\n` +
-                    `• <b>USDT:</b> <code>${treasury.usdt} USDT</code>\n` +
-                    (ensureRes.swapError ? `• <b>সোয়াপ ত্রুটি:</b> <i>${ensureRes.swapError}</i>\n` : '') +
-                    `\n<i>ইউজারের ব্যালেন্স কাটা হয়নি। এডমিন ওয়ালেটে USDT বা GRAM ডিপোজিট করুন!</i>`;
-                bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            }
-
-            return res.status(400).json({
-                error: 'সার্ভার বা ব্লকচেইন নেটওয়ার্কে সাময়িক ট্রাফিকের কারণে ক্রিপ্টো ট্রান্সফার সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।'
-            });
-        }
-
-        // 3. ADMIN WALLET HAS VERIFIED FUNDS (OR COMPLETED AUTO-SWAP): NOW DEDUCT USER BDT BALANCE
         const prevSpent = userDoc.data()?.spentSinceLastDeposit || 0;
         const newSpent = prevSpent + bdtAmount;
         const buyUpdates = {
@@ -4916,29 +4932,188 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         if (newSpent >= 20) {
             buyUpdates.hasDepositWithoutTrade = false;
         }
-        await userRef.update(buyUpdates);
 
-        // 4. BROADCAST ON-CHAIN TRANSACTION!
         let txResult = null;
-        try {
-            if (isTonAsset) {
-                txResult = await sendTonOnChain(receiveAddress, netCryptoAmount);
-            } else if (asset === 'USDT') {
-                txResult = await sendJettonUsdtOnChain(receiveAddress, netCryptoAmount);
-            } else {
-                throw new Error(`Unsupported crypto asset: ${asset}`);
+        let gatewayName = 'TON Blockchain';
+
+        // =========================================================================
+        // CASE A: TON NETWORK (GRAM or USDT on TON Jetton)
+        // =========================================================================
+        if (selectedNetwork === 'TON') {
+            gatewayName = 'TON Blockchain';
+            if (receiveAddress.startsWith('0x') || receiveAddress.length < 24) {
+                return res.status(400).json({ error: 'সঠিক TON ওয়ালেট এড্রেস (UQ... বা EQ...) দিন' });
             }
-        } catch (txErr) {
-            // ON-CHAIN BROADCAST FAILED: IMMEDIATELY ROLLBACK & REFUND BDT!
-            await userRef.update({
-                balance: FieldValue.increment(bdtAmount),
-                spentSinceLastDeposit: FieldValue.increment(-bdtAmount),
-                hasDepositWithoutTrade: userDoc.data()?.hasDepositWithoutTrade ?? true
+
+            const isTonAsset = (asset === 'GRAM' || asset === 'TON');
+            const gasFee = (asset === 'USDT') ? 0.008 : 0.0015;
+            const netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - gasFee).toFixed(6)));
+
+            const ensureRes = await ensureAdminTreasuryForOrder(asset, netCryptoAmount, {
+                userId,
+                bdtAmount,
+                receiveAddress
             });
-            console.error("Buy crypto on-chain transfer failed:", txErr.message);
-            return res.status(500).json({ 
-                error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${bdtAmount} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।` 
-            });
+
+            if (!ensureRes.ok) {
+                const treasury = ensureRes.treasury || { ton: 0, usdt: 0 };
+                if (adminGroupId && bot) {
+                    let reasonBn = 'এডমিন ওয়ালেটে পর্যাপ্ত ক্রিপ্টো নেই';
+                    if (ensureRes.reason === 'zero_admin_usdt_balance') {
+                        reasonBn = 'এডমিন ওয়ালেটে 0 USDT রয়েছে (সোয়াপ করার মতো কোনো USDT নেই)';
+                    } else if (ensureRes.reason === 'insufficient_ton_gas_for_swap') {
+                        reasonBn = `অটো-সোয়াপের গ্যাস ফির জন্য নূন্যতম 0.16 TON প্রয়োজন (বর্তমান: ${treasury.ton} TON)`;
+                    } else if (ensureRes.swapError) {
+                        reasonBn = `সোয়াপ ত্রুটি: ${ensureRes.swapError}`;
+                    }
+
+                    const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে ক্রিপ্টো বা গ্যাস ফি অপর্যাপ্ত (অটো-সোয়াপ সম্ভব হয়নি)!</b>\n\n` +
+                        `👤 ইউজার: <code>${userId}</code>\n` +
+                        `💎 কিনতে চেয়েছে: <b>${cryptoAmount} ${asset}</b> (৳${bdtAmount} BDT)\n` +
+                        `🏷 রিসিভ ওয়ালেট: <code>${receiveAddress}</code>\n` +
+                        `❓ কারণ: <i>${reasonBn}</i>\n\n` +
+                        `🏦 <b>বর্তমান এডমিন ওয়ালেট ব্যালেন্স:</b>\n` +
+                        `• <b>TON:</b> <code>${treasury.ton} TON</code>\n` +
+                        `• <b>USDT:</b> <code>${treasury.usdt} USDT</code>\n` +
+                        (ensureRes.swapError ? `• <b>সোয়াপ ত্রুটি:</b> <i>${ensureRes.swapError}</i>\n` : '') +
+                        `\n🔒 <i>ইউজারের ব্যালেন্স কাটা হয়নি (অক্ষত আছে)। স্বয়ংক্রিয় সোয়াপ ও ক্রিপ্টো ডেলিভারির জন্য এডমিন ওয়ালেটে TON অথবা USDT ডিপোজিট করুন!</i>`;
+                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                }
+
+                return res.status(400).json({
+                    error: 'এডমিন ওয়ালেটে লিকুইডিটি বা ব্লকচেইন ফি অপর্যাপ্ত থাকায় অর্ডারটি প্রক্রিয়াকরণ করা সম্ভব হয়নি। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে (কোনো টাকা কাটা হয়নি)। অনুগ্রহ করে কিছুক্ষণ পর চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন।'
+                });
+            }
+
+            // Deduct user balance
+            await userRef.update(buyUpdates);
+
+            // Broadcast TON on-chain transaction
+            try {
+                if (isTonAsset) {
+                    txResult = await sendTonOnChain(receiveAddress, netCryptoAmount, { skipTreasuryCheck: true, asset });
+                } else {
+                    txResult = await sendJettonUsdtOnChain(receiveAddress, netCryptoAmount, { skipTreasuryCheck: true });
+                }
+                if (ensureRes.autoSwapped) {
+                    txResult = { ...txResult, autoSwapped: true, swapDetails: ensureRes.swapDetails || null };
+                }
+            } catch (txErr) {
+                await userRef.update({
+                    balance: FieldValue.increment(bdtAmount),
+                    spentSinceLastDeposit: FieldValue.increment(-bdtAmount),
+                    hasDepositWithoutTrade: userDoc.data()?.hasDepositWithoutTrade ?? true
+                });
+                console.error("Buy crypto TON transfer failed:", txErr.message);
+                return res.status(500).json({ 
+                    error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${bdtAmount} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।` 
+                });
+            }
+
+        // =========================================================================
+        // CASE B: MULTI-CHAIN EVM NETWORK (BEP20 / ARBITRUM ONE USDT)
+        // =========================================================================
+        } else {
+            const { ethers } = require('ethers');
+            if (!ethers.isAddress(receiveAddress)) {
+                return res.status(400).json({ 
+                    error: `সঠিক ${selectedNetwork === 'BEP20' ? 'BEP20 (BSC)' : 'Arbitrum One'} (0x...) ওয়ালেট এড্রেস দিন` 
+                });
+            }
+
+            const netCfg = EVM_NETWORKS_CONFIG[selectedNetwork];
+            const privKey = process.env.BOT_EVM_PRIVATE_KEY || process.env.EVM_PRIVATE_KEY;
+            if (!netCfg || !privKey) {
+                return res.status(500).json({ error: `${selectedNetwork} নেটওয়ার্ক কনফিগারেশন অনুপস্থিত। এডমিনের সাথে যোগাযোগ করুন।` });
+            }
+
+            gatewayName = netCfg.name;
+            const netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - 0.005).toFixed(4)));
+
+            const provider = new ethers.JsonRpcProvider(netCfg.rpc);
+            const wallet = new ethers.Wallet(privKey.trim(), provider);
+            const usdtContract = new ethers.Contract(
+                netCfg.usdtContract,
+                [
+                    'function balanceOf(address) view returns (uint256)',
+                    'function transfer(address to, uint256 amount) returns (bool)'
+                ],
+                wallet
+            );
+
+            let curBalUnits = 0n;
+            let nativeGasWei = 0n;
+            try {
+                [curBalUnits, nativeGasWei] = await Promise.all([
+                    usdtContract.balanceOf(wallet.address),
+                    provider.getBalance(wallet.address)
+                ]);
+            } catch (rpcErr) {
+                console.error(`EVM balance check error on ${selectedNetwork}:`, rpcErr.message);
+                return res.status(500).json({ 
+                    error: `${netCfg.shortName} আরপিসি সার্ভার সাময়িকভাবে সাড়া দিচ্ছে না। অনুগ্রহ করে কিছুক্ষণ পর চেষ্টা করুন।` 
+                });
+            }
+
+            const curBalUsdt = parseFloat(ethers.formatUnits(curBalUnits, netCfg.usdtDecimals));
+            const gasAmount = parseFloat(ethers.formatEther(nativeGasWei));
+            const minRequiredGas = selectedNetwork === 'ARBITRUM' ? 0.00003 : 0.0005;
+
+            // Check USDT Balance
+            if (curBalUsdt < netCryptoAmount) {
+                if (adminGroupId && bot) {
+                    const alertMsg = `⚠️ <b>এডমিন EVM ওয়ালেটে (${netCfg.name}) USDT অপর্যাপ্ত!</b>\n\n` +
+                        `👤 <b>User:</b> <code>${userId}</code>\n` +
+                        `💎 <b>অর্ডার:</b> <b>${cryptoAmount} USDT</b> (৳${bdtAmount} BDT)\n` +
+                        `🌐 <b>Network:</b> <code>${netCfg.name}</code>\n` +
+                        `🏷 <b>User Wallet:</b> <code>${receiveAddress}</code>\n` +
+                        `🏦 <b>এডমিন ব্যালেন্স:</b> <code>${curBalUsdt.toFixed(2)} USDT</code>\n\n` +
+                        `🔒 <i>ইউজারের ব্যালেন্স অক্ষত আছে (টাকা কাটা হয়নি)। অটো-ট্রান্সফারের জন্য এডমিন ওয়ালেটে USDT ডিপোজিট করুন!</i>`;
+                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                }
+                return res.status(400).json({
+                    error: `এডমিন ওয়ালেটে ${netCfg.shortName} নেটওয়ার্কে পর্যাপ্ত USDT নেই (বর্তমান ব্যালেন্স: ${curBalUsdt.toFixed(2)} USDT)। আপনার ব্যালেন্স অক্ষত রয়েছে। অনুগ্রহ করে TON নেটওয়ার্কে চেষ্টা করুন অথবা এডমিন ফান্ড ডিপোজিট করা পর্যন্ত অপেক্ষা করুন।`
+                });
+            }
+
+            // Check Native Gas
+            if (gasAmount < minRequiredGas) {
+                if (adminGroupId && bot) {
+                    const alertMsg = `⚠️ <b>এডমিন EVM ওয়ালেটে (${netCfg.name}) গ্যাস ফি (${netCfg.nativeSymbol}) অপর্যাপ্ত!</b>\n\n` +
+                        `👤 <b>User:</b> <code>${userId}</code>\n` +
+                        `💎 <b>অর্ডার:</b> <b>${cryptoAmount} USDT</b> (৳${bdtAmount} BDT)\n` +
+                        `🌐 <b>Network:</b> <code>${netCfg.name}</code>\n` +
+                        `🏷 <b>User Wallet:</b> <code>${receiveAddress}</code>\n` +
+                        `🏦 <b>USDT ব্যালেন্স:</b> <code>${curBalUsdt.toFixed(2)} USDT</code> (পর্যাপ্ত)\n` +
+                        `⛽ <b>গ্যাস ব্যালেন্স:</b> <code>${gasAmount.toFixed(6)} ${netCfg.nativeSymbol}</code> (অপর্যাপ্ত)\n\n` +
+                        `🔒 <i>ইউজারের ব্যালেন্স অক্ষত আছে। অন-চেইন ট্রান্সফারের জন্য এডমিন ওয়ালেটে সামান্য পরিমাণ (${netCfg.nativeSymbol}) গ্যাস ফি ডিপোজিট করুন!</i>`;
+                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                }
+                return res.status(400).json({
+                    error: `এডমিন ওয়ালেটে ${netCfg.shortName} নেটওয়ার্কে গ্যাস ফি (${netCfg.nativeSymbol}) অপর্যাপ্ত থাকায় অর্ডারটি সম্পন্ন করা সম্ভব হয়নি। আপনার টাকা কাটা হয়নি। অনুগ্রহ করে TON নেটওয়ার্কে চেষ্টা করুন।`
+                });
+            }
+
+            // Deduct user balance
+            await userRef.update(buyUpdates);
+
+            // Broadcast EVM Transfer
+            try {
+                const units = ethers.parseUnits(netCryptoAmount.toFixed(netCfg.usdtDecimals), netCfg.usdtDecimals);
+                const tx = await usdtContract.transfer(receiveAddress, units);
+                await tx.wait(1);
+                txResult = { txHash: tx.hash, explorer: `${netCfg.explorer}/tx/${tx.hash}` };
+            } catch (txErr) {
+                await userRef.update({
+                    balance: FieldValue.increment(bdtAmount),
+                    spentSinceLastDeposit: FieldValue.increment(-bdtAmount),
+                    hasDepositWithoutTrade: userDoc.data()?.hasDepositWithoutTrade ?? true
+                });
+                console.error(`EVM transfer failed on ${selectedNetwork}:`, txErr.message);
+                return res.status(500).json({
+                    error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${bdtAmount} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।`
+                });
+            }
         }
 
         // 5. SAVE COMPLETED ORDER
@@ -4947,6 +5122,8 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             orderId,
             userId,
             asset,
+            network: selectedNetwork,
+            networkName: gatewayName,
             amount: cryptoAmount,
             totalBdt: bdtAmount,
             paymentMethod: 'In-App Balance',
@@ -4961,7 +5138,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         const userBuyInstantMsg = `<b>${PE.gem} ক্রিপ্টো ক্রয় ও উইথড্র সফল! (Crypto Sent!)</b>\n\n` +
             `<blockquote>${PE.dollar} <b>Amount:</b> <code>${cryptoAmount} ${asset}</code> (৳${bdtAmount} BDT)\n` +
-            `${PE.bank} <b>Gateway:</b> <code>TON Blockchain</code>\n` +
+            `${PE.bank} <b>Gateway:</b> <code>${gatewayName}</code>\n` +
             `${PE.wallet} <b>Address:</b> <code>${receiveAddress}</code>\n` +
             `${PE.globe} <b>Order ID:</b> <code>${orderId}</code>\n` +
             `${PE.moneyBag} <b>New Balance:</b> <b>৳${newBalance} BDT</b></blockquote>\n\n` +
@@ -4974,6 +5151,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             name: userDoc.data()?.firstName || userDoc.data()?.first_name || 'User',
             amount: cryptoAmount,
             asset,
+            network: selectedNetwork,
             totalBdt: bdtAmount,
             wallet: receiveAddress,
             txHash: txResult?.txHash || orderId
@@ -4983,7 +5161,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         if (dataGroup) {
             const dataBuyMsg = `<blockquote><b>${PE.gem} নতুন ক্রিপ্টো ক্রয় সম্পন্ন (Live Instant)!</b>\n\n` +
                 `${PE.user} <b>User:</b> <code>${userId}</code>\n` +
-                `${PE.gem} <b>ক্রিপ্টো:</b> <b>${cryptoAmount} ${asset}</b>\n` +
+                `${PE.gem} <b>ক্রিপ্টো:</b> <b>${cryptoAmount} ${asset} (${selectedNetwork})</b>\n` +
                 `${PE.dollar} <b>ব্যালেন্স থেকে কাটা:</b> <b>৳${bdtAmount} BDT</b>\n` +
                 `${PE.wallet} <b>Wallet:</b> <code>${receiveAddress}</code>\n` +
                 `${PE.check} <b>স্ট্যাটাস:</b> অন-চেইনে সফলভাবে সেন্ট হয়েছে</blockquote>`;
@@ -4992,9 +5170,10 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         res.json({
             success: true,
-            message: `সফলভাবে ${cryptoAmount} ${asset} আপনার ওয়ালেটে পাঠানো হয়েছে!`,
+            message: `সফলভাবে ${cryptoAmount} ${asset} (${selectedNetwork}) আপনার ওয়ালেটে পাঠানো হয়েছে!`,
             orderId,
             asset,
+            network: selectedNetwork,
             cryptoAmount,
             bdtAmount,
             newBalance,

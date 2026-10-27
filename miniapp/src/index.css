@@ -513,3 +513,115 @@ html.dark .tp-spin-card-idle {
   background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.9)) !important;
   border-color: rgba(71, 85, 105, 0.65) !important;
 }
+
+
+/* ==========================================================================
+   HOME HERO: Ultra-Premium 3D Luxury Action Buttons & Specular Glare
+   ========================================================================== */
+.tp-btn-3d {
+  position: relative;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.45) inset,
+    inset 0 2px 3px rgba(255, 255, 255, 0.45),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.28),
+    0 3.5px 0 var(--tp-3d-edge, #312E81),
+    0 14px 28px -6px var(--tp-3d-glow, rgba(99, 102, 241, 0.55)),
+    0 2px 4px rgba(15, 23, 42, 0.16);
+  transform: translateY(0);
+  transition: transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.14s ease, filter 0.2s ease;
+  overflow: hidden;
+}
+
+.tp-btn-3d:hover {
+  filter: brightness(1.08) saturate(1.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    inset 0 2px 4px rgba(255, 255, 255, 0.55),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.25),
+    0 3.5px 0 var(--tp-3d-edge, #312E81),
+    0 18px 32px -4px var(--tp-3d-glow, rgba(99, 102, 241, 0.65)),
+    0 3px 6px rgba(15, 23, 42, 0.2);
+}
+
+.tp-btn-3d:active {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    inset 0 1px 2px rgba(255, 255, 255, 0.3),
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.35),
+    0 0.5px 0 var(--tp-3d-edge, #312E81),
+    0 6px 14px -2px var(--tp-3d-glow, rgba(99, 102, 241, 0.45)),
+    0 1px 2px rgba(15, 23, 42, 0.2);
+}
+
+/* Glass Dome Lens Reflection */
+.tp-btn-3d::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(130% 90% at 50% -10%, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.08) 45%, transparent 75%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Specular Hairline Arc on Top Rim */
+.tp-btn-3d::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Dynamic Glare Sweep Beam */
+@keyframes tpPremiumSweep {
+  0%   { transform: translateX(-160%) skewX(-25deg); opacity: 0; }
+  12%  { opacity: 1; }
+  36%  { transform: translateX(360%) skewX(-25deg); opacity: 1; }
+  46%  { opacity: 0; }
+  100% { transform: translateX(360%) skewX(-25deg); opacity: 0; }
+}
+
+.tp-sweep-beam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 42%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: tpPremiumSweep 3.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* Periodic Specular Golden Text Shimmer */
+@keyframes tpTextChomok {
+  0%   { background-position: 180% center; }
+  28%  { background-position: -80% center; }
+  100% { background-position: -80% center; }
+}
+
+.tp-shine-text {
+  background-image: linear-gradient(110deg, #FFFFFF 0%, #FFFFFF 36%, #FEF08A 48%, #FFFFFF 60%, #FFFFFF 100%);
+  background-size: 260% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: tpTextChomok 3.6s ease-in-out infinite;
+  filter: drop-shadow(0 1.5px 2px rgba(0, 0, 0, 0.35));
+}
+
+.tp-sweep-delay {
+  animation-delay: 1.8s !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tp-sweep-beam, .tp-shine-text { animation: none; }
+}

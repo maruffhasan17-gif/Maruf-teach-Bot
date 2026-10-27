@@ -1418,7 +1418,7 @@ function BotWallet() {
         memoRequired: false,
         exchanges: ['Binance', 'Bybit', 'OKX', 'Bitget', 'KuCoin', 'MEXC', 'Gate.io'],
         explorerUrl: `https://arbiscan.io/address/${data.evmAddress || ''}`,
-        note: 'এক্সচেঞ্জ থেকে Arbitrum One নেটওয়ার্ক সিলেক্ট করে দ্রুত ও কম ফিতে USDT ডিপোজিট করুন।'
+        note: 'Arbitrum One EVM হট ওয়ালেট। (সতর্কতা: মিনিঅ্যাপে অটো-সোয়াপের জন্য TON নেটওয়ার্কে USDT ডিপোজিট আবশ্যক)।'
       },
       {
         id: 'AVAXC',
