@@ -395,10 +395,11 @@ html.dark .tp-card-flower-lotus {
   opacity: 0.16 !important;
   filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.35));
 }
+html.dark .tp-card-flower-indigo,
 html.dark .tp-card-flower-emerald {
-  color: #34D399 !important;
+  color: #A78BFA !important;
   opacity: 0.16 !important;
-  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.35));
+  filter: drop-shadow(0 0 10px rgba(124, 58, 237, 0.35));
 }
 html.dark .tp-card-flower-mandala {
   color: #C084FC !important;
@@ -428,9 +429,9 @@ html.dark .tp-bg-flower-home {
   filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.45));
 }
 html.dark .tp-bg-flower-addmoney {
-  color: #34D399 !important;
+  color: #A78BFA !important;
   opacity: 0.22 !important;
-  filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.45));
+  filter: drop-shadow(0 0 20px rgba(124, 58, 237, 0.45));
 }
 html.dark .tp-bg-flower-sell {
   color: #C084FC !important;

@@ -206,9 +206,9 @@ const HomeLotusPattern = ({ className = "opacity-[0.06] tp-card-flower-lotus" })
 );
 
 // 2. ADD MONEY: Cascading Prosperity Orchid & Jasmine Blooms
-const AddMoneyFloraPattern = ({ className = "opacity-[0.06] tp-card-flower-emerald" }) => (
+const AddMoneyFloraPattern = ({ className = "opacity-[0.06] tp-card-flower-indigo" }) => (
   <svg 
-    className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-emerald-900 ${className}`} 
+    className={`absolute pointer-events-none select-none right-[-10px] bottom-[-10px] text-indigo-900 ${className}`} 
     width="145" 
     height="145" 
     viewBox="0 0 100 100" 
@@ -373,7 +373,7 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
               page === 'referral'
                 ? 'radial-gradient(circle, rgba(244,63,94,0.5) 0%, transparent 70%)'
                 : page === 'add-money'
-                ? 'radial-gradient(circle, rgba(16,185,129,0.45) 0%, transparent 70%)'
+                ? 'radial-gradient(circle, rgba(124,58,237,0.45) 0%, transparent 70%)'
                 : page === 'withdraw'
                 ? 'radial-gradient(circle, rgba(245,158,11,0.4) 0%, transparent 70%)'
                 : 'radial-gradient(circle, rgba(99,102,241,0.5) 0%, transparent 70%)'
@@ -406,13 +406,11 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
     )}
     {page === 'add-money' && (
       <>
-        <div className="absolute -top-10 -right-10 w-80 h-80 text-emerald-800 opacity-[0.05] tp-bg-flower-addmoney transform rotate-6">
+        {/* Top-right flower removed: the hero now uses the custom lotus line-art image */}
+        <div className="absolute top-[40%] -left-16 w-72 h-72 text-indigo-900 opacity-[0.035] tp-bg-flower-addmoney transform rotate-15">
           <AddMoneyFloraPattern className="w-full h-full opacity-100" />
         </div>
-        <div className="absolute top-[40%] -left-16 w-72 h-72 text-emerald-800 opacity-[0.035] tp-bg-flower-addmoney transform rotate-15">
-          <AddMoneyFloraPattern className="w-full h-full opacity-100" />
-        </div>
-        <div className="absolute bottom-16 -left-10 w-80 h-80 text-emerald-800 opacity-[0.045] tp-bg-flower-addmoney transform -rotate-30">
+        <div className="absolute bottom-16 -left-10 w-80 h-80 text-indigo-900 opacity-[0.045] tp-bg-flower-addmoney transform -rotate-30">
           <AddMoneyFloraPattern className="w-full h-full opacity-100" />
         </div>
       </>
@@ -3506,7 +3504,7 @@ function AddMoneyPage({
                         <span className="w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[9px] flex items-center justify-center">1</span>
                         <span>{lang === 'bn' ? 'পরিমাণ ও মাধ্যম' : 'Amount & Method'}</span>
                     </div>
-                    <div className="flex-1 py-1 px-2.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-1.5 shadow-xs">
+                    <div className="flex-1 py-1 px-2.5 rounded-lg bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white flex items-center justify-center gap-1.5 shadow-xs">
                         <span className="w-3.5 h-3.5 rounded-full bg-white/20 text-[9px] flex items-center justify-center">2</span>
                         <span>{lang === 'bn' ? 'সেন্ড মানি ও TrxID' : 'Send & TrxID'}</span>
                     </div>
@@ -3534,14 +3532,14 @@ function AddMoneyPage({
                                 <span className={`font-black text-[12.5px] block leading-tight ${
                                     darkMode ? 'text-white' : 'text-slate-900'
                                 }`}>{paymentMethod} Personal</span>
-                                <span className="text-[10px] text-emerald-500 font-bold">{lang === 'bn' ? 'সেন্ড মানি করুন' : 'Send Money'}</span>
+                                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">{lang === 'bn' ? 'সেন্ড মানি করুন' : 'Send Money'}</span>
                             </div>
                         </div>
                         <div className="text-right">
                             <span className={`text-[9.5px] font-bold block ${
                                 darkMode ? 'text-slate-400' : 'text-slate-500'
                             }`}>{lang === 'bn' ? 'প্রদেয় পরিমাণ' : 'Payable Amount'}</span>
-                            <span className="text-[15px] font-black font-mono text-emerald-500">৳{amount} BDT</span>
+                            <span className="text-[15px] font-black font-mono text-indigo-600 dark:text-indigo-400">৳{amount} BDT</span>
                         </div>
                     </div>
 
@@ -3557,7 +3555,7 @@ function AddMoneyPage({
                             }`}>
                                 {paymentMethod} Personal Number
                             </span>
-                            <span className="text-[9px] font-extrabold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+                            <span className="text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.2 rounded border border-indigo-200 dark:border-indigo-800">
                                 Send Money
                             </span>
                         </div>
@@ -3572,7 +3570,7 @@ function AddMoneyPage({
                                 onClick={handleCopy}
                                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-[10.5px] transition-all cursor-pointer active:scale-95 shadow-2xs select-none ${
                                     copied
-                                        ? 'bg-emerald-600 text-white font-extrabold shadow-emerald-500/25'
+                                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-extrabold shadow-indigo-500/25'
                                         : darkMode
                                             ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
                                             : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'
@@ -3596,10 +3594,10 @@ function AddMoneyPage({
                     {/* Quick 3-Step Guidance */}
                     <div className={`p-2 rounded-xl border space-y-1 text-[10.5px] ${
                         darkMode
-                            ? 'bg-emerald-950/20 border-emerald-500/25 text-emerald-200/90'
-                            : 'bg-emerald-50/70 border-emerald-100 text-emerald-900'
+                            ? 'bg-indigo-950/20 border-indigo-500/25 text-indigo-200/90'
+                            : 'bg-indigo-50/70 border-indigo-100 text-indigo-900'
                     }`}>
-                        <p className="font-extrabold text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        <p className="font-extrabold text-[10px] uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
                             {lang === 'bn' ? 'কিভাবে টাকা পাঠাবেন:' : 'How to send money:'}
                         </p>
                         <div className="space-y-0.5 pl-1 font-medium leading-tight">
@@ -3633,8 +3631,8 @@ function AddMoneyPage({
                             placeholder="e.g. 9J26XYZ789"
                             className={`w-full h-[46px] pl-3 pr-11 rounded-xl text-[14px] font-mono font-bold uppercase tracking-wider outline-none border transition-all ${
                                 darkMode
-                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/20'
-                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/15'
+                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/20'
+                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500/15'
                             }`}
                         />
                         <button
@@ -3681,9 +3679,9 @@ function AddMoneyPage({
                         disabled={!trxId.trim() || loading}
                         className="tp-btn-3d relative overflow-hidden w-full h-[48px] rounded-[16px] text-white cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
-                            background: 'linear-gradient(135deg, #059669 0%, #10B981 50%, #047857 100%)',
-                            '--tp-3d-edge': '#064E3B',
-                            '--tp-3d-glow': 'rgba(16, 185, 129, 0.52)'
+                            background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #6366F1 100%)',
+                            '--tp-3d-edge': '#312E81',
+                            '--tp-3d-glow': 'rgba(99, 102, 241, 0.52)'
                         }}
                     >
                         <span className="tp-sweep-beam" />
@@ -3710,13 +3708,13 @@ function AddMoneyPage({
         <div className="flex flex-col h-full animate-in fade-in duration-300 pb-20 max-w-md mx-auto">
             {/* Balance Hero Section — card-less • title on the LEFT • lotus line-art on the RIGHT */}
             <section className="relative pt-1 pb-1">
-                {/* Soft emerald glow behind flower */}
+                {/* Soft beguni / lavender glow behind flower */}
                 <div
                     className="absolute -right-4 -top-2 w-[190px] h-[170px] pointer-events-none"
                     style={{
                         background: darkMode
-                            ? 'radial-gradient(closest-side, rgba(16,185,129,0.18), transparent)'
-                            : 'radial-gradient(closest-side, rgba(167,243,208,0.6), rgba(209,250,229,0.2) 60%, transparent)'
+                            ? 'radial-gradient(closest-side, rgba(168,85,247,0.22), transparent)'
+                            : 'radial-gradient(closest-side, rgba(233,213,255,0.7), rgba(243,232,255,0.25) 60%, transparent)'
                     }}
                 />
 
@@ -3736,8 +3734,8 @@ function AddMoneyPage({
 
                 {/* Title & Current Balance */}
                 <div className="relative z-10 max-w-[65%]">
-                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold tracking-wide uppercase mb-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9px] font-extrabold tracking-wide uppercase mb-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
                         {lang === 'bn' ? 'অটো-ভেরিফাইড ডিপোজিট' : 'Instant Auto-Deposit'}
                     </div>
                     <h1 className={`text-xl font-black tracking-tight leading-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -3745,7 +3743,7 @@ function AddMoneyPage({
                     </h1>
                     <p className={`text-[11px] font-medium mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                         {lang === 'bn' ? 'বর্তমান ব্যালেন্স:' : 'Current Balance:'}{' '}
-                        <span className={`font-bold font-mono ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                        <span className={`font-bold font-mono ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
                             ৳{Number(balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                     </p>
@@ -3756,7 +3754,7 @@ function AddMoneyPage({
             <div className={`mt-1.5 mb-2.5 p-0.5 rounded-xl border flex items-center gap-1 text-[10.5px] font-bold ${
                 darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200/80 shadow-2xs'
             }`}>
-                <div className="flex-1 py-1 px-2.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-1.5 shadow-xs">
+                <div className="flex-1 py-1 px-2.5 rounded-lg bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white flex items-center justify-center gap-1.5 shadow-xs">
                     <span className="w-3.5 h-3.5 rounded-full bg-white/20 text-[9px] flex items-center justify-center">1</span>
                     <span>{lang === 'bn' ? 'পরিমাণ ও মাধ্যম' : 'Amount & Method'}</span>
                 </div>
@@ -3781,13 +3779,13 @@ function AddMoneyPage({
                         }`}>
                             {t?.depositAmount || (lang === 'bn' ? 'ডিপোজিট পরিমাণ (BDT)' : 'Deposit Amount (BDT)')}
                         </label>
-                        <span className="text-[9.5px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20">
+                        <span className="text-[9.5px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded-md border border-indigo-200/80 dark:border-indigo-800">
                             MIN ৳50
                         </span>
                     </div>
 
                     <div className="relative flex items-center">
-                        <span className="absolute left-3 font-black text-xl text-emerald-600 dark:text-emerald-400">৳</span>
+                        <span className="absolute left-3 font-black text-xl text-indigo-600 dark:text-indigo-400">৳</span>
                         <input
                             type="number"
                             value={amount}
@@ -3798,8 +3796,8 @@ function AddMoneyPage({
                             placeholder="0.00"
                             className={`w-full h-[46px] pl-8 pr-12 rounded-xl text-xl font-black font-mono tracking-tight outline-none border transition-all ${
                                 darkMode
-                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/20'
-                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/15'
+                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/20'
+                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500/15'
                             }`}
                         />
                         <span className={`absolute right-3 font-extrabold text-[11px] ${
@@ -3824,7 +3822,7 @@ function AddMoneyPage({
                                     }}
                                     className={`h-7 rounded-lg text-[10.5px] font-bold transition-all active:scale-95 cursor-pointer flex items-center justify-center border ${
                                         isSelected
-                                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs font-black'
+                                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-500 shadow-xs font-black'
                                             : darkMode
                                                 ? 'bg-slate-950/60 text-slate-300 border-slate-800 hover:border-slate-700'
                                                 : 'bg-slate-100/90 text-slate-700 border-slate-200/80 hover:bg-slate-200/80'
@@ -3935,10 +3933,10 @@ function AddMoneyPage({
                 {/* Instant Verification Banner */}
                 <div className={`p-2 rounded-xl border flex items-center gap-2 ${
                     darkMode
-                        ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
-                        : 'bg-emerald-50/80 border-emerald-200/80 text-emerald-800'
+                        ? 'bg-indigo-950/30 border-indigo-500/30 text-indigo-300'
+                        : 'bg-indigo-50/80 border-indigo-200/80 text-indigo-900'
                 }`}>
-                    <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-500 shrink-0">
+                    <div className="w-6 h-6 rounded-lg bg-indigo-500/15 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
                         <Sparkles size={13} />
                     </div>
                     <p className="text-[10.5px] font-semibold leading-tight">
@@ -3963,9 +3961,9 @@ function AddMoneyPage({
                     disabled={!amount || parseFloat(String(amount).replace(/,/g, '')) <= 0}
                     className="tp-btn-3d relative overflow-hidden w-full h-[48px] rounded-[16px] text-white cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
-                        background: 'linear-gradient(135deg, #059669 0%, #10B981 50%, #047857 100%)',
-                        '--tp-3d-edge': '#064E3B',
-                        '--tp-3d-glow': 'rgba(16, 185, 129, 0.52)'
+                        background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #6366F1 100%)',
+                        '--tp-3d-edge': '#312E81',
+                        '--tp-3d-glow': 'rgba(99, 102, 241, 0.52)'
                     }}
                 >
                     <span className="tp-sweep-beam" />
