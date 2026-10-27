@@ -343,6 +343,25 @@ const ReferralRosePattern = ({ className = "opacity-[0.08] tp-card-flower-rose" 
   </svg>
 );
 
+// Scaled delicate rose branch art for Profile & Spin cards
+const CardRoseBranch = ({ className = "" }) => (
+  <div 
+    className={`absolute pointer-events-none select-none right-[-6px] -bottom-2 w-[105px] h-[105px] overflow-hidden ${className}`}
+    style={{
+      WebkitMaskImage: 'radial-gradient(ellipse at 75% 75%, black 50%, transparent 80%)',
+      maskImage: 'radial-gradient(ellipse at 75% 75%, black 50%, transparent 80%)'
+    }}
+  >
+    <img 
+      src={roseBranchArt} 
+      alt="" 
+      aria-hidden="true" 
+      draggable={false} 
+      className="w-full h-full object-contain opacity-[0.38] dark:opacity-[0.28] filter drop-shadow-sm transform rotate-[-8deg] scale-105"
+    />
+  </div>
+);
+
 // Backward-compatibility alias
 const FloralWatermark = HomeLotusPattern;
 
@@ -426,23 +445,6 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
               : 'radial-gradient(closest-side, rgba(233,213,255,0.7), rgba(243,232,255,0.25) 60%, transparent)'
           }}
         />
-
-        {/* Delicate Lavender Rose Branch Art */}
-        <div
-          className="absolute -right-3 top-2 w-[210px] pointer-events-none select-none overflow-hidden"
-          style={{
-            WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
-            maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
-          }}
-        >
-          <img
-            src={roseBranchArt}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className={`w-full h-auto ${darkMode ? 'opacity-[0.45] brightness-125' : 'opacity-[0.85]'}`}
-          />
-        </div>
       </>
     )}
     {page === 'withdraw' && (
@@ -2007,6 +2009,7 @@ export default function App() {
                   balance={balance} 
                   balanceLoaded={balanceLoaded}
                   user={user} 
+                  mbsId={mbsId}
                   lang={lang}
                   t={t}
                   darkMode={darkMode}
@@ -2058,8 +2061,10 @@ export default function App() {
               ) : (
                   <AddMoneyPage 
                       user={user} 
+                      balance={balance}
                       lang={lang} 
                       t={t} 
+                      darkMode={darkMode}
                       onDone={() => setActiveTab('home')}
                       onGoToBuyCrypto={() => setActiveTab('buy')}
                       reloadData={() => loadData(user?.id || 123456789)}
@@ -2536,6 +2541,7 @@ function HomePage({
   balance, 
   balanceLoaded = false, 
   user, 
+  mbsId,
   fiatWithdrawPending, 
   onGoToClaim, 
   onOpenBuyCrypto, 
@@ -2550,6 +2556,20 @@ function HomePage({
   t = {} 
 }) {
   const [showBalance, setShowBalance] = useState(true);
+  const [copiedId, setCopiedId] = useState(false);
+  const displayId = mbsId || user?.mbsId || (user?.id ? 'MBS' + String(user.id).slice(-5) : 'MBS00000');
+
+  const handleCopyId = () => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(displayId);
+    }
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
+  };
+
   const [activeFilter, setActiveFilter] = useState('all');
   const [marketRates, setMarketRates] = useState(() => {
     try {
@@ -2803,20 +2823,22 @@ function HomePage({
           <div className={`flex items-center gap-2.5 mt-3 text-[11.5px] ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
             <button
               type="button"
-              onClick={() => {
-                navigator.clipboard?.writeText(String(user?.id || ''));
-                alert(lang === 'bn' ? 'অ্যাকাউন্ট আইডি কপি হয়েছে!' : 'Account ID copied!');
-              }}
-              className={`flex items-center gap-1.5 h-6 px-2.5 rounded-full border transition cursor-pointer ${
-                darkMode
-                  ? 'bg-violet-500/10 border-violet-400/20 text-violet-200 hover:bg-violet-500/20'
-                  : 'bg-[#FFFFFF]/80 border-violet-200 text-[#6D28D9] hover:bg-violet-50'
+              onClick={handleCopyId}
+              className={`flex items-center gap-1.5 h-6 px-2.5 rounded-full border transition-all cursor-pointer select-none active:scale-95 ${
+                copiedId
+                  ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-500 font-bold'
+                  : darkMode
+                    ? 'bg-violet-500/10 border-violet-400/20 text-violet-200 hover:bg-violet-500/20'
+                    : 'bg-[#FFFFFF]/80 border-violet-200 text-[#6D28D9] hover:bg-violet-50'
               }`}
-              title="Copy ID"
+              title="Copy Bot ID"
             >
-              <span className="tracking-[0.15em]">••••</span>
-              <span className="font-semibold">{String(user?.id || '0000').slice(-4)}</span>
-              <Copy size={11} />
+              <span className="font-semibold font-mono tracking-wide">{displayId}</span>
+              {copiedId ? (
+                <Check size={11} className="text-emerald-500 animate-in zoom-in" />
+              ) : (
+                <Copy size={11} />
+              )}
             </button>
             <span className="whitespace-nowrap">≈ <span className={`font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>${usdEquiv}</span> USD</span>
           </div>
@@ -3229,7 +3251,16 @@ function ClaimPage({ user, onBack }) {
 
 
 
-function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadData }) {
+function AddMoneyPage({ 
+    user, 
+    balance = 0,
+    lang = 'bn', 
+    t, 
+    darkMode = false,
+    onDone, 
+    onGoToBuyCrypto, 
+    reloadData 
+}) {
     const [step, setStep] = useState(1);
     const [amount, setAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('bKash');
@@ -3242,7 +3273,9 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
     const [depositResult, setDepositResult] = useState(null);
 
     useEffect(() => {
-        fetch((window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://maruf-teach-bot.onrender.com') + '/api/settings')
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('192.168');
+        const API_URL = isLocal ? 'http://localhost:3000' : 'https://maruf-teach-bot.onrender.com';
+        fetch(`${API_URL}/api/settings`)
             .then(res => res.json())
             .then(data => {
                 if (data.adminBkash) setAdminBkash(data.adminBkash);
@@ -3253,15 +3286,17 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
     const adminNumber = paymentMethod === 'bKash' ? adminBkash : adminNagad;
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(adminNumber);
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(adminNumber);
+        }
         setCopied(true);
         if (window.Telegram?.WebApp?.HapticFeedback) {
-            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         }
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const quickAmounts = [50, 100, 500, 1000, 5000, 20000];
+    const quickAmounts = [100, 500, 1000, 2000, 5000, 10000];
 
     const extractCleanTrxId = (raw) => {
         if (!raw) return '';
@@ -3276,7 +3311,11 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
         const cleanAmt = String(amount || '').replace(/,/g, '').trim();
         const num = parseFloat(cleanAmt);
         if (!num || isNaN(num) || num <= 0) {
-            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("অনুগ্রহ করে সঠিক টাকার পরিমাণ দিন") : alert("Please enter a valid amount");
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            }
+            setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে সঠিক টাকার পরিমাণ দিন' : 'Please enter a valid amount');
+            return;
         }
         setAmount(num.toString());
         setErrorMessage('');
@@ -3287,7 +3326,10 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
     const handleSubmit = async () => {
         const cleanId = extractCleanTrxId(trxId);
         if (!cleanId || cleanId.length < 4) {
-            setErrorMessage('অনুগ্রহ করে সঠিক Transaction ID দিন');
+            setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে সঠিক Transaction ID দিন' : 'Please enter a valid Transaction ID');
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+            }
             return;
         }
         setTrxId(cleanId);
@@ -3311,13 +3353,13 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
                 setStep(3);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
-                setErrorMessage(res.error || 'ভেরিফিকেশন ব্যর্থ হয়েছে');
+                setErrorMessage(res.error || (lang === 'bn' ? 'ভেরিফিকেশন ব্যর্থ হয়েছে' : 'Verification failed'));
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
                 }
             }
         } catch (e) {
-            setErrorMessage(e.message || 'ভুল বা আনভেরিফাইড Transaction ID! টাকা পাঠিয়ে সঠিক TrxID দিন।');
+            setErrorMessage(e.message || (lang === 'bn' ? 'ভুল বা আনভেরিফাইড TrxID! টাকা পাঠিয়ে সঠিক TrxID দিন।' : 'Invalid or unverified TrxID!'));
             if (window.Telegram?.WebApp?.HapticFeedback) {
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             }
@@ -3374,12 +3416,24 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
 
                     {/* Action Buttons */}
                     <div className="space-y-2.5 pt-2">
-                        <CutCornerButton 
-                            onClick={onGoToBuyCrypto} 
-                            icon={Coins}
+                        <button
+                            type="button"
+                            onClick={onGoToBuyCrypto}
+                            className="tp-btn-3d relative overflow-hidden w-full h-[50px] rounded-[18px] text-white cursor-pointer select-none"
+                            style={{
+                                background: 'linear-gradient(135deg, #7C3AED 0%, #6366F1 50%, #4338CA 100%)',
+                                '--tp-3d-edge': '#312E81',
+                                '--tp-3d-glow': 'rgba(99, 102, 241, 0.52)'
+                            }}
                         >
-                            {t?.buyCrypto || (lang === 'bn' ? 'ক্রিপ্টো কিনুন' : 'BUY CRYPTO NOW')}
-                        </CutCornerButton>
+                            <span className="tp-sweep-beam" />
+                            <span className="relative z-10 flex items-center justify-center gap-2">
+                                <Coins size={16} />
+                                <span className="tp-shine-text text-[13.5px] font-black">
+                                    {t?.buyCrypto || (lang === 'bn' ? 'ক্রিপ্টো কিনুন' : 'BUY CRYPTO NOW')}
+                                </span>
+                            </span>
+                        </button>
                         <CutCornerButton 
                             onClick={() => {
                                 setStep(1);
@@ -3399,295 +3453,518 @@ function AddMoneyPage({ user, lang = 'bn', t, onDone, onGoToBuyCrypto, reloadDat
         );
     }
 
-    // STEP 2: SEND MONEY & SUBMIT TRXID (STRICT: NO PENDING)
+    // STEP 2: SEND MONEY & SUBMIT TRXID
     if (step === 2) {
         return (
-            <div className="flex flex-col h-full animate-in slide-in-from-right duration-300 pb-24">
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-5">
-                    <button 
-                        onClick={() => { setStep(1); setErrorMessage(''); }} 
-                        className="p-2.5 bg-white rounded-full shadow-sm text-gray-700 border border-gray-100 active:scale-95 transition-transform"
+            <div className="flex flex-col h-full animate-in slide-in-from-right duration-300 pb-24 max-w-md mx-auto">
+                {/* Header with Back button */}
+                <div className="flex items-center gap-3 mb-4">
+                    <button
+                        type="button"
+                        onClick={() => { setStep(1); setErrorMessage(''); }}
+                        className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 cursor-pointer shadow-sm ${
+                            darkMode
+                                ? 'bg-slate-900 border-slate-800 text-white hover:bg-slate-800'
+                                : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
+                        }`}
+                        title="Back"
                     >
-                        <ArrowDown size={18} className="rotate-90" />
+                        <ArrowLeft size={18} />
                     </button>
                     <div>
-                        <h2 className="text-xl font-black text-gray-900 tracking-tight">
-                            {lang === 'bn' ? 'পেমেন্ট ভেরিফিকেশন' : 'Send Money Verification'}
+                        <h2 className={`text-lg font-black tracking-tight leading-tight ${
+                            darkMode ? 'text-white' : 'text-slate-900'
+                        }`}>
+                            {lang === 'bn' ? 'পেমেন্ট ভেরিফিকেশন' : 'Payment Verification'}
                         </h2>
-                        <p className="text-gray-500 text-xs mt-0.5">
-                            {t?.sendTrx || 'টাকা পাঠিয়ে TrxID সাবমিট করুন'}
+                        <p className={`text-[11.5px] font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {t?.sendTrx || (lang === 'bn' ? 'টাকা পাঠিয়ে TrxID সাবমিট করুন' : 'Send money and submit TrxID')}
                         </p>
                     </div>
                 </div>
 
-                {/* Progress Bar */}
-                <div className="flex items-center gap-2 mb-6 px-1">
-                    <div className="h-1.5 flex-1 bg-emerald-500 rounded-full" />
-                    <div className="h-1.5 flex-1 bg-emerald-500 rounded-full relative">
-                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-emerald-500 rounded-full ring-4 ring-emerald-100" />
+                {/* Segmented Step Indicator */}
+                <div className={`mb-4 p-1 rounded-2xl border flex items-center gap-1 text-[11.5px] font-bold ${
+                    darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200/80 shadow-2xs'
+                }`}>
+                    <div className={`flex-1 py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 ${
+                        darkMode ? 'text-slate-500' : 'text-slate-400'
+                    }`}>
+                        <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] flex items-center justify-center">1</span>
+                        <span>{lang === 'bn' ? 'পরিমাণ ও মাধ্যম' : 'Amount & Method'}</span>
+                    </div>
+                    <div className="flex-1 py-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-1.5 shadow-xs">
+                        <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center">2</span>
+                        <span>{lang === 'bn' ? 'সেন্ড মানি ও TrxID' : 'Send & TrxID'}</span>
                     </div>
                 </div>
 
-                {/* Instructions Card */}
-                <CutCornerCard className="p-3.5 mb-3 space-y-3" flower={<AddMoneyFloraPattern />}>
-                    <div className="flex justify-between items-center pb-2.5 border-b border-gray-100">
+                {/* Payment Overview Card */}
+                <div className={`p-4 rounded-[22px] border space-y-3.5 mb-3.5 ${
+                    darkMode
+                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
+                        : 'bg-white/95 border-slate-200/90 shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
+                }`}>
+                    {/* Method & Amount Header */}
+                    <div className={`flex items-center justify-between pb-3 border-b ${
+                        darkMode ? 'border-slate-800' : 'border-slate-100'
+                    }`}>
                         <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
-                                <img 
-                                    src={getPaymentLogo(paymentMethod)} 
-                                    className="w-full h-full object-contain" 
-                                    alt={paymentMethod} 
+                            <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shrink-0 shadow-2xs">
+                                <img
+                                    src={getPaymentLogo(paymentMethod)}
+                                    className="w-full h-full object-contain"
+                                    alt={paymentMethod}
                                 />
                             </div>
                             <div>
-                                <span className="font-bold text-gray-900 text-[13px] block">{paymentMethod} Personal</span>
-                                <span className="text-[10px] text-gray-400 font-medium">{lang === 'bn' ? 'শুধু সেন্ড মানি' : 'Send Money Only'}</span>
+                                <span className={`font-black text-[13px] block leading-tight ${
+                                    darkMode ? 'text-white' : 'text-slate-900'
+                                }`}>{paymentMethod} Personal</span>
+                                <span className="text-[10.5px] text-emerald-500 font-bold">{lang === 'bn' ? 'সেন্ড মানি করুন' : 'Send Money'}</span>
                             </div>
                         </div>
                         <div className="text-right">
-                            <span className="text-[10px] text-gray-400 font-medium block">{lang === 'bn' ? 'সঠিক টাকা পাঠান' : 'Send exactly'}</span>
-                            <span className="text-[15px] font-black text-emerald-600">৳{amount} BDT</span>
+                            <span className={`text-[10px] font-bold block ${
+                                darkMode ? 'text-slate-400' : 'text-slate-500'
+                            }`}>{lang === 'bn' ? 'প্রদেয় পরিমাণ' : 'Payable Amount'}</span>
+                            <span className="text-[17px] font-black font-mono text-emerald-500">৳{amount} BDT</span>
                         </div>
                     </div>
 
-                    {/* Admin Number with Copy */}
-                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                {t?.adminNumber || `Admin ${paymentMethod} Number`}
+                    {/* Admin Personal Number with Animated Copy Button */}
+                    <div className={`p-3.5 rounded-2xl border transition-all ${
+                        darkMode
+                            ? 'bg-slate-950/80 border-slate-800'
+                            : 'bg-slate-50 border-slate-200/80'
+                    }`}>
+                        <div className="flex items-center justify-between mb-1.5">
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                                darkMode ? 'text-slate-400' : 'text-slate-500'
+                            }`}>
+                                {paymentMethod} Personal Number
                             </span>
-                            <span className="text-[10px] text-emerald-600 font-bold">Personal</span>
+                            <span className="text-[10px] font-extrabold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                Send Money
+                            </span>
                         </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-base font-bold text-gray-900 font-mono tracking-wider">{adminNumber}</span>
-                            <button 
-                                onClick={handleCopy} 
-                                className={"flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold text-[11px] shadow-sm transition-all active:scale-95 " + (copied ? "bg-emerald-600 text-white" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50")}
+                        <div className="flex items-center justify-between gap-2">
+                            <span className={`text-base font-black font-mono tracking-wider select-all ${
+                                darkMode ? 'text-white' : 'text-slate-900'
+                            }`}>
+                                {adminNumber}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleCopy}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-[11px] transition-all cursor-pointer active:scale-95 shadow-xs select-none ${
+                                    copied
+                                        ? 'bg-emerald-600 text-white font-extrabold shadow-emerald-500/25'
+                                        : darkMode
+                                            ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                                            : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 shadow-2xs'
+                                }`}
                             >
-                                {copied ? <><CheckCircle2 size={13} /> {lang === 'bn' ? 'কপি হয়েছে' : 'Copied'}</> : <><Copy size={13} /> {lang === 'bn' ? 'কপি' : 'Copy'}</>}
+                                {copied ? (
+                                    <>
+                                        <Check size={13} className="animate-in zoom-in" />
+                                        <span>{lang === 'bn' ? 'কপি হয়েছে!' : 'Copied!'}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy size={13} />
+                                        <span>{lang === 'bn' ? 'কপি করুন' : 'Copy'}</span>
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>
 
-                    {/* Guidance */}
-                    {lang === 'bn' ? (
-                        <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
-                            <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">কিভাবে টাকা পাঠাবেন:</p>
-                            <p>১. আপনার <b>{paymentMethod}</b> অ্যাপ থেকে <b>Send Money</b> অপশনে যান।</p>
+                    {/* Quick 3-Step Guidance */}
+                    <div className={`p-3 rounded-2xl border space-y-1.5 text-[11px] ${
+                        darkMode
+                            ? 'bg-emerald-950/20 border-emerald-500/25 text-emerald-200/90'
+                            : 'bg-emerald-50/70 border-emerald-100 text-emerald-900'
+                    }`}>
+                        <p className="font-extrabold text-[10.5px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                            {lang === 'bn' ? 'কিভাবে টাকা পাঠাবেন:' : 'How to send money:'}
+                        </p>
+                        <div className="space-y-1 pl-1 font-medium">
+                            <p>১. আপনার <b>{paymentMethod}</b> অ্যাপে <b>Send Money</b> অপশনে যান।</p>
                             <p>২. উপরে দেওয়া নাম্বারে সঠিক <b>৳{amount} টাকা</b> পাঠান।</p>
-                            <p>৩. এসএমএস থেকে পাওয়া <b>Transaction ID (TrxID)</b> নিচে লিখে সাবমিট করুন।</p>
+                            <p>৩. ফিরতি SMS থেকে প্রাপ্ত <b>TrxID</b> কপি করে নিচে পেস্ট করুন।</p>
                         </div>
-                    ) : (
-                        <div className="bg-emerald-50/60 rounded-xl p-2.5 border border-emerald-100 text-[12px] text-emerald-900 space-y-1">
-                            <p className="font-bold text-[11px] text-emerald-800 uppercase tracking-wider">How to pay:</p>
-                            <p>1. Open your <b>{paymentMethod}</b> app and tap <b>Send Money</b>.</p>
-                            <p>2. Send exact <b>৳{amount} BDT</b> to the admin number above.</p>
-                            <p>3. Enter the <b>Transaction ID (TrxID)</b> from SMS below and submit.</p>
-                        </div>
-                    )}
-                </CutCornerCard>
+                    </div>
+                </div>
 
                 {/* TrxID Input Card */}
-                <CutCornerCard className="p-3.5 mb-3 space-y-2.5" flower={<AddMoneyFloraPattern />}>
-                    <label className="text-[11px] font-bold text-gray-500 block uppercase tracking-wider">
+                <div className={`p-4 rounded-[22px] border space-y-2.5 mb-3.5 ${
+                    darkMode
+                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
+                        : 'bg-white/95 border-slate-200/90 shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
+                }`}>
+                    <label className={`text-[11px] font-bold uppercase tracking-wider block ${
+                        darkMode ? 'text-slate-400' : 'text-slate-500'
+                    }`}>
                         Transaction ID (TrxID)
                     </label>
-                    <div className="relative">
-                        <input 
-                            type="text" 
-                            value={trxId} 
-                            onChange={e => setTrxId(e.target.value.toUpperCase())} 
-                            placeholder="e.g. 9J26XYZ789" 
-                            className="w-full bg-gray-50 rounded-xl p-3 pr-10 text-[15px] font-mono font-bold text-gray-900 border border-gray-200 focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 transition-all outline-none" 
+
+                    <div className="relative flex items-center">
+                        <input
+                            type="text"
+                            value={trxId}
+                            onChange={e => {
+                                setTrxId(e.target.value.toUpperCase());
+                                if (errorMessage) setErrorMessage('');
+                            }}
+                            placeholder="e.g. 9J26XYZ789"
+                            className={`w-full h-[52px] pl-3.5 pr-12 rounded-xl text-[15px] font-mono font-bold uppercase tracking-wider outline-none border transition-all ${
+                                darkMode
+                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20'
+                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15'
+                            }`}
                         />
-                        <button 
-                            onClick={async () => { 
-                                try { 
-                                    const text = await navigator.clipboard.readText(); 
-                                    if (text) setTrxId(extractCleanTrxId(text)); 
-                                } catch(e){} 
-                            }} 
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white text-gray-400 hover:text-emerald-600 rounded-lg transition-all shadow-sm border border-gray-200"
-                            title="Paste from clipboard"
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                try {
+                                    const text = await navigator.clipboard.readText();
+                                    if (text) {
+                                        setTrxId(extractCleanTrxId(text));
+                                        if (window.Telegram?.WebApp?.HapticFeedback) {
+                                            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                                        }
+                                    }
+                                } catch (e) {}
+                            }}
+                            className={`absolute right-2.5 p-2 rounded-lg transition-all cursor-pointer shadow-xs border ${
+                                darkMode
+                                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                                    : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
+                            }`}
+                            title="Paste TrxID"
                         >
-                            <ClipboardPaste size={16} />
+                            <ClipboardPaste size={15} />
                         </button>
                     </div>
 
-                    {/* Prominent Realtime Error Alert */}
+                    {/* Error Banner */}
                     {errorMessage && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2.5 animate-in fade-in duration-300">
-                            <AlertCircle size={17} className="text-red-600 shrink-0 mt-0.5" />
+                        <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 flex items-start gap-2.5 animate-in fade-in">
+                            <AlertCircle size={16} className="shrink-0 text-rose-600 mt-0.5" />
                             <div className="text-[12px]">
-                                <p className="font-bold text-red-700">{lang === 'bn' ? 'ভুল বা অমিল TrxID!' : 'Invalid or Mismatched TrxID!'}</p>
-                                <p className="text-red-600 leading-tight">{errorMessage}</p>
+                                <p className="font-extrabold text-rose-800">{lang === 'bn' ? 'ভুল বা অমিল TrxID!' : 'Invalid TrxID!'}</p>
+                                <p className="font-medium text-rose-700 leading-tight mt-0.5">{errorMessage}</p>
                             </div>
                         </div>
                     )}
-                </CutCornerCard>
+                </div>
 
-                {/* Submit Button */}
-                <div className="mt-auto">
-                    <CutCornerButton 
-                        onClick={handleSubmit} 
+                {/* Ultra-Premium Luxury 3D Action Button */}
+                <div className="mt-4 pt-1">
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
                         disabled={!trxId.trim() || loading}
-                        isSubmitting={loading}
-                        icon={CheckCircle2}
+                        className="tp-btn-3d relative overflow-hidden w-full h-[54px] rounded-[20px] text-white cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                            background: 'linear-gradient(135deg, #059669 0%, #10B981 50%, #047857 100%)',
+                            '--tp-3d-edge': '#064E3B',
+                            '--tp-3d-glow': 'rgba(16, 185, 129, 0.52)'
+                        }}
                     >
-                        {t?.verifyAddMoney || 'VERIFY & ADD MONEY'}
-                    </CutCornerButton>
+                        <span className="tp-sweep-beam" />
+                        <span className="relative z-10 flex items-center justify-center gap-2.5 px-3">
+                            <span className="w-8 h-8 rounded-xl bg-gradient-to-b from-white/35 to-white/10 backdrop-blur-md border border-white/50 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.7),0_2px_5px_rgba(0,0,0,0.2)] flex items-center justify-center shrink-0">
+                                {loading ? (
+                                    <Loader2 size={16} className="animate-spin text-white" />
+                                ) : (
+                                    <CheckCircle2 size={16} strokeWidth={2.6} className="text-white drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.3)]" />
+                                )}
+                            </span>
+                            <span className="tp-shine-text text-[14.5px] font-extrabold tracking-wide">
+                                {loading ? (lang === 'bn' ? 'ভেরিফাই হচ্ছে...' : 'VERIFYING...') : (t?.verifyAddMoney || (lang === 'bn' ? 'ভেরিফাই করে টাকা যোগ করুন' : 'VERIFY & ADD MONEY'))}
+                            </span>
+                        </span>
+                    </button>
                 </div>
             </div>
         );
     }
 
-    // STEP 1: AMOUNT & PAYMENT METHOD (NO WALLET ADDRESS HERE)
+    // STEP 1: AMOUNT & PAYMENT METHOD (Matches Home Page Hero & Luxury Cardless Aesthetic)
     return (
-        <div className="flex flex-col h-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
-            {/* Header */}
-            <div className="flex items-center gap-2.5 mb-3.5">
-                <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm shrink-0">
-                    <PlusCircle size={18} strokeWidth={2.5} />
+        <div className="flex flex-col h-full animate-in fade-in duration-300 pb-24 max-w-md mx-auto">
+            {/* Balance Hero Section — card-less • title on the LEFT • lotus line-art on the RIGHT */}
+            <section className="relative pt-2 pb-2">
+                {/* Soft emerald glow behind the flower */}
+                <div
+                    className="absolute -right-6 -top-2 w-[240px] h-[210px] pointer-events-none"
+                    style={{
+                        background: darkMode
+                            ? 'radial-gradient(closest-side, rgba(16,185,129,0.22), transparent)'
+                            : 'radial-gradient(closest-side, rgba(167,243,208,0.7), rgba(209,250,229,0.25) 60%, transparent)'
+                    }}
+                />
+
+                {/* Lotus line-art (right side) */}
+                <div
+                    className="absolute -right-4 -top-5 w-[150px] h-[210px] overflow-hidden pointer-events-none select-none"
+                    style={{ WebkitMaskImage: 'linear-gradient(to bottom, black 72%, transparent 100%)', maskImage: 'linear-gradient(to bottom, black 72%, transparent 100%)' }}
+                >
+                    <img
+                        src={lotusLineArt}
+                        alt=""
+                        aria-hidden="true"
+                        draggable={false}
+                        className={`w-full h-auto ${darkMode ? 'opacity-[0.38] brightness-125' : 'opacity-[0.85]'}`}
+                    />
                 </div>
-                <div>
-                    <h2 className="text-[15px] font-extrabold text-gray-900 tracking-tight leading-tight">
-                        {t?.addMoney || 'Add Money'}
-                    </h2>
-                    <p className="text-gray-500 text-[12px]">
-                        {lang === 'bn' ? 'টাকা জমা করুন আপনার একাউন্ট ব্যালেন্সে' : 'Deposit money to your account balance'}
+
+                {/* Left side: Greeting / Title & Current Balance */}
+                <div className="relative z-10 max-w-[65%]">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold tracking-wide uppercase mb-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        {lang === 'bn' ? 'অটো-ভেরিফাইড ডিপোজিট' : 'Instant Auto-Deposit'}
+                    </div>
+                    <h1 className={`text-2xl font-black tracking-tight leading-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                        {lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money'}
+                    </h1>
+                    <p className={`text-[11.5px] font-medium mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {lang === 'bn' ? 'বর্তমান ব্যালেন্স:' : 'Current Balance:'}{' '}
+                        <span className={`font-bold font-mono ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                            ৳{Number(balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
                     </p>
                 </div>
-            </div>
+            </section>
 
-            {/* Progress Bar */}
-            <div className="flex items-center gap-2 mb-4 px-1">
-                <div className="h-1 flex-1 bg-emerald-500 rounded-full relative">
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-emerald-100" />
+            {/* Segmented Step Indicator */}
+            <div className={`mt-2 mb-4 p-1 rounded-2xl border flex items-center gap-1 text-[11.5px] font-bold ${
+                darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200/80 shadow-2xs'
+            }`}>
+                <div className="flex-1 py-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-1.5 shadow-xs">
+                    <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center">1</span>
+                    <span>{lang === 'bn' ? 'পরিমাণ ও মাধ্যম' : 'Amount & Method'}</span>
                 </div>
-                <div className="h-1 flex-1 bg-gray-200 rounded-full" />
+                <div className={`flex-1 py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 ${
+                    darkMode ? 'text-slate-500' : 'text-slate-400'
+                }`}>
+                    <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] flex items-center justify-center">2</span>
+                    <span>{lang === 'bn' ? 'সেন্ড মানি ও TrxID' : 'Send & TrxID'}</span>
+                </div>
             </div>
 
-            <div className="space-y-3">
-                {/* Amount Card */}
-                <CutCornerCard className="p-3.5 space-y-3" flower={<AddMoneyFloraPattern />}>
-                    <div>
-                        <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase mb-1.5 ml-0.5">
-                            {t?.depositAmount || 'Deposit Amount (BDT)'}
+            <div className="space-y-3.5">
+                {/* 1. Deposit Amount Input Block */}
+                <div className={`relative p-4 rounded-[22px] border transition-all ${
+                    darkMode
+                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
+                        : 'bg-white/95 border-slate-200/90 shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
+                }`}>
+                    <div className="flex items-center justify-between mb-2">
+                        <label className={`text-[11px] font-bold uppercase tracking-wider ${
+                            darkMode ? 'text-slate-400' : 'text-slate-500'
+                        }`}>
+                            {t?.depositAmount || (lang === 'bn' ? 'ডিপোজিট পরিমাণ (BDT)' : 'Deposit Amount (BDT)')}
                         </label>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-base text-gray-700">৳</span>
-                            <input 
-                                type="number" 
-                                value={amount} 
-                                onChange={e => setAmount(e.target.value)} 
-                                placeholder="0.00" 
-                                className="w-full bg-gray-50 rounded-xl h-[48px] pl-7 pr-12 text-lg font-bold text-gray-900 border border-gray-200 focus:border-violet-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/10 transition-all outline-none" 
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-[11px] text-gray-400">BDT</span>
-                        </div>
+                        <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                            MIN ৳50
+                        </span>
                     </div>
 
-                    {/* Quick Amount Chips */}
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {quickAmounts.map(val => (
-                            <button
-                                key={val}
-                                type="button"
-                                onClick={() => setAmount(val.toString())}
-                                className={`px-3 py-1 rounded-lg text-[12px] font-bold transition-all active:scale-95 ${
-                                    amount === val.toString() 
-                                        ? 'bg-emerald-600 text-white shadow-sm' 
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                            >
-                                ৳{val}
-                            </button>
-                        ))}
+                    <div className="relative flex items-center">
+                        <span className="absolute left-3.5 font-bold text-2xl text-emerald-600 dark:text-emerald-400">৳</span>
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={e => {
+                                setAmount(e.target.value);
+                                if (errorMessage) setErrorMessage('');
+                            }}
+                            placeholder="0.00"
+                            className={`w-full h-[56px] pl-9 pr-14 rounded-xl text-2xl font-black font-mono tracking-tight outline-none border transition-all ${
+                                darkMode
+                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20'
+                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15'
+                            }`}
+                        />
+                        <span className={`absolute right-3.5 font-extrabold text-[12px] ${
+                            darkMode ? 'text-slate-400' : 'text-slate-400'
+                        }`}>BDT</span>
                     </div>
-                </CutCornerCard>
 
-                {/* Payment Method Selection */}
-                <CutCornerCard className="p-3.5 space-y-2.5" flower={<AddMoneyFloraPattern />}>
-                    <label className="text-[11px] font-bold text-gray-400 block tracking-wider uppercase ml-0.5">
-                        {t?.selectMethod || 'Select Payment Method'}
+                    {/* Quick Amount Pills */}
+                    <div className="grid grid-cols-3 gap-1.5 mt-3">
+                        {quickAmounts.map(val => {
+                            const isSelected = amount === val.toString();
+                            return (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => {
+                                        setAmount(val.toString());
+                                        if (errorMessage) setErrorMessage('');
+                                        if (window.Telegram?.WebApp?.HapticFeedback) {
+                                            window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                                        }
+                                    }}
+                                    className={`h-9 rounded-xl text-[12px] font-bold transition-all active:scale-95 cursor-pointer flex items-center justify-center border ${
+                                        isSelected
+                                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-600/30 font-black'
+                                            : darkMode
+                                                ? 'bg-slate-950/60 text-slate-300 border-slate-800 hover:border-slate-700'
+                                                : 'bg-slate-100/90 text-slate-700 border-slate-200/80 hover:bg-slate-200/80'
+                                    }`}
+                                >
+                                    +৳{val >= 1000 ? `${val / 1000}k` : val}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* 2. Payment Method Selector (bKash & Nagad) */}
+                <div className={`p-4 rounded-[22px] border ${
+                    darkMode
+                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
+                        : 'bg-white/95 border-slate-200/90 shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
+                }`}>
+                    <label className={`text-[11px] font-bold uppercase tracking-wider block mb-2.5 ${
+                        darkMode ? 'text-slate-400' : 'text-slate-500'
+                    }`}>
+                        {t?.selectMethod || (lang === 'bn' ? 'পেমেন্ট মাধ্যম নির্বাচন করুন' : 'Select Payment Method')}
                     </label>
 
-                    <div className="grid grid-cols-2 gap-2">
-                        {/* bKash */}
-                        <div 
-                            onClick={() => setPaymentMethod('bKash')}
-                            className={`px-3 py-2.5 rounded-xl border cursor-pointer transition-all flex items-center gap-2.5 ${
-                                paymentMethod === 'bKash' 
-                                    ? 'tp-asset-card-selected border-emerald-400 bg-emerald-50/50 shadow-2xs' 
-                                    : 'tp-asset-card-unselected border-gray-200/80 bg-gray-50/50 hover:bg-gray-50'
+                    <div className="grid grid-cols-2 gap-2.5">
+                        {/* bKash Card */}
+                        <div
+                            onClick={() => {
+                                setPaymentMethod('bKash');
+                                if (window.Telegram?.WebApp?.HapticFeedback) {
+                                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                                }
+                            }}
+                            className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 active:scale-[0.98] select-none ${
+                                paymentMethod === 'bKash'
+                                    ? darkMode
+                                        ? 'bg-pink-950/30 border-pink-500/60 shadow-[0_0_18px_rgba(244,63,94,0.22)]'
+                                        : 'bg-pink-50/60 border-pink-400 shadow-[0_4px_14px_rgba(244,63,94,0.12)]'
+                                    : darkMode
+                                        ? 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
+                                        : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/60'
                             }`}
                         >
-                            <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
-                                <img 
-                                    src={getPaymentLogo('bKash')} 
-                                    className="w-full h-full object-contain" 
-                                    alt="bKash" 
+                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
+                                <img
+                                    src={getPaymentLogo('bKash')}
+                                    className="w-full h-full object-contain"
+                                    alt="bKash"
                                 />
                             </div>
-                            <div className="flex-1 text-left min-w-0">
-                                <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">bKash</span>
-                                <span className="text-[10px] text-gray-400 font-medium block">Personal</span>
+                            <div className="flex-1 min-w-0">
+                                <span className={`font-black text-[13px] block leading-tight truncate ${
+                                    darkMode ? 'text-white' : 'text-slate-900'
+                                }`}>bKash</span>
+                                <span className="text-[10px] text-pink-500 font-bold">Personal</span>
                             </div>
-                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                                paymentMethod === 'bKash' ? 'tp-asset-check-active bg-emerald-500 text-white' : 'tp-asset-check-inactive border border-gray-300'
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                paymentMethod === 'bKash'
+                                    ? 'bg-pink-600 text-white shadow-xs'
+                                    : darkMode ? 'border border-slate-700' : 'border border-slate-300'
                             }`}>
-                                {paymentMethod === 'bKash' && <Check size={10} strokeWidth={3} />}
+                                {paymentMethod === 'bKash' && <Check size={12} strokeWidth={3} />}
                             </div>
                         </div>
 
-                        {/* Nagad */}
-                        <div 
-                            onClick={() => setPaymentMethod('Nagad')}
-                            className={`px-3 py-2.5 rounded-xl border cursor-pointer transition-all flex items-center gap-2.5 ${
-                                paymentMethod === 'Nagad' 
-                                    ? 'tp-asset-card-selected border-indigo-400 bg-indigo-50/50 shadow-2xs' 
-                                    : 'tp-asset-card-unselected border-gray-200/80 bg-gray-50/50 hover:bg-gray-50'
+                        {/* Nagad Card */}
+                        <div
+                            onClick={() => {
+                                setPaymentMethod('Nagad');
+                                if (window.Telegram?.WebApp?.HapticFeedback) {
+                                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                                }
+                            }}
+                            className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 active:scale-[0.98] select-none ${
+                                paymentMethod === 'Nagad'
+                                    ? darkMode
+                                        ? 'bg-amber-950/30 border-amber-500/60 shadow-[0_0_18px_rgba(245,158,11,0.22)]'
+                                        : 'bg-amber-50/60 border-amber-400 shadow-[0_4px_14px_rgba(245,158,11,0.12)]'
+                                    : darkMode
+                                        ? 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
+                                        : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/60'
                             }`}
                         >
-                            <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
-                                <img 
-                                    src={getPaymentLogo('Nagad')} 
-                                    className="w-full h-full object-contain" 
-                                    alt="Nagad" 
+                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
+                                <img
+                                    src={getPaymentLogo('Nagad')}
+                                    className="w-full h-full object-contain"
+                                    alt="Nagad"
                                 />
                             </div>
-                            <div className="flex-1 text-left min-w-0">
-                                <span className="font-bold text-[12px] text-gray-900 block leading-tight truncate">Nagad</span>
-                                <span className="text-[10px] text-gray-400 font-medium block">Personal</span>
+                            <div className="flex-1 min-w-0">
+                                <span className={`font-black text-[13px] block leading-tight truncate ${
+                                    darkMode ? 'text-white' : 'text-slate-900'
+                                }`}>Nagad</span>
+                                <span className="text-[10px] text-amber-500 font-bold">Personal</span>
                             </div>
-                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                                paymentMethod === 'Nagad' ? 'tp-asset-check-active bg-indigo-500 text-white' : 'tp-asset-check-inactive border border-gray-300'
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                paymentMethod === 'Nagad'
+                                    ? 'bg-amber-600 text-white shadow-xs'
+                                    : darkMode ? 'border border-slate-700' : 'border border-slate-300'
                             }`}>
-                                {paymentMethod === 'Nagad' && <Check size={10} strokeWidth={3} />}
+                                {paymentMethod === 'Nagad' && <Check size={12} strokeWidth={3} />}
                             </div>
                         </div>
                     </div>
-                </CutCornerCard>
+                </div>
 
-                {/* Instant Credit Note */}
-                <div className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 flex items-center gap-2.5">
-                    <Sparkles size={16} className="text-emerald-600 shrink-0" />
-                    <p className="text-emerald-800 text-[12px] font-medium leading-tight">
-                        {t?.instantCreditNote || 'টাকা পাঠানোর সাথে সাথে আপনার TrxID অটো-ভেরিফাই হবে এবং ইন-অ্যাপ ব্যালেন্সে যুক্ত হবে।'}
+                {/* Instant Verification Banner */}
+                <div className={`p-3 rounded-2xl border flex items-center gap-3 ${
+                    darkMode
+                        ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+                        : 'bg-emerald-50/80 border-emerald-200/80 text-emerald-800'
+                }`}>
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-500 shrink-0">
+                        <Sparkles size={16} />
+                    </div>
+                    <p className="text-[11.5px] font-semibold leading-tight">
+                        {t?.instantCreditNote || (lang === 'bn' ? 'টাকা পাঠানোর সাথে সাথে আপনার TrxID অটো-ভেরিফাই হয়ে ব্যালেন্সে যুক্ত হবে।' : 'Your deposit is auto-verified instantly via SMS verification.')}
                     </p>
                 </div>
+
+                {/* Error Banner if any */}
+                {errorMessage && (
+                    <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2.5 animate-in fade-in">
+                        <AlertCircle size={16} className="shrink-0 text-rose-600" />
+                        <span className="text-[12px] font-bold">{errorMessage}</span>
+                    </div>
+                )}
             </div>
 
-            {/* Next Button */}
-            <div className="mt-4">
-                <CutCornerButton 
-                    onClick={handleContinue} 
+            {/* Ultra-Premium Luxury 3D Action Button */}
+            <div className="mt-6 pt-1">
+                <button
+                    type="button"
+                    onClick={handleContinue}
                     disabled={!amount || parseFloat(String(amount).replace(/,/g, '')) <= 0}
-                    icon={ArrowDown}
+                    className="tp-btn-3d relative overflow-hidden w-full h-[54px] rounded-[20px] text-white cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                        background: 'linear-gradient(135deg, #059669 0%, #10B981 50%, #047857 100%)',
+                        '--tp-3d-edge': '#064E3B',
+                        '--tp-3d-glow': 'rgba(16, 185, 129, 0.52)'
+                    }}
                 >
-                    {t?.continuePayment || 'CONTINUE TO PAYMENT'}
-                </CutCornerButton>
+                    <span className="tp-sweep-beam" />
+                    <span className="relative z-10 flex items-center justify-center gap-2.5 px-3">
+                        <span className="w-8 h-8 rounded-xl bg-gradient-to-b from-white/35 to-white/10 backdrop-blur-md border border-white/50 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.7),0_2px_5px_rgba(0,0,0,0.2)] flex items-center justify-center shrink-0">
+                            <ArrowRight size={16} strokeWidth={2.6} className="text-white drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.3)]" />
+                        </span>
+                        <span className="tp-shine-text text-[14.5px] font-extrabold tracking-wide">
+                            {t?.continuePayment || (lang === 'bn' ? 'পেমেন্টে এগিয়ে যান' : 'CONTINUE TO PAYMENT')}
+                        </span>
+                    </span>
+                </button>
             </div>
         </div>
     );
@@ -5262,6 +5539,19 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
 
 function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+  const displayId = mbsId || user?.mbsId || (user?.id ? 'MBS' + String(user.id).slice(-5) : 'MBS00000');
+
+  const handleCopyId = () => {
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(displayId);
+    }
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
+  };
 
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [walletMethod, setWalletMethod] = useState('bKash');
@@ -5324,13 +5614,20 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                   <h2 className="text-[15px] font-black text-slate-900 leading-tight truncate">{user?.first_name || 'User'}</h2>
                   <p className="text-slate-400 text-[11px] font-medium truncate">@{user?.username || 'user'}</p>
                   <div 
-                     onClick={() => { 
-                        navigator.clipboard.writeText(user?.id); 
-                        if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.impactOccurred('light'); 
-                     }}
-                     className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded cursor-pointer mt-1 active:bg-slate-200"
+                     onClick={handleCopyId}
+                     className={`inline-flex items-center gap-1.5 text-[10.5px] font-mono font-bold px-2 py-0.5 rounded cursor-pointer mt-1 transition-all select-none active:scale-95 ${
+                       copiedId
+                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                         : 'text-slate-600 bg-slate-100 hover:bg-slate-200/80 border border-slate-200'
+                     }`}
+                     title="Copy Bot ID"
                   >
-                     ID: {user?.id || '000000'} <Copy size={10} className="text-slate-400" />
+                     <span>ID: {displayId}</span>
+                     {copiedId ? (
+                       <Check size={10} className="text-emerald-600 animate-in zoom-in" />
+                     ) : (
+                       <Copy size={10} className="text-slate-400" />
+                     )}
                   </div>
                </div>
             </div>
@@ -5474,7 +5771,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                ? 'bg-slate-900 border-amber-500/35'
                : 'bg-gradient-to-br from-amber-50/95 via-white to-rose-50/90 border-amber-200/80'
          }`}
-         flower={<ReferralRosePattern />}
+         flower={<CardRoseBranch />}
       >
          <div
             onClick={onGoToSpin}
@@ -5511,7 +5808,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                ? 'bg-slate-900 border-rose-500/30'
                : 'bg-gradient-to-br from-rose-50/95 via-white to-pink-50/90 border-rose-200/80'
          }`}
-         flower={<ReferralRosePattern />}
+         flower={<CardRoseBranch />}
       >
          <div
             onClick={onGoToReferral}
@@ -7231,7 +7528,7 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
             ? 'bg-slate-900 border-rose-500/35'
             : 'bg-gradient-to-br from-rose-50/85 via-white to-pink-50/75 border-rose-200/80'
         }`}
-        flower={<ReferralRosePattern />}
+        flower={<CardRoseBranch />}
       >
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-rose-100/90 border border-rose-200 flex items-center justify-center shrink-0">

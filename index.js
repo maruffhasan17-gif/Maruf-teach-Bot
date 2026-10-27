@@ -366,7 +366,7 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261027v30';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261027v31';
 const appOpenMarkup = {
     reply_markup: {
         inline_keyboard: [
