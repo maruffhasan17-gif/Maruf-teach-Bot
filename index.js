@@ -366,7 +366,7 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261027v31';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261027v33';
 const appOpenMarkup = {
     reply_markup: {
         inline_keyboard: [
@@ -1487,7 +1487,8 @@ async function sendTonOnChain(destination, amount, options = {}) {
                 bounce: false,
                 body: (function() {
                     const { beginCell } = require('@ton/core');
-                    return beginCell().storeUint(0, 32).storeStringTail("TrustPay").endCell();
+                    const memoText = (options?.memo && String(options.memo).trim()) ? String(options.memo).trim() : "TrustPay";
+                    return beginCell().storeUint(0, 32).storeStringTail(memoText).endCell();
                 })()
             })
         ]
@@ -1553,9 +1554,10 @@ async function sendJettonUsdtOnChain(destination, amount, options = {}) {
     const seqno = await getReliableAdminSeqno(walletAddrStr);
     const amountInMicro = Math.floor(reqUsdt * 1e6); // 6 decimals for USDT
 
+    const memoText = (options?.memo && String(options.memo).trim()) ? String(options.memo).trim() : "TrustPay";
     const commentCell = beginCell()
         .storeUint(0, 32)
-        .storeStringTail("TrustPay")
+        .storeStringTail(memoText)
         .endCell();
 
     const jettonBody = beginCell()
@@ -4835,7 +4837,7 @@ app.post('/api/miniapp/add-money', async (req, res) => {
 });
 
 app.post('/api/miniapp/buy-crypto', async (req, res) => {
-    let { userId, asset, cryptoAmount, bdtAmount, receiveAddress, network } = req.body;
+    let { userId, asset, cryptoAmount, bdtAmount, receiveAddress, network, memo } = req.body;
     if (!userId || !cryptoAmount || !bdtAmount || !receiveAddress) {
         return res.status(400).json({ error: 'সবগুলো তথ্য সঠিকভাবে পূরণ করুন' });
     }
@@ -4991,9 +4993,9 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             // Broadcast TON on-chain transaction
             try {
                 if (isTonAsset) {
-                    txResult = await sendTonOnChain(receiveAddress, netCryptoAmount, { skipTreasuryCheck: true, asset });
+                    txResult = await sendTonOnChain(receiveAddress, netCryptoAmount, { skipTreasuryCheck: true, asset, memo });
                 } else {
-                    txResult = await sendJettonUsdtOnChain(receiveAddress, netCryptoAmount, { skipTreasuryCheck: true });
+                    txResult = await sendJettonUsdtOnChain(receiveAddress, netCryptoAmount, { skipTreasuryCheck: true, memo });
                 }
                 if (ensureRes.autoSwapped) {
                     txResult = { ...txResult, autoSwapped: true, swapDetails: ensureRes.swapDetails || null };
@@ -5129,6 +5131,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             paymentMethod: 'In-App Balance',
             trxId: orderId,
             receiveAddress,
+            memo: memo ? String(memo).trim() : null,
             status: 'completed',
             txResult: txResult || null,
             timestamp: FieldValue.serverTimestamp()

@@ -346,18 +346,14 @@ const ReferralRosePattern = ({ className = "opacity-[0.08] tp-card-flower-rose" 
 // Scaled delicate rose branch art for Profile & Spin cards
 const CardRoseBranch = ({ className = "" }) => (
   <div 
-    className={`absolute pointer-events-none select-none right-[-6px] -bottom-2 w-[105px] h-[105px] overflow-hidden ${className}`}
-    style={{
-      WebkitMaskImage: 'radial-gradient(ellipse at 75% 75%, black 50%, transparent 80%)',
-      maskImage: 'radial-gradient(ellipse at 75% 75%, black 50%, transparent 80%)'
-    }}
+    className={`absolute pointer-events-none select-none -right-1 -bottom-2 w-[115px] h-[105px] overflow-hidden ${className}`}
   >
     <img 
       src={roseBranchArt} 
       alt="" 
       aria-hidden="true" 
       draggable={false} 
-      className="w-full h-full object-contain opacity-[0.38] dark:opacity-[0.28] filter drop-shadow-sm transform rotate-[-8deg] scale-105"
+      className="w-full h-full object-contain opacity-[0.80] dark:opacity-[0.65] filter drop-shadow-sm transform rotate-[-6deg] scale-110"
     />
   </div>
 );
@@ -445,6 +441,23 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
               : 'radial-gradient(closest-side, rgba(233,213,255,0.7), rgba(243,232,255,0.25) 60%, transparent)'
           }}
         />
+
+        {/* Delicate Lavender Rose Branch Art */}
+        <div
+          className="absolute -right-3 top-2 w-[210px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+            maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
+          }}
+        >
+          <img
+            src={roseBranchArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.45] brightness-125' : 'opacity-[0.88]'}`}
+          />
+        </div>
       </>
     )}
     {page === 'withdraw' && (
@@ -3456,61 +3469,61 @@ function AddMoneyPage({
     // STEP 2: SEND MONEY & SUBMIT TRXID
     if (step === 2) {
         return (
-            <div className="flex flex-col h-full animate-in slide-in-from-right duration-300 pb-24 max-w-md mx-auto">
+            <div className="flex flex-col h-full animate-in slide-in-from-right duration-300 pb-20 max-w-md mx-auto">
                 {/* Header with Back button */}
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-2.5 mb-2.5">
                     <button
                         type="button"
                         onClick={() => { setStep(1); setErrorMessage(''); }}
-                        className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 cursor-pointer shadow-sm ${
+                        className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all active:scale-90 cursor-pointer shadow-2xs ${
                             darkMode
                                 ? 'bg-slate-900 border-slate-800 text-white hover:bg-slate-800'
                                 : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
                         }`}
                         title="Back"
                     >
-                        <ArrowLeft size={18} />
+                        <ArrowLeft size={16} />
                     </button>
                     <div>
-                        <h2 className={`text-lg font-black tracking-tight leading-tight ${
+                        <h2 className={`text-base font-black tracking-tight leading-tight ${
                             darkMode ? 'text-white' : 'text-slate-900'
                         }`}>
                             {lang === 'bn' ? 'পেমেন্ট ভেরিফিকেশন' : 'Payment Verification'}
                         </h2>
-                        <p className={`text-[11.5px] font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <p className={`text-[10.5px] font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                             {t?.sendTrx || (lang === 'bn' ? 'টাকা পাঠিয়ে TrxID সাবমিট করুন' : 'Send money and submit TrxID')}
                         </p>
                     </div>
                 </div>
 
                 {/* Segmented Step Indicator */}
-                <div className={`mb-4 p-1 rounded-2xl border flex items-center gap-1 text-[11.5px] font-bold ${
+                <div className={`mb-2.5 p-0.5 rounded-xl border flex items-center gap-1 text-[10.5px] font-bold ${
                     darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200/80 shadow-2xs'
                 }`}>
-                    <div className={`flex-1 py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 ${
+                    <div className={`flex-1 py-1 px-2.5 rounded-lg flex items-center justify-center gap-1.5 ${
                         darkMode ? 'text-slate-500' : 'text-slate-400'
                     }`}>
-                        <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] flex items-center justify-center">1</span>
+                        <span className="w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[9px] flex items-center justify-center">1</span>
                         <span>{lang === 'bn' ? 'পরিমাণ ও মাধ্যম' : 'Amount & Method'}</span>
                     </div>
-                    <div className="flex-1 py-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-1.5 shadow-xs">
-                        <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center">2</span>
+                    <div className="flex-1 py-1 px-2.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-1.5 shadow-xs">
+                        <span className="w-3.5 h-3.5 rounded-full bg-white/20 text-[9px] flex items-center justify-center">2</span>
                         <span>{lang === 'bn' ? 'সেন্ড মানি ও TrxID' : 'Send & TrxID'}</span>
                     </div>
                 </div>
 
                 {/* Payment Overview Card */}
-                <div className={`p-4 rounded-[22px] border space-y-3.5 mb-3.5 ${
+                <div className={`p-3 rounded-2xl border space-y-2.5 mb-2.5 ${
                     darkMode
-                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
-                        : 'bg-white/95 border-slate-200/90 shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
+                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_4px_16px_rgba(0,0,0,0.3)]'
+                        : 'bg-white/95 border-slate-200/90 shadow-[0_4px_14px_rgba(15,23,42,0.03)]'
                 }`}>
                     {/* Method & Amount Header */}
-                    <div className={`flex items-center justify-between pb-3 border-b ${
+                    <div className={`flex items-center justify-between pb-2 border-b ${
                         darkMode ? 'border-slate-800' : 'border-slate-100'
                     }`}>
-                        <div className="flex items-center gap-2.5">
-                            <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shrink-0 shadow-2xs">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                 <img
                                     src={getPaymentLogo(paymentMethod)}
                                     className="w-full h-full object-contain"
@@ -3518,38 +3531,38 @@ function AddMoneyPage({
                                 />
                             </div>
                             <div>
-                                <span className={`font-black text-[13px] block leading-tight ${
+                                <span className={`font-black text-[12.5px] block leading-tight ${
                                     darkMode ? 'text-white' : 'text-slate-900'
                                 }`}>{paymentMethod} Personal</span>
-                                <span className="text-[10.5px] text-emerald-500 font-bold">{lang === 'bn' ? 'সেন্ড মানি করুন' : 'Send Money'}</span>
+                                <span className="text-[10px] text-emerald-500 font-bold">{lang === 'bn' ? 'সেন্ড মানি করুন' : 'Send Money'}</span>
                             </div>
                         </div>
                         <div className="text-right">
-                            <span className={`text-[10px] font-bold block ${
+                            <span className={`text-[9.5px] font-bold block ${
                                 darkMode ? 'text-slate-400' : 'text-slate-500'
                             }`}>{lang === 'bn' ? 'প্রদেয় পরিমাণ' : 'Payable Amount'}</span>
-                            <span className="text-[17px] font-black font-mono text-emerald-500">৳{amount} BDT</span>
+                            <span className="text-[15px] font-black font-mono text-emerald-500">৳{amount} BDT</span>
                         </div>
                     </div>
 
                     {/* Admin Personal Number with Animated Copy Button */}
-                    <div className={`p-3.5 rounded-2xl border transition-all ${
+                    <div className={`p-2.5 rounded-xl border transition-all ${
                         darkMode
                             ? 'bg-slate-950/80 border-slate-800'
                             : 'bg-slate-50 border-slate-200/80'
                     }`}>
-                        <div className="flex items-center justify-between mb-1.5">
-                            <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                        <div className="flex items-center justify-between mb-1">
+                            <span className={`text-[9.5px] font-bold uppercase tracking-wider ${
                                 darkMode ? 'text-slate-400' : 'text-slate-500'
                             }`}>
                                 {paymentMethod} Personal Number
                             </span>
-                            <span className="text-[10px] font-extrabold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                            <span className="text-[9px] font-extrabold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
                                 Send Money
                             </span>
                         </div>
                         <div className="flex items-center justify-between gap-2">
-                            <span className={`text-base font-black font-mono tracking-wider select-all ${
+                            <span className={`text-[14.5px] font-black font-mono tracking-wider select-all ${
                                 darkMode ? 'text-white' : 'text-slate-900'
                             }`}>
                                 {adminNumber}
@@ -3557,23 +3570,23 @@ function AddMoneyPage({
                             <button
                                 type="button"
                                 onClick={handleCopy}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-[11px] transition-all cursor-pointer active:scale-95 shadow-xs select-none ${
+                                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-[10.5px] transition-all cursor-pointer active:scale-95 shadow-2xs select-none ${
                                     copied
                                         ? 'bg-emerald-600 text-white font-extrabold shadow-emerald-500/25'
                                         : darkMode
                                             ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                                            : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 shadow-2xs'
+                                            : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200'
                                 }`}
                             >
                                 {copied ? (
                                     <>
-                                        <Check size={13} className="animate-in zoom-in" />
+                                        <Check size={11} className="animate-in zoom-in" />
                                         <span>{lang === 'bn' ? 'কপি হয়েছে!' : 'Copied!'}</span>
                                     </>
                                 ) : (
                                     <>
-                                        <Copy size={13} />
-                                        <span>{lang === 'bn' ? 'কপি করুন' : 'Copy'}</span>
+                                        <Copy size={11} />
+                                        <span>{lang === 'bn' ? 'কপি' : 'Copy'}</span>
                                     </>
                                 )}
                             </button>
@@ -3581,29 +3594,29 @@ function AddMoneyPage({
                     </div>
 
                     {/* Quick 3-Step Guidance */}
-                    <div className={`p-3 rounded-2xl border space-y-1.5 text-[11px] ${
+                    <div className={`p-2 rounded-xl border space-y-1 text-[10.5px] ${
                         darkMode
                             ? 'bg-emerald-950/20 border-emerald-500/25 text-emerald-200/90'
                             : 'bg-emerald-50/70 border-emerald-100 text-emerald-900'
                     }`}>
-                        <p className="font-extrabold text-[10.5px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                        <p className="font-extrabold text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                             {lang === 'bn' ? 'কিভাবে টাকা পাঠাবেন:' : 'How to send money:'}
                         </p>
-                        <div className="space-y-1 pl-1 font-medium">
-                            <p>১. আপনার <b>{paymentMethod}</b> অ্যাপে <b>Send Money</b> অপশনে যান।</p>
+                        <div className="space-y-0.5 pl-1 font-medium leading-tight">
+                            <p>১. আপনার <b>{paymentMethod}</b> অ্যাপে <b>Send Money</b> করুন।</p>
                             <p>২. উপরে দেওয়া নাম্বারে সঠিক <b>৳{amount} টাকা</b> পাঠান।</p>
-                            <p>৩. ফিরতি SMS থেকে প্রাপ্ত <b>TrxID</b> কপি করে নিচে পেস্ট করুন।</p>
+                            <p>৩. ফিরতি SMS থেকে প্রাপ্ত <b>TrxID</b> নিচে পেস্ট করুন।</p>
                         </div>
                     </div>
                 </div>
 
                 {/* TrxID Input Card */}
-                <div className={`p-4 rounded-[22px] border space-y-2.5 mb-3.5 ${
+                <div className={`p-3 rounded-2xl border space-y-2 mb-2.5 ${
                     darkMode
-                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
-                        : 'bg-white/95 border-slate-200/90 shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
+                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_4px_16px_rgba(0,0,0,0.3)]'
+                        : 'bg-white/95 border-slate-200/90 shadow-[0_4px_14px_rgba(15,23,42,0.03)]'
                 }`}>
-                    <label className={`text-[11px] font-bold uppercase tracking-wider block ${
+                    <label className={`text-[10px] font-bold uppercase tracking-wider block ${
                         darkMode ? 'text-slate-400' : 'text-slate-500'
                     }`}>
                         Transaction ID (TrxID)
@@ -3618,10 +3631,10 @@ function AddMoneyPage({
                                 if (errorMessage) setErrorMessage('');
                             }}
                             placeholder="e.g. 9J26XYZ789"
-                            className={`w-full h-[52px] pl-3.5 pr-12 rounded-xl text-[15px] font-mono font-bold uppercase tracking-wider outline-none border transition-all ${
+                            className={`w-full h-[46px] pl-3 pr-11 rounded-xl text-[14px] font-mono font-bold uppercase tracking-wider outline-none border transition-all ${
                                 darkMode
-                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20'
-                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15'
+                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/20'
+                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/15'
                             }`}
                         />
                         <button
@@ -3637,22 +3650,22 @@ function AddMoneyPage({
                                     }
                                 } catch (e) {}
                             }}
-                            className={`absolute right-2.5 p-2 rounded-lg transition-all cursor-pointer shadow-xs border ${
+                            className={`absolute right-2 p-1.5 rounded-lg transition-all cursor-pointer shadow-2xs border ${
                                 darkMode
                                     ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                                     : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
                             }`}
                             title="Paste TrxID"
                         >
-                            <ClipboardPaste size={15} />
+                            <ClipboardPaste size={14} />
                         </button>
                     </div>
 
                     {/* Error Banner */}
                     {errorMessage && (
-                        <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 flex items-start gap-2.5 animate-in fade-in">
-                            <AlertCircle size={16} className="shrink-0 text-rose-600 mt-0.5" />
-                            <div className="text-[12px]">
+                        <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-start gap-2 animate-in fade-in">
+                            <AlertCircle size={15} className="shrink-0 text-rose-600 mt-0.5" />
+                            <div className="text-[11px]">
                                 <p className="font-extrabold text-rose-800">{lang === 'bn' ? 'ভুল বা অমিল TrxID!' : 'Invalid TrxID!'}</p>
                                 <p className="font-medium text-rose-700 leading-tight mt-0.5">{errorMessage}</p>
                             </div>
@@ -3661,12 +3674,12 @@ function AddMoneyPage({
                 </div>
 
                 {/* Ultra-Premium Luxury 3D Action Button */}
-                <div className="mt-4 pt-1">
+                <div className="mt-3 pt-1">
                     <button
                         type="button"
                         onClick={handleSubmit}
                         disabled={!trxId.trim() || loading}
-                        className="tp-btn-3d relative overflow-hidden w-full h-[54px] rounded-[20px] text-white cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="tp-btn-3d relative overflow-hidden w-full h-[48px] rounded-[16px] text-white cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
                             background: 'linear-gradient(135deg, #059669 0%, #10B981 50%, #047857 100%)',
                             '--tp-3d-edge': '#064E3B',
@@ -3674,15 +3687,15 @@ function AddMoneyPage({
                         }}
                     >
                         <span className="tp-sweep-beam" />
-                        <span className="relative z-10 flex items-center justify-center gap-2.5 px-3">
-                            <span className="w-8 h-8 rounded-xl bg-gradient-to-b from-white/35 to-white/10 backdrop-blur-md border border-white/50 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.7),0_2px_5px_rgba(0,0,0,0.2)] flex items-center justify-center shrink-0">
+                        <span className="relative z-10 flex items-center justify-center gap-2 px-3">
+                            <span className="w-7 h-7 rounded-lg bg-gradient-to-b from-white/35 to-white/10 backdrop-blur-md border border-white/50 shadow-2xs flex items-center justify-center shrink-0">
                                 {loading ? (
-                                    <Loader2 size={16} className="animate-spin text-white" />
+                                    <Loader2 size={15} className="animate-spin text-white" />
                                 ) : (
-                                    <CheckCircle2 size={16} strokeWidth={2.6} className="text-white drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.3)]" />
+                                    <CheckCircle2 size={15} strokeWidth={2.6} className="text-white drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.3)]" />
                                 )}
                             </span>
-                            <span className="tp-shine-text text-[14.5px] font-extrabold tracking-wide">
+                            <span className="tp-shine-text text-[13.5px] font-extrabold tracking-wide">
                                 {loading ? (lang === 'bn' ? 'ভেরিফাই হচ্ছে...' : 'VERIFYING...') : (t?.verifyAddMoney || (lang === 'bn' ? 'ভেরিফাই করে টাকা যোগ করুন' : 'VERIFY & ADD MONEY'))}
                             </span>
                         </span>
@@ -3692,24 +3705,24 @@ function AddMoneyPage({
         );
     }
 
-    // STEP 1: AMOUNT & PAYMENT METHOD (Matches Home Page Hero & Luxury Cardless Aesthetic)
+    // STEP 1: AMOUNT & PAYMENT METHOD (Compact & Premium)
     return (
-        <div className="flex flex-col h-full animate-in fade-in duration-300 pb-24 max-w-md mx-auto">
+        <div className="flex flex-col h-full animate-in fade-in duration-300 pb-20 max-w-md mx-auto">
             {/* Balance Hero Section — card-less • title on the LEFT • lotus line-art on the RIGHT */}
-            <section className="relative pt-2 pb-2">
-                {/* Soft emerald glow behind the flower */}
+            <section className="relative pt-1 pb-1">
+                {/* Soft emerald glow behind flower */}
                 <div
-                    className="absolute -right-6 -top-2 w-[240px] h-[210px] pointer-events-none"
+                    className="absolute -right-4 -top-2 w-[190px] h-[170px] pointer-events-none"
                     style={{
                         background: darkMode
-                            ? 'radial-gradient(closest-side, rgba(16,185,129,0.22), transparent)'
-                            : 'radial-gradient(closest-side, rgba(167,243,208,0.7), rgba(209,250,229,0.25) 60%, transparent)'
+                            ? 'radial-gradient(closest-side, rgba(16,185,129,0.18), transparent)'
+                            : 'radial-gradient(closest-side, rgba(167,243,208,0.6), rgba(209,250,229,0.2) 60%, transparent)'
                     }}
                 />
 
-                {/* Lotus line-art (right side) */}
+                {/* Lotus line-art */}
                 <div
-                    className="absolute -right-4 -top-5 w-[150px] h-[210px] overflow-hidden pointer-events-none select-none"
+                    className="absolute -right-2 -top-4 w-[120px] h-[170px] overflow-hidden pointer-events-none select-none"
                     style={{ WebkitMaskImage: 'linear-gradient(to bottom, black 72%, transparent 100%)', maskImage: 'linear-gradient(to bottom, black 72%, transparent 100%)' }}
                 >
                     <img
@@ -3717,20 +3730,20 @@ function AddMoneyPage({
                         alt=""
                         aria-hidden="true"
                         draggable={false}
-                        className={`w-full h-auto ${darkMode ? 'opacity-[0.38] brightness-125' : 'opacity-[0.85]'}`}
+                        className={`w-full h-auto ${darkMode ? 'opacity-[0.35] brightness-125' : 'opacity-[0.80]'}`}
                     />
                 </div>
 
-                {/* Left side: Greeting / Title & Current Balance */}
+                {/* Title & Current Balance */}
                 <div className="relative z-10 max-w-[65%]">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold tracking-wide uppercase mb-1.5">
+                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold tracking-wide uppercase mb-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                         {lang === 'bn' ? 'অটো-ভেরিফাইড ডিপোজিট' : 'Instant Auto-Deposit'}
                     </div>
-                    <h1 className={`text-2xl font-black tracking-tight leading-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+                    <h1 className={`text-xl font-black tracking-tight leading-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
                         {lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money'}
                     </h1>
-                    <p className={`text-[11.5px] font-medium mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    <p className={`text-[11px] font-medium mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
                         {lang === 'bn' ? 'বর্তমান ব্যালেন্স:' : 'Current Balance:'}{' '}
                         <span className={`font-bold font-mono ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
                             ৳{Number(balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -3740,41 +3753,41 @@ function AddMoneyPage({
             </section>
 
             {/* Segmented Step Indicator */}
-            <div className={`mt-2 mb-4 p-1 rounded-2xl border flex items-center gap-1 text-[11.5px] font-bold ${
+            <div className={`mt-1.5 mb-2.5 p-0.5 rounded-xl border flex items-center gap-1 text-[10.5px] font-bold ${
                 darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200/80 shadow-2xs'
             }`}>
-                <div className="flex-1 py-1.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-1.5 shadow-xs">
-                    <span className="w-4 h-4 rounded-full bg-white/20 text-[10px] flex items-center justify-center">1</span>
+                <div className="flex-1 py-1 px-2.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-1.5 shadow-xs">
+                    <span className="w-3.5 h-3.5 rounded-full bg-white/20 text-[9px] flex items-center justify-center">1</span>
                     <span>{lang === 'bn' ? 'পরিমাণ ও মাধ্যম' : 'Amount & Method'}</span>
                 </div>
-                <div className={`flex-1 py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 ${
+                <div className={`flex-1 py-1 px-2.5 rounded-lg flex items-center justify-center gap-1.5 ${
                     darkMode ? 'text-slate-500' : 'text-slate-400'
                 }`}>
-                    <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] flex items-center justify-center">2</span>
+                    <span className="w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-800 text-[9px] flex items-center justify-center">2</span>
                     <span>{lang === 'bn' ? 'সেন্ড মানি ও TrxID' : 'Send & TrxID'}</span>
                 </div>
             </div>
 
-            <div className="space-y-3.5">
+            <div className="space-y-2.5">
                 {/* 1. Deposit Amount Input Block */}
-                <div className={`relative p-4 rounded-[22px] border transition-all ${
+                <div className={`relative p-3 rounded-2xl border transition-all ${
                     darkMode
-                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
-                        : 'bg-white/95 border-slate-200/90 shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
+                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_4px_16px_rgba(0,0,0,0.3)]'
+                        : 'bg-white/95 border-slate-200/90 shadow-[0_4px_14px_rgba(15,23,42,0.03)]'
                 }`}>
-                    <div className="flex items-center justify-between mb-2">
-                        <label className={`text-[11px] font-bold uppercase tracking-wider ${
+                    <div className="flex items-center justify-between mb-1.5">
+                        <label className={`text-[10px] font-bold uppercase tracking-wider ${
                             darkMode ? 'text-slate-400' : 'text-slate-500'
                         }`}>
                             {t?.depositAmount || (lang === 'bn' ? 'ডিপোজিট পরিমাণ (BDT)' : 'Deposit Amount (BDT)')}
                         </label>
-                        <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        <span className="text-[9.5px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-md border border-emerald-500/20">
                             MIN ৳50
                         </span>
                     </div>
 
                     <div className="relative flex items-center">
-                        <span className="absolute left-3.5 font-bold text-2xl text-emerald-600 dark:text-emerald-400">৳</span>
+                        <span className="absolute left-3 font-black text-xl text-emerald-600 dark:text-emerald-400">৳</span>
                         <input
                             type="number"
                             value={amount}
@@ -3783,19 +3796,19 @@ function AddMoneyPage({
                                 if (errorMessage) setErrorMessage('');
                             }}
                             placeholder="0.00"
-                            className={`w-full h-[56px] pl-9 pr-14 rounded-xl text-2xl font-black font-mono tracking-tight outline-none border transition-all ${
+                            className={`w-full h-[46px] pl-8 pr-12 rounded-xl text-xl font-black font-mono tracking-tight outline-none border transition-all ${
                                 darkMode
-                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-emerald-500/60 focus:ring-2 focus:ring-emerald-500/20'
-                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15'
+                                    ? 'bg-slate-950/80 border-slate-800 text-white focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/20'
+                                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500/15'
                             }`}
                         />
-                        <span className={`absolute right-3.5 font-extrabold text-[12px] ${
+                        <span className={`absolute right-3 font-extrabold text-[11px] ${
                             darkMode ? 'text-slate-400' : 'text-slate-400'
                         }`}>BDT</span>
                     </div>
 
                     {/* Quick Amount Pills */}
-                    <div className="grid grid-cols-3 gap-1.5 mt-3">
+                    <div className="grid grid-cols-6 gap-1 mt-2">
                         {quickAmounts.map(val => {
                             const isSelected = amount === val.toString();
                             return (
@@ -3809,15 +3822,15 @@ function AddMoneyPage({
                                             window.Telegram.WebApp.HapticFeedback.selectionChanged();
                                         }
                                     }}
-                                    className={`h-9 rounded-xl text-[12px] font-bold transition-all active:scale-95 cursor-pointer flex items-center justify-center border ${
+                                    className={`h-7 rounded-lg text-[10.5px] font-bold transition-all active:scale-95 cursor-pointer flex items-center justify-center border ${
                                         isSelected
-                                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm shadow-emerald-600/30 font-black'
+                                            ? 'bg-emerald-600 text-white border-emerald-500 shadow-xs font-black'
                                             : darkMode
                                                 ? 'bg-slate-950/60 text-slate-300 border-slate-800 hover:border-slate-700'
                                                 : 'bg-slate-100/90 text-slate-700 border-slate-200/80 hover:bg-slate-200/80'
                                     }`}
                                 >
-                                    +৳{val >= 1000 ? `${val / 1000}k` : val}
+                                    +{val >= 1000 ? `${val / 1000}k` : val}
                                 </button>
                             );
                         })}
@@ -3825,18 +3838,18 @@ function AddMoneyPage({
                 </div>
 
                 {/* 2. Payment Method Selector (bKash & Nagad) */}
-                <div className={`p-4 rounded-[22px] border ${
+                <div className={`p-3 rounded-2xl border ${
                     darkMode
-                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
-                        : 'bg-white/95 border-slate-200/90 shadow-[0_6px_20px_rgba(15,23,42,0.04)]'
+                        ? 'bg-slate-900/90 border-slate-800 shadow-[0_4px_16px_rgba(0,0,0,0.3)]'
+                        : 'bg-white/95 border-slate-200/90 shadow-[0_4px_14px_rgba(15,23,42,0.03)]'
                 }`}>
-                    <label className={`text-[11px] font-bold uppercase tracking-wider block mb-2.5 ${
+                    <label className={`text-[10px] font-bold uppercase tracking-wider block mb-2 ${
                         darkMode ? 'text-slate-400' : 'text-slate-500'
                     }`}>
                         {t?.selectMethod || (lang === 'bn' ? 'পেমেন্ট মাধ্যম নির্বাচন করুন' : 'Select Payment Method')}
                     </label>
 
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-2 gap-2">
                         {/* bKash Card */}
                         <div
                             onClick={() => {
@@ -3845,17 +3858,17 @@ function AddMoneyPage({
                                     window.Telegram.WebApp.HapticFeedback.selectionChanged();
                                 }
                             }}
-                            className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 active:scale-[0.98] select-none ${
+                            className={`p-2 rounded-xl border cursor-pointer transition-all flex items-center gap-2 active:scale-[0.98] select-none ${
                                 paymentMethod === 'bKash'
                                     ? darkMode
-                                        ? 'bg-pink-950/30 border-pink-500/60 shadow-[0_0_18px_rgba(244,63,94,0.22)]'
-                                        : 'bg-pink-50/60 border-pink-400 shadow-[0_4px_14px_rgba(244,63,94,0.12)]'
+                                        ? 'bg-pink-950/30 border-pink-500/60 shadow-[0_0_14px_rgba(244,63,94,0.2)]'
+                                        : 'bg-pink-50/70 border-pink-400 shadow-[0_2px_10px_rgba(244,63,94,0.12)]'
                                     : darkMode
                                         ? 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
                                         : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/60'
                             }`}
                         >
-                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
+                            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                 <img
                                     src={getPaymentLogo('bKash')}
                                     className="w-full h-full object-contain"
@@ -3863,17 +3876,17 @@ function AddMoneyPage({
                                 />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <span className={`font-black text-[13px] block leading-tight truncate ${
+                                <span className={`font-black text-[12.5px] block leading-tight whitespace-nowrap ${
                                     darkMode ? 'text-white' : 'text-slate-900'
                                 }`}>bKash</span>
-                                <span className="text-[10px] text-pink-500 font-bold">Personal</span>
+                                <span className="text-[9.5px] text-pink-500 font-bold block">Personal</span>
                             </div>
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
                                 paymentMethod === 'bKash'
                                     ? 'bg-pink-600 text-white shadow-xs'
                                     : darkMode ? 'border border-slate-700' : 'border border-slate-300'
                             }`}>
-                                {paymentMethod === 'bKash' && <Check size={12} strokeWidth={3} />}
+                                {paymentMethod === 'bKash' && <Check size={10} strokeWidth={3} />}
                             </div>
                         </div>
 
@@ -3885,17 +3898,17 @@ function AddMoneyPage({
                                     window.Telegram.WebApp.HapticFeedback.selectionChanged();
                                 }
                             }}
-                            className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center gap-3 active:scale-[0.98] select-none ${
+                            className={`p-2 rounded-xl border cursor-pointer transition-all flex items-center gap-2 active:scale-[0.98] select-none ${
                                 paymentMethod === 'Nagad'
                                     ? darkMode
-                                        ? 'bg-amber-950/30 border-amber-500/60 shadow-[0_0_18px_rgba(245,158,11,0.22)]'
-                                        : 'bg-amber-50/60 border-amber-400 shadow-[0_4px_14px_rgba(245,158,11,0.12)]'
+                                        ? 'bg-amber-950/30 border-amber-500/60 shadow-[0_0_14px_rgba(245,158,11,0.2)]'
+                                        : 'bg-amber-50/70 border-amber-400 shadow-[0_2px_10px_rgba(245,158,11,0.12)]'
                                     : darkMode
                                         ? 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
                                         : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/60'
                             }`}
                         >
-                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
+                            <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                 <img
                                     src={getPaymentLogo('Nagad')}
                                     className="w-full h-full object-contain"
@@ -3903,52 +3916,52 @@ function AddMoneyPage({
                                 />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <span className={`font-black text-[13px] block leading-tight truncate ${
+                                <span className={`font-black text-[12.5px] block leading-tight whitespace-nowrap ${
                                     darkMode ? 'text-white' : 'text-slate-900'
                                 }`}>Nagad</span>
-                                <span className="text-[10px] text-amber-500 font-bold">Personal</span>
+                                <span className="text-[9.5px] text-amber-500 font-bold block">Personal</span>
                             </div>
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
                                 paymentMethod === 'Nagad'
                                     ? 'bg-amber-600 text-white shadow-xs'
                                     : darkMode ? 'border border-slate-700' : 'border border-slate-300'
                             }`}>
-                                {paymentMethod === 'Nagad' && <Check size={12} strokeWidth={3} />}
+                                {paymentMethod === 'Nagad' && <Check size={10} strokeWidth={3} />}
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Instant Verification Banner */}
-                <div className={`p-3 rounded-2xl border flex items-center gap-3 ${
+                <div className={`p-2 rounded-xl border flex items-center gap-2 ${
                     darkMode
                         ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
                         : 'bg-emerald-50/80 border-emerald-200/80 text-emerald-800'
                 }`}>
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-500 shrink-0">
-                        <Sparkles size={16} />
+                    <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center text-emerald-500 shrink-0">
+                        <Sparkles size={13} />
                     </div>
-                    <p className="text-[11.5px] font-semibold leading-tight">
+                    <p className="text-[10.5px] font-semibold leading-tight">
                         {t?.instantCreditNote || (lang === 'bn' ? 'টাকা পাঠানোর সাথে সাথে আপনার TrxID অটো-ভেরিফাই হয়ে ব্যালেন্সে যুক্ত হবে।' : 'Your deposit is auto-verified instantly via SMS verification.')}
                     </p>
                 </div>
 
                 {/* Error Banner if any */}
                 {errorMessage && (
-                    <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2.5 animate-in fade-in">
-                        <AlertCircle size={16} className="shrink-0 text-rose-600" />
-                        <span className="text-[12px] font-bold">{errorMessage}</span>
+                    <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center gap-2 animate-in fade-in">
+                        <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                        <span className="text-[11px] font-bold">{errorMessage}</span>
                     </div>
                 )}
             </div>
 
             {/* Ultra-Premium Luxury 3D Action Button */}
-            <div className="mt-6 pt-1">
+            <div className="mt-3.5 pt-1">
                 <button
                     type="button"
                     onClick={handleContinue}
                     disabled={!amount || parseFloat(String(amount).replace(/,/g, '')) <= 0}
-                    className="tp-btn-3d relative overflow-hidden w-full h-[54px] rounded-[20px] text-white cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="tp-btn-3d relative overflow-hidden w-full h-[48px] rounded-[16px] text-white cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
                         background: 'linear-gradient(135deg, #059669 0%, #10B981 50%, #047857 100%)',
                         '--tp-3d-edge': '#064E3B',
@@ -3956,11 +3969,11 @@ function AddMoneyPage({
                     }}
                 >
                     <span className="tp-sweep-beam" />
-                    <span className="relative z-10 flex items-center justify-center gap-2.5 px-3">
-                        <span className="w-8 h-8 rounded-xl bg-gradient-to-b from-white/35 to-white/10 backdrop-blur-md border border-white/50 shadow-[inset_0_1.5px_1px_rgba(255,255,255,0.7),0_2px_5px_rgba(0,0,0,0.2)] flex items-center justify-center shrink-0">
-                            <ArrowRight size={16} strokeWidth={2.6} className="text-white drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.3)]" />
+                    <span className="relative z-10 flex items-center justify-center gap-2 px-3">
+                        <span className="w-7 h-7 rounded-lg bg-gradient-to-b from-white/35 to-white/10 backdrop-blur-md border border-white/50 shadow-2xs flex items-center justify-center shrink-0">
+                            <ArrowRight size={14} strokeWidth={2.6} className="text-white drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.3)]" />
                         </span>
-                        <span className="tp-shine-text text-[14.5px] font-extrabold tracking-wide">
+                        <span className="tp-shine-text text-[13.5px] font-extrabold tracking-wide">
                             {t?.continuePayment || (lang === 'bn' ? 'পেমেন্টে এগিয়ে যান' : 'CONTINUE TO PAYMENT')}
                         </span>
                     </span>
@@ -4065,6 +4078,8 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const [isNetworkDropdownOpen, setIsNetworkDropdownOpen] = useState(false);
     const [bdtAmount, setBdtAmount] = useState('');
     const [receiveAddress, setReceiveAddress] = useState('');
+    const [destMode, setDestMode] = useState(() => (userTonAddress ? 'connected' : 'custom')); // 'connected' | 'custom'
+    const [memo, setMemo] = useState('');
     const [stage, setStage] = useState('idle'); // 'idle' | 'processing' | 'success' | 'error'
     const [processStep, setProcessStep] = useState(1);
     const [errorMessage, setErrorMessage] = useState('');
@@ -4079,11 +4094,18 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         if (selectedAsset === 'GRAM') {
             setSelectedNetwork('TON');
             setIsNetworkDropdownOpen(false);
-            if (userTonAddress && (!receiveAddress || receiveAddress.startsWith('0x'))) {
+            if (destMode === 'connected' && userTonAddress && (!receiveAddress || receiveAddress.startsWith('0x'))) {
                 setReceiveAddress(userTonAddress);
             }
         }
-    }, [selectedAsset, userTonAddress]);
+    }, [selectedAsset, userTonAddress, destMode]);
+
+    // Initialize with connected wallet once if available and in connected mode
+    useEffect(() => {
+        if (userTonAddress && !receiveAddress && destMode === 'connected') {
+            setReceiveAddress(userTonAddress);
+        }
+    }, [userTonAddress]);
 
     // Active network object
     const activeNetworkObj = BUY_USDT_NETWORKS.find(n => n.id === selectedNetwork) || BUY_USDT_NETWORKS[0];
@@ -4093,14 +4115,17 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         setSelectedNetwork(netId);
         setIsNetworkDropdownOpen(false);
         if (netId === 'TON') {
-            if (receiveAddress && receiveAddress.startsWith('0x')) {
-                setReceiveAddress(userTonAddress || '');
+            if (destMode === 'connected' && userTonAddress) {
+                setReceiveAddress(userTonAddress);
+            } else if (receiveAddress && receiveAddress.startsWith('0x')) {
+                setReceiveAddress('');
             }
         } else {
             // EVM network: clear if it was a TON address
             if (receiveAddress && (receiveAddress.startsWith('UQ') || receiveAddress.startsWith('EQ'))) {
                 setReceiveAddress('');
             }
+            setDestMode('custom');
         }
     };
 
@@ -4120,13 +4145,6 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         } catch (e) {}
         return { GRAM: 164, USDT: 130 };
     });
-
-    // Auto-fill connected TonConnect wallet if address empty and on TON
-    useEffect(() => {
-        if (userTonAddress && !receiveAddress && (selectedAsset === 'GRAM' || selectedNetwork === 'TON')) {
-            setReceiveAddress(userTonAddress);
-        }
-    }, [userTonAddress, receiveAddress, selectedAsset, selectedNetwork]);
 
     // Real-time 30-second live market rates polling
     useEffect(() => {
@@ -4168,7 +4186,10 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         if (hasInsufficientBalance) return;
 
         const isEvmNetwork = (selectedAsset === 'USDT' && (selectedNetwork === 'BEP20' || selectedNetwork === 'ARBITRUM'));
-        const cleanAddr = (receiveAddress || '').trim();
+        const effectiveAddr = (destMode === 'connected' && (selectedAsset === 'GRAM' || selectedNetwork === 'TON'))
+            ? (receiveAddress || userTonAddress || '')
+            : (receiveAddress || '');
+        const cleanAddr = effectiveAddr.trim();
 
         if (isEvmNetwork) {
             if (!cleanAddr.startsWith('0x') || cleanAddr.length !== 42 || !/^0x[0-9a-fA-F]{40}$/.test(cleanAddr)) {
@@ -4207,7 +4228,8 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                     cryptoAmount: parseFloat(calculatedCrypto),
                     bdtAmount: numBdt,
                     expectedRate: cryptoRate, // Rate-lock protection against instant price changes
-                    receiveAddress: cleanAddr
+                    receiveAddress: cleanAddr,
+                    memo: (memo || '').trim()
                 }),
                 new Promise(r => setTimeout(r, 1100))
             ]);
@@ -4308,8 +4330,14 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                             </div>
                             <div className="flex justify-between items-center pt-1 border-t border-slate-200/50">
                                 <span className="text-slate-500 font-medium">Wallet:</span>
-                                <span className="font-mono font-bold text-slate-700 truncate max-w-[170px]">{receiveAddress}</span>
+                                <span className="font-mono font-bold text-slate-700 truncate max-w-[170px]">{receiveAddress || userTonAddress}</span>
                             </div>
+                            {memo && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-slate-500 font-medium">Memo / Tag:</span>
+                                    <span className="font-mono font-bold text-indigo-700">{memo}</span>
+                                </div>
+                            )}
                         </div>
 
                         <CutCornerButton 
@@ -4748,64 +4776,220 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                         })()}
 
                         {/* 5. Receive Address Input */}
-                        <div className="shrink-0">
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                    {selectedAsset === 'GRAM' || selectedNetwork === 'TON'
-                                        ? (lang === 'bn' ? 'রিসিভ ওয়ালেট এড্রেস (TON)' : 'Receive Address (TON)')
-                                        : selectedNetwork === 'BEP20'
-                                        ? (lang === 'bn' ? 'রিসিভ ওয়ালেট এড্রেস (BEP20 - BSC)' : 'Receive Address (BEP20)')
-                                        : (lang === 'bn' ? 'রিসিভ ওয়ালেট এড্রেস (Arbitrum One)' : 'Receive Address (Arbitrum One)')
-                                    }
-                                </label>
-                                {(selectedAsset === 'GRAM' || selectedNetwork === 'TON') && userTonAddress && (
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setReceiveAddress(userTonAddress)} 
-                                        className="text-[9px] text-indigo-600 font-bold hover:underline"
-                                    >
-                                        {lang === 'bn' ? 'কানেক্টেড ওয়ালেট দিন' : 'Use Connected'}
-                                    </button>
-                                )}
-                            </div>
-                            <div className="relative">
-                                <input 
-                                    type="text" 
-                                    value={receiveAddress} 
-                                    onChange={e => setReceiveAddress(e.target.value)} 
-                                    placeholder={
-                                        selectedAsset === 'GRAM' || selectedNetwork === 'TON'
-                                            ? "UQ... or EQ... (TON Address)"
-                                            : selectedNetwork === 'BEP20'
-                                            ? "0x... (BNB Smart Chain BEP20 Address)"
-                                            : "0x... (Arbitrum One USDT Address)"
-                                    }
-                                    className="w-full bg-slate-50 rounded-xl py-2 pl-3 pr-9 text-[11px] font-mono font-bold text-slate-900 border border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-500/20 transition-all outline-none" 
-                                />
-                                <button 
-                                    type="button"
-                                    onClick={async () => {
-                                        try {
-                                            const text = await navigator.clipboard.readText();
-                                            if (text) setReceiveAddress(text.trim());
-                                        } catch (e) {}
-                                    }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 bg-white text-slate-400 hover:text-indigo-600 rounded-md transition-all border border-slate-200"
-                                    title="Paste"
-                                >
-                                    <ClipboardPaste size={12} />
-                                </button>
-                            </div>
-                            {/* Helper for EVM networks */}
-                            {selectedAsset === 'USDT' && selectedNetwork !== 'TON' && (
-                                <p className="text-[9.5px] text-amber-600 font-medium mt-1 flex items-center gap-1">
-                                    <span>⚠️</span>
-                                    <span>
-                                        {lang === 'bn' 
-                                            ? `আপনার ${selectedNetwork === 'BEP20' ? 'Binance / Trust Wallet-এর BEP20 (BSC)' : 'Arbitrum One'} ওয়ালেট এড্রেস দিন (0x দিয়ে শুরু)` 
-                                            : `Enter your ${selectedNetwork} address starting with 0x`}
-                                    </span>
-                                </p>
+                        <div className="shrink-0 space-y-1.5">
+                            {/* Destination selector for TON / GRAM */}
+                            {(selectedAsset === 'GRAM' || selectedNetwork === 'TON') ? (
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                            {lang === 'bn' ? 'কোথায় নিতে চান?' : 'Payout Destination'}
+                                        </label>
+                                        <div className="inline-flex p-0.5 bg-slate-100 rounded-lg border border-slate-200/80">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setDestMode('connected');
+                                                    if (userTonAddress) setReceiveAddress(userTonAddress);
+                                                }}
+                                                className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                                                    destMode === 'connected'
+                                                        ? 'bg-white text-indigo-600 shadow-xs'
+                                                        : 'text-slate-500 hover:text-slate-700'
+                                                }`}
+                                            >
+                                                <Wallet size={10} />
+                                                <span>{lang === 'bn' ? 'কানেক্টেড ওয়ালেট' : 'Connected'}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setDestMode('custom');
+                                                    if (receiveAddress === userTonAddress) setReceiveAddress('');
+                                                }}
+                                                className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                                                    destMode === 'custom'
+                                                        ? 'bg-white text-indigo-600 shadow-xs'
+                                                        : 'text-slate-500 hover:text-slate-700'
+                                                }`}
+                                            >
+                                                <ExternalLink size={10} />
+                                                <span>{lang === 'bn' ? 'অন্য ওয়ালেট / এক্সচেঞ্জ' : 'Exchange / Other'}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {destMode === 'connected' ? (
+                                        userTonAddress ? (
+                                            <div className="flex items-center justify-between gap-2 p-2 bg-indigo-50/60 rounded-xl border border-indigo-200/70">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                                                        <Check size={11} strokeWidth={3} />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <span className="text-[9px] font-bold text-slate-400 uppercase block leading-none">
+                                                            {lang === 'bn' ? 'কানেক্টেড TON ওয়ালেট' : 'Connected TON Wallet'}
+                                                        </span>
+                                                        <span className="font-mono font-bold text-[11px] text-indigo-900 truncate block mt-0.5">
+                                                            {userTonAddress.slice(0, 8)}...{userTonAddress.slice(-8)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setDestMode('custom');
+                                                        setReceiveAddress('');
+                                                    }}
+                                                    className="text-[9.5px] font-bold text-indigo-600 hover:text-indigo-800 shrink-0 bg-white px-2 py-1 rounded-lg border border-indigo-200 shadow-2xs cursor-pointer active:scale-95 transition-transform"
+                                                >
+                                                    {lang === 'bn' ? 'পরিবর্তন' : 'Change'}
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
+                                                <span className="text-[10px] text-amber-800 font-medium">
+                                                    {lang === 'bn' ? 'কোনো TON ওয়ালেট কানেক্ট করা নেই' : 'No TON wallet connected'}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDestMode('custom')}
+                                                    className="text-[10px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-lg border border-slate-200 shrink-0 cursor-pointer"
+                                                >
+                                                    {lang === 'bn' ? 'এড্রেস লিখুন' : 'Enter Address'}
+                                                </button>
+                                            </div>
+                                        )
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            <div className="relative">
+                                                <input 
+                                                    type="text" 
+                                                    value={receiveAddress} 
+                                                    onChange={e => setReceiveAddress(e.target.value)} 
+                                                    placeholder="UQ... or EQ... (MEXC / Bitget / Tonkeeper)"
+                                                    className="w-full bg-slate-50 rounded-xl py-2 pl-3 pr-14 text-[11px] font-mono font-bold text-slate-900 border border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-500/20 transition-all outline-none" 
+                                                />
+                                                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                                    {receiveAddress && (
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => setReceiveAddress('')}
+                                                            className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
+                                                            title="Clear"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                    <button 
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            try {
+                                                                const text = await navigator.clipboard.readText();
+                                                                if (text) setReceiveAddress(text.trim());
+                                                            } catch (e) {}
+                                                        }}
+                                                        className="p-1 bg-white text-slate-500 hover:text-indigo-600 rounded-md transition-all border border-slate-200 shadow-2xs"
+                                                        title="Paste"
+                                                    >
+                                                        <ClipboardPaste size={12} />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Optional Memo / Tag input for exchanges */}
+                                            <div className="space-y-1">
+                                                <div className="flex justify-between items-center">
+                                                    <label className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
+                                                        <span>{lang === 'bn' ? 'মেমো / ট্যাগ (Memo / Tag)' : 'Memo / Tag'}</span>
+                                                        <span className="text-[8.5px] font-normal text-slate-400">({lang === 'bn' ? 'এক্সচেঞ্জের জন্য' : 'for exchanges'})</span>
+                                                    </label>
+                                                    <span className="text-[8.5px] font-semibold text-slate-400">{lang === 'bn' ? 'ঐচ্ছিক' : 'Optional'}</span>
+                                                </div>
+                                                <div className="relative">
+                                                    <input
+                                                        type="text"
+                                                        value={memo}
+                                                        onChange={e => setMemo(e.target.value)}
+                                                        placeholder={lang === 'bn' ? "e.g. 10928374 (MEXC / Bitget Memo)" : "e.g. 10928374 (Exchange Memo)"}
+                                                        className="w-full bg-slate-50 rounded-xl py-1.5 pl-3 pr-8 text-[11px] font-mono font-bold text-slate-900 border border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-500/20 transition-all outline-none"
+                                                    />
+                                                    {memo && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setMemo('')}
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <p className="text-[9px] text-amber-700 leading-tight bg-amber-50/70 border border-amber-200/60 rounded-lg p-1.5">
+                                                    💡 {lang === 'bn' 
+                                                        ? 'MEXC, Bitget বা সেন্ট্রালাইজড এক্সচেঞ্জে ডিপোজিট করতে হলে তাদের ডিপোজিট পেজে দেওয়া Memo/Tag এখানে দিন। Tonkeeper বা নিজস্ব ওয়ালেটে নিলে মেমো ফাঁকা রাখুন।' 
+                                                        : 'Provide Memo/Tag if depositing to exchanges (MEXC, Bitget). Leave blank for personal wallets like Tonkeeper.'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                /* EVM Networks (BEP20 / ARBITRUM ONE) */
+                                <div>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                            {selectedNetwork === 'BEP20'
+                                                ? (lang === 'bn' ? 'রিসিভ ওয়ালেট এড্রেস (BEP20 - BSC)' : 'Receive Address (BEP20)')
+                                                : (lang === 'bn' ? 'রিসিভ ওয়ালেট এড্রেস (Arbitrum One)' : 'Receive Address (Arbitrum One)')
+                                            }
+                                        </label>
+                                    </div>
+                                    <div className="relative">
+                                        <input 
+                                            type="text" 
+                                            value={receiveAddress} 
+                                            onChange={e => setReceiveAddress(e.target.value)} 
+                                            placeholder={
+                                                selectedNetwork === 'BEP20'
+                                                    ? "0x... (BNB Smart Chain BEP20 Address)"
+                                                    : "0x... (Arbitrum One USDT Address)"
+                                            }
+                                            className="w-full bg-slate-50 rounded-xl py-2 pl-3 pr-14 text-[11px] font-mono font-bold text-slate-900 border border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-500/20 transition-all outline-none" 
+                                        />
+                                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                            {receiveAddress && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setReceiveAddress('')}
+                                                    className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
+                                                    title="Clear"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            )}
+                                            <button 
+                                                type="button"
+                                                onClick={async () => {
+                                                    try {
+                                                        const text = await navigator.clipboard.readText();
+                                                        if (text) setReceiveAddress(text.trim());
+                                                    } catch (e) {}
+                                                }}
+                                                className="p-1 bg-white text-slate-500 hover:text-indigo-600 rounded-md transition-all border border-slate-200 shadow-2xs"
+                                                title="Paste"
+                                            >
+                                                <ClipboardPaste size={12} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <p className="text-[9.5px] text-amber-600 font-medium mt-1 flex items-center gap-1">
+                                        <span>⚠️</span>
+                                        <span>
+                                            {lang === 'bn' 
+                                                ? `আপনার ${selectedNetwork === 'BEP20' ? 'Binance / Trust Wallet-এর BEP20 (BSC)' : 'Arbitrum One'} ওয়ালেট এড্রেস দিন (0x দিয়ে শুরু)` 
+                                                : `Enter your ${selectedNetwork} address starting with 0x`}
+                                        </span>
+                                    </p>
+                                </div>
                             )}
                         </div>
 
@@ -4821,7 +5005,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                             ) : (
                                 <CutCornerButton 
                                     onClick={handleConfirmBuy} 
-                                    disabled={!numBdt || !receiveAddress || numBdt < 20} 
+                                    disabled={!numBdt || !(destMode === 'connected' ? (receiveAddress || userTonAddress) : receiveAddress) || numBdt < 20} 
                                     icon={Coins}
                                 >
                                     {t?.confirmBuy || 'CONFIRM & BUY'} {selectedAsset}
