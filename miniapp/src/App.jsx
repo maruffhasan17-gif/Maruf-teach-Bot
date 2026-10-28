@@ -5443,7 +5443,6 @@ function SellCryptoPage({
     const [sellResult, setSellResult] = useState(null);
     const [step, setStep] = useState(1);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
-    const [showQrModal, setShowQrModal] = useState(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [transferStage, setTransferStage] = useState('verifying');
 
@@ -5717,14 +5716,7 @@ function SellCryptoPage({
                                             {copiedAddress ? <Check size={13} /> : <Copy size={13} />}
                                             <span>{copiedAddress ? 'Copied' : 'Copy'}</span>
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowQrModal(true)}
-                                            className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 active:scale-95 transition-all cursor-pointer shadow-xs"
-                                            title="Show QR Code"
-                                        >
-                                            <QrCode size={16} />
-                                        </button>
+
                                     </div>
                                 </div>
                             ) : (
@@ -5767,14 +5759,7 @@ function SellCryptoPage({
                                         {copiedAddress ? <Check size={13} /> : <Copy size={13} />}
                                         <span>{copiedAddress ? 'Copied' : 'Copy'}</span>
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowQrModal(true)}
-                                        className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 active:scale-95 transition-all cursor-pointer shadow-xs"
-                                        title="Show QR Code"
-                                    >
-                                        <QrCode size={16} />
-                                    </button>
+
                                 </div>
                             </div>
                         )}
@@ -5979,64 +5964,6 @@ function SellCryptoPage({
                 lang={lang}
                 darkMode={darkMode}
             />
-
-            {/* Floating QR Modal */}
-            {showQrModal && (
-                <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className={`w-full max-w-sm rounded-3xl p-6 border shadow-2xl relative text-center animate-in zoom-in-95 duration-200 ${
-                        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
-                    }`}>
-                        <button
-                            type="button"
-                            onClick={() => setShowQrModal(false)}
-                            className="absolute right-4 top-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                        >
-                            <X size={18} />
-                        </button>
-
-                        <div className="flex items-center justify-center gap-2 mb-2">
-                            <img 
-                                src={`${import.meta.env.BASE_URL}${asset === 'USDT' ? 'usdt.svg' : 'gram.svg'}`} 
-                                alt={asset} 
-                                className="w-6 h-6 object-contain rounded-full" 
-                            />
-                            <h3 className="text-base font-black">
-                                {lang === 'bn' ? 'ডিপোজিট QR কোড' : 'Deposit QR Code'}
-                            </h3>
-                        </div>
-                        <p className="text-[11px] text-slate-400 mb-3">
-                            {selectedNetwork} • Scan to send {asset}
-                        </p>
-
-                        <div className="p-3 bg-white rounded-2xl border-2 border-purple-500/20 inline-block mx-auto shadow-md">
-                            <img 
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(depositTargetAddress)}`}
-                                alt="Deposit QR"
-                                className="w-[180px] h-[180px] object-contain rounded-lg"
-                            />
-                        </div>
-
-                        <p className="text-[11px] font-mono font-bold text-slate-600 dark:text-slate-300 break-all px-2 mt-3 select-all">
-                            {depositTargetAddress}
-                        </p>
-
-                        <div className="mt-4 flex gap-2">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    navigator.clipboard.writeText(depositTargetAddress);
-                                    setCopiedAddress(true);
-                                    setTimeout(() => setCopiedAddress(false), 2000);
-                                }}
-                                className="flex-1 h-[46px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
-                            >
-                                {copiedAddress ? <Check size={14} /> : <Copy size={14} />}
-                                <span>{copiedAddress ? (lang === 'bn' ? 'কপি হয়েছে!' : 'Copied!') : (lang === 'bn' ? 'এড্রেস কপি করুন' : 'Copy Address')}</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Real-time Transfer Animation Progress Modal */}
             <OnChainTransferProgressModal
