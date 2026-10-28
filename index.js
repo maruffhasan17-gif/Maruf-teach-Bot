@@ -5017,7 +5017,7 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         const config = botConfig || {};
         const dataGroup = config.dataGroupId || config.adminGroupId;
         if (dataGroup && bot) {
-            const addUserData = userDoc.data() || {};
+            const addUserData = updatedDoc.data() || {};
             const addUserName = addUserData.first_name || addUserData.firstName || 'User';
             const rawAddUname = addUserData.username ? addUserData.username.replace('@', '') : '';
             const addUname = rawAddUname ? `@${rawAddUname}` : 'None';
