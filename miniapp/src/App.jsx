@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText } from 'lucide-react';
+import { Home, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -3974,6 +3974,7 @@ function AddMoneyPage({
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [copied, setCopied] = useState(false);
+    const [pastedFeedback, setPastedFeedback] = useState(false);
     const [adminBkash, setAdminBkash] = useState("01752561935");
     const [adminNagad, setAdminNagad] = useState("9856000927953436");
     const [depositResult, setDepositResult] = useState(null);
@@ -4002,7 +4003,7 @@ function AddMoneyPage({
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const quickAmounts = [100, 500, 1000, 2000, 5000, 10000];
+    const quickAmounts = [20, 50, 100, 500, 1000, 2000, 5000];
 
     const extractCleanTrxId = (raw) => {
         if (!raw) return '';
@@ -4013,20 +4014,64 @@ function AddMoneyPage({
     };
 
     const handlePasteTrxId = async () => {
-        try {
-            const text = await navigator.clipboard.readText();
-            if (text) {
-                const clean = extractCleanTrxId(text);
+        const applyText = (raw) => {
+            if (!raw) return;
+            const clean = extractCleanTrxId(raw);
+            if (clean) {
                 setTrxId(clean);
+                setPastedFeedback(true);
                 if (errorMessage) setErrorMessage('');
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+                setTimeout(() => setPastedFeedback(false), 2000);
             }
-        } catch (_) {}
+        };
+
+        // 1. First priority: Telegram WebApp official clipboard reader (triggers native Telegram permission prompt)
+        if (window.Telegram?.WebApp?.readTextFromClipboard) {
+            try {
+                window.Telegram.WebApp.readTextFromClipboard((clip) => {
+                    if (clip && clip.trim()) {
+                        applyText(clip);
+                    } else {
+                        fallbackStandard();
+                    }
+                });
+                return;
+            } catch (e) {
+                console.log("readTextFromClipboard error:", e);
+            }
+        }
+
+        fallbackStandard();
+
+        async function fallbackStandard() {
+            // 2. Browser standard navigator.clipboard.readText()
+            if (navigator.clipboard?.readText) {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text && text.trim()) {
+                        applyText(text);
+                        return;
+                    }
+                } catch (err) {
+                    console.log("navigator.clipboard error:", err);
+                }
+            }
+
+            // 3. Fallback: prompt dialog so the user can easily paste without being blocked by browser sandbox
+            const manual = window.prompt(lang === 'bn' ? 'আপনার TrxID এখানে পেস্ট করুন:' : 'Paste your TrxID here:');
+            if (manual && manual.trim()) {
+                applyText(manual);
+            }
+        }
     };
 
     const handleSubmit = async () => {
         const cleanAmt = parseFloat(String(amount || '').replace(/,/g, '').trim());
-        if (!cleanAmt || isNaN(cleanAmt) || cleanAmt <= 0) {
-            setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে সঠিক টাকার পরিমাণ দিন' : 'Please enter a valid amount');
+        if (!cleanAmt || isNaN(cleanAmt) || cleanAmt < 20) {
+            setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে নূন্যতম ২০ টাকা বা তার বেশি দিন' : 'Please enter at least 20 BDT');
             if (window.Telegram?.WebApp?.HapticFeedback) {
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             }
@@ -4280,10 +4325,10 @@ function AddMoneyPage({
                     </button>
                 </div>
 
-                {/* 3. Deposit Amount Input & Quick Pills */}
+                {/* 3. Deposit Amount Input & Quick Pills (Minimum 20 BDT) */}
                 <div>
                     <label className="text-xs font-black uppercase tracking-wider block mb-1.5 text-slate-600 dark:text-slate-400">
-                        {lang === 'bn' ? 'টাকার পরিমাণ (BDT)' : 'Deposit Amount'}
+                        {lang === 'bn' ? 'টাকার পরিমাণ (BDT) • নূন্যতম ২০ টাকা' : 'Deposit Amount (Min. 20 BDT)'}
                     </label>
                     <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
                         darkMode ? 'bg-slate-800/40 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
@@ -4295,7 +4340,7 @@ function AddMoneyPage({
                                 setAmount(e.target.value);
                                 if (errorMessage) setErrorMessage('');
                             }}
-                            placeholder="Min. 50 BDT"
+                            placeholder="Min. 20 BDT"
                             style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
                             className="w-full bg-transparent text-xl font-black font-mono tracking-tight outline-none pr-14 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
                         />
@@ -4326,7 +4371,7 @@ function AddMoneyPage({
                     </div>
                 </div>
 
-                {/* 4. TrxID Input & Paste Button */}
+                {/* 4. TrxID Input & Sleek Paste Button with Telegram Permission */}
                 <div>
                     <label className="text-xs font-black uppercase tracking-wider block mb-1.5 text-slate-600 dark:text-slate-400">
                         Transaction ID (TrxID)
@@ -4343,15 +4388,29 @@ function AddMoneyPage({
                             }}
                             placeholder="e.g. 9J26XYZ789"
                             style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-                            className="w-full bg-transparent text-sm font-mono font-bold uppercase tracking-wider outline-none pr-16 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
+                            className="w-full bg-transparent text-sm font-mono font-bold uppercase tracking-wider outline-none pr-24 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
                         />
                         <button
                             type="button"
                             onClick={handlePasteTrxId}
-                            className="absolute right-2.5 flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60 text-xs font-bold active:scale-95 transition-all cursor-pointer"
+                            className={`absolute right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-xs select-none ${
+                                pastedFeedback
+                                    ? 'bg-emerald-500 text-white shadow-emerald-500/25'
+                                    : 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border border-purple-500/25'
+                            }`}
+                            title={lang === 'bn' ? 'ক্লিপবোর্ড থেকে পেস্ট করুন' : 'Paste from clipboard'}
                         >
-                            <ClipboardPaste size={13} />
-                            <span>{lang === 'bn' ? 'পেস্ট' : 'Paste'}</span>
+                            {pastedFeedback ? (
+                                <>
+                                    <Check size={13} strokeWidth={3} className="animate-in zoom-in" />
+                                    <span>{lang === 'bn' ? 'পেস্ট হয়েছে!' : 'Pasted!'}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Clipboard size={13} strokeWidth={2.5} />
+                                    <span>{lang === 'bn' ? 'পেস্ট' : 'Paste'}</span>
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -4866,12 +4925,12 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const addressValidity = validateAddress(receiveAddress, selectedNetwork);
 
     const addressBoxClasses = addressValidity === true
-        ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-white dark:bg-slate-900'
+        ? 'border-emerald-500 ring-2 ring-emerald-500/20 bg-slate-50 dark:bg-slate-800/50'
         : addressValidity === false
-        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-white dark:bg-slate-900'
+        ? 'border-rose-500 ring-2 ring-rose-500/20 bg-slate-50 dark:bg-slate-800/50'
         : darkMode
-        ? 'bg-slate-900 border-slate-700'
-        : 'bg-white border-slate-200';
+        ? 'bg-slate-800/50 border-slate-700'
+        : 'bg-slate-50 border-slate-200';
 
     // Native Camera QR Scanner
     const handleScanQr = () => {
@@ -4975,8 +5034,8 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 />
             </div>
 
-            <div className="max-w-md mx-auto p-4 sm:p-5 space-y-4 relative z-10">
-                {/* 1. TOP HEADER */}
+            <div className="max-w-md mx-auto p-4 sm:p-5 space-y-3.5 relative z-10">
+                {/* TOP HEADER */}
                 <div className="flex items-center justify-between py-1">
                     <button
                         type="button"
@@ -5011,305 +5070,318 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                     </div>
                 </div>
 
-                {/* 2. ADDRESS FIELD WITH REAL-TIME VALIDATION & CAMERA SCANNER */}
-                <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                        <label className={`text-xs font-black uppercase tracking-wider block ${
-                            darkMode ? 'text-slate-300' : 'text-slate-700'
-                        }`}>
-                            Wallet Address ({selectedNetwork})
-                        </label>
-                        {addressValidity === true && (
-                            <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
-                                <CheckCircle2 size={12} />
-                                {lang === 'bn' ? 'সঠিক এড্রেস' : 'Valid'}
-                            </span>
-                        )}
-                        {addressValidity === false && (
-                            <span className="text-[10px] font-bold text-rose-500 flex items-center gap-1">
-                                <AlertCircle size={12} />
-                                {lang === 'bn' ? 'ভুল এড্রেস ফরম্যাট' : 'Invalid'}
-                            </span>
-                        )}
-                    </div>
+                {/* UNIFIED EXECUTIVE CARD: All fields neatly organized inside one card */}
+                <div className={`p-4 sm:p-5 rounded-3xl border shadow-sm space-y-4 ${
+                    darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+                }`}>
+                    {/* 1. WALLET ADDRESS FIELD */}
+                    <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                            <label className={`text-xs font-black uppercase tracking-wider block ${
+                                darkMode ? 'text-slate-300' : 'text-slate-700'
+                            }`}>
+                                Wallet Address ({selectedNetwork})
+                            </label>
+                            {addressValidity === true && (
+                                <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                                    <CheckCircle2 size={12} />
+                                    {lang === 'bn' ? 'সঠিক এড্রেস' : 'Valid'}
+                                </span>
+                            )}
+                            {addressValidity === false && (
+                                <span className="text-[10px] font-bold text-rose-500 flex items-center gap-1">
+                                    <AlertCircle size={12} />
+                                    {lang === 'bn' ? 'ভুল এড্রেস ফরম্যাট' : 'Invalid'}
+                                </span>
+                            )}
+                        </div>
 
-                    <div className={`relative flex items-center rounded-2xl border transition-all p-3 shadow-xs ${addressBoxClasses}`}>
-                        <input
-                            type="text"
-                            value={receiveAddress}
-                            onChange={e => {
-                                const val = e.target.value;
-                                setReceiveAddress(val);
-                                setDestMode('custom');
-                                if (selectedNetwork !== 'TON' && val.trim().length > 10) {
-                                    try { localStorage.setItem('tp_saved_evm_addr', val.trim()); } catch (_) {}
+                        <div className={`relative flex items-center rounded-2xl border transition-all p-3 shadow-xs ${addressBoxClasses}`}>
+                            <input
+                                type="text"
+                                value={receiveAddress}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    setReceiveAddress(val);
+                                    setDestMode('custom');
+                                    if (selectedNetwork !== 'TON' && val.trim().length > 10) {
+                                        try { localStorage.setItem('tp_saved_evm_addr', val.trim()); } catch (_) {}
+                                    }
+                                }}
+                                placeholder={
+                                    selectedNetwork === 'TON'
+                                        ? "Input or paste UQ... / EQ... address"
+                                        : "Input or paste 0x... EVM address"
                                 }
-                            }}
-                            placeholder={
-                                selectedNetwork === 'TON'
-                                    ? "Input or paste UQ... / EQ... address"
-                                    : "Input or paste 0x... EVM address"
-                            }
-                            style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-                            className="w-full bg-transparent text-xs font-mono font-bold outline-none pr-20 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
-                        />
-                        <div className="absolute right-2.5 flex items-center gap-1.5">
-                            {receiveAddress ? (
+                                style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                                className="w-full bg-transparent text-xs font-mono font-bold outline-none pr-20 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
+                            />
+                            <div className="absolute right-2.5 flex items-center gap-1.5">
+                                {receiveAddress ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setReceiveAddress('')}
+                                        className="p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                ) : null}
                                 <button
                                     type="button"
-                                    onClick={() => setReceiveAddress('')}
-                                    className="p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
-                                >
-                                    <X size={14} />
-                                </button>
-                            ) : null}
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    try {
-                                        const text = await navigator.clipboard.readText();
-                                        if (text) {
-                                            const trimmed = text.trim();
-                                            setReceiveAddress(trimmed);
-                                            setDestMode('custom');
-                                            if (selectedNetwork !== 'TON') {
-                                                try { localStorage.setItem('tp_saved_evm_addr', trimmed); } catch (_) {}
+                                    onClick={async () => {
+                                        try {
+                                            const text = await navigator.clipboard.readText();
+                                            if (text) {
+                                                const trimmed = text.trim();
+                                                setReceiveAddress(trimmed);
+                                                setDestMode('custom');
+                                                if (selectedNetwork !== 'TON') {
+                                                    try { localStorage.setItem('tp_saved_evm_addr', trimmed); } catch (_) {}
+                                                }
                                             }
-                                        }
-                                    } catch(e) {}
-                                }}
-                                className="p-1 text-slate-400 hover:text-purple-600 rounded-md cursor-pointer"
-                                title="Paste"
-                            >
-                                <ClipboardPaste size={15} />
-                            </button>
-                            <div className="w-[1px] h-3.5 bg-slate-200 dark:bg-slate-700" />
-                            <button
-                                type="button"
-                                onClick={handleScanQr}
-                                className="p-1 text-purple-600 dark:text-purple-400 hover:text-purple-700 rounded-md cursor-pointer"
-                                title={lang === 'bn' ? 'ক্যামেরা দিয়ে QR স্ক্যান করুন' : 'Scan QR Code with Camera'}
-                            >
-                                <Camera size={16} />
-                            </button>
+                                        } catch(e) {}
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-purple-600 rounded-md cursor-pointer"
+                                    title="Paste"
+                                >
+                                    <ClipboardPaste size={15} />
+                                </button>
+                                <div className="w-[1px] h-3.5 bg-slate-200 dark:bg-slate-700" />
+                                <button
+                                    type="button"
+                                    onClick={handleScanQr}
+                                    className="p-1 text-purple-600 dark:text-purple-400 hover:text-purple-700 rounded-md cursor-pointer"
+                                    title={lang === 'bn' ? 'ক্যামেরা দিয়ে QR স্ক্যান করুন' : 'Scan QR Code with Camera'}
+                                >
+                                    <Camera size={16} />
+                                </button>
+                            </div>
                         </div>
+
+                        {/* Connected Wallet Quick Button */}
+                        {selectedNetwork === 'TON' && userTonAddress && (
+                            <div className="flex justify-end mt-1.5">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setDestMode('connected');
+                                        setReceiveAddress(userTonAddress);
+                                    }}
+                                    className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
+                                >
+                                    <Wallet size={12} />
+                                    <span>{receiveAddress === userTonAddress ? (lang === 'bn' ? '✓ কানেক্টেড ওয়ালেট সিলেক্টেড' : '✓ Connected Wallet Selected') : (lang === 'bn' ? '+ কানেক্টেড ওয়ালেট এড্রেস দিন' : '+ Use Connected Wallet')}</span>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Memo / Comment (Optional for TON) */}
+                        {(selectedAsset === 'GRAM' || selectedNetwork === 'TON') && (
+                            <div className="mt-2.5">
+                                <label className={`text-[10px] font-bold uppercase tracking-wider block mb-1 ${
+                                    darkMode ? 'text-slate-400' : 'text-slate-500'
+                                }`}
+                                >
+                                    Memo / Comment (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={memo}
+                                    onChange={e => setMemo(e.target.value)}
+                                    placeholder="Memo / Comment (Optional)"
+                                    style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                                    className={`w-full h-[42px] px-3.5 rounded-xl text-xs font-mono font-bold outline-none border transition-all ${
+                                        darkMode ? 'bg-slate-800/40 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                                    }`}
+                                />
+                            </div>
+                        )}
                     </div>
 
-                    {/* If TON / GRAM: Quick Connected Wallet Button */}
-                    {selectedNetwork === 'TON' && userTonAddress && (
-                        <div className="flex justify-end mt-1.5">
+                    {/* 2. NETWORK FIELD */}
+                    <div>
+                        <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                            darkMode ? 'text-slate-300' : 'text-slate-700'
+                        }`}>
+                            Network
+                        </label>
+                        <div className="relative">
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setDestMode('connected');
-                                    setReceiveAddress(userTonAddress);
+                                    if (selectedAsset === 'GRAM') return;
+                                    setIsNetworkDropdownOpen(!isNetworkDropdownOpen);
                                 }}
-                                className="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
-                            >
-                                <Wallet size={12} />
-                                <span>{receiveAddress === userTonAddress ? (lang === 'bn' ? '✓ কানেক্টেড ওয়ালেট সিলেক্টেড' : '✓ Connected Wallet Selected') : (lang === 'bn' ? '+ কানেক্টেড ওয়ালেট এড্রেস দিন' : '+ Use Connected Wallet')}</span>
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Memo (Optional for TON) */}
-                    {(selectedAsset === 'GRAM' || selectedNetwork === 'TON') && (
-                        <div className="mt-2">
-                            <input
-                                type="text"
-                                value={memo}
-                                onChange={e => setMemo(e.target.value)}
-                                placeholder="Memo / Comment (Optional)"
-                                style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-                                className={`w-full h-[40px] px-3.5 rounded-xl text-xs font-mono font-bold outline-none border transition-all ${
-                                    darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
+                                className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
+                                    darkMode ? 'bg-slate-800/40 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                                 }`}
-                            />
-                        </div>
-                    )}
-                </div>
+                            >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <img 
+                                        src={`${import.meta.env.BASE_URL}${activeNetworkObj.icon}`} 
+                                        alt={activeNetworkObj.shortName} 
+                                        className="w-5 h-5 object-contain shrink-0 rounded-full" 
+                                    />
+                                    <span className="font-black text-xs truncate">
+                                        {activeNetworkObj.name}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
+                                        {activeNetworkObj.gasFee}
+                                    </span>
+                                    {selectedAsset !== 'GRAM' && (
+                                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${isNetworkDropdownOpen ? 'rotate-180' : ''}`} />
+                                    )}
+                                </div>
+                            </button>
 
-                {/* 3. NETWORK FIELD */}
-                <div>
-                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
-                        darkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}>
-                        Network
-                    </label>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (selectedAsset === 'GRAM') return;
-                                setIsNetworkDropdownOpen(!isNetworkDropdownOpen);
-                            }}
-                            className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
-                                darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
-                            }`}
-                        >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <img 
-                                    src={`${import.meta.env.BASE_URL}${activeNetworkObj.icon}`} 
-                                    alt={activeNetworkObj.shortName} 
-                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
-                                />
-                                <span className="font-black text-xs truncate">
-                                    {activeNetworkObj.name}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
-                                    {activeNetworkObj.gasFee}
-                                </span>
-                                {selectedAsset !== 'GRAM' && (
-                                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isNetworkDropdownOpen ? 'rotate-180' : ''}`} />
-                                )}
-                            </div>
-                        </button>
-
-                        {/* Dropdown Options */}
-                        {isNetworkDropdownOpen && selectedAsset !== 'GRAM' && (
-                            <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border shadow-xl z-30 p-1.5 space-y-1 ${
-                                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-                            }`}>
-                                {BUY_NETWORKS.map(net => {
-                                    const isSel = selectedNetwork === net.id;
-                                    return (
-                                        <button
-                                            key={net.id}
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedNetwork(net.id);
-                                                setIsNetworkDropdownOpen(false);
-                                            }}
-                                            className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
-                                                isSel 
-                                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black' 
-                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <img 
-                                                    src={`${import.meta.env.BASE_URL}${net.icon}`} 
-                                                    alt={net.shortName} 
-                                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
-                                                />
-                                                <span className="text-xs truncate">{net.name}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
-                                                {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* 4. AMOUNT FIELD */}
-                <div>
-                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
-                        darkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}>
-                        Amount (টাকার পরিমাণ)
-                    </label>
-                    <div className={`relative flex items-center rounded-2xl border transition-all p-3 shadow-xs ${
-                        darkMode ? 'bg-slate-900 border-slate-700 focus-within:border-purple-500' : 'bg-white border-slate-200 focus-within:border-purple-500'
-                    }`}>
-                        <input
-                            type="number"
-                            value={bdtAmount}
-                            onChange={e => setBdtAmount(e.target.value)}
-                            placeholder={`Min. 0.01 ${selectedAsset} (≈ ৳${(cryptoRate * 0.01).toFixed(0)})`}
-                            style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-                            className="w-full bg-transparent text-lg sm:text-xl font-black font-mono tracking-tight outline-none pr-16 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
-                        />
-                        <span className="absolute right-3.5 font-black text-xs text-slate-400">
-                            BDT
-                        </span>
-                    </div>
-
-                    {/* Preset Buttons & Available Balance */}
-                    <div className="flex items-center justify-between mt-2 text-[11px]">
-                        <span className="font-medium text-slate-500 dark:text-slate-400">
-                            Available: <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">৳{Number(balance || 0).toFixed(2)}</span>
-                        </span>
-                        <div className="flex items-center gap-1">
-                            {[100, 500, 1000, 2000].map(val => (
-                                <button
-                                    key={val}
-                                    type="button"
-                                    onClick={() => setBdtAmount(val.toString())}
-                                    className="px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:border-purple-500 cursor-pointer active:scale-95"
-                                >
-                                    ৳{val}
-                                </button>
-                            ))}
-                            {balance > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => setBdtAmount(Math.floor(balance).toString())}
-                                    className="px-2 py-0.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/40 text-[10px] font-black text-purple-600 dark:text-purple-400 cursor-pointer active:scale-95"
-                                >
-                                    MAX
-                                </button>
+                            {/* Dropdown Options */}
+                            {isNetworkDropdownOpen && selectedAsset !== 'GRAM' && (
+                                <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border shadow-xl z-30 p-1.5 space-y-1 ${
+                                    darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                                }`}>
+                                    {BUY_NETWORKS.map(net => {
+                                        const isSel = selectedNetwork === net.id;
+                                        return (
+                                            <button
+                                                key={net.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedNetwork(net.id);
+                                                    setIsNetworkDropdownOpen(false);
+                                                }}
+                                                className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                                                    isSel 
+                                                        ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black' 
+                                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <img 
+                                                        src={`${import.meta.env.BASE_URL}${net.icon}`} 
+                                                        alt={net.shortName} 
+                                                        className="w-5 h-5 object-contain shrink-0 rounded-full" 
+                                                    />
+                                                    <span className="text-xs truncate">{net.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
+                                                    {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             )}
                         </div>
                     </div>
-                </div>
 
-                {/* 5. NOTE & FEES */}
-                <div className="pt-1 text-[11px] text-slate-400 space-y-1">
-                    <div className="flex justify-between">
-                        <span>Rate</span>
-                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Withdrawal Fees</span>
-                        <span className="font-black text-emerald-600 dark:text-emerald-400">0 Network Fee</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>Status</span>
-                        <span className="font-medium text-slate-500 dark:text-slate-400">⚡ Instant On-Chain Processing</span>
-                    </div>
-                </div>
-
-                {/* Error Banner */}
-                {errorMessage && (
-                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2.5 flex items-start gap-2">
-                        <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                        <p className="text-[11px] text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
-                    </div>
-                )}
-
-                {/* 6. BOTTOM BAR + 3D PURPLE BUTTON */}
-                <div className={`mt-6 pt-3 border-t flex items-center justify-between gap-4 ${
-                    darkMode ? 'border-slate-800' : 'border-slate-200'
-                }`}>
+                    {/* 3. AMOUNT FIELD */}
                     <div>
-                        <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-white">
-                            {calculatedCrypto || '0.00'} <span className="text-xs font-bold text-purple-600 dark:text-purple-400">{selectedAsset}</span>
+                        <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                            darkMode ? 'text-slate-300' : 'text-slate-700'
+                        }`}>
+                            Amount (টাকার পরিমাণ)
+                        </label>
+                        <div className={`relative flex items-center rounded-2xl border transition-all p-3 shadow-xs ${
+                            darkMode ? 'bg-slate-800/40 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
+                        }`}>
+                            <input
+                                type="number"
+                                value={bdtAmount}
+                                onChange={e => setBdtAmount(e.target.value)}
+                                placeholder={`Min. 0.01 ${selectedAsset} (≈ ৳${(cryptoRate * 0.01).toFixed(0)})`}
+                                style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                                className="w-full bg-transparent text-lg sm:text-xl font-black font-mono tracking-tight outline-none pr-16 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
+                            />
+                            <span className="absolute right-3.5 font-black text-xs text-slate-400">
+                                BDT
+                            </span>
                         </div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                            Amount Received (আপনি পাবেন)
+
+                        {/* Preset Buttons & Available Balance */}
+                        <div className="flex items-center justify-between mt-2 text-[11px]">
+                            <span className="font-medium text-slate-500 dark:text-slate-400">
+                                Available: <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">৳{Number(balance || 0).toFixed(2)}</span>
+                            </span>
+                            <div className="flex items-center gap-1">
+                                {[100, 500, 1000, 2000].map(val => (
+                                    <button
+                                        key={val}
+                                        type="button"
+                                        onClick={() => setBdtAmount(val.toString())}
+                                        className="px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:border-purple-500 cursor-pointer active:scale-95"
+                                    >
+                                        ৳{val}
+                                    </button>
+                                ))}
+                                {balance > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setBdtAmount(Math.floor(balance).toString())}
+                                        className="px-2 py-0.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/40 text-[10px] font-black text-purple-600 dark:text-purple-400 cursor-pointer active:scale-95"
+                                    >
+                                        MAX
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={hasInsufficientBalance ? onGoToAddMoney : handleConfirmBuy}
-                        disabled={!hasInsufficientBalance && (!numBdt || numBdt < 10)}
-                        className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
-                    >
-                        <Zap size={16} fill="currentColor" />
-                        <span>
-                            {hasInsufficientBalance 
-                                ? (lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money') 
-                                : (lang === 'bn' ? 'উইথড্র / বাই' : 'Withdraw')}
-                        </span>
-                    </button>
+                    {/* 4. NOTE & FEES (Clean summary block inside card) */}
+                    <div className={`p-3 rounded-2xl border text-[11px] space-y-1.5 ${
+                        darkMode ? 'bg-slate-800/30 border-slate-800 text-slate-400' : 'bg-slate-50/80 border-slate-200/80 text-slate-500'
+                    }`}>
+                        <div className="flex justify-between">
+                            <span>Rate</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Withdrawal Fees</span>
+                            <span className="font-black text-emerald-600 dark:text-emerald-400">0 Network Fee</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Status</span>
+                            <span className="font-medium text-slate-600 dark:text-slate-300">⚡ Instant On-Chain Processing</span>
+                        </div>
+                    </div>
+
+                    {/* Error Banner */}
+                    {errorMessage && (
+                        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2.5 flex items-start gap-2">
+                            <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                            <p className="text-[11px] text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
+                        </div>
+                    )}
+
+                    {/* 5. BOTTOM BAR + 3D PURPLE BUTTON INSIDE CARD */}
+                    <div className={`pt-3 border-t flex items-center justify-between gap-4 ${
+                        darkMode ? 'border-slate-800' : 'border-slate-200'
+                    }`}>
+                        <div>
+                            <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-white">
+                                {calculatedCrypto || '0.00'} <span className="text-xs font-bold text-purple-600 dark:text-purple-400">{selectedAsset}</span>
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                Amount Received (আপনি পাবেন)
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={hasInsufficientBalance ? onGoToAddMoney : handleConfirmBuy}
+                            disabled={!hasInsufficientBalance && (!numBdt || numBdt < 10)}
+                            className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
+                        >
+                            <Zap size={16} fill="currentColor" />
+                            <span>
+                                {hasInsufficientBalance 
+                                    ? (lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money') 
+                                    : (lang === 'bn' ? 'উইথড্র / বাই' : 'Withdraw')}
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -5576,8 +5648,8 @@ function SellCryptoPage({
                 />
             </div>
 
-            <div className="max-w-md mx-auto p-4 sm:p-5 space-y-4 relative z-10">
-                {/* 1. TOP HEADER */}
+            <div className="max-w-md mx-auto p-4 sm:p-5 space-y-3.5 relative z-10">
+                {/* TOP HEADER */}
                 <div className="flex items-center justify-between py-1">
                     <button
                         type="button"
@@ -5612,29 +5684,83 @@ function SellCryptoPage({
                     </div>
                 </div>
 
-                {/* 2. ADDRESS FIELD (Opaque Solid Background + QR Button) */}
-                <div>
-                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
-                        darkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}>
-                        Deposit Address ({selectedNetwork})
-                    </label>
+                {/* UNIFIED EXECUTIVE CARD: All fields neatly organized inside one card */}
+                <div className={`p-4 sm:p-5 rounded-3xl border shadow-sm space-y-4 ${
+                    darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+                }`}>
+                    {/* 1. DEPOSIT ADDRESS FIELD */}
+                    <div>
+                        <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                            darkMode ? 'text-slate-300' : 'text-slate-700'
+                        }`}>
+                            Deposit Address ({selectedNetwork})
+                        </label>
 
-                    {selectedNetwork === 'TON' ? (
-                        userTonAddress ? (
+                        {selectedNetwork === 'TON' ? (
+                            userTonAddress ? (
+                                <div className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 shadow-xs ${
+                                    darkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-200'
+                                }`}>
+                                    <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
+                                        {userTonAddress}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(userTonAddress);
+                                                setCopiedAddress(true);
+                                                setTimeout(() => setCopiedAddress(false), 2000);
+                                            }}
+                                            className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60 font-bold text-xs flex items-center gap-1 hover:bg-purple-100 active:scale-95 transition-all cursor-pointer"
+                                        >
+                                            {copiedAddress ? <Check size={13} /> : <Copy size={13} />}
+                                            <span>{copiedAddress ? 'Copied' : 'Copy'}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowQrModal(true)}
+                                            className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 active:scale-95 transition-all cursor-pointer shadow-xs"
+                                            title="Show QR Code"
+                                        >
+                                            <QrCode size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3 shadow-xs">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <Wallet size={18} className="text-amber-600 shrink-0" />
+                                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                                            {lang === 'bn' ? 'টোনকিপার ওয়ালেট কানেক্ট নেই' : 'No Wallet Connected'}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => tonConnectUI.openModal()}
+                                        className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs shrink-0 cursor-pointer shadow-xs active:scale-95"
+                                    >
+                                        {lang === 'bn' ? 'কানেক্ট' : 'Connect'}
+                                    </button>
+                                </div>
+                            )
+                        ) : (
+                            /* EVM PERSONAL UNIQUE DEPOSIT ADDRESS (ARBITRUM & BEP20) */
                             <div className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 shadow-xs ${
-                                darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
+                                darkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-200'
                             }`}>
                                 <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
-                                    {userTonAddress}
+                                    {userEvmAddress || 'Generating unique EVM address...'}
                                 </span>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            navigator.clipboard.writeText(userTonAddress);
-                                            setCopiedAddress(true);
-                                            setTimeout(() => setCopiedAddress(false), 2000);
+                                            if (userEvmAddress) {
+                                                navigator.clipboard.writeText(userEvmAddress);
+                                                setCopiedAddress(true);
+                                                setTimeout(() => setCopiedAddress(false), 2000);
+                                            }
                                         }}
                                         className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60 font-bold text-xs flex items-center gap-1 hover:bg-purple-100 active:scale-95 transition-all cursor-pointer"
                                     >
@@ -5651,244 +5777,197 @@ function SellCryptoPage({
                                     </button>
                                 </div>
                             </div>
-                        ) : (
-                            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3 shadow-xs">
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                    <Wallet size={18} className="text-amber-600 shrink-0" />
-                                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
-                                        {lang === 'bn' ? 'টোনকিপার ওয়ালেট কানেক্ট নেই' : 'No Wallet Connected'}
-                                    </span>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => tonConnectUI.openModal()}
-                                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs shrink-0 cursor-pointer shadow-xs active:scale-95"
-                                >
-                                    {lang === 'bn' ? 'কানেক্ট' : 'Connect'}
-                                </button>
-                            </div>
-                        )
-                    ) : (
-                        /* EVM PERSONAL UNIQUE DEPOSIT ADDRESS (ARBITRUM & BEP20) */
-                        <div className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 shadow-xs ${
-                            darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
-                        }`}>
-                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
-                                {userEvmAddress || 'Generating unique EVM address...'}
-                            </span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (userEvmAddress) {
-                                            navigator.clipboard.writeText(userEvmAddress);
-                                            setCopiedAddress(true);
-                                            setTimeout(() => setCopiedAddress(false), 2000);
-                                        }
-                                    }}
-                                    className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60 font-bold text-xs flex items-center gap-1 hover:bg-purple-100 active:scale-95 transition-all cursor-pointer"
-                                >
-                                    {copiedAddress ? <Check size={13} /> : <Copy size={13} />}
-                                    <span>{copiedAddress ? 'Copied' : 'Copy'}</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowQrModal(true)}
-                                    className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-100 active:scale-95 transition-all cursor-pointer shadow-xs"
-                                    title="Show QR Code"
-                                >
-                                    <QrCode size={16} />
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                        )}
 
-                    {evmCheckMsg && selectedNetwork !== 'TON' && (
-                        <div className={`mt-2 p-2.5 rounded-xl text-xs font-bold ${
-                            evmCheckMsg.type === 'success' 
-                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200' 
-                                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200'
-                        }`}>
-                            {evmCheckMsg.text}
-                        </div>
-                    )}
-                </div>
-
-                {/* 3. NETWORK FIELD */}
-                <div>
-                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
-                        darkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}>
-                        Network
-                    </label>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (asset === 'GRAM') return;
-                                setIsNetworkDropdownOpen(!isNetworkDropdownOpen);
-                            }}
-                            className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
-                                darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-900'
-                            }`}
-                        >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <img 
-                                    src={`${import.meta.env.BASE_URL}${activeNetworkObj.icon}`} 
-                                    alt={activeNetworkObj.shortName} 
-                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
-                                />
-                                <span className="font-black text-xs truncate">
-                                    {activeNetworkObj.name}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
-                                    {activeNetworkObj.gasFee}
-                                </span>
-                                {asset !== 'GRAM' && (
-                                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isNetworkDropdownOpen ? 'rotate-180' : ''}`} />
-                                )}
-                            </div>
-                        </button>
-
-                        {/* Dropdown Options */}
-                        {isNetworkDropdownOpen && asset !== 'GRAM' && (
-                            <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border shadow-xl z-30 p-1.5 space-y-1 ${
-                                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                        {evmCheckMsg && selectedNetwork !== 'TON' && (
+                            <div className={`mt-2 p-2.5 rounded-xl text-xs font-bold ${
+                                evmCheckMsg.type === 'success' 
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200' 
+                                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200'
                             }`}>
-                                {SELL_NETWORKS.map(net => {
-                                    const isSel = selectedNetwork === net.id;
-                                    return (
-                                        <button
-                                            key={net.id}
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedNetwork(net.id);
-                                                setIsNetworkDropdownOpen(false);
-                                            }}
-                                            className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
-                                                isSel 
-                                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black' 
-                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <img 
-                                                    src={`${import.meta.env.BASE_URL}${net.icon}`} 
-                                                    alt={net.shortName} 
-                                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
-                                                />
-                                                <span className="text-xs truncate">{net.name}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
-                                                {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
+                                {evmCheckMsg.text}
                             </div>
                         )}
                     </div>
-                </div>
 
-                {/* 4. AMOUNT FIELD (Min. 0.01 Placeholder) */}
-                <div>
-                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
-                        darkMode ? 'text-slate-300' : 'text-slate-700'
-                    }`}>
-                        Amount ({asset})
-                    </label>
-                    <div className={`relative flex items-center rounded-2xl border transition-all p-3 shadow-xs ${
-                        darkMode ? 'bg-slate-900 border-slate-700 focus-within:border-purple-500' : 'bg-white border-slate-200 focus-within:border-purple-500'
-                    }`}>
-                        <input
-                            type="number"
-                            value={cryptoAmount}
-                            onChange={e => setCryptoAmount(e.target.value)}
-                            placeholder={`Min. 0.01 ${asset}`}
-                            style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-                            className="w-full bg-transparent text-lg sm:text-xl font-black font-mono tracking-tight outline-none pr-16 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
-                        />
-                        <span className="absolute right-3.5 font-black text-xs text-slate-400">
-                            {asset}
-                        </span>
-                    </div>
-
-                    {/* Quick Amount Pills */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mt-2">
-                        {quickAmounts.map(val => (
+                    {/* 2. NETWORK FIELD */}
+                    <div>
+                        <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                            darkMode ? 'text-slate-300' : 'text-slate-700'
+                        }`}>
+                            Network
+                        </label>
+                        <div className="relative">
                             <button
-                                key={val}
                                 type="button"
-                                onClick={() => setCryptoAmount(val.toString())}
-                                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
-                                    cryptoAmount === val.toString()
-                                        ? 'bg-purple-500/15 border-purple-500 text-purple-600 dark:text-purple-400 font-black'
-                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-purple-300'
+                                onClick={() => {
+                                    if (asset === 'GRAM') return;
+                                    setIsNetworkDropdownOpen(!isNetworkDropdownOpen);
+                                }}
+                                className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
+                                    darkMode ? 'bg-slate-800/40 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                                 }`}
                             >
-                                {val} {asset}
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <img 
+                                        src={`${import.meta.env.BASE_URL}${activeNetworkObj.icon}`} 
+                                        alt={activeNetworkObj.shortName} 
+                                        className="w-5 h-5 object-contain shrink-0 rounded-full" 
+                                    />
+                                    <span className="font-black text-xs truncate">
+                                        {activeNetworkObj.name}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
+                                        {activeNetworkObj.gasFee}
+                                    </span>
+                                    {asset !== 'GRAM' && (
+                                        <ChevronDown size={16} className={`text-slate-400 transition-transform ${isNetworkDropdownOpen ? 'rotate-180' : ''}`} />
+                                    )}
+                                </div>
                             </button>
-                        ))}
-                    </div>
-                </div>
 
-                {/* 5. RATE & ESTIMATE */}
-                <div className="pt-1 text-[11px] text-slate-400 space-y-1">
-                    <div className="flex justify-between">
-                        <span>Current Sell Rate</span>
-                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {asset} ≈ ৳{currentRate} BDT</span>
+                            {/* Dropdown Options */}
+                            {isNetworkDropdownOpen && asset !== 'GRAM' && (
+                                <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border shadow-xl z-30 p-1.5 space-y-1 ${
+                                    darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                                }`}>
+                                    {SELL_NETWORKS.map(net => {
+                                        const isSel = selectedNetwork === net.id;
+                                        return (
+                                            <button
+                                                key={net.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedNetwork(net.id);
+                                                    setIsNetworkDropdownOpen(false);
+                                                }}
+                                                className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                                                    isSel 
+                                                        ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black' 
+                                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <img 
+                                                        src={`${import.meta.env.BASE_URL}${net.icon}`} 
+                                                        alt={net.shortName} 
+                                                        className="w-5 h-5 object-contain shrink-0 rounded-full" 
+                                                    />
+                                                    <span className="text-xs truncate">{net.name}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                    <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
+                                                    {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex justify-between">
-                        <span>Receiving BDT (আনুমানিক)</span>
-                        <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono">৳{estimatedTk} BDT</span>
-                    </div>
-                </div>
 
-                {/* Error Banner */}
-                {errorMessage && (
-                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2.5 flex items-start gap-2">
-                        <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                        <p className="text-[11px] text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
-                    </div>
-                )}
-
-                {/* 6. BOTTOM BAR + 3D PURPLE BUTTON */}
-                <div className={`mt-6 pt-3 border-t flex items-center justify-between gap-4 ${
-                    darkMode ? 'border-slate-800' : 'border-slate-200'
-                }`}>
+                    {/* 3. AMOUNT FIELD */}
                     <div>
-                        <div className="text-xl sm:text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-                            ৳{estimatedTk} <span className="text-xs font-bold text-slate-400">BDT</span>
+                        <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                            darkMode ? 'text-slate-300' : 'text-slate-700'
+                        }`}>
+                            Amount ({asset})
+                        </label>
+                        <div className={`relative flex items-center rounded-2xl border transition-all p-3 shadow-xs ${
+                            darkMode ? 'bg-slate-800/40 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
+                        }`}>
+                            <input
+                                type="number"
+                                value={cryptoAmount}
+                                onChange={e => setCryptoAmount(e.target.value)}
+                                placeholder={`Min. 0.01 ${asset}`}
+                                style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                                className="w-full bg-transparent text-lg sm:text-xl font-black font-mono tracking-tight outline-none pr-16 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
+                            />
+                            <span className="absolute right-3.5 font-black text-xs text-slate-400">
+                                {asset}
+                            </span>
                         </div>
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                            Instant Balance Credit
+
+                        {/* Quick Amount Pills */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mt-2">
+                            {quickAmounts.map(val => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => setCryptoAmount(val.toString())}
+                                    className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
+                                        cryptoAmount === val.toString()
+                                            ? 'bg-purple-500/15 border-purple-500 text-purple-600 dark:text-purple-400 font-black'
+                                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-purple-300'
+                                    }`}
+                                >
+                                    {val} {asset}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {selectedNetwork === 'TON' ? (
-                        <button
-                            type="button"
-                            onClick={handleDirectSell}
-                            disabled={!userTonAddress || !numAmount || numAmount < 0.01}
-                            className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
-                        >
-                            <Zap size={16} fill="currentColor" />
-                            <span>{lang === 'bn' ? 'সরাসরি সেল করুন' : 'Direct Sell'}</span>
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={handleCheckEvmDeposit}
-                            disabled={isEvmChecking}
-                            className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
-                        >
-                            {isEvmChecking ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                            <span>{lang === 'bn' ? 'ডিপোজিট চেক করুন' : 'Check Deposit'}</span>
-                        </button>
+                    {/* 4. RATE & ESTIMATE (Clean summary block inside card) */}
+                    <div className={`p-3 rounded-2xl border text-[11px] space-y-1.5 ${
+                        darkMode ? 'bg-slate-800/30 border-slate-800 text-slate-400' : 'bg-slate-50/80 border-slate-200/80 text-slate-500'
+                    }`}>
+                        <div className="flex justify-between">
+                            <span>Current Sell Rate</span>
+                            <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {asset} ≈ ৳{currentRate} BDT</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Receiving BDT (আনুমানিক)</span>
+                            <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono">৳{estimatedTk} BDT</span>
+                        </div>
+                    </div>
+
+                    {/* Error Banner */}
+                    {errorMessage && (
+                        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2.5 flex items-start gap-2">
+                            <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                            <p className="text-[11px] text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
+                        </div>
                     )}
+
+                    {/* 5. BOTTOM BAR + 3D PURPLE BUTTON INSIDE CARD */}
+                    <div className={`pt-3 border-t flex items-center justify-between gap-4 ${
+                        darkMode ? 'border-slate-800' : 'border-slate-200'
+                    }`}>
+                        <div>
+                            <div className="text-xl sm:text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+                                ৳{estimatedTk} <span className="text-xs font-bold text-slate-400">BDT</span>
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                Instant Balance Credit
+                            </div>
+                        </div>
+
+                        {selectedNetwork === 'TON' ? (
+                            <button
+                                type="button"
+                                onClick={handleDirectSell}
+                                disabled={!userTonAddress || !numAmount || numAmount < 0.01}
+                                className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
+                            >
+                                <Zap size={16} fill="currentColor" />
+                                <span>{lang === 'bn' ? 'সরাসরি সেল করুন' : 'Direct Sell'}</span>
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handleCheckEvmDeposit}
+                                disabled={isEvmChecking}
+                                className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
+                            >
+                                {isEvmChecking ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                                <span>{lang === 'bn' ? 'ডিপোজিট চেক করুন' : 'Check Deposit'}</span>
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
