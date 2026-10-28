@@ -4622,29 +4622,40 @@ function OnChainTransferProgressModal({
   isBuy = true,
   errorMessage = '',
   onClose,
+  onRetryCheck = null,
   lang = 'bn',
   darkMode = false
 }) {
-  const [progressPercent, setProgressPercent] = useState(25);
+  const [progressPercent, setProgressPercent] = useState(30);
+  const [countdown, setCountdown] = useState(3);
 
   useEffect(() => {
     if (!isOpen) {
-      setProgressPercent(25);
+      setProgressPercent(30);
+      setCountdown(3);
       return;
     }
     if (stage === 'verifying') {
-      setProgressPercent(35);
+      setProgressPercent(40);
     } else if (stage === 'transferring') {
       const interval = setInterval(() => {
-        setProgressPercent(p => (p < 85 ? p + 8 : p));
-      }, 300);
+        setProgressPercent(p => (p < 90 ? p + 5 : p));
+      }, 250);
       return () => clearInterval(interval);
     } else if (stage === 'success') {
       setProgressPercent(100);
-      const timer = setTimeout(() => {
-        onClose();
-      }, 3000);
-      return () => clearTimeout(timer);
+      setCountdown(3);
+      const timer = setInterval(() => {
+        setCountdown(c => {
+          if (c <= 1) {
+            clearInterval(timer);
+            onClose();
+            return 0;
+          }
+          return c - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
     }
   }, [isOpen, stage, onClose]);
 
@@ -4657,161 +4668,222 @@ function OnChainTransferProgressModal({
   const assetLogo = asset === 'USDT' ? 'usdt.svg' : 'gram.svg';
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className={`w-full max-w-sm rounded-3xl p-6 border shadow-2xl relative text-center overflow-hidden animate-in zoom-in-95 duration-300 ${
-        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300">
+      <style>{`
+        @keyframes tpDrawCheck {
+          0% { stroke-dashoffset: 48; }
+          100% { stroke-dashoffset: 0; }
+        }
+        @keyframes tpPulseHalo {
+          0%, 100% { transform: scale(1); opacity: 0.35; }
+          50% { transform: scale(1.18); opacity: 0.15; }
+        }
+      `}</style>
+      <div className={`w-full max-w-sm rounded-[32px] p-6 sm:p-7 border shadow-2xl relative text-center overflow-hidden animate-in zoom-in-95 duration-300 ${
+        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
       }`}>
-        {/* Soft background glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-24 bg-purple-500/20 rounded-full blur-2xl pointer-events-none" />
+        {/* Soft luxury ambient glow */}
+        <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 rounded-full blur-3xl pointer-events-none ${
+          stage === 'success' ? 'bg-emerald-500/20' : stage === 'error' ? 'bg-rose-500/20' : 'bg-purple-500/20'
+        }`} />
 
         {stage === 'success' ? (
-          /* SUCCESS STATE: Animated Green Spring Checkmark */
-          <div className="py-4 space-y-3 animate-in zoom-in-90 duration-300">
-            <div className="w-20 h-20 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center mx-auto shadow-[0_0_35px_rgba(16,185,129,0.35)] animate-bounce">
-              <CheckCircle2 size={46} strokeWidth={2.5} />
+          /* =========================================================================
+             ULTRA-PREMIUM SUCCESS STATE WITH ANIMATED TICK MARK
+             ========================================================================= */
+          <div className="py-2 space-y-4 animate-in zoom-in-90 duration-300 relative z-10">
+            {/* The Luxury Checkmark Emblem */}
+            <div className="relative mx-auto my-3 w-24 h-24 flex items-center justify-center">
+              {/* Pulsing Outer Aura */}
+              <div 
+                className="absolute inset-0 rounded-full bg-emerald-500/25"
+                style={{ animation: 'tpPulseHalo 2s ease-in-out infinite' }}
+              />
+              {/* Concentric Glow Ring */}
+              <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-emerald-500/30 to-teal-400/30 blur-sm" />
+              
+              {/* Solid Luxury Emblem */}
+              <div className="w-22 h-22 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 p-[3px] shadow-[0_12px_36px_rgba(16,185,129,0.45)] relative flex items-center justify-center">
+                <div className="w-full h-full rounded-full bg-emerald-600/95 dark:bg-emerald-500/95 flex items-center justify-center">
+                  <svg className="w-12 h-12 text-white drop-shadow-md" viewBox="0 0 52 52" fill="none">
+                    <circle cx="26" cy="26" r="23" stroke="rgba(255,255,255,0.2)" strokeWidth="3" />
+                    <path 
+                      d="M14 27l8 8 16-17" 
+                      stroke="white" 
+                      strokeWidth="4.5" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      style={{
+                        strokeDasharray: 48,
+                        strokeDashoffset: 0,
+                        animation: 'tpDrawCheck 0.45s ease-out forwards'
+                      }} 
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Gold & Diamond Sparkle Stars */}
+              <div className="absolute -top-1 -right-1 text-amber-300 drop-shadow animate-bounce">
+                <Sparkles size={20} fill="currentColor" />
+              </div>
+              <div className="absolute -bottom-1 -left-1 text-emerald-300 drop-shadow animate-pulse">
+                <Sparkles size={16} fill="currentColor" />
+              </div>
             </div>
+
             <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                {lang === 'bn' ? (isBuy ? 'ক্রিপ্টো ক্রয় সফল!' : 'ক্রিপ্টো বিক্রয় সফল!') : (isBuy ? 'Purchase Complete!' : 'Sale Complete!')}
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <Check size={13} strokeWidth={3} />
+                {lang === 'bn' ? 'অন-চেইন সফল' : 'On-Chain Verified'}
+              </span>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-2">
+                {lang === 'bn' ? (isBuy ? 'ক্রিপ্টো ক্রয় সম্পন্ন!' : 'ক্রিপ্টো বিক্রয় সম্পন্ন!') : (isBuy ? 'Purchase Complete!' : 'Sale Complete!')}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {lang === 'bn' ? 'সরাসরি অন-চেইনে সফলভাবে ট্রান্সফার সম্পন্ন হয়েছে' : 'Successfully processed on-chain'}
+                {lang === 'bn' ? 'ব্লকচেইনে স্বয়ংক্রিয়ভাবে লেনদেন সফল হয়েছে' : 'Successfully confirmed on blockchain'}
               </p>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 my-2">
-              <span className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-                {amount} {asset}
-              </span>
-              <p className="text-[10.5px] font-bold text-slate-500 dark:text-slate-400 mt-1">
-                {isBuy ? `Sent to ${truncatedAddress}` : 'Credited to your balance'}
+            {/* Executive Receipt Card */}
+            <div className={`p-4 rounded-2xl border transition-all my-2 ${
+              darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="text-2xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
+                +{amount} {asset}
+              </div>
+              <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-1 truncate">
+                {isBuy ? `Sent to ${truncatedAddress}` : 'ব্যালেন্সে সরাসরি টাকা যোগ হয়েছে'}
               </p>
             </div>
 
-            <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400">
-              <Clock size={13} className="animate-spin text-purple-600" />
-              <span>{lang === 'bn' ? '৩ সেকেন্ডে স্বয়ংক্রিয়ভাবে বন্ধ হচ্ছে...' : 'Auto-closing in 3s...'}</span>
+            {/* Auto-closing Countdown Bar */}
+            <div className="space-y-1.5 pt-1">
+              <div className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500 transition-all duration-1000 ease-linear rounded-full"
+                  style={{ width: `${(countdown / 3) * 100}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400">
+                <Clock size={12} className="text-emerald-500" />
+                <span>{lang === 'bn' ? `${countdown} সেকেন্ডে অটো বন্ধ হচ্ছে...` : `Auto-closing in ${countdown}s...`}</span>
+              </div>
             </div>
           </div>
         ) : stage === 'error' ? (
-          /* ERROR STATE */
-          <div className="py-4 space-y-3 animate-in zoom-in-90 duration-200">
-            <div className="w-16 h-16 rounded-full bg-rose-500/15 text-rose-500 flex items-center justify-center mx-auto">
-              <AlertCircle size={38} />
+          /* =========================================================================
+             DIGNIFIED ERROR STATE (WITH RE-CHECK BUTTON)
+             ========================================================================= */
+          <div className="py-2 space-y-4 animate-in zoom-in-90 duration-200 relative z-10">
+            <div className="w-18 h-18 rounded-full bg-rose-500/15 border-2 border-rose-500/30 text-rose-500 flex items-center justify-center mx-auto shadow-[0_8px_30px_rgba(244,63,94,0.3)]">
+              <AlertCircle size={40} />
             </div>
-            <h3 className="text-lg font-black text-rose-600">
-              {lang === 'bn' ? 'লেনদেন ব্যর্থ হয়েছে' : 'Transaction Failed'}
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {errorMessage || (lang === 'bn' ? 'অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Please try again.')}
-            </p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-3 w-full h-[46px] rounded-2xl bg-slate-800 text-white font-bold text-xs cursor-pointer active:scale-95 transition-all"
-            >
-              {lang === 'bn' ? 'বন্ধ করুন' : 'Close'}
-            </button>
+            <div>
+              <h3 className="text-xl font-black text-rose-600">
+                {lang === 'bn' ? 'লেনদেন সম্পন্ন হয়নি' : 'Transaction Incomplete'}
+              </h3>
+              <p className="text-xs text-slate-600 dark:text-slate-300 mt-1.5 px-2 leading-relaxed">
+                {errorMessage || (lang === 'bn' ? 'অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Please try again.')}
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              {onRetryCheck && (
+                <button
+                  type="button"
+                  onClick={onRetryCheck}
+                  className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <RefreshCw size={15} />
+                  <span>{lang === 'bn' ? 'ডিপোজিট চেক করুন' : 'Check Deposit On-Chain'}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full h-[44px] rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs cursor-pointer active:scale-95 transition-all"
+              >
+                {lang === 'bn' ? 'বন্ধ করুন' : 'Close'}
+              </button>
+            </div>
           </div>
         ) : (
-          /* REAL-TIME PROGRESS ANIMATION (BEAM & MOVING TOKEN) */
-          <div className="py-2 space-y-5">
-            <div className="flex items-center justify-between text-left">
-              <div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400">
-                  {stage === 'verifying' ? (lang === 'bn' ? 'ভেরিফিকেশন' : 'Verifying') : (lang === 'bn' ? 'অন-চেইন ট্রান্সফার' : 'On-Chain Routing')}
-                </span>
-                <h3 className="text-base font-black text-slate-900 dark:text-white mt-1">
-                  {isBuy ? (lang === 'bn' ? 'ক্রিপ্টো পাঠানো হচ্ছে...' : 'Sending Crypto...') : (lang === 'bn' ? 'পেমেন্ট প্রসেসিং...' : 'Processing Sell...')}
-                </h3>
+          /* =========================================================================
+             HIGH-END PROCESSING STATE (ORBITAL GLOW & CLEAN FINTECH ROUTING)
+             ========================================================================= */
+          <div className="py-2 space-y-5 relative z-10">
+            {/* Center Orbital Crypto Token */}
+            <div className="relative mx-auto my-2 w-20 h-20 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-2 border-dashed border-purple-500/40 animate-spin" style={{ animationDuration: '6s' }} />
+              <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 p-[2px] shadow-[0_8px_30px_rgba(147,51,234,0.35)] flex items-center justify-center">
+                <div className="w-full h-full rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
+                  <img 
+                    src={`${import.meta.env.BASE_URL}${assetLogo}`} 
+                    alt={asset} 
+                    className="w-9 h-9 object-contain rounded-full drop-shadow" 
+                  />
+                </div>
               </div>
-              <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2.5 py-1 rounded-xl">
-                {progressPercent}%
+            </div>
+
+            <div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-200/50 dark:border-purple-800/50">
+                <span className="w-2 h-2 rounded-full bg-purple-600 animate-ping inline-block" />
+                {stage === 'verifying' ? (lang === 'bn' ? 'যাচাই করা হচ্ছে...' : 'Verifying Network...') : (lang === 'bn' ? 'অন-চেইন ব্রডকাস্ট...' : 'Broadcasting On-Chain...')}
               </span>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-2">
+                {isBuy ? (lang === 'bn' ? 'ক্রিপ্টো পাঠানো হচ্ছে' : 'Sending Crypto') : (lang === 'bn' ? 'পেমেন্ট প্রসেসিং হচ্ছে' : 'Processing Sell')}
+              </h3>
+              <p className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 mt-0.5">
+                {amount} {asset} ({network})
+              </p>
             </div>
 
-            {/* Traveling Coin Beam Animation */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 relative">
-              <div className="flex items-center justify-between relative z-10">
-                {/* Source Node */}
-                <div className="flex flex-col items-center">
-                  <div className="w-11 h-11 rounded-2xl bg-white dark:bg-slate-800 border-2 border-purple-500 shadow-md flex items-center justify-center text-purple-600">
-                    <Zap size={20} fill="currentColor" />
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-500 mt-1">
-                    {isBuy ? 'TrustPay Vault' : 'Your Wallet'}
-                  </span>
-                </div>
-
-                {/* Pulsing Beam Line with Traveling Coin */}
-                <div className="flex-1 mx-3 relative h-10 flex items-center">
-                  {/* Background Track */}
-                  <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-purple-600 via-indigo-500 to-emerald-500 transition-all duration-300"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-
-                  {/* Traveling Crypto Coin Icon */}
-                  <div 
-                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white dark:bg-slate-900 border-2 border-purple-500 shadow-lg flex items-center justify-center transition-all duration-300 animate-pulse"
-                    style={{ left: `${Math.max(15, Math.min(85, progressPercent))}%` }}
-                  >
-                    <img 
-                      src={`${import.meta.env.BASE_URL}${assetLogo}`} 
-                      alt={asset} 
-                      className="w-5 h-5 object-contain rounded-full" 
-                    />
-                  </div>
-                </div>
-
-                {/* Destination Node */}
-                <div className="flex flex-col items-center">
-                  <div className="w-11 h-11 rounded-2xl bg-white dark:bg-slate-800 border-2 border-emerald-500 shadow-md flex items-center justify-center text-emerald-600">
-                    <Wallet size={20} />
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-500 mt-1 truncate max-w-[80px]">
-                    {isBuy ? truncatedAddress : 'Vault'}
-                  </span>
-                </div>
+            {/* Apple Pay Style Smooth Gradient Shimmer Bar */}
+            <div className="space-y-1.5">
+              <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative">
+                <div 
+                  className="h-full bg-gradient-to-r from-purple-600 via-indigo-500 to-emerald-400 transition-all duration-300 rounded-full"
+                  style={{ width: `${progressPercent}%` }}
+                />
               </div>
-
-              {/* Amount Tag */}
-              <div className="mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-700/60 flex items-center justify-between text-xs font-mono font-bold">
-                <span className="text-slate-400">{lang === 'bn' ? 'পরিমাণ:' : 'Amount:'}</span>
-                <span className="text-purple-600 dark:text-purple-400">{amount} {asset} ({network})</span>
+              <div className="flex justify-between items-center text-[10.5px] font-bold text-slate-400">
+                <span>Routing to {truncatedAddress}</span>
+                <span className="font-mono text-purple-600 dark:text-purple-400">{progressPercent}%</span>
               </div>
             </div>
 
-            {/* Stepper Status Indicators */}
-            <div className="space-y-2 text-left text-xs font-medium">
+            {/* Clean Real-Time Checklist */}
+            <div className={`p-3.5 rounded-2xl border text-left space-y-2 text-xs ${
+              darkMode ? 'bg-slate-800/40 border-slate-700/60' : 'bg-slate-50 border-slate-200/80'
+            }`}>
               <div className="flex items-center gap-2">
                 <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                  progressPercent >= 35 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'
+                  progressPercent >= 35 ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
                 }`}>✓</div>
                 <span className={progressPercent >= 35 ? 'font-bold text-slate-800 dark:text-slate-200' : 'text-slate-400'}>
-                  {lang === 'bn' ? 'অর্ডার ডাটাবেজ ভ্যালিডেশন' : 'Order database validation'}
+                  {lang === 'bn' ? 'সিকিউর নোড কানেকশন' : 'Secure node connection'}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                  progressPercent >= 60 ? 'bg-emerald-500 text-white' : progressPercent >= 35 ? 'bg-purple-600 text-white animate-spin' : 'bg-slate-200 text-slate-600'
+                  progressPercent >= 65 ? 'bg-emerald-500 text-white' : progressPercent >= 35 ? 'bg-purple-600 text-white animate-spin' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
                 }`}>
-                  {progressPercent >= 60 ? '✓' : '•'}
+                  {progressPercent >= 65 ? '✓' : '•'}
                 </div>
-                <span className={progressPercent >= 60 ? 'font-bold text-slate-800 dark:text-slate-200' : 'text-slate-400'}>
-                  {lang === 'bn' ? 'স্মার্ট কন্ট্রাক্ট অন-চেইন ব্রডকাস্ট' : 'Smart contract on-chain broadcast'}
+                <span className={progressPercent >= 65 ? 'font-bold text-slate-800 dark:text-slate-200' : 'text-slate-400'}>
+                  {lang === 'bn' ? 'স্মার্ট কন্ট্রাক্ট অন-চেইন ব্রডকাস্ট' : 'Smart contract broadcast'}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold ${
-                  progressPercent >= 100 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'
+                  progressPercent >= 100 ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
                 }`}>
                   {progressPercent >= 100 ? '✓' : '•'}
                 </div>
                 <span className={progressPercent >= 100 ? 'font-bold text-emerald-600' : 'text-slate-400'}>
-                  {lang === 'bn' ? 'ওয়ালেটে ফান্ড ডিপোজিট সম্পন্ন' : 'Wallet delivery complete'}
+                  {lang === 'bn' ? 'ব্লকচেইন কনফার্মেশন সম্পন্ন' : 'Blockchain confirmation complete'}
                 </span>
               </div>
             </div>
@@ -4980,8 +5052,12 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         setIsTransferModalOpen(true);
         setTransferStage('verifying');
 
+        let isCompleted = false;
+        const progressTimer = setTimeout(() => {
+            if (!isCompleted) setTransferStage('transferring');
+        }, 600);
+
         try {
-            setTimeout(() => setTransferStage('transferring'), 700);
             const res = await submitBuyCrypto({
                 userId: user?.id || 123456789,
                 asset: selectedAsset,
@@ -4992,6 +5068,9 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 receiveAddress: targetAddress.trim(),
                 memo: memo.trim() || undefined
             });
+
+            isCompleted = true;
+            clearTimeout(progressTimer);
 
             if (res.success) {
                 setTxResult(res);
@@ -5004,6 +5083,8 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 throw new Error(res.error || (lang === 'bn' ? 'ক্রয় সম্পন্ন করা সম্ভব হয়নি।' : 'Purchase failed.'));
             }
         } catch (err) {
+            isCompleted = true;
+            clearTimeout(progressTimer);
             setErrorMessage(err.message || (lang === 'bn' ? 'ক্রয় ব্যর্থ হয়েছে।' : 'Purchase failed.'));
             setTransferStage('error');
             if (window.Telegram?.WebApp?.HapticFeedback) {
@@ -5540,6 +5621,13 @@ function SellCryptoPage({
         setTransferStage('verifying');
         setErrorMessage('');
 
+        let isCompleted = false;
+        const progressTimer = setTimeout(() => {
+            if (!isCompleted) setTransferStage('transferring');
+        }, 700);
+
+        let activeSellCode = '';
+
         try {
             const txRes = await buildTransaction({
                 userId: user?.id || 123456789,
@@ -5553,18 +5641,31 @@ function SellCryptoPage({
                 throw new Error("Failed to prepare transaction");
             }
 
-            setTransferStage('transferring');
-            await tonConnectUI.sendTransaction(txRes.tx);
+            activeSellCode = txRes.sellCode;
 
+            // Trigger Tonkeeper / TonConnect transaction
+            let sdkError = null;
+            try {
+                await tonConnectUI.sendTransaction(txRes.tx);
+            } catch (err) {
+                console.warn("tonConnectUI sendTransaction error or mobile app switch:", err.message);
+                sdkError = err;
+            }
+
+            // Immediately verify on-chain! Even if TonConnect threw because user switched back from Tonkeeper
+            setTransferStage('verifying');
             const res = await submitSellOrder({
                 userId: user?.id || 123456789,
                 asset,
                 amount: numAmount,
                 estimatedTk,
-                sellCode: txRes.sellCode,
+                sellCode: activeSellCode,
                 wallet: userTonAddress,
                 status: 'completed'
             });
+
+            isCompleted = true;
+            clearTimeout(progressTimer);
 
             if (res.success) {
                 const finalCreditedTk = res.creditedTk || estimatedTk;
@@ -5578,10 +5679,12 @@ function SellCryptoPage({
                 throw new Error(res.error || 'ব্যালেন্সে টাকা যোগ করতে সমস্যা হয়েছে');
             }
         } catch (err) {
+            isCompleted = true;
+            clearTimeout(progressTimer);
             const isUserCancel = err.message?.includes('Reject') || err.message?.includes('cancel') || err.message?.includes('declined');
             const msg = isUserCancel 
                 ? (lang === 'bn' ? 'টোনকিপারে পেমেন্ট বাতিল করা হয়েছে।' : 'Payment rejected in Tonkeeper.')
-                : (err.message || (lang === 'bn' ? 'পেমেন্ট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।' : 'Payment failed. Please try again.'));
+                : (err.message || (lang === 'bn' ? 'পেমেন্ট ভেরিফাই করা যায়নি। আপনি যদি পাঠিয়ে থাকেন, তবে "ডিপোজিট চেক করুন" বাটন চাপুন।' : 'Payment could not be verified yet. Click Check Deposit to retry.'));
             setErrorMessage(msg);
             setTransferStage('error');
         }
@@ -5953,6 +6056,7 @@ function SellCryptoPage({
                 network={activeNetworkObj.shortName}
                 isBuy={false}
                 errorMessage={errorMessage}
+                onRetryCheck={selectedNetwork === 'TON' ? handleDirectSell : handleCheckEvmDeposit}
                 onClose={() => {
                     setIsTransferModalOpen(false);
                     onBack();

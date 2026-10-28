@@ -5109,8 +5109,8 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         }
         cryptoAmount = parseFloat((bdtAmount / effectiveRate).toFixed(4));
 
-        if (!Number.isFinite(bdtAmount) || bdtAmount < 20 || !Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
-            return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ২০ টাকা' });
+        if (!Number.isFinite(bdtAmount) || bdtAmount < 10 || !Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
+            return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ১০ টাকা' });
         }
 
         // 4. Mathematical Balance Provenance & Illegal Amount Audit
