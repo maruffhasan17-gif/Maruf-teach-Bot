@@ -461,8 +461,10 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
   const tonUsdtVal = parseFloat(data.tonUsdtBalance || 0);
   const evmUsdtVal = parseFloat(data.evmBalance || 0);
   const totalUsdtVal = tonUsdtVal + evmUsdtVal;
-  const liveTonUsdtRate = parseFloat(data.liveTonUsdtRate || 1.32);
-  const totalVaultBdt = gramBalanceVal * 220 + totalUsdtVal * 130;
+  const liveTonUsdtRate = parseFloat(data.liveTonUsdtRate || data.realGramUsdt || 1.2365);
+  const liveGramBdt = parseFloat(data.realGramBdt || (data.marketRates?.realGramBdt) || (liveTonUsdtRate * 124.01));
+  const liveUsdtBdt = parseFloat(data.realUsdtBdt || (data.marketRates?.realUsdtBdt) || 124.01);
+  const totalVaultBdt = gramBalanceVal * liveGramBdt + totalUsdtVal * liveUsdtBdt;
 
   const showNotice = (type, text) => {
     setBannerMsg({ type, text });
@@ -711,7 +713,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               title: 'USDT (Tether USD)',
               subtitle: 'Supports All 6 Networks (TON, BEP20, Arbitrum, AVAX-C, Polygon, ERC20)',
               balance: `$${totalUsdtVal.toFixed(2)} USDT`,
-              bdt: `≈ ৳${(totalUsdtVal * 130).toFixed(0)} BDT`,
+              bdt: `≈ ৳${(totalUsdtVal * liveUsdtBdt).toFixed(0)} BDT`,
               tag: '6 NETWORKS • AUTO-SWAP TO GRAM',
               activeClass: 'border-emerald-400 bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-slate-950 shadow-[0_10px_35px_rgba(16,185,129,0.2)]'
             },
@@ -720,7 +722,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               title: 'GRAM / TON Reserve',
               subtitle: 'Direct User Payout Pool + Backed by On-Chain USDT Auto-Swap',
               balance: `${gramBalanceVal.toFixed(2)} GRAM`,
-              bdt: `≈ ৳${(gramBalanceVal * 220).toFixed(0)} BDT`,
+              bdt: `≈ ৳${(gramBalanceVal * liveGramBdt).toFixed(0)} BDT`,
               tag: 'TON MAINNET • INSTANT DISPATCH',
               activeClass: 'border-purple-400 bg-gradient-to-br from-purple-500/25 via-indigo-600/10 to-slate-950 shadow-[0_10px_35px_rgba(168,85,247,0.22)]'
             },

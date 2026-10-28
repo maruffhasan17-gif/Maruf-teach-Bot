@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-brand: #4F46E5; /* Royal Indigo */
   --color-brand-light: #6366F1;

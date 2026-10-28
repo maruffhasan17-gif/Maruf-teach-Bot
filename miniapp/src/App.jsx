@@ -1,15 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search } from 'lucide-react';
+import { Home, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchSpinStatus, executeSpin, watchSpinAd } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchSpinStatus, executeSpin, watchSpinAd, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/referral-banner.jpg';
 import lotusLineArt from './assets/lotus-line-art.webp';
 import roseBranchArt from './assets/rose-branch-art.webp';
+import addmoneyRoseArt from './assets/addmoney-rose-art.webp';
+import sakuraBranchArt from './assets/sakura-branch-art.webp';
+import mapleBranchArt from './assets/maple-branch-art.webp';
+import wisteriaCascadeArt from './assets/wisteria-cascade-art.webp';
+import roseBotanicalArt from './assets/rose-botanical-art.webp';
 
 const stickerJsonCache = new Map();
 
@@ -99,7 +104,7 @@ const TelegramAnimatedSticker = ({ src = 'tg-rose-sticker.json', size = 28, clas
           renderer: 'svg',
           loop: true,
           autoplay: true,
-          animationData: JSON.parse(JSON.stringify(data))
+          animationData: data
         });
         setLoaded(true);
       } catch (_) {
@@ -395,12 +400,30 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
 
     {page === 'home' && (
       <>
-        {/* Top-right lotus removed: the hero now uses the custom lotus line-art image */}
-        <div className="absolute top-[38%] -left-20 w-72 h-72 text-indigo-900 opacity-[0.03] tp-bg-flower-home transform rotate-25">
-          <HomeLotusPattern className="w-full h-full opacity-100" />
-        </div>
-        <div className="absolute bottom-12 -left-10 w-80 h-80 text-indigo-900 opacity-[0.04] tp-bg-flower-home transform -rotate-45">
-          <HomeLotusPattern className="w-full h-full opacity-100" />
+        {/* Soft lavender/indigo ambient aura glow */}
+        <div
+          className="absolute -top-16 -right-16 w-[340px] h-[360px] pointer-events-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(closest-side, rgba(99,102,241,0.2), transparent)'
+              : 'radial-gradient(closest-side, rgba(238,242,255,0.85), rgba(224,231,255,0.3) 60%, transparent)'
+          }}
+        />
+        {/* Delicate Botanical Rose Art at bottom-left */}
+        <div
+          className="absolute -left-6 bottom-16 w-[230px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to top, black 80%, transparent 100%)',
+            maskImage: 'linear-gradient(to top, black 80%, transparent 100%)'
+          }}
+        >
+          <img
+            src={roseBotanicalArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.35] brightness-125' : 'opacity-[0.78]'}`}
+          />
         </div>
       </>
     )}
@@ -415,16 +438,33 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
         </div>
       </>
     )}
-    {page === 'sell' && (
+    {(page === 'buy' || page === 'sell') && (
       <>
-        <div className="absolute -top-12 -right-12 w-84 h-84 text-indigo-950 opacity-[0.045] tp-bg-flower-sell transform rotate-45">
-          <SellCryptoMandalaPattern className="w-full h-full opacity-100" />
-        </div>
-        <div className="absolute top-[36%] -right-20 w-72 h-72 text-indigo-950 opacity-[0.035] tp-bg-flower-sell transform -rotate-25">
-          <SellCryptoMandalaPattern className="w-full h-full opacity-100" />
-        </div>
-        <div className="absolute bottom-14 -left-14 w-84 h-84 text-indigo-950 opacity-[0.04] tp-bg-flower-sell transform -rotate-12">
-          <SellCryptoMandalaPattern className="w-full h-full opacity-100" />
+        {/* Soft lavender aura glow behind botanical branch */}
+        <div
+          className="absolute -top-12 -right-12 w-[320px] h-[340px] pointer-events-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(closest-side, rgba(168,85,247,0.22), transparent)'
+              : 'radial-gradient(closest-side, rgba(233,213,255,0.75), rgba(243,232,255,0.3) 60%, transparent)'
+          }}
+        />
+
+        {/* Soft botanical artwork */}
+        <div
+          className="absolute -right-3 top-2 w-[220px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+            maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
+          }}
+        >
+          <img
+            src={page === 'buy' ? sakuraBranchArt : wisteriaCascadeArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.45] brightness-125' : 'opacity-[0.85]'}`}
+          />
         </div>
       </>
     )}
@@ -460,14 +500,59 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
     )}
     {page === 'withdraw' && (
       <>
-        <div className="absolute -top-10 -right-10 w-80 h-80 text-amber-950 opacity-[0.05] tp-bg-flower-withdraw transform rotate-15">
-          <WithdrawLilyPattern className="w-full h-full opacity-100" />
+        {/* Soft purple aura glow */}
+        <div
+          className="absolute -top-12 -right-12 w-[320px] h-[340px] pointer-events-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(closest-side, rgba(168,85,247,0.22), transparent)'
+              : 'radial-gradient(closest-side, rgba(233,213,255,0.75), rgba(243,232,255,0.3) 60%, transparent)'
+          }}
+        />
+        {/* Soft botanical artwork */}
+        <div
+          className="absolute -right-3 top-2 w-[220px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+            maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
+          }}
+        >
+          <img
+            src={wisteriaCascadeArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.45] brightness-125' : 'opacity-[0.85]'}`}
+          />
         </div>
-        <div className="absolute top-[38%] -left-16 w-72 h-72 text-amber-950 opacity-[0.035] tp-bg-flower-withdraw transform rotate-20">
-          <WithdrawLilyPattern className="w-full h-full opacity-100" />
-        </div>
-        <div className="absolute bottom-16 -left-10 w-80 h-80 text-amber-950 opacity-[0.045] tp-bg-flower-withdraw transform -rotate-30">
-          <WithdrawLilyPattern className="w-full h-full opacity-100" />
+      </>
+    )}
+    {page === 'notifications' && (
+      <>
+        {/* Soft lavender aura glow */}
+        <div
+          className="absolute -top-12 -right-12 w-[320px] h-[340px] pointer-events-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(closest-side, rgba(168,85,247,0.2), transparent)'
+              : 'radial-gradient(closest-side, rgba(233,213,255,0.7), rgba(243,232,255,0.25) 60%, transparent)'
+          }}
+        />
+        {/* Soft botanical sakura branch */}
+        <div
+          className="absolute -right-3 top-2 w-[220px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+            maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
+          }}
+        >
+          <img
+            src={sakuraBranchArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.42] brightness-125' : 'opacity-[0.8]'}`}
+          />
         </div>
       </>
     )}
@@ -485,14 +570,16 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
         </div>
       </>
     )}
-    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && (
+    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'buy' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && page !== 'notifications' && (
       <>
-        <div className="absolute -top-12 -right-12 w-80 h-80 text-indigo-900 opacity-[0.045] tp-bg-flower-home">
-          <HomeLotusPattern className="w-full h-full opacity-100" />
-        </div>
-        <div className="absolute bottom-12 -left-12 w-80 h-80 text-indigo-900 opacity-[0.04] tp-bg-flower-home transform -rotate-35">
-          <HomeLotusPattern className="w-full h-full opacity-100" />
-        </div>
+        <div
+          className="absolute -top-12 -right-12 w-80 h-80 pointer-events-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(closest-side, rgba(99,102,241,0.15), transparent)'
+              : 'radial-gradient(closest-side, rgba(238,242,255,0.7), transparent)'
+          }}
+        />
       </>
     )}
   </div>
@@ -785,63 +872,63 @@ const calculateSendMoneyFee = (amt) => {
 };
 
 
-const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn' }) => {
+const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode = false }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-      <div 
-        className="relative bg-white w-full max-w-[340px] p-6 text-center shadow-[0_20px_50px_rgba(79,70,229,0.25)] border border-indigo-100/60 animate-in zoom-in-95 duration-300"
-        style={{
-          clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
-        }}
-      >
-        <WithdrawLilyPattern className="opacity-[0.06]" />
-        
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className={`relative w-full max-w-[340px] p-6 text-center rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 duration-200 overflow-hidden ${
+        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
         {/* Blooming Flower Graphic */}
         <BloomingFlowerGraphic />
 
         {/* Title & Badge */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-black uppercase tracking-wider mb-2">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-black uppercase tracking-wider mb-2">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-          {lang === 'bn' ? 'রিকোয়েস্ট সফল' : 'REQUEST SUBMITTED'}
+          {lang === 'bn' ? 'অনুরোধ গৃহীত হয়েছে' : 'REQUEST SUBMITTED'}
         </div>
-        <h3 className="text-[18px] font-black text-slate-900 leading-tight mb-1">
-          {lang === 'bn' ? 'উইথড্র রিকোয়েস্ট সফল!' : 'Withdrawal Submitted!'}
+        <h3 className="text-[18px] font-black leading-tight mb-1">
+          {lang === 'bn' ? 'উত্তোলন অনুরোধ সফল!' : 'Withdrawal Submitted!'}
         </h3>
-        <p className="text-[12px] text-slate-500 font-medium mb-4 leading-relaxed">
-          {lang === 'bn' ? 'আপনার রিকোয়েস্টটি সফলভাবে জমা হয়েছে এবং প্রসেসিং চলছে।' : 'Your withdrawal request has been received and is processing.'}
+        <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-4 leading-relaxed">
+          {lang === 'bn' ? 'আপনার অনুরোধটি সফলভাবে গ্রহণ করা হয়েছে এবং প্রক্রিয়াধীন আছে।' : 'Your withdrawal request has been received and is processing.'}
         </p>
 
         {/* Breakdown Card */}
         {details && (
-          <div className="bg-slate-50/80 rounded-2xl p-3 border border-slate-200/80 mb-4 text-left space-y-2 text-[12px]">
-            <div className="flex justify-between items-center text-slate-600">
-              <span>{lang === 'bn' ? 'উত্তোলন:' : 'Amount:'}</span>
-              <span className="font-bold text-slate-900">৳ {parseFloat(details.amount || 0).toFixed(2)}</span>
+          <div className={`rounded-2xl p-3 border mb-4 text-left space-y-2 text-[12px] ${
+            darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50/80 border-slate-200/80'
+          }`}>
+            <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+              <span>{lang === 'bn' ? 'পরিমাণ:' : 'Amount:'}</span>
+              <span className="font-bold text-slate-900 dark:text-white">৳ {parseFloat(details.amount || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between items-center text-red-500">
+            <div className="flex justify-between items-center text-rose-500">
               <span>{lang === 'bn' ? 'সেন্ড মানি ফি:' : 'Send Money Fee:'}</span>
               <span className="font-bold">- ৳ {parseFloat(details.fee || 0).toFixed(2)}</span>
             </div>
-            <div className="h-px bg-slate-200 w-full my-1" />
-            <div className="flex justify-between items-center text-emerald-700">
+            <div className="h-px bg-slate-200 dark:bg-slate-700 w-full my-1" />
+            <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
               <span className="font-bold">{lang === 'bn' ? 'আপনি পাবেন:' : 'You Receive:'}</span>
               <span className="font-black text-[14px]">৳ {parseFloat(details.receiveAmount || 0).toFixed(2)}</span>
             </div>
             {details.method && (
-              <div className="flex justify-between items-center text-slate-500 text-[11px] pt-1 border-t border-slate-200/50">
-                <span>{lang === 'bn' ? 'প্রাপক অ্যাকাউন্ট:' : 'Account:'}</span>
-                <span className="font-mono font-bold text-slate-700">{details.method} ({details.number})</span>
+              <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 text-[11px] pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+                <span>{lang === 'bn' ? 'প্রাপক একাউন্ট:' : 'Account:'}</span>
+                <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{details.method} ({details.number})</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Action Button */}
-        <CutCornerButton onClick={onClose} icon={CheckCircle2}>
-          {lang === 'bn' ? 'বুঝেছি (ঠিক আছে)' : 'GOT IT'}
-        </CutCornerButton>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+        >
+          {lang === 'bn' ? 'ঠিক আছে' : 'OK'}
+        </button>
       </div>
     </div>
   );
@@ -1056,14 +1143,8 @@ function ConnectedWalletModal({ isOpen, onClose, userTonAddress, onDisconnect, l
   };
 
   const modalNode = (
-    <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div 
-        className="relative bg-white w-full max-w-[340px] p-5 text-center shadow-[0_20px_50px_rgba(79,70,229,0.25)] border border-indigo-100/80 animate-in zoom-in-95 duration-200"
-        style={{
-          clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
-        }}
-      >
-        <WithdrawLilyPattern className="opacity-[0.05]" />
+    <div className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="relative bg-white dark:bg-slate-900 w-full max-w-[340px] p-6 text-center rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white">
 
         {/* Top Close Icon */}
         <button 
@@ -1486,8 +1567,316 @@ const RestrictedNoticeScreen = ({ onBack, reason, restrictedUntil, lang = 'bn', 
   );
 };
 
+// ---- Real-time Notification System Helpers ----
+const transformTxToNotification = (tx, lang = 'bn') => {
+  const type = tx.type;
+  const status = String(tx.status || 'pending').toLowerCase();
+  const isRejected = status === 'rejected';
+  const isCompleted = status === 'completed' || status === 'approved' || status === 'success';
+  const ts = tx.timestamp?._seconds
+    ? tx.timestamp._seconds * 1000
+    : (typeof tx.timestamp === 'number'
+      ? tx.timestamp
+      : (tx.timestamp ? new Date(tx.timestamp).getTime() : Date.now()));
+
+  let id = tx.id || `notif_${ts}_${Math.random()}`;
+  let title = '';
+  let body = '';
+  let amount = '';
+  let category = 'trade'; // 'withdraw' | 'deposit' | 'trade' | 'system'
+  let variant = 'info'; // 'success' | 'warning' | 'error' | 'info'
+
+  if (type === 'withdraw') {
+    category = 'withdraw';
+    const amt = tx.amount || 0;
+    const rec = tx.receiveAmount || amt;
+    const method = tx.method || 'bKash/Nagad';
+    if (isCompleted) {
+      variant = 'success';
+      title = lang === 'bn' ? 'টাকা উত্তোলন সফল' : 'Withdrawal Approved';
+      body = lang === 'bn'
+        ? `আপনার ৳${amt} উত্তোলন সফল হয়েছে এবং ${method} একাউন্টে ৳${rec} পাঠানো হয়েছে।`
+        : `Your ৳${amt} withdrawal was approved and ৳${rec} was sent to your ${method} account.`;
+      amount = `-৳${amt}`;
+    } else if (isRejected) {
+      variant = 'error';
+      title = lang === 'bn' ? 'উত্তোলন বাতিল ও রিফান্ড' : 'Withdrawal Refunded';
+      body = lang === 'bn'
+        ? `আপনার ৳${amt} উত্তোলন অনুরোধ বাতিল করে একাউন্ট ব্যালেন্সে রিফান্ড করা হয়েছে।${tx.rejectReason ? ` কারণ: ${tx.rejectReason}` : ''}`
+        : `Your ৳${amt} withdrawal was rejected and refunded to balance.${tx.rejectReason ? ` Reason: ${tx.rejectReason}` : ''}`;
+      amount = `+৳${amt}`;
+    } else {
+      variant = 'warning';
+      title = lang === 'bn' ? 'উত্তোলন প্রক্রিয়াধীন' : 'Withdrawal Processing';
+      body = lang === 'bn'
+        ? `৳${amt} উত্তোলনের অনুরোধ গৃহীত হয়েছে। অ্যাডমিন পর্যালোচনা সম্পন্ন হলে ফান্ড জমা হবে।`
+        : `Withdrawal request for ৳${amt} is being processed.`;
+      amount = `-৳${amt}`;
+    }
+  } else if (type === 'add_money' || type === 'deposit') {
+    category = 'deposit';
+    const amt = tx.amount || tx.totalBdt || 0;
+    const method = tx.paymentMethod || 'Manual Deposit';
+    if (isCompleted) {
+      variant = 'success';
+      title = lang === 'bn' ? 'টাকা ডিপোজিট সফল' : 'Deposit Confirmed';
+      body = lang === 'bn'
+        ? `৳${amt} সফলভাবে আপনার ট্রাস্ট পে ব্যালেন্সে যুক্ত করা হয়েছে। (${method})`
+        : `৳${amt} was confirmed and added to your balance. (${method})`;
+      amount = `+৳${amt}`;
+    } else {
+      variant = 'warning';
+      title = lang === 'bn' ? 'ডিপোজিট প্রক্রিয়াধীন' : 'Deposit Processing';
+      body = lang === 'bn'
+        ? `TrxID: ${tx.trxId || 'N/A'} যাচাই করা হচ্ছে।`
+        : `Verifying TrxID: ${tx.trxId || 'N/A'}`;
+      amount = `+৳${amt}`;
+    }
+  } else if (type === 'sell') {
+    category = 'trade';
+    variant = 'success';
+    const asset = tx.asset || 'USDT';
+    const cAmt = tx.amount || 0;
+    const tk = tx.estimatedTk || tx.creditedTk || 0;
+    title = lang === 'bn' ? `${asset} সেল সফল` : `${asset} Sold Successfully`;
+    body = lang === 'bn'
+      ? `${cAmt} ${asset} বিক্রি সম্পন্ন হয়েছে এবং +৳${tk} আপনার একাউন্টে যোগ হয়েছে।`
+      : `Successfully sold ${cAmt} ${asset}. +৳${tk} credited to your account.`;
+    amount = `+৳${tk}`;
+  } else if (type === 'buy') {
+    category = 'trade';
+    const asset = tx.asset || 'GRAM';
+    const cAmt = tx.amount || 0;
+    const bdt = tx.totalBdt || tx.amount || 0;
+    if (isRejected) {
+      variant = 'error';
+      title = lang === 'bn' ? `${asset} বাই বাতিল ও রিফান্ড` : `${asset} Buy Refunded`;
+      body = lang === 'bn'
+        ? `ক্রিপ্টো বাই অর্ডার বাতিল করা হয়েছে এবং টাকা ব্যালেন্সে রিফান্ড করা হয়েছে।`
+        : `Crypto buy order cancelled and refunded to balance.`;
+      amount = `+৳${bdt}`;
+    } else {
+      variant = 'success';
+      title = lang === 'bn' ? `${asset} বাই সফল` : `${asset} Buy Completed`;
+      body = lang === 'bn'
+        ? `অর্ডার সম্পন্ন হয়েছে! ${cAmt} ${asset} আপনার ওয়ালেটে ট্রান্সফার হয়েছে।`
+        : `Order completed! ${cAmt} ${asset} transferred to your wallet.`;
+      amount = `-৳${bdt}`;
+    }
+  } else {
+    category = 'system';
+    variant = 'info';
+    title = tx.title || (lang === 'bn' ? 'সিস্টেম নোটিশ' : 'System Notice');
+    body = tx.message || tx.subtitle || '';
+    amount = tx.amount ? `৳${tx.amount}` : '';
+  }
+
+  return { id, type, status, isCompleted, isRejected, ts, title, body, amount, category, variant };
+};
+
+function NotificationPage({
+  notifications = [],
+  lang = 'bn',
+  darkMode = false,
+  onBack,
+  onRefresh,
+  isRefreshing = false
+}) {
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  const filters = [
+    { id: 'all', label: lang === 'bn' ? 'সকল' : 'All' },
+    { id: 'withdraw', label: lang === 'bn' ? 'উত্তোলন' : 'Withdrawals' },
+    { id: 'trade', label: lang === 'bn' ? 'ট্রেড ও ডিপোজিট' : 'Trade & Dep' },
+    { id: 'system', label: lang === 'bn' ? 'সিস্টেম' : 'System' }
+  ];
+
+  const filtered = notifications.filter(item => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'withdraw') return item.category === 'withdraw';
+    if (activeFilter === 'trade') return item.category === 'trade' || item.category === 'deposit';
+    if (activeFilter === 'system') return item.category === 'system';
+    return true;
+  });
+
+  const formatTimestamp = (ts) => {
+    if (!ts) return '';
+    try {
+      const date = new Date(ts);
+      const now = new Date();
+      const isToday = date.toDateString() === now.toDateString();
+      const timeStr = date.toLocaleTimeString(lang === 'bn' ? 'bn-BD' : 'en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      if (isToday) return `${lang === 'bn' ? 'আজ' : 'Today'} ${timeStr}`;
+      return `${date.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-US', { month: 'short', day: 'numeric' })}, ${timeStr}`;
+    } catch (_) {
+      return '';
+    }
+  };
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
+      {/* Top Navigation Header */}
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-10 h-10 bg-white/95 dark:bg-slate-900/90 rounded-2xl flex items-center justify-center text-slate-700 dark:text-slate-300 active:scale-95 transition-all border border-slate-200/90 dark:border-slate-800 shadow-xs cursor-pointer"
+          >
+            <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">
+                {lang === 'bn' ? 'নোটিফিকেশন সেন্টার' : 'Notification Center'}
+              </h2>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200/70 dark:border-purple-800/60">
+                {notifications.length}
+              </span>
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold">
+              {lang === 'bn' ? 'সকল লেনদেন ও সিস্টেম আপডেট' : 'All transactions & system alerts'}
+            </p>
+          </div>
+        </div>
+
+        {onRefresh && (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="w-9 h-9 rounded-2xl bg-white/95 dark:bg-slate-900/90 text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 flex items-center justify-center transition-all active:scale-95 border border-slate-200/90 dark:border-slate-800 shadow-xs cursor-pointer disabled:opacity-50"
+            title={lang === 'bn' ? 'রিফ্রেশ করুন' : 'Refresh'}
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin text-purple-600' : ''} />
+          </button>
+        )}
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+        {filters.map(f => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setActiveFilter(f.id)}
+            className={`px-3.5 py-1.5 rounded-2xl text-xs font-black whitespace-nowrap transition-all cursor-pointer ${
+              activeFilter === f.id
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs'
+                : 'bg-white/95 dark:bg-slate-900/90 text-slate-600 dark:text-slate-400 border border-slate-200/90 dark:border-slate-800 hover:border-purple-300'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Notification Cards */}
+      <div className="space-y-3">
+        {filtered.length === 0 ? (
+          <div className="py-16 p-6 rounded-3xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800 flex flex-col items-center justify-center text-center shadow-xs">
+            <div className="w-16 h-16 rounded-3xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 border border-purple-100 dark:border-purple-900/50">
+              <Bell size={28} className="opacity-70" />
+            </div>
+            <p className="text-sm font-black text-slate-800 dark:text-slate-200">
+              {lang === 'bn' ? 'কোন নোটিফিকেশন নেই' : 'No notifications found'}
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold mt-1 max-w-[240px]">
+              {lang === 'bn' ? 'আপনার সাম্প্রতিক লেনদেন ও নোটিশ এখানে আসবে' : 'Your recent transactions & alerts will appear here'}
+            </p>
+          </div>
+        ) : (
+          filtered.map((item) => {
+            const isSuccess = item.variant === 'success';
+            const isError = item.variant === 'error';
+            const isWarning = item.variant === 'warning';
+
+            return (
+              <div
+                key={item.id}
+                className={`p-4 rounded-3xl border transition-all ${
+                  darkMode
+                    ? 'bg-slate-900/90 hover:bg-slate-850/90 border-slate-800'
+                    : 'bg-white/95 hover:bg-white border-slate-200/90 shadow-xs'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Icon */}
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 border ${
+                    isSuccess
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60'
+                      : isError
+                      ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800/60'
+                      : isWarning
+                      ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/60'
+                      : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/60'
+                  }`}>
+                    {isSuccess ? (
+                      <CheckCircle2 size={19} />
+                    ) : isError ? (
+                      <AlertCircle size={19} />
+                    ) : isWarning ? (
+                      <Clock size={19} />
+                    ) : (
+                      <Sparkles size={19} />
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="text-xs sm:text-[13px] font-black text-slate-900 dark:text-white leading-tight">
+                        {item.title}
+                      </h4>
+                      {item.ts && (
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0">
+                          {formatTimestamp(item.ts)}
+                        </span>
+                      )}
+                    </div>
+                    {item.body && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed break-words font-medium">
+                        {item.body}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/60">
+                      <span className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                        {item.category || 'System'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                        isSuccess
+                          ? 'bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                          : isError
+                          ? 'bg-rose-100/70 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
+                          : isWarning
+                          ? 'bg-amber-100/70 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                          : 'bg-indigo-100/70 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
+                      }`}>
+                        {item.status === 'completed' || item.status === 'approved'
+                          ? (lang === 'bn' ? 'সফল' : 'Completed')
+                          : item.status === 'rejected'
+                          ? (lang === 'bn' ? 'বাতিল' : 'Rejected')
+                          : (lang === 'bn' ? 'প্রক্রিয়াধীন' : 'Processing')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('app_lang') || 'bn');
+  const [notificationPrevTab, setNotificationPrevTab] = useState('home');
+  const [isRefreshingNotifs, setIsRefreshingNotifs] = useState(false);
+  const [hasUnreadNotifs, setHasUnreadNotifs] = useState(false);
+  const [notificationsList, setNotificationsList] = useState([]);
   const t = translations[lang] || translations.bn;
 
   // Synchronous initial Dark Mode read so React matches index.html at 0ms with zero flash
@@ -1569,6 +1958,35 @@ export default function App() {
         }, 260);
       }
     }, 550);
+    const handleRefreshNotifications = async () => {
+    if (!user?.id || user.id === GUEST_ID) return;
+    setIsRefreshingNotifs(true);
+    try {
+      const notifRes = await fetchUserHistory(user.id);
+      if (notifRes?.success && Array.isArray(notifRes.history)) {
+        const items = notifRes.history.map(tx => transformTxToNotification(tx, lang));
+        const welcomeNotice = {
+          id: 'tp_hub_notice',
+          type: 'system',
+          status: 'completed',
+          isCompleted: true,
+          ts: 1730000000000,
+          title: lang === 'bn' ? '💎 ট্রাস্ট পে ক্রিপ্টো হাব সক্রিয়' : '💎 Trust Pay Hub Active',
+          body: lang === 'bn' 
+            ? 'USDT, GRAM ও TON ইনস্ট্যান্ট বাই/সেল এবং মেগা লাকি স্পিন ইভেন্ট চলমান আছে।' 
+            : 'USDT, GRAM & TON instant buy/sell and Mega Lucky Spin are live.',
+          category: 'system',
+          variant: 'info'
+        };
+        const combined = [...items, welcomeNotice].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        setNotificationsList(combined);
+      }
+    } catch (_) {}
+    finally {
+      setIsRefreshingNotifs(false);
+    }
+  };
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -1648,6 +2066,43 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('home');
   const [buyInitialAsset, setBuyInitialAsset] = useState('GRAM');
+  const [sellInitialAsset, setSellInitialAsset] = useState('GRAM');
+  const [cryptoModalState, setCryptoModalState] = useState({ isOpen: false, mode: 'buy' });
+  const [appMarketRates, setAppMarketRates] = useState(() => {
+    try {
+      const cachedBuy = localStorage.getItem('maruf_buyer_rates');
+      const cachedSell = localStorage.getItem('maruf_seller_rates');
+      return {
+        buyRates: cachedBuy ? JSON.parse(cachedBuy).rates : { GRAM: 164, USDT: 130 },
+        sellRates: cachedSell ? JSON.parse(cachedSell).rates : { GRAM: 135, USDT: 118 }
+      };
+    } catch(e) {
+      return { buyRates: { GRAM: 164, USDT: 130 }, sellRates: { GRAM: 135, USDT: 118 } };
+    }
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const pollRates = () => {
+      fetchMarketRates().then(data => {
+        if (!isMounted || !data) return;
+        setAppMarketRates({
+          buyRates: {
+            GRAM: Number(data.buyRates?.GRAM) || 164,
+            USDT: Number(data.buyRates?.USDT) || 130
+          },
+          sellRates: {
+            GRAM: Number(data.sellRates?.GRAM) || 135,
+            USDT: Number(data.sellRates?.USDT) || 118
+          }
+        });
+      }).catch(() => {});
+    };
+    pollRates();
+    const interval = setInterval(pollRates, 30000);
+    return () => { isMounted = false; clearInterval(interval); };
+  }, []);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -1754,6 +2209,43 @@ export default function App() {
   };
 
   window.reloadGlobalData = () => loadData(activeUserIdRef.current);
+
+  // Real-time Notification listener and updater
+  useEffect(() => {
+    const targetUserId = user?.id || activeUserIdRef.current;
+    if (!targetUserId || targetUserId === GUEST_ID) return;
+    let alive = true;
+
+    const syncNotifications = async () => {
+      try {
+        const notifRes = await fetchUserHistory(targetUserId);
+        if (!alive || !notifRes?.success || !Array.isArray(notifRes.history)) return;
+        
+        const items = notifRes.history.map(tx => transformTxToNotification(tx, lang));
+        const welcomeNotice = {
+          id: 'tp_hub_notice',
+          type: 'system',
+          status: 'completed',
+          isCompleted: true,
+          ts: 1730000000000,
+          title: lang === 'bn' ? '💎 ট্রাস্ট পে ক্রিপ্টো হাব সক্রিয়' : '💎 Trust Pay Hub Active',
+          body: lang === 'bn' 
+            ? 'USDT, GRAM ও TON ইনস্ট্যান্ট বাই/সেল এবং মেগা লাকি স্পিন ইভেন্ট চলমান আছে।' 
+            : 'USDT, GRAM & TON instant buy/sell and Mega Lucky Spin are live.',
+          category: 'system',
+          variant: 'info'
+        };
+        const combined = [...items, welcomeNotice].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        setNotificationsList(combined);
+        const lastRead = parseInt(localStorage.getItem('tp_last_read_notif_time') || '0', 10);
+        setHasUnreadNotifs(combined.some(n => (n.ts || 0) > lastRead));
+      } catch (_) {}
+    };
+
+    syncNotifications();
+    const pollInterval = setInterval(syncNotifications, 20000);
+    return () => { alive = false; clearInterval(pollInterval); };
+  }, [user?.id, lang]);
 
   const performCommunityCheck = async (silent = false) => {
     if (!user?.id || user.id === GUEST_ID) return;
@@ -1969,9 +2461,9 @@ export default function App() {
                  <div className="w-[44px] h-[44px] flex items-center justify-center shrink-0">
                    <img src={brandLogo} alt="Trust Pay" className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(79,70,229,0.35)]" />
                  </div>
-                 <div>
-                   <h1 className="text-base font-semibold text-[var(--color-text-primary)] leading-tight">{t.appName}</h1>
-                   <p className="text-[10px] font-medium text-[var(--color-brand)] uppercase tracking-[0.15em]">{t.welcome}</p>
+                 <div className="min-w-0">
+                   <h1 className="text-base font-semibold text-[var(--color-text-primary)] leading-tight whitespace-nowrap">{t.appName}</h1>
+                   <p className="text-[9px] sm:text-[10px] font-semibold text-[var(--color-brand)] uppercase tracking-wider whitespace-nowrap">{t.welcome}</p>
                  </div>
                </div>
                {/* Right Header Controls: Notification Bell + Moon/Sun Theme Toggle + Wallet Button */}
@@ -1982,18 +2474,27 @@ export default function App() {
                       if (window.Telegram?.WebApp?.HapticFeedback) {
                         window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
                       }
-                      alert(lang === 'bn' ? '🔔 মার্কেট ও প্ল্যাটফর্ম আপডেট:\n\n• USDT, GRAM ও TON ইনস্ট্যান্ট বাই-সেল চালু রয়েছে।\n• ৩০ দিনের মেগা স্পিন ও স্টার গিভওয়ে ইভেন্ট চলমান!' : '🔔 Market & Platform Update:\n\n• USDT, GRAM & TON Instant Buy/Sell is fully live.\n• 30-Day Mega Spin & Star Giveaway Event is active!');
+                      setNotificationPrevTab(activeTab);
+                      setActiveTab('notifications');
+                      try {
+                        localStorage.setItem('tp_last_read_notif_time', String(Date.now()));
+                      } catch (_) {}
+                      setHasUnreadNotifs(false);
                     }}
-                    title={lang === 'bn' ? 'নোটিফিকেশন' : 'Notifications'}
+                    title={lang === 'bn' ? 'নোটিফিকেশন সেন্টার' : 'Notifications'}
                     className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all duration-300 active:scale-90 cursor-pointer shadow-sm relative ${
                       darkMode
-                        ? 'bg-slate-900/90 border-slate-700/80 text-slate-300 hover:text-cyan-400'
-                        : 'bg-white/95 border-slate-200/90 text-slate-700 hover:text-indigo-600'
+                        ? 'bg-slate-900/90 border-slate-700/80 text-slate-300 hover:text-purple-400'
+                        : 'bg-white/95 border-slate-200/90 text-slate-700 hover:text-purple-600'
                     }`}
                   >
                     <Bell size={17} />
-                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-cyan-500" />
+                    {hasUnreadNotifs && (
+                      <>
+                        <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                        <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-rose-600 border-2 border-white dark:border-slate-900" />
+                      </>
+                    )}
                   </button>
 
                   <button
@@ -2015,7 +2516,8 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'home' && (
+          {/* PERSISTENT MAIN TABS (0ms Instant Switching - No Unmount Lag) */}
+          <div className={activeTab === 'home' ? 'block' : 'hidden'}>
               <HomePage 
                   balance={balance} 
                   balanceLoaded={balanceLoaded}
@@ -2029,39 +2531,29 @@ export default function App() {
                   fiatWithdrawPending={fiatWithdrawPending} 
                   onGoToClaim={() => setActiveTab('claim')} 
                   onOpenBuyCrypto={(asset) => {
-                    if (asset && typeof asset === 'string') setBuyInitialAsset(asset);
-                    setActiveTab('buy');
+                    if (asset && typeof asset === 'string') {
+                      setBuyInitialAsset(asset);
+                      setActiveTab('buy');
+                    } else {
+                      setCryptoModalState({ isOpen: true, mode: 'buy' });
+                    }
                   }}
-                  onGoToSell={() => setActiveTab('sell')}
+                  onGoToSell={(asset) => {
+                    if (asset && typeof asset === 'string') {
+                      setSellInitialAsset(asset);
+                      setActiveTab('sell');
+                    } else {
+                      setCryptoModalState({ isOpen: true, mode: 'sell' });
+                    }
+                  }}
                   onGoToAddMoney={() => setActiveTab('add-money')}
                   onGoToSpin={() => setActiveTab('spin')}
                   onGoToHistory={() => setActiveTab('history')}
               />
-          )}
-          {activeTab === 'buy' && (
-              restrictionInfo?.isRestricted ? (
-                  <RestrictedNoticeScreen 
-                      onBack={() => setActiveTab('home')}
-                      featureName={lang === 'bn' ? 'ক্রিপ্টো ক্রয় (Buy Crypto)' : 'Buy Crypto'}
-                      reason={restrictionInfo.reason}
-                      restrictedUntil={restrictionInfo.restrictedUntil}
-                      lang={lang}
-                  />
-              ) : (
-                  <BuyCryptoPage 
-                      user={user} 
-                      balance={balance} 
-                      lang={lang} 
-                      t={t} 
-                      initialAsset={buyInitialAsset}
-                      onBack={() => setActiveTab('home')}
-                      reloadData={() => loadData(user?.id || 123456789)} 
-                      onGoToAddMoney={() => setActiveTab('add-money')} 
-                  />
-              )
-          )}
-          {activeTab === 'add-money' && (
-              restrictionInfo?.isRestricted ? (
+          </div>
+
+          <div className={activeTab === 'add-money' ? 'block' : 'hidden'}>
+              {restrictionInfo?.isRestricted ? (
                   <RestrictedNoticeScreen 
                       onBack={() => setActiveTab('home')}
                       featureName={lang === 'bn' ? 'টাকা যোগ (Add Money)' : 'Add Money'}
@@ -2072,7 +2564,7 @@ export default function App() {
               ) : (
                   <AddMoneyPage 
                       user={user} 
-                      balance={balance}
+                      balance={balance} 
                       lang={lang} 
                       t={t} 
                       darkMode={darkMode}
@@ -2080,30 +2572,10 @@ export default function App() {
                       onGoToBuyCrypto={() => setActiveTab('buy')}
                       reloadData={() => loadData(user?.id || 123456789)}
                   />
-              )
-          )}
-          {activeTab === 'sell' && (
-              restrictionInfo?.isRestricted ? (
-                  <RestrictedNoticeScreen 
-                      onBack={() => setActiveTab('home')}
-                      featureName={lang === 'bn' ? 'ক্রিপ্টো বিক্রয় (Sell Crypto)' : 'Sell Crypto'}
-                      reason={restrictionInfo.reason}
-                      restrictedUntil={restrictionInfo.restrictedUntil}
-                      lang={lang}
-                  />
-              ) : (
-                  <SellCryptoPage 
-                      user={user} 
-                      lang={lang} 
-                      t={t} 
-                      onDone={() => setActiveTab('home')} 
-                      onGoToWithdraw={() => setActiveTab('withdraw')} 
-                      reloadData={() => loadData(user?.id || 123456789)} 
-                  />
-              )
-          )}
-          {activeTab === 'history' && <HistoryPage user={user} lang={lang} t={t} onBack={() => setActiveTab('profile')} />}
-          {activeTab === 'profile' && (
+              )}
+          </div>
+
+          <div className={activeTab === 'profile' ? 'block' : 'hidden'}>
               <ProfilePage 
                   user={user} 
                   balance={balance} 
@@ -2123,7 +2595,57 @@ export default function App() {
                   setIsModalOpen={setIsModalOpen}
                   reloadData={() => loadData(user?.id || 123456789)} 
               />
+          </div>
+
+          {/* DYNAMIC ON-DEMAND SUBPAGES */}
+          {activeTab === 'buy' && (
+              restrictionInfo?.isRestricted ? (
+                  <RestrictedNoticeScreen 
+                      onBack={() => setActiveTab('home')}
+                      featureName={lang === 'bn' ? 'ক্রিপ্টো ক্রয় (Buy Crypto)' : 'Buy Crypto'}
+                      reason={restrictionInfo.reason}
+                      restrictedUntil={restrictionInfo.restrictedUntil}
+                      lang={lang}
+                  />
+              ) : (
+                  <BuyCryptoPage 
+                      user={user} 
+                      balance={balance} 
+                      lang={lang} 
+                      t={t} 
+                      darkMode={darkMode}
+                      initialAsset={buyInitialAsset}
+                      onBack={() => setActiveTab('home')}
+                      reloadData={() => loadData(user?.id || 123456789)} 
+                      onGoToAddMoney={() => setActiveTab('add-money')} 
+                  />
+              )
           )}
+          {activeTab === 'sell' && (
+              restrictionInfo?.isRestricted ? (
+                  <RestrictedNoticeScreen 
+                      onBack={() => setActiveTab('home')}
+                      featureName={lang === 'bn' ? 'ক্রিপ্টো বিক্রয় (Sell Crypto)' : 'Sell Crypto'}
+                      reason={restrictionInfo.reason}
+                      restrictedUntil={restrictionInfo.restrictedUntil}
+                      lang={lang}
+                  />
+              ) : (
+                  <SellCryptoPage 
+                      user={user} 
+                      balance={balance} 
+                      lang={lang} 
+                      t={t} 
+                      darkMode={darkMode}
+                      initialAsset={sellInitialAsset}
+                      onBack={() => setActiveTab('home')}
+                      onDone={() => setActiveTab('home')} 
+                      onGoToWithdraw={() => setActiveTab('withdraw')} 
+                      reloadData={() => loadData(user?.id || 123456789)} 
+                  />
+              )
+          )}
+          {activeTab === 'history' && <HistoryPage user={user} lang={lang} t={t} onBack={() => setActiveTab('profile')} />}
           {activeTab === 'referral' && (
               <ReferralPage
                   user={user}
@@ -2169,15 +2691,25 @@ export default function App() {
                   />
               )
           )}
+          {activeTab === 'notifications' && (
+              <NotificationPage
+                  notifications={notificationsList}
+                  lang={lang}
+                  darkMode={darkMode}
+                  onBack={() => setActiveTab(notificationPrevTab || 'home')}
+                  onRefresh={handleRefreshNotifications}
+                  isRefreshing={isRefreshingNotifs}
+              />
+          )}
         </div>
 
         {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
-        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && activeTab !== 'spin' && (() => {
-            const navTabs = ['home', 'add-money', 'sell', 'profile'];
+        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && activeTab !== 'spin' && activeTab !== 'notifications' && (() => {
+            const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
             <div className={`fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none transition-all duration-300 ${isKeyboardVisible ? 'opacity-0 translate-y-32 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
-                <div className="w-full max-w-[380px] bg-white/95 backdrop-blur-2xl rounded-[28px] relative flex justify-between items-center p-1.5 shadow-[0_12px_36px_rgba(15,23,42,0.08)] border border-slate-200/80 pointer-events-auto overflow-hidden">
+                <div className="w-full max-w-[360px] bg-white/95 backdrop-blur-2xl rounded-[28px] relative flex justify-between items-center p-1.5 shadow-[0_12px_36px_rgba(15,23,42,0.08)] border border-slate-200/80 pointer-events-auto overflow-hidden">
                     
                     {/* Delicate floral line art in navigation bar corner */}
                     <svg 
@@ -2197,8 +2729,8 @@ export default function App() {
                       <div 
                         className="absolute top-1.5 bottom-1.5 rounded-[20px] bg-indigo-50 border border-indigo-100/90 shadow-xs transition-all duration-300 ease-out pointer-events-none"
                         style={{
-                          width: 'calc(25% - 4px)',
-                          left: `calc(${activeIndex * 25}% + 2px)`,
+                          width: 'calc(33.333% - 4px)',
+                          left: `calc(${activeIndex * 33.333}% + 2px)`,
                         }}
                       >
                         {/* Micro floral line art in active pill */}
@@ -2219,8 +2751,13 @@ export default function App() {
                     {/* HOME */}
                     <button 
                         type="button"
-                        onClick={() => setActiveTab('home')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10"
+                        onClick={() => {
+                            if (window.Telegram?.WebApp?.HapticFeedback) {
+                                window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                            }
+                            setActiveTab('home');
+                        }} 
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10 cursor-pointer"
                     >
                         <div className="flex flex-col items-center justify-center">
                             <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'home' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
@@ -2231,8 +2768,13 @@ export default function App() {
                     {/* ADD MONEY */}
                     <button 
                         type="button"
-                        onClick={() => setActiveTab('add-money')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10"
+                        onClick={() => {
+                            if (window.Telegram?.WebApp?.HapticFeedback) {
+                                window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                            }
+                            setActiveTab('add-money');
+                        }} 
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10 cursor-pointer"
                     >
                         <div className="flex flex-col items-center justify-center">
                             <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'add-money' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
@@ -2240,23 +2782,16 @@ export default function App() {
                         </div>
                     </button>
   
-                    {/* SELL */}
-                    <button 
-                        type="button"
-                        onClick={() => setActiveTab('sell')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10"
-                    >
-                        <div className="flex flex-col items-center justify-center">
-                            <ArrowUp size={20} strokeWidth={activeTab === 'sell' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'sell' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                            <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'sell' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.sell}</span>
-                        </div>
-                    </button>
-  
                     {/* PROFILE */}
                     <button 
                         type="button"
-                        onClick={() => setActiveTab('profile')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10"
+                        onClick={() => {
+                            if (window.Telegram?.WebApp?.HapticFeedback) {
+                                window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                            }
+                            setActiveTab('profile');
+                        }} 
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10 cursor-pointer"
                     >
                         <div className="flex flex-col items-center justify-center">
                             <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
@@ -2269,22 +2804,33 @@ export default function App() {
         })()}
         </div>
 
+        {/* CRYPTO ASSET SELECTOR BOTTOM SHEET MODAL (BUY / SELL) */}
+        <CryptoAssetSelectModal
+          isOpen={cryptoModalState.isOpen}
+          mode={cryptoModalState.mode}
+          onClose={() => setCryptoModalState({ isOpen: false, mode: 'buy' })}
+          onSelectAsset={(asset, mode) => {
+            setCryptoModalState({ isOpen: false, mode: 'buy' });
+            if (mode === 'buy') {
+              setBuyInitialAsset(asset);
+              setActiveTab('buy');
+            } else {
+              setSellInitialAsset(asset);
+              setActiveTab('sell');
+            }
+          }}
+          liveRates={appMarketRates.buyRates}
+          sellRates={appMarketRates.sellRates}
+          lang={lang}
+          darkMode={darkMode}
+        />
+
         {/* MANDATORY COMMUNITY JOIN MODAL */}
         {showCommunityModal && (
           <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-200">
-            <div 
-              className="relative p-[1.5px] bg-gradient-to-br from-indigo-300 via-indigo-100 to-indigo-300 w-full max-w-[340px] shadow-2xl animate-in zoom-in-95"
-              style={{
-                clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
-              }}
-            >
-              <div 
-                className="relative bg-white w-full h-full p-6 text-center overflow-hidden"
-                style={{
-                  clipPath: 'polygon(15px 0, calc(100% - 15px) 0, 100% 15px, 100% calc(100% - 15px), calc(100% - 15px) 100%, 15px 100%, 0 calc(100% - 15px), 0 15px)',
-                }}
-              >
-                <HomeLotusPattern className="opacity-[0.08]" />
+            <div className={`relative w-full max-w-[340px] p-6 text-center rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 duration-200 overflow-hidden ${
+              darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+            }`}>
                 
                 {/* Brand Logo with Glow */}
                 <div className="relative z-10 flex flex-col items-center justify-center mb-3">
@@ -2404,21 +2950,28 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Verification CutCornerButton */}
+                {/* Verification Button (Modern Executive Purple Gradient) */}
                 <div className="relative z-10">
-                  <CutCornerButton
+                  <button
+                    type="button"
                     onClick={handleVerifyCommunity}
                     disabled={isVerifyingCommunity || communitySuccess}
-                    isSubmitting={isVerifyingCommunity}
-                    icon={CheckCircle2}
+                    className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md disabled:opacity-50 cursor-pointer"
                   >
-                    {isVerifyingCommunity ? 'যাচাই করা হচ্ছে...' : 'ভেরিফাই করুন (VERIFY)'}
-                  </CutCornerButton>
+                    {isVerifyingCommunity ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 size={16} />
+                        <span>{lang === 'bn' ? 'যাচাই করে প্রবেশ করুন' : 'Verify & Enter'}</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-              </div>
             </div>
           </div>
         )}
+
       </TonConnectUIProvider>
   );
 }
@@ -2548,6 +3101,206 @@ const HOME_TIMEFRAME_PRESETS = {
   ]
 };
 
+/* =========================================================================
+   CRYPTO ASSET SELECTION BOTTOM SHEET MODAL (Half-screen slide-up with flower art)
+   ========================================================================= */
+function CryptoAssetSelectModal({ 
+  isOpen, 
+  onClose, 
+  mode = 'buy', 
+  onSelectAsset, 
+  liveRates = {}, 
+  sellRates = {}, 
+  lang = 'bn', 
+  darkMode = false 
+}) {
+  if (!isOpen) return null;
+
+  const isBuy = mode === 'buy';
+  const gramRate = isBuy ? (liveRates?.GRAM || 164) : (sellRates?.GRAM || 135);
+  const usdtRate = isBuy ? (liveRates?.USDT || 130) : (sellRates?.USDT || 118);
+  const flowerImg = isBuy ? sakuraBranchArt : wisteriaCascadeArt;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+
+      {/* Slide-Up Bottom Sheet Modal (roughly half-screen) */}
+      <div 
+        className={`relative z-10 w-full max-w-md rounded-t-[32px] border-t overflow-hidden shadow-[0_-14px_45px_rgba(0,0,0,0.22)] animate-in slide-in-from-bottom duration-300 ${
+          darkMode 
+            ? 'bg-slate-900/95 border-slate-800 text-white' 
+            : 'bg-white/95 border-indigo-100/90 text-slate-900'
+        } backdrop-blur-2xl p-5 pb-8`}
+        style={{ maxHeight: '85vh' }}
+      >
+        {/* Drag Handle */}
+        <div className="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mb-3.5 shrink-0" />
+
+        {/* Ambient Glow */}
+        <div 
+          className="absolute -right-6 top-0 w-[240px] h-[240px] pointer-events-none select-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(closest-side, rgba(168,85,247,0.35), transparent)'
+              : 'radial-gradient(closest-side, rgba(233,213,255,0.85), rgba(243,232,255,0.4) 60%, transparent)'
+          }}
+        />
+
+        {/* Botanical Branch Art — PROMINENT & VISIBLE */}
+        <div 
+          className="absolute -right-2 top-0 w-[170px] sm:w-[190px] h-[250px] overflow-hidden pointer-events-none select-none flex items-center justify-end"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
+            maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)'
+          }}
+        >
+          <img 
+            src={flowerImg} 
+            alt="" 
+            aria-hidden="true" 
+            draggable={false} 
+            className={`w-full h-auto object-contain ${darkMode ? 'opacity-[0.55] brightness-125' : 'opacity-[0.95]'}`}
+          />
+        </div>
+
+        {/* Header */}
+        <div className="relative z-10 flex items-start justify-between mb-4">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[9.5px] font-extrabold uppercase tracking-wide mb-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              {isBuy ? (lang === 'bn' ? 'অন-চেইন ক্রিপ্টো ক্রয়' : 'Instant Crypto Buy') : (lang === 'bn' ? 'অন-চেইন ক্রিপ্টো বিক্রয়' : 'Instant Crypto Sell')}
+            </div>
+            <h2 className="text-lg font-black tracking-tight leading-tight">
+              {isBuy ? (lang === 'bn' ? 'ক্রিপ্টো নির্বাচন করুন' : 'Select Crypto to Buy') : (lang === 'bn' ? 'ক্রিপ্টো নির্বাচন করুন' : 'Select Crypto to Sell')}
+            </h2>
+            <p className={`text-[11px] font-medium mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+              {isBuy ? (lang === 'bn' ? 'যে কয়েনটি কিনতে চান বেছে নিন' : 'Choose the coin you want to buy') : (lang === 'bn' ? 'যে কয়েনটি বিক্রি করতে চান বেছে নিন' : 'Choose the coin you want to sell')}
+            </p>
+          </div>
+          <button 
+            type="button" 
+            onClick={onClose}
+            className={`w-7 h-7 rounded-full flex items-center justify-center border transition-all active:scale-90 cursor-pointer shadow-xs ${
+              darkMode ? 'bg-slate-800/90 border-slate-700 text-slate-300' : 'bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* 2 Crypto Cards with Floral Art directly inside them! */}
+        <div className="relative z-10 space-y-2.5 mb-4">
+          {/* GRAM */}
+          <div 
+            onClick={() => onSelectAsset('GRAM', mode)}
+            className={`relative overflow-hidden p-3.5 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-all active:scale-[0.98] ${
+              darkMode 
+                ? 'bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950/40 border-slate-800 hover:border-indigo-500/60' 
+                : 'bg-gradient-to-r from-white via-white/95 to-indigo-50/70 border-indigo-200/80 hover:border-indigo-400'
+            } shadow-xs group`}
+          >
+            {/* Dedicated Floral Art inside the GRAM card! */}
+            <div className="absolute right-0 top-0 bottom-0 w-[130px] overflow-hidden pointer-events-none select-none flex items-center justify-end">
+              <img 
+                src={flowerImg} 
+                alt="" 
+                aria-hidden="true" 
+                draggable={false} 
+                className="w-full h-full object-cover object-right opacity-35 dark:opacity-25 filter drop-shadow-sm transition-transform duration-300 group-hover:scale-105" 
+              />
+            </div>
+
+            <div className="relative z-10 flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                <img src={`${import.meta.env.BASE_URL}gram.svg`} alt="GRAM" className="w-full h-full object-contain" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-[16px] leading-tight block">GRAM</span>
+                </div>
+                <span className={`text-[11.5px] font-bold block mt-0.5 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                  ১ GRAM ≈ ৳{gramRate} BDT
+                </span>
+                <span className={`text-[9.5px] font-medium block truncate ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {isBuy ? (lang === 'bn' ? '⚡ ইনস্ট্যান্ট অন-চেইন ট্রান্সফার' : '⚡ Instant on-chain transfer') : (lang === 'bn' ? '⚡ সরাসরি বিকাশ/নগদ/ব্যালেন্সে টাকা' : '⚡ Instant cashout to bKash/Nagad')}
+                </span>
+              </div>
+            </div>
+            <div className="relative z-10 flex items-center gap-2 shrink-0">
+              <span className="text-[12px] font-black text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">
+                {isBuy ? (lang === 'bn' ? 'কিনুন' : 'Buy') : (lang === 'bn' ? 'বিক্রি' : 'Sell')}
+              </span>
+              <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/35 group-hover:bg-indigo-700 group-hover:scale-110 active:scale-95 transition-all">
+                <ArrowRight size={15} strokeWidth={2.8} />
+              </div>
+            </div>
+          </div>
+
+          {/* USDT */}
+          <div 
+            onClick={() => onSelectAsset('USDT', mode)}
+            className={`relative overflow-hidden p-3.5 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-all active:scale-[0.98] ${
+              darkMode 
+                ? 'bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 border-slate-800 hover:border-emerald-500/60' 
+                : 'bg-gradient-to-r from-white via-white/95 to-emerald-50/70 border-emerald-200/80 hover:border-emerald-400'
+            } shadow-xs group`}
+          >
+            {/* Dedicated Floral Art inside the USDT card! */}
+            <div className="absolute right-0 top-0 bottom-0 w-[130px] overflow-hidden pointer-events-none select-none flex items-center justify-end">
+              <img 
+                src={flowerImg} 
+                alt="" 
+                aria-hidden="true" 
+                draggable={false} 
+                className="w-full h-full object-cover object-right opacity-35 dark:opacity-25 filter drop-shadow-sm transition-transform duration-300 group-hover:scale-105" 
+              />
+            </div>
+
+            <div className="relative z-10 flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-2 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                <img src={`${import.meta.env.BASE_URL}usdt.svg`} alt="USDT" className="w-full h-full object-contain" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-[16px] leading-tight block">USDT</span>
+                </div>
+                <span className={`text-[11.5px] font-bold block mt-0.5 ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                  ১ USDT ≈ ৳{usdtRate} BDT
+                </span>
+                <span className={`text-[9.5px] font-medium block truncate ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {isBuy ? 'TON • BEP-20 • Arbitrum One' : (lang === 'bn' ? 'বাইনান্স/ওয়ালেট থেকে সরাসরি সেল' : 'Sell from Binance/Trust Wallet')}
+                </span>
+              </div>
+            </div>
+            <div className="relative z-10 flex items-center gap-2 shrink-0">
+              <span className="text-[12px] font-black text-emerald-600 dark:text-emerald-400 group-hover:translate-x-0.5 transition-transform">
+                {isBuy ? (lang === 'bn' ? 'কিনুন' : 'Buy') : (lang === 'bn' ? 'বিক্রি' : 'Sell')}
+              </span>
+              <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/35 group-hover:bg-emerald-700 group-hover:scale-110 active:scale-95 transition-all">
+                <ArrowRight size={15} strokeWidth={2.8} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Safety Note */}
+        <div className={`p-2.5 rounded-xl border text-center ${
+          darkMode ? 'bg-slate-950/40 border-slate-800/80 text-slate-400' : 'bg-slate-50 border-slate-200/70 text-slate-500'
+        }`}>
+          <p className="text-[10px] font-medium">
+            🔒 {lang === 'bn' ? '১০০% বিশ্বস্ত ও নিরাপদ অন-চেইন অটোমেটেড ট্রানজেকশন' : '100% secure automated on-chain transactions'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HomePage({ 
   balance, 
   balanceLoaded = false, 
@@ -2626,8 +3379,8 @@ function HomePage({
   // ---- Greeting based on local time ----
   const hour = new Date().getHours();
   const greeting = lang === 'bn'
-    ? (hour < 12 ? 'শুভ সকাল!' : hour < 17 ? 'শুভ দুপুর!' : hour < 20 ? 'শুভ সন্ধ্যা!' : 'শুভ রাত্রি!')
-    : (hour < 12 ? 'Good morning!' : hour < 17 ? 'Good afternoon!' : 'Good evening!');
+    ? (hour < 5 ? 'শুভ রাত্রি!' : hour < 12 ? 'শুভ সকাল!' : hour < 17 ? 'শুভ দুপুর!' : hour < 20 ? 'শুভ সন্ধ্যা!' : 'শুভ রাত্রি!')
+    : (hour < 5 ? 'Good night!' : hour < 12 ? 'Good morning!' : hour < 17 ? 'Good afternoon!' : hour < 20 ? 'Good evening!' : 'Good night!');
 
   // ---- Real recent transactions (same source/cache as HistoryPage) ----
   const historyUserId = user?.id || 123456789;
@@ -3073,40 +3826,7 @@ function HomePage({
         )}
       </div>
 
-      {/* 30-Day Spin & Star Giveaway Banner */}
-      <div
-         onClick={onGoToSpin}
-         className={`p-3.5 rounded-3xl border cursor-pointer active:scale-[0.99] transition-all relative overflow-hidden ${
-            darkMode
-               ? 'bg-gradient-to-r from-amber-950/30 via-slate-900/90 to-rose-950/30 border-amber-500/30 shadow-md'
-               : 'bg-gradient-to-r from-amber-50/90 via-white to-rose-50/85 border-amber-200/90 shadow-sm'
-         }`}
-      >
-         <div className="flex items-center justify-between gap-3 group relative z-10">
-            <div className="flex items-center gap-3 min-w-0">
-               <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400/20 to-rose-400/20 border border-amber-400/30 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <TelegramAnimatedSticker src="tg-heart-gift-sticker.json" size={32} />
-               </div>
-               <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                     <span className={`font-black text-[13px] leading-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                        {lang === 'bn' ? '৩০ দিনের মেগা স্পিন ও স্টার গিভওয়ে' : '30-Day Spin & Star Giveaway'}
-                     </span>
-                     <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white rounded-full text-[9px] font-black tracking-wide shadow-xs animate-pulse">
-                        FREE SPIN
-                     </span>
-                  </div>
-                  <p className="text-[10.5px] text-amber-500 font-bold mt-0.5 truncate">
-                     {lang === 'bn' ? 'প্রতিদিন ফ্রি স্পিন করে জিতে নিন আকর্ষণীয় পুরস্কার!' : 'Spin daily to win Star Gift, $1 USD & up to ৳500!'}
-                  </p>
-               </div>
-            </div>
-            <div className="w-7 h-7 rounded-full bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-all">
-               <ChevronRight size={15} />
-            </div>
-         </div>
       </div>
-    </div>
   );
 }
 
@@ -3718,17 +4438,17 @@ function AddMoneyPage({
                     }}
                 />
 
-                {/* Lotus line-art */}
+                {/* Delicate Lavender Rose Branch Art from Downloads */}
                 <div
-                    className="absolute -right-2 -top-4 w-[120px] h-[170px] overflow-hidden pointer-events-none select-none"
-                    style={{ WebkitMaskImage: 'linear-gradient(to bottom, black 72%, transparent 100%)', maskImage: 'linear-gradient(to bottom, black 72%, transparent 100%)' }}
+                    className="absolute -right-3 -top-3 w-[125px] h-[175px] overflow-hidden pointer-events-none select-none flex items-center justify-end"
+                    style={{ WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)', maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)' }}
                 >
                     <img
-                        src={lotusLineArt}
+                        src={addmoneyRoseArt}
                         alt=""
                         aria-hidden="true"
                         draggable={false}
-                        className={`w-full h-auto ${darkMode ? 'opacity-[0.35] brightness-125' : 'opacity-[0.80]'}`}
+                        className={`w-full h-auto object-contain ${darkMode ? 'opacity-[0.45] brightness-125' : 'opacity-[0.88]'}`}
                     />
                 </div>
 
@@ -4069,16 +4789,41 @@ const BUY_USDT_NETWORKS = [
 ];
 
 // REALTIME FULL-PAGE BUY CRYPTO (Live On-Chain Payout from User BDT Balance)
-function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAddMoney, onBack, initialAsset = 'GRAM' }) {
+function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAddMoney, onBack, initialAsset = 'GRAM', darkMode = false }) {
     const userTonAddress = useTonAddress();
-    const [selectedAsset, setSelectedAsset] = useState(() => (initialAsset === 'USDT' ? 'USDT' : 'GRAM')); // 'GRAM' or 'USDT'
-    const [selectedNetwork, setSelectedNetwork] = useState('TON'); // 'TON' | 'BEP20' | 'ARBITRUM'
+    const [selectedAsset, setSelectedAsset] = useState(() => (initialAsset === 'USDT' ? 'USDT' : 'GRAM'));
+    const [selectedNetwork, setSelectedNetwork] = useState('TON'); // 'TON' | 'ARBITRUM' | 'BEP20'
     const [isNetworkDropdownOpen, setIsNetworkDropdownOpen] = useState(false);
     const [bdtAmount, setBdtAmount] = useState('');
-    const [receiveAddress, setReceiveAddress] = useState('');
-    const [destMode, setDestMode] = useState(() => (userTonAddress ? 'connected' : 'custom')); // 'connected' | 'custom'
+    const [receiveAddress, setReceiveAddress] = useState(() => {
+        if (userTonAddress) return userTonAddress;
+        try {
+            return localStorage.getItem('tp_saved_evm_addr') || '';
+        } catch (_) {
+            return '';
+        }
+    });
+    const [destMode, setDestMode] = useState(() => (userTonAddress ? 'connected' : 'custom'));
+
+    // Automatically synchronize connected TON wallet or saved EVM address
+    useEffect(() => {
+        if (selectedNetwork === 'TON') {
+            if (userTonAddress) {
+                setReceiveAddress(userTonAddress);
+                setDestMode('connected');
+            }
+        } else {
+            const savedEvm = localStorage.getItem('tp_saved_evm_addr');
+            if (savedEvm) {
+                setReceiveAddress(savedEvm);
+                setDestMode('custom');
+            } else if (receiveAddress === userTonAddress) {
+                setReceiveAddress('');
+            }
+        }
+    }, [selectedNetwork, userTonAddress]);
     const [memo, setMemo] = useState('');
-    const [stage, setStage] = useState('idle'); // 'idle' | 'processing' | 'success' | 'error'
+    const [stage, setStage] = useState('idle');
     const [processStep, setProcessStep] = useState(1);
     const [errorMessage, setErrorMessage] = useState('');
     const [txResult, setTxResult] = useState(null);
@@ -4087,966 +4832,501 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         if (initialAsset) setSelectedAsset(initialAsset === 'USDT' ? 'USDT' : 'GRAM');
     }, [initialAsset]);
 
-    // When toggling asset
     useEffect(() => {
-        if (selectedAsset === 'GRAM') {
-            setSelectedNetwork('TON');
-            setIsNetworkDropdownOpen(false);
-            if (destMode === 'connected' && userTonAddress && (!receiveAddress || receiveAddress.startsWith('0x'))) {
-                setReceiveAddress(userTonAddress);
-            }
-        }
-    }, [selectedAsset, userTonAddress, destMode]);
+        if (selectedAsset === 'GRAM') setSelectedNetwork('TON');
+    }, [selectedAsset]);
 
-    // Initialize with connected wallet once if available and in connected mode
-    useEffect(() => {
-        if (userTonAddress && !receiveAddress && destMode === 'connected') {
-            setReceiveAddress(userTonAddress);
-        }
-    }, [userTonAddress]);
-
-    // Active network object
-    const activeNetworkObj = BUY_USDT_NETWORKS.find(n => n.id === selectedNetwork) || BUY_USDT_NETWORKS[0];
-
-    // Handle Network Change
-    const handleSelectNetwork = (netId) => {
-        setSelectedNetwork(netId);
-        setIsNetworkDropdownOpen(false);
-        if (netId === 'TON') {
-            if (destMode === 'connected' && userTonAddress) {
-                setReceiveAddress(userTonAddress);
-            } else if (receiveAddress && receiveAddress.startsWith('0x')) {
-                setReceiveAddress('');
-            }
-        } else {
-            // EVM network: clear if it was a TON address
-            if (receiveAddress && (receiveAddress.startsWith('UQ') || receiveAddress.startsWith('EQ'))) {
-                setReceiveAddress('');
-            }
-            setDestMode('custom');
-        }
-    };
-
-    // Buyer Rates (Direct Buy USDT: 130 TK, Dynamic GRAM: Live via 125 TK USD + 10 TK)
-    const [buyerRates, setBuyerRates] = useState(() => {
+    const [rates, setRates] = useState(() => {
         try {
-            const cached = localStorage.getItem('maruf_buyer_rates');
+            const cached = localStorage.getItem('maruf_market_rates');
             if (cached) {
                 const parsed = JSON.parse(cached);
-                if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates?.USDT) {
-                    return {
-                        GRAM: parsed.rates.GRAM || 164,
-                        USDT: parsed.rates.USDT || 130
-                    };
-                }
+                if (Date.now() - (parsed.timestamp || 0) < 30 * 1000) return parsed.rates || { GRAM: 165, USDT: 125 };
             }
-        } catch (e) {}
-        return { GRAM: 164, USDT: 130 };
+        } catch (_) {}
+        return { GRAM: 165, USDT: 125 };
     });
 
-    // Real-time 30-second live market rates polling
     useEffect(() => {
         let isMounted = true;
         const fetchRates = () => {
             fetchMarketRates().then(data => {
-                if (!isMounted || !data?.buyRates) return;
-                const newRates = {
-                    GRAM: Number(data.buyRates.GRAM) || 164,
-                    USDT: Number(data.buyRates.USDT) || 130
-                };
-                setBuyerRates(newRates);
+                if (!isMounted || !data?.rates) return;
+                setRates(data.rates);
                 try {
-                    localStorage.setItem('maruf_buyer_rates', JSON.stringify({
-                        rates: newRates,
-                        timestamp: Date.now()
-                    }));
-                } catch(e) {}
+                    localStorage.setItem('maruf_market_rates', JSON.stringify({ rates: data.rates, timestamp: Date.now() }));
+                } catch (_) {}
             }).catch(() => {});
         };
-
         fetchRates();
         const interval = setInterval(fetchRates, 30000);
         return () => { isMounted = false; clearInterval(interval); };
     }, []);
 
-    const cryptoRate = selectedAsset === 'USDT' ? (buyerRates?.USDT || 130) : (buyerRates?.GRAM || 164);
-    const calculatedCrypto = bdtAmount && !isNaN(bdtAmount) && parseFloat(bdtAmount) > 0 
-        ? (parseFloat(bdtAmount) / cryptoRate).toFixed(4) 
-        : '0.0000';
+    const BUY_NETWORKS = [
+        { id: 'TON', name: 'The Open Network (TON)', shortName: 'TON', gasFee: '~0.015 TON', icon: 'ton.svg' },
+        { id: 'ARBITRUM', name: 'Arbitrum One (ARB)', shortName: 'Arbitrum', gasFee: '~0.00003 ETH', icon: 'arbitrum.svg' },
+        { id: 'BEP20', name: 'BNB Smart Chain (BEP20)', shortName: 'BSC', gasFee: '~0.0003 BNB', icon: 'bsc.svg' }
+    ];
 
+    const activeNetworkObj = BUY_NETWORKS.find(n => n.id === selectedNetwork) || BUY_NETWORKS[0];
+    const cryptoRate = rates[selectedAsset] || (selectedAsset === 'GRAM' ? 165 : 125);
     const numBdt = parseFloat(bdtAmount) || 0;
-    const hasInsufficientBalance = numBdt > (balance || 0);
+    const calculatedCrypto = numBdt > 0 ? (numBdt / cryptoRate).toFixed(selectedAsset === 'USDT' ? 4 : 4) : '';
+    const hasInsufficientBalance = numBdt > balance;
 
     const handleConfirmBuy = async () => {
-        if (!numBdt || numBdt < 20) {
-            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert("নূন্যতম ক্রিপ্টো ক্রয় ২০ টাকা") : alert("Minimum buy is 20 BDT");
+        const targetAddress = destMode === 'connected' ? (userTonAddress || receiveAddress) : receiveAddress;
+        if (!numBdt || isNaN(numBdt) || numBdt < 20) {
+            return window.Telegram?.WebApp?.showAlert 
+                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম ২০ টাকার ক্রিপ্টো ক্রয় করতে হবে।" : "Minimum order amount is 20 BDT.")
+                : alert("Minimum order is 20 BDT");
         }
-        if (hasInsufficientBalance) return;
-
-        const isEvmNetwork = (selectedAsset === 'USDT' && (selectedNetwork === 'BEP20' || selectedNetwork === 'ARBITRUM'));
-        const effectiveAddr = (destMode === 'connected' && (selectedAsset === 'GRAM' || selectedNetwork === 'TON'))
-            ? (receiveAddress || userTonAddress || '')
-            : (receiveAddress || '');
-        const cleanAddr = effectiveAddr.trim();
-
-        if (isEvmNetwork) {
-            if (!cleanAddr.startsWith('0x') || cleanAddr.length !== 42 || !/^0x[0-9a-fA-F]{40}$/.test(cleanAddr)) {
-                const msg = lang === 'bn' 
-                    ? `সঠিক ${selectedNetwork === 'BEP20' ? 'BEP20 (BSC)' : 'Arbitrum One'} ওয়ালেট এড্রেস দিন (0x দিয়ে শুরু এবং ৪২ অক্ষরের হতে হবে)` 
-                    : `Please enter a valid ${selectedNetwork} (0x...) address`;
-                return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
-            }
-        } else {
-            if (cleanAddr.startsWith('0x')) {
-                const msg = lang === 'bn' 
-                    ? 'এটি একটি EVM এড্রেস। TON নেটওয়ার্কের জন্য UQ... বা EQ... এড্রেস দিন অথবা নেটওয়ার্ক পরিবর্তন করুন।' 
-                    : 'This is an EVM address. Please provide a TON address or switch network.';
-                return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
-            }
-            if (cleanAddr.length < 24) {
-                const msg = lang === 'bn' ? "সঠিক TON Receive Address দিন" : "Enter valid TON address";
-                return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
-            }
+        if (!targetAddress || targetAddress.trim().length < 6) {
+            return window.Telegram?.WebApp?.showAlert 
+                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "সঠিক রিসিভ ওয়ালেট এড্রেস দিন।" : "Please enter a valid wallet address.")
+                : alert("Please enter a valid wallet address.");
+        }
+        if (hasInsufficientBalance) {
+            onGoToAddMoney();
+            return;
         }
 
-        setStage('processing');
-        setProcessStep(1); // Stage 1: Checking balance & reserves
         setErrorMessage('');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setStage('processing');
+        setProcessStep(1);
 
         try {
-            await new Promise(r => setTimeout(r, 900));
-            setProcessStep(2); // Stage 2: Broadcasting on-chain transaction
-
-            const [res] = await Promise.all([
-                submitBuyCrypto({
-                    userId: user?.id || 123456789,
-                    asset: selectedAsset,
-                    network: selectedAsset === 'USDT' ? selectedNetwork : 'TON',
-                    cryptoAmount: parseFloat(calculatedCrypto),
-                    bdtAmount: numBdt,
-                    expectedRate: cryptoRate, // Rate-lock protection against instant price changes
-                    receiveAddress: cleanAddr,
-                    memo: (memo || '').trim()
-                }),
-                new Promise(r => setTimeout(r, 1100))
-            ]);
+            setTimeout(() => setProcessStep(2), 700);
+            const res = await submitBuyCrypto({
+                userId: user?.id || 123456789,
+                asset: selectedAsset,
+                network: selectedNetwork,
+                bdtAmount: numBdt,
+                cryptoAmount: parseFloat(calculatedCrypto),
+                rate: cryptoRate,
+                receiveAddress: targetAddress.trim(),
+                memo: memo.trim() || undefined
+            });
 
             if (res.success) {
-                setProcessStep(3); // Stage 3: Awaiting on-chain confirmation
-                await new Promise(r => setTimeout(r, 800));
                 setTxResult(res);
-                setStage('success');
+                setProcessStep(3);
                 if (reloadData) reloadData();
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 }
+                setTimeout(() => setStage('success'), 600);
             } else {
-                throw new Error(res.error || 'Failed to send crypto');
+                throw new Error(res.error || 'ক্রয় সম্পন্ন করা সম্ভব হয়নি।');
             }
-        } catch (e) {
-            setErrorMessage(e.message || 'ক্রিপ্টো পাঠানো ব্যর্থ হয়েছে। আপনার ব্যালেন্স অক্ষত আছে বা রিফান্ড করা হয়েছে।');
+        } catch (err) {
+            setErrorMessage(err.message || 'ক্রয় ব্যর্থ হয়েছে।');
             setStage('error');
-            if (reloadData) reloadData();
             if (window.Telegram?.WebApp?.HapticFeedback) {
                 window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             }
         }
     };
 
-    const handleResetAndClose = () => {
-        setStage('idle');
-        setProcessStep(1);
-        setBdtAmount('');
-        setErrorMessage('');
-        setTxResult(null);
-        if (onBack) onBack();
-    };
-
     return (
-        <div className={`${stage === 'idle' ? 'space-y-3' : '-mt-1.5'} animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto`}>
-            {/* Header */}
-            {stage === 'idle' && (
-                <div className="flex items-center gap-2.5 py-0.5">
-                    <button 
-                        type="button" 
-                        onClick={onBack} 
-                        className="p-1.5 bg-white rounded-full text-slate-700 active:scale-95 transition-transform border border-slate-200 shadow-xs"
+        <div className={`min-h-screen pb-24 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+            <div className="max-w-md mx-auto p-4 sm:p-5 space-y-4">
+                {/* 1. BYBIT TOP HEADER */}
+                <div className="flex items-center justify-between py-1">
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 cursor-pointer ${
+                            darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+                        }`}
                     >
-                        <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
+                        <ArrowLeft size={18} />
                     </button>
-                    <div className="flex-1">
-                        <h2 className="text-[15px] font-black text-slate-900 leading-tight flex items-center gap-1.5">
-                            <Coins size={16} className="text-indigo-600" />
-                            {t?.buyCrypto || 'Buy Crypto'}
-                        </h2>
-                        <p className="text-slate-500 text-[11px] font-medium leading-none">
-                            {lang === 'bn' ? 'ব্যালেন্স থেকে সরাসরি ওয়ালেটে ক্রিপ্টো ক্রয়' : 'Instant buy directly to your wallet'}
-                        </p>
+                    <div className="flex items-center gap-2">
+                        <img 
+                            src={`${import.meta.env.BASE_URL}${selectedAsset === 'USDT' ? 'usdt.svg' : 'gram.svg'}`} 
+                            alt={selectedAsset} 
+                            className="w-6 h-6 object-contain rounded-full shadow-xs" 
+                        />
+                        <h1 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                            {selectedAsset}-On-Chain
+                        </h1>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (window.Telegram?.WebApp?.showAlert) {
+                                    window.Telegram.WebApp.showAlert(
+                                        lang === 'bn'
+                                            ? "অন-চেইন ট্রান্সফার: এড্রেস দিন, নেটওয়ার্ক বেছে নিন এবং স্বয়ংক্রিয়ভাবে অন-চেইন ট্রান্সফার রিসিভ করুন।"
+                                            : "On-Chain Transfer: Enter address, choose network and receive instant transfer."
+                                    );
+                                }
+                            }}
+                            className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 cursor-pointer ${
+                                darkMode ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-200 text-slate-600'
+                            }`}
+                        >
+                            <HelpCircle size={17} />
+                        </button>
                     </div>
                 </div>
-            )}
 
-            <CutCornerCard className="p-3.5 space-y-3">
-
-                {/* SUCCESS STAGE WITH BLOOMING FLOWER */}
-                {stage === 'success' ? (
-                    <div className="py-2 text-center animate-in zoom-in-95 duration-400 my-auto">
-                        <BloomingFlowerGraphic />
-
-                        {/* Status Badge */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-black uppercase tracking-wider mb-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                            <Sparkles size={12} />
-                            {lang === 'bn' ? 'ক্রয় সফল হয়েছে' : 'PURCHASE COMPLETED'}
-                        </div>
-
-                        <h4 className="text-[17px] font-black text-slate-900 mb-0.5">
-                            {lang === 'bn' ? 'ক্রিপ্টো সফলভাবে পাঠানো হয়েছে! 🎉' : 'Crypto Sent Successfully! 🎉'}
-                        </h4>
-                        <p className="text-slate-500 text-[11px] mb-3 max-w-[280px] mx-auto leading-tight font-medium">
-                            {lang === 'bn' 
-                                ? <>আপনার ওয়ালেটে <b>{calculatedCrypto} {selectedAsset}</b> ট্রান্সফার সম্পন্ন।</>
-                                : <>Successfully sent <b>{calculatedCrypto} {selectedAsset}</b> to your wallet.</>}
-                        </p>
-
-                        <div className="bg-slate-50/80 rounded-xl p-3 text-left text-[11px] space-y-1.5 border border-slate-200/80 mb-3">
-                            <div className="flex justify-between items-center">
-                                <span className="text-slate-500 font-medium">Crypto Sent:</span>
-                                <span className="font-bold text-indigo-600">{calculatedCrypto} {selectedAsset}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-slate-500 font-medium">Network:</span>
-                                <span className="font-bold text-slate-800 flex items-center gap-1">
-                                    <NetworkBadgeIcon network={selectedAsset === 'USDT' ? selectedNetwork : 'TON'} size={14} />
-                                    {selectedAsset === 'USDT' ? activeNetworkObj.fullName : 'TON (The Open Network)'}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-slate-500 font-medium">BDT Deducted:</span>
-                                <span className="font-bold text-slate-900">৳{bdtAmount} TK</span>
-                            </div>
-                            <div className="flex justify-between items-center pt-1 border-t border-slate-200/50">
-                                <span className="text-slate-500 font-medium">Wallet:</span>
-                                <span className="font-mono font-bold text-slate-700 truncate max-w-[170px]">{receiveAddress || userTonAddress}</span>
-                            </div>
-                            {memo && (
-                                <div className="flex justify-between items-center">
-                                    <span className="text-slate-500 font-medium">Memo / Tag:</span>
-                                    <span className="font-mono font-bold text-indigo-700">{memo}</span>
-                                </div>
-                            )}
-                        </div>
-
-                        <CutCornerButton 
-                            onClick={handleResetAndClose} 
-                            icon={CheckCircle2}
-                        >
-                            {lang === 'bn' ? 'সম্পন্ন (ঠিক আছে)' : 'DONE'}
-                        </CutCornerButton>
-                    </div>
-                ) : stage === 'error' ? (
-                    /* ERROR STAGE */
-                    <div className="py-2 text-center animate-in zoom-in-95 duration-400 my-auto">
-                        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-red-600 mx-auto mb-2 border-2 border-white shadow-xs">
-                            <AlertCircle size={24} />
-                        </div>
-                        <h4 className="text-[14px] font-black text-slate-900 mb-1">
-                            {lang === 'bn' ? 'ট্রানজেকশন ব্যর্থ হয়েছে' : 'Transaction Failed'}
-                        </h4>
-                        <p className="text-red-600 text-[11px] mb-3 leading-snug bg-red-50 p-2.5 rounded-xl border border-red-100 max-w-[300px] mx-auto">
-                            {errorMessage}
-                        </p>
-                        <CutCornerButton 
-                            onClick={() => setStage('idle')} 
-                            variant="secondary"
-                        >
-                            {lang === 'bn' ? 'আবার চেষ্টা করুন (TRY AGAIN)' : 'TRY AGAIN'}
-                        </CutCornerButton>
-                    </div>
-                ) : stage === 'processing' ? (
-                    /* ULTRA-PREMIUM LIVE ON-CHAIN PROCESSING STAGE */
-                    <div className="py-3 px-1 text-center animate-in fade-in zoom-in-95 duration-300 space-y-4 my-auto relative overflow-hidden">
-                        {/* Top Live Network Badge */}
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50/90 border border-indigo-200/80 text-indigo-700 text-[10px] font-black uppercase tracking-widest shadow-2xs">
-                            <span className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
-                            <Shield size={11} className="text-indigo-600" />
-                            <span>
-                                {selectedAsset === 'GRAM' || selectedNetwork === 'TON' 
-                                    ? 'TON MAINNET • LIVE ON-CHAIN TRANSFER' 
-                                    : selectedNetwork === 'BEP20'
-                                    ? 'BNB SMART CHAIN (BEP20) • LIVE TRANSFER'
-                                    : 'ARBITRUM ONE • LIVE ON-CHAIN TRANSFER'}
-                            </span>
-                        </div>
-
-                        {/* Multi-Ring Orbital Crypto Portal */}
-                        <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
-                            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/25 via-purple-500/20 to-emerald-400/25 blur-xl animate-pulse" />
-                            
-                            <div
-                                className="absolute inset-0 rounded-full border-2 border-dashed border-indigo-300/70"
-                                style={{ animation: 'spin 8s linear infinite reverse' }}
-                            />
-                            
-                            <div className="absolute inset-1.5 rounded-full border-[3px] border-indigo-100/80 border-t-indigo-600 border-r-purple-600 animate-spin shadow-inner" />
-                            
-                            <div className="absolute inset-3.5 rounded-full bg-gradient-to-br from-indigo-50 via-white to-purple-50 border border-indigo-100 shadow-md flex items-center justify-center">
-                                <img
-                                    src={`${import.meta.env.BASE_URL}${selectedAsset === 'USDT' ? 'usdt.svg' : 'gram.svg'}`}
-                                    alt={selectedAsset}
-                                    className="w-9 h-9 object-contain drop-shadow-sm animate-pulse"
-                                />
-                            </div>
-
-                            <div className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex items-center justify-center shadow-md border-2 border-white">
-                                <Zap size={13} className="animate-bounce" />
-                            </div>
-                        </div>
-
-                        {/* Dynamic Title & Subtitle */}
-                        <div className="space-y-1">
-                            <h4 className="text-[16px] font-black text-slate-900 tracking-tight">
-                                {lang === 'bn'
-                                    ? (processStep === 1
-                                        ? 'ব্যালেন্স ও সিকিউরিটি যাচাই হচ্ছে...'
-                                        : processStep === 2
-                                        ? `ওয়ালেটে ${calculatedCrypto} ${selectedAsset} পাঠানো হচ্ছে...`
-                                        : 'ব্লকচেইন কনফার্মেশন সম্পন্ন হচ্ছে...')
-                                    : (processStep === 1
-                                        ? 'Verifying Balance & Security...'
-                                        : processStep === 2
-                                        ? `Sending ${calculatedCrypto} ${selectedAsset} to Wallet...`
-                                        : 'Finalizing On-Chain Confirmation...')}
-                            </h4>
-                            <p className="text-slate-500 text-[11px] font-medium">
-                                {lang === 'bn'
-                                    ? 'অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন, পেজটি কাটবেন না'
-                                    : 'Please wait a few seconds while we broadcast on-chain'}
-                            </p>
-                        </div>
-
-                        {/* Live Transfer Conversion Pill */}
-                        <div className="bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 border border-indigo-100/90 rounded-2xl p-2.5 flex items-center justify-between gap-2 text-left shadow-2xs">
-                            <div className="pl-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase block">BDT Amount</span>
-                                <span className="text-[13px] font-black text-slate-800">৳{bdtAmount} BDT</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-indigo-600 bg-white px-2.5 py-1 rounded-full border border-indigo-100 shadow-2xs">
-                                <ArrowRight size={13} className="animate-pulse" />
-                                <span className="text-[9px] font-black uppercase tracking-wider">Instant</span>
-                            </div>
-                            <div className="pr-1 text-right">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase block">Receiving</span>
-                                <span className="text-[13px] font-black text-indigo-600">{calculatedCrypto} {selectedAsset}</span>
-                            </div>
-                        </div>
-
-                        {/* 3-Step Live Blockchain Progress Tracker */}
-                        <div className="bg-slate-50/90 border border-slate-200/80 rounded-2xl p-3 text-left space-y-2">
-                            {[
-                                {
-                                    step: 1,
-                                    labelBn: 'অ্যাকাউন্ট ব্যালেন্স ও রিজার্ভ ভেরিফিকেশন',
-                                    labelEn: 'Account Balance & Treasury Verification'
-                                },
-                                {
-                                    step: 2,
-                                    labelBn: (selectedAsset === 'GRAM' || selectedNetwork === 'TON') 
-                                        ? `TON মেইননেটে ${selectedAsset} ট্রানজেকশন ব্রডকাস্ট` 
-                                        : `${selectedNetwork === 'BEP20' ? 'BSC (BEP20)' : 'Arbitrum One'} নেটওয়ার্কে USDT ট্রান্সফার ব্রডকাস্ট`,
-                                    labelEn: `Broadcasting ${selectedAsset} on ${selectedAsset === 'USDT' ? selectedNetwork : 'TON'}`
-                                },
-                                {
-                                    step: 3,
-                                    labelBn: 'ওয়ালেটে ডেলিভারি ও ফাইনাল কনফার্মেশন',
-                                    labelEn: 'Wallet Delivery & Final Confirmation'
+                {/* 2. ADDRESS FIELD */}
+                <div>
+                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                        darkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                        Address
+                    </label>
+                    <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
+                        darkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-100/80 border-slate-200'
+                    }`}>
+                        <input
+                            type="text"
+                            value={receiveAddress}
+                            onChange={e => {
+                                const val = e.target.value;
+                                setReceiveAddress(val);
+                                setDestMode('custom');
+                                if (selectedNetwork !== 'TON' && val.trim().length > 10) {
+                                    try { localStorage.setItem('tp_saved_evm_addr', val.trim()); } catch (_) {}
                                 }
-                            ].map(item => {
-                                const isDone = processStep > item.step;
-                                const isCurrent = processStep === item.step;
-                                return (
-                                    <div key={item.step} className="flex items-center gap-2.5">
-                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
-                                            isDone
-                                                ? 'bg-emerald-500 text-white shadow-2xs'
-                                                : isCurrent
-                                                ? 'bg-indigo-600 text-white ring-4 ring-indigo-100'
-                                                : 'bg-slate-200 text-slate-400'
-                                        }`}>
-                                            {isDone ? (
-                                                <Check size={11} strokeWidth={3} />
-                                            ) : isCurrent ? (
-                                                <div className="w-2 h-2 rounded-full bg-white animate-ping" />
-                                            ) : (
-                                                <span className="text-[9px] font-black">{item.step}</span>
-                                            )}
-                                        </div>
-                                        <span className={`text-[11px] transition-colors ${
-                                            isDone
-                                                ? 'font-bold text-emerald-700'
-                                                : isCurrent
-                                                ? 'font-black text-slate-900'
-                                                : 'font-medium text-slate-400'
-                                        }`}>
-                                            {lang === 'bn' ? item.labelBn : item.labelEn}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Smooth Gradient Progress Bar */}
-                        <div className="space-y-1 pt-0.5">
-                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 p-0.5">
-                                <div
-                                    className="h-full rounded-full bg-gradient-to-r from-indigo-600 via-purple-600 to-emerald-500 transition-all duration-500"
-                                    style={{ width: processStep === 1 ? '36%' : processStep === 2 ? '74%' : '98%' }}
-                                />
-                            </div>
-                            <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 px-0.5">
-                                <span>ENCRYPTED SMART CONTRACT</span>
-                                <span className="text-indigo-600 font-black">
-                                    {processStep === 1 ? '36%' : processStep === 2 ? '74%' : '98%'}
-                                </span>
+                            }}
+                            placeholder={
+                                selectedAsset === 'USDT' && selectedNetwork !== 'TON'
+                                    ? "Input or paste 0x... EVM address"
+                                    : "Input or press and hold to paste the withdrawal address"
+                            }
+                            style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                            className="w-full bg-transparent text-xs font-mono font-bold outline-none pr-16"
+                        />
+                        <div className="absolute right-2.5 flex items-center gap-1.5 text-slate-400">
+                            {receiveAddress ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setReceiveAddress('')}
+                                    className="p-1 hover:text-slate-600 rounded-md cursor-pointer"
+                                >
+                                    <X size={14} />
+                                </button>
+                            ) : null}
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                        const text = await navigator.clipboard.readText();
+                                        if (text) {
+                                            const trimmed = text.trim();
+                                            setReceiveAddress(trimmed);
+                                            setDestMode('custom');
+                                            if (selectedNetwork !== 'TON') {
+                                                try { localStorage.setItem('tp_saved_evm_addr', trimmed); } catch (_) {}
+                                            }
+                                        }
+                                    } catch(e) {}
+                                }}
+                                className="p-1 hover:text-indigo-600 rounded-md cursor-pointer"
+                                title="Paste"
+                            >
+                                <ClipboardPaste size={16} />
+                            </button>
+                            <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700" />
+                            <div className="p-1 text-slate-400">
+                                <QrCode size={16} />
                             </div>
                         </div>
                     </div>
-                ) : (
-                    /* IDLE / COMPACT INPUT STAGE */
-                    <div className="space-y-2.5">
-                        {/* 1. Balance Banner */}
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 flex justify-between items-center shrink-0">
-                            <div>
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
-                                    {t?.availableBal || 'Available Balance'}
-                                </span>
-                                <span className="text-[14px] font-black text-slate-900">{balance} <span className="text-indigo-600 text-[11px]">TK</span></span>
-                            </div>
-                            <button 
-                                onClick={onGoToAddMoney} 
-                                className="px-2 py-0.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-indigo-200/60"
+
+                    {/* If TON / GRAM: Quick Connected Wallet Button */}
+                    {selectedNetwork === 'TON' && userTonAddress && (
+                        <div className="flex justify-end mt-1.5">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setDestMode('connected');
+                                    setReceiveAddress(userTonAddress);
+                                }}
+                                className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer"
                             >
-                                <PlusCircle size={11} /> {t?.addMoney || 'Add Money'}
+                                <Wallet size={12} />
+                                <span>{receiveAddress === userTonAddress ? (lang === 'bn' ? '✓ কানেক্টেড ওয়ালেট সিলেক্টেড' : '✓ Connected Wallet Selected') : (lang === 'bn' ? '+ কানেক্টেড ওয়ালেট এড্রেস দিন' : '+ Use Connected Wallet')}</span>
                             </button>
                         </div>
+                    )}
 
-                        {/* 2. Select Asset: GRAM vs USDT (Live 30s Market Rates) */}
-                        <div className="shrink-0">
-                            <div className="flex items-center justify-between mb-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
-                                    {t?.selectCrypto || 'Select Crypto Asset'}
-                                </label>
-                                <span className="inline-flex items-center gap-1 text-[8.5px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 shadow-2xs">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span>{lang === 'bn' ? 'লাইভ রেট (৩০ সে.)' : 'Live Rate (30s)'}</span>
+                    {/* Memo (Optional for TON) */}
+                    {(selectedAsset === 'GRAM' || selectedNetwork === 'TON') && (
+                        <div className="mt-2">
+                            <input
+                                type="text"
+                                value={memo}
+                                onChange={e => setMemo(e.target.value)}
+                                placeholder="Memo / Tag (Optional)"
+                                style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                                className={`w-full h-[40px] px-3.5 rounded-xl text-xs font-mono font-bold outline-none border transition-all ${
+                                    darkMode ? 'bg-slate-800/30 border-slate-700 text-white' : 'bg-slate-100/60 border-slate-200 text-slate-900'
+                                }`}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* 3. NETWORK FIELD */}
+                <div>
+                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                        darkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                        Network
+                    </label>
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (selectedAsset === 'GRAM') return;
+                                setIsNetworkDropdownOpen(!isNetworkDropdownOpen);
+                            }}
+                            className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
+                                darkMode ? 'bg-slate-800/40 border-slate-700 text-white' : 'bg-slate-100/80 border-slate-200 text-slate-900'
+                            }`}
+                        >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <img 
+                                    src={`${import.meta.env.BASE_URL}${activeNetworkObj.icon}`} 
+                                    alt={activeNetworkObj.shortName} 
+                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
+                                />
+                                <span className="font-black text-xs truncate">
+                                    {activeNetworkObj.name}
                                 </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedAsset('GRAM')}
-                                    className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
-                                        selectedAsset === 'GRAM' 
-                                            ? 'tp-asset-card-selected border-indigo-400/80 bg-indigo-50/55 shadow-2xs' 
-                                            : 'tp-asset-card-unselected border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/50'
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-5 h-5 object-contain shrink-0" alt="GRAM" />
-                                        <div className="text-left min-w-0">
-                                            <span className="font-extrabold text-[11px] text-slate-900 block leading-tight truncate">GRAM</span>
-                                            <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{buyerRates.GRAM || 164} TK</span>
-                                        </div>
-                                    </div>
-                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                                        selectedAsset === 'GRAM'
-                                            ? 'tp-asset-check-active bg-indigo-500 text-white'
-                                            : 'tp-asset-check-inactive border border-slate-300/80 bg-transparent'
-                                    }`}>
-                                        {selectedAsset === 'GRAM' && <Check size={10} strokeWidth={3} />}
-                                    </div>
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setSelectedAsset('USDT')}
-                                    className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
-                                        selectedAsset === 'USDT' 
-                                            ? 'tp-asset-card-selected border-indigo-400/80 bg-indigo-50/55 shadow-2xs' 
-                                            : 'tp-asset-card-unselected border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/50'
-                                    }`}
-                                >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <img src={`${import.meta.env.BASE_URL}usdt.svg`} className="w-5 h-5 object-contain shrink-0" alt="USDT" />
-                                        <div className="text-left min-w-0">
-                                            <span className="font-extrabold text-[11px] text-slate-900 block leading-tight truncate">USDT</span>
-                                            <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{buyerRates.USDT || 130} TK</span>
-                                        </div>
-                                    </div>
-                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                                        selectedAsset === 'USDT'
-                                            ? 'tp-asset-check-active bg-indigo-500 text-white'
-                                            : 'tp-asset-check-inactive border border-slate-300/80 bg-transparent'
-                                    }`}>
-                                        {selectedAsset === 'USDT' && <Check size={10} strokeWidth={3} />}
-                                    </div>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* 2.1 SELECT NETWORK FOR USDT (Default: TON, Dropdown for BEP20 / ARBITRUM ONE) */}
-                        {selectedAsset === 'USDT' && (
-                            <div className="shrink-0 relative">
-                                <div className="flex items-center justify-between mb-1">
-                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
-                                        {lang === 'bn' ? 'নেটওয়ার্ক (Network)' : 'Select Network'}
-                                    </label>
-                                    <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200/50">
-                                        {activeNetworkObj.badge}
-                                    </span>
-                                </div>
-
-                                {/* Network Picker Trigger Button */}
-                                <button
-                                    type="button"
-                                    onClick={() => setIsNetworkDropdownOpen(!isNetworkDropdownOpen)}
-                                    className="w-full bg-slate-50 hover:bg-slate-100/80 rounded-xl p-2.5 border border-slate-200/90 flex items-center justify-between gap-2.5 transition-all cursor-pointer active:scale-[0.99]"
-                                >
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                        <NetworkBadgeIcon network={selectedNetwork} size={26} />
-                                        <div className="text-left min-w-0">
-                                            <div className="flex items-center gap-1.5">
-                                                <span className="font-extrabold text-[12px] text-slate-900 leading-tight">
-                                                    {activeNetworkObj.name}
-                                                </span>
-                                                <span className="text-[9px] font-bold text-slate-400">
-                                                    • {activeNetworkObj.fullName}
-                                                </span>
-                                            </div>
-                                            <span className="text-[9.5px] text-indigo-500 font-semibold block leading-tight">
-                                                {activeNetworkObj.shortDesc}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0 text-slate-400">
-                                        <ChevronDown size={16} className={`transition-transform duration-200 ${isNetworkDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`} />
-                                    </div>
-                                </button>
-
-                                {/* Network Dropdown Modal */}
-                                {isNetworkDropdownOpen && (
-                                    <>
-                                        <div 
-                                            className="fixed inset-0 z-40" 
-                                            onClick={() => setIsNetworkDropdownOpen(false)} 
-                                        />
-                                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl border border-slate-200 shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-200">
-                                            <div className="px-2.5 py-1 text-[9px] font-black text-slate-400 uppercase tracking-wider">
-                                                {lang === 'bn' ? 'সাপোর্টেড ৩টি নেটওয়ার্ক' : 'Supported 3 Networks'}
-                                            </div>
-                                            {BUY_USDT_NETWORKS.map(net => {
-                                                const isSelected = net.id === selectedNetwork;
-                                                return (
-                                                    <button
-                                                        key={net.id}
-                                                        type="button"
-                                                        onClick={() => handleSelectNetwork(net.id)}
-                                                        className={`w-full p-2 rounded-xl flex items-center justify-between gap-2.5 text-left transition-all cursor-pointer ${
-                                                            isSelected 
-                                                                ? 'bg-indigo-50/90 border border-indigo-200/90 text-indigo-900' 
-                                                                : 'hover:bg-slate-50 text-slate-700'
-                                                        }`}
-                                                    >
-                                                        <div className="flex items-center gap-2.5 min-w-0">
-                                                            <NetworkBadgeIcon network={net.id} size={28} />
-                                                            <div className="min-w-0">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="font-extrabold text-[12px] leading-tight text-slate-900">
-                                                                        {net.name}
-                                                                    </span>
-                                                                    <span className="text-[9px] font-bold text-slate-400">
-                                                                        ({net.fullName})
-                                                                    </span>
-                                                                </div>
-                                                                <span className="text-[9.5px] text-slate-500 block">
-                                                                    {net.shortDesc}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="shrink-0 flex items-center">
-                                                            {isSelected ? (
-                                                                <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                                                                    <Check size={11} strokeWidth={3} />
-                                                                </div>
-                                                            ) : (
-                                                                <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                                                                    {net.badge}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
+                                    {activeNetworkObj.gasFee}
+                                </span>
+                                {selectedAsset !== 'GRAM' && (
+                                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isNetworkDropdownOpen ? 'rotate-180' : ''}`} />
                                 )}
                             </div>
-                        )}
+                        </button>
 
-                        {/* 3. BDT Amount Input */}
-                        <div className="shrink-0">
-                            <div className="flex justify-between items-center mb-1">
-                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                    {t?.bdtSpend || (lang === 'bn' ? 'টাকার পরিমাণ (BDT)' : 'BDT Amount to Spend')}
-                                </label>
-                                <span className="text-[9px] text-slate-400 font-semibold">Min ৳20</span>
-                            </div>
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-600 text-[12px]">৳</span>
-                                <input 
-                                    type="number" 
-                                    value={bdtAmount} 
-                                    onChange={e => setBdtAmount(e.target.value)} 
-                                    placeholder="0.00" 
-                                    className="w-full bg-slate-50 rounded-xl py-2 pl-7 pr-12 text-[13px] font-bold text-slate-900 border border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-500/20 transition-all outline-none" 
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-[10px] text-slate-400">BDT</span>
-                            </div>
-
-                            {/* Quick Presets */}
-                            <div className="flex gap-1.5 mt-1">
-                                {[100, 500, 1000].map(val => (
-                                    <button 
-                                        key={val} 
-                                        type="button" 
-                                        onClick={() => setBdtAmount(val.toString())} 
-                                        className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-[10px] font-bold text-slate-700 transition-colors"
-                                    >
-                                        ৳{val}
-                                    </button>
-                                ))}
-                                <button 
-                                    type="button" 
-                                    onClick={() => setBdtAmount(Math.floor(balance).toString())} 
-                                    className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold transition-colors ml-auto border border-indigo-200/50"
-                                >
-                                    MAX (৳{Math.floor(balance)})
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* 4. Calculated Crypto Receive Box */}
-                        {(() => {
-                            const realFee = selectedAsset === 'USDT' 
-                                ? (selectedNetwork === 'TON' ? 0.008 : 0.005) 
-                                : 0.0015;
-                            const grossVal = parseFloat(calculatedCrypto) || 0;
-                            const netVal = grossVal > realFee ? (grossVal - realFee).toFixed(4) : (grossVal > 0 ? grossVal.toFixed(4) : '0.0000');
-                            return (
-                                <div className="bg-indigo-50/80 border border-indigo-100/90 rounded-xl px-3 py-2 shrink-0 space-y-1">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <span className="text-[9px] font-black text-indigo-900 uppercase tracking-wider block">
-                                                {t?.youWillReceive || (lang === 'bn' ? 'মোট ক্রয়' : 'Total Purchased')}
-                                            </span>
-                                            <span className="text-[10px] text-indigo-600 font-semibold">1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="text-[14px] font-black text-slate-800">{calculatedCrypto}</span>
-                                            <span className="text-[10px] font-bold text-slate-600 ml-1">{selectedAsset}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-1 border-t border-indigo-200/60 text-[10px]">
-                                        <span className="text-slate-500 font-medium flex items-center gap-1">
-                                            ⛽ {lang === 'bn' ? 'অন-চেইন রিয়েল গ্যাস ফি (০% লাভ)' : 'Real On-Chain Gas Fee (0% profit)'}:
-                                        </span>
-                                        <span className="font-mono font-bold text-rose-500">-{realFee} {selectedAsset}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-0.5 text-[11px]">
-                                        <span className="text-emerald-700 font-bold">
-                                            ✓ {lang === 'bn' ? 'ওয়ালেটে পৌঁছাবে (নেট)' : 'Net Received in Wallet'}:
-                                        </span>
-                                        <span className="font-black text-[15px] text-emerald-600">{netVal} {selectedAsset}</span>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {/* 5. Receive Address Input */}
-                        <div className="shrink-0 space-y-1.5">
-                            {/* Destination selector for TON / GRAM */}
-                            {(selectedAsset === 'GRAM' || selectedNetwork === 'TON') ? (
-                                <div>
-                                    <div className="flex items-center justify-between mb-1.5">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                            {lang === 'bn' ? 'কোথায় নিতে চান?' : 'Payout Destination'}
-                                        </label>
-                                        <div className="inline-flex p-0.5 bg-slate-100 rounded-lg border border-slate-200/80">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setDestMode('connected');
-                                                    if (userTonAddress) setReceiveAddress(userTonAddress);
-                                                }}
-                                                className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                                                    destMode === 'connected'
-                                                        ? 'bg-white text-indigo-600 shadow-xs'
-                                                        : 'text-slate-500 hover:text-slate-700'
-                                                }`}
-                                            >
-                                                <Wallet size={10} />
-                                                <span>{lang === 'bn' ? 'কানেক্টেড ওয়ালেট' : 'Connected'}</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setDestMode('custom');
-                                                    if (receiveAddress === userTonAddress) setReceiveAddress('');
-                                                }}
-                                                className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                                                    destMode === 'custom'
-                                                        ? 'bg-white text-indigo-600 shadow-xs'
-                                                        : 'text-slate-500 hover:text-slate-700'
-                                                }`}
-                                            >
-                                                <ExternalLink size={10} />
-                                                <span>{lang === 'bn' ? 'অন্য ওয়ালেট / এক্সচেঞ্জ' : 'Exchange / Other'}</span>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {destMode === 'connected' ? (
-                                        userTonAddress ? (
-                                            <div className="flex items-center justify-between gap-2 p-2 bg-indigo-50/60 rounded-xl border border-indigo-200/70">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
-                                                        <Check size={11} strokeWidth={3} />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <span className="text-[9px] font-bold text-slate-400 uppercase block leading-none">
-                                                            {lang === 'bn' ? 'কানেক্টেড TON ওয়ালেট' : 'Connected TON Wallet'}
-                                                        </span>
-                                                        <span className="font-mono font-bold text-[11px] text-indigo-900 truncate block mt-0.5">
-                                                            {userTonAddress.slice(0, 8)}...{userTonAddress.slice(-8)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setDestMode('custom');
-                                                        setReceiveAddress('');
-                                                    }}
-                                                    className="text-[9.5px] font-bold text-indigo-600 hover:text-indigo-800 shrink-0 bg-white px-2 py-1 rounded-lg border border-indigo-200 shadow-2xs cursor-pointer active:scale-95 transition-transform"
-                                                >
-                                                    {lang === 'bn' ? 'পরিবর্তন' : 'Change'}
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <div className="p-2 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
-                                                <span className="text-[10px] text-amber-800 font-medium">
-                                                    {lang === 'bn' ? 'কোনো TON ওয়ালেট কানেক্ট করা নেই' : 'No TON wallet connected'}
-                                                </span>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setDestMode('custom')}
-                                                    className="text-[10px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-lg border border-slate-200 shrink-0 cursor-pointer"
-                                                >
-                                                    {lang === 'bn' ? 'এড্রেস লিখুন' : 'Enter Address'}
-                                                </button>
-                                            </div>
-                                        )
-                                    ) : (
-                                        <div className="space-y-1.5">
-                                            <div className="relative">
-                                                <input 
-                                                    type="text" 
-                                                    value={receiveAddress} 
-                                                    onChange={e => setReceiveAddress(e.target.value)} 
-                                                    placeholder="UQ... or EQ... (MEXC / Bitget / Tonkeeper)"
-                                                    className="w-full bg-slate-50 rounded-xl py-2 pl-3 pr-14 text-[11px] font-mono font-bold text-slate-900 border border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-500/20 transition-all outline-none" 
+                        {/* Dropdown Options */}
+                        {isNetworkDropdownOpen && selectedAsset !== 'GRAM' && (
+                            <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border shadow-xl z-30 p-1.5 space-y-1 ${
+                                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                            }`}>
+                                {BUY_NETWORKS.map(net => {
+                                    const isSel = selectedNetwork === net.id;
+                                    return (
+                                        <button
+                                            key={net.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedNetwork(net.id);
+                                                setIsNetworkDropdownOpen(false);
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                                                isSel 
+                                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black' 
+                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <img 
+                                                    src={`${import.meta.env.BASE_URL}${net.icon}`} 
+                                                    alt={net.shortName} 
+                                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
                                                 />
-                                                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                                    {receiveAddress && (
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => setReceiveAddress('')}
-                                                            className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
-                                                            title="Clear"
-                                                        >
-                                                            <X size={12} />
-                                                        </button>
-                                                    )}
-                                                    <button 
-                                                        type="button"
-                                                        onClick={async () => {
-                                                            try {
-                                                                const text = await navigator.clipboard.readText();
-                                                                if (text) setReceiveAddress(text.trim());
-                                                            } catch (e) {}
-                                                        }}
-                                                        className="p-1 bg-white text-slate-500 hover:text-indigo-600 rounded-md transition-all border border-slate-200 shadow-2xs"
-                                                        title="Paste"
-                                                    >
-                                                        <ClipboardPaste size={12} />
-                                                    </button>
-                                                </div>
+                                                <span className="text-xs truncate">{net.name}</span>
                                             </div>
-
-                                            {/* Optional Memo / Tag input for exchanges */}
-                                            <div className="space-y-1">
-                                                <div className="flex justify-between items-center">
-                                                    <label className="text-[9px] font-bold text-slate-500 flex items-center gap-1">
-                                                        <span>{lang === 'bn' ? 'মেমো / ট্যাগ (Memo / Tag)' : 'Memo / Tag'}</span>
-                                                        <span className="text-[8.5px] font-normal text-slate-400">({lang === 'bn' ? 'এক্সচেঞ্জের জন্য' : 'for exchanges'})</span>
-                                                    </label>
-                                                    <span className="text-[8.5px] font-semibold text-slate-400">{lang === 'bn' ? 'ঐচ্ছিক' : 'Optional'}</span>
-                                                </div>
-                                                <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        value={memo}
-                                                        onChange={e => setMemo(e.target.value)}
-                                                        placeholder={lang === 'bn' ? "e.g. 10928374 (MEXC / Bitget Memo)" : "e.g. 10928374 (Exchange Memo)"}
-                                                        className="w-full bg-slate-50 rounded-xl py-1.5 pl-3 pr-8 text-[11px] font-mono font-bold text-slate-900 border border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-500/20 transition-all outline-none"
-                                                    />
-                                                    {memo && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setMemo('')}
-                                                            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600"
-                                                        >
-                                                            <X size={12} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                                <p className="text-[9px] text-amber-700 leading-tight bg-amber-50/70 border border-amber-200/60 rounded-lg p-1.5">
-                                                    💡 {lang === 'bn' 
-                                                        ? 'MEXC, Bitget বা সেন্ট্রালাইজড এক্সচেঞ্জে ডিপোজিট করতে হলে তাদের ডিপোজিট পেজে দেওয়া Memo/Tag এখানে দিন। Tonkeeper বা নিজস্ব ওয়ালেটে নিলে মেমো ফাঁকা রাখুন।' 
-                                                        : 'Provide Memo/Tag if depositing to exchanges (MEXC, Bitget). Leave blank for personal wallets like Tonkeeper.'}
-                                                </p>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
+                                                {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                /* EVM Networks (BEP20 / ARBITRUM ONE) */
-                                <div>
-                                    <div className="flex justify-between items-center mb-1">
-                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                            {selectedNetwork === 'BEP20'
-                                                ? (lang === 'bn' ? 'রিসিভ ওয়ালেট এড্রেস (BEP20 - BSC)' : 'Receive Address (BEP20)')
-                                                : (lang === 'bn' ? 'রিসিভ ওয়ালেট এড্রেস (Arbitrum One)' : 'Receive Address (Arbitrum One)')
-                                            }
-                                        </label>
-                                    </div>
-                                    <div className="relative">
-                                        <input 
-                                            type="text" 
-                                            value={receiveAddress} 
-                                            onChange={e => setReceiveAddress(e.target.value)} 
-                                            placeholder={
-                                                selectedNetwork === 'BEP20'
-                                                    ? "0x... (BNB Smart Chain BEP20 Address)"
-                                                    : "0x... (Arbitrum One USDT Address)"
-                                            }
-                                            className="w-full bg-slate-50 rounded-xl py-2 pl-3 pr-14 text-[11px] font-mono font-bold text-slate-900 border border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-500/20 transition-all outline-none" 
-                                        />
-                                        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                                            {receiveAddress && (
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => setReceiveAddress('')}
-                                                    className="p-1 text-slate-400 hover:text-slate-600 rounded-md transition-colors"
-                                                    title="Clear"
-                                                >
-                                                    <X size={12} />
-                                                </button>
-                                            )}
-                                            <button 
-                                                type="button"
-                                                onClick={async () => {
-                                                    try {
-                                                        const text = await navigator.clipboard.readText();
-                                                        if (text) setReceiveAddress(text.trim());
-                                                    } catch (e) {}
-                                                }}
-                                                className="p-1 bg-white text-slate-500 hover:text-indigo-600 rounded-md transition-all border border-slate-200 shadow-2xs"
-                                                title="Paste"
-                                            >
-                                                <ClipboardPaste size={12} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <p className="text-[9.5px] text-amber-600 font-medium mt-1 flex items-center gap-1">
-                                        <span>⚠️</span>
-                                        <span>
-                                            {lang === 'bn' 
-                                                ? `আপনার ${selectedNetwork === 'BEP20' ? 'Binance / Trust Wallet-এর BEP20 (BSC)' : 'Arbitrum One'} ওয়ালেট এড্রেস দিন (0x দিয়ে শুরু)` 
-                                                : `Enter your ${selectedNetwork} address starting with 0x`}
-                                        </span>
-                                    </p>
-                                </div>
-                            )}
-                        </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
 
-                        {/* 6. Submit Button */}
-                        <div className="shrink-0 pt-1">
-                            {hasInsufficientBalance ? (
-                                <CutCornerButton 
-                                    onClick={onGoToAddMoney} 
-                                    icon={PlusCircle}
+                {/* 4. AMOUNT FIELD */}
+                <div>
+                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                        darkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                        Amount (টাকার পরিমাণ)
+                    </label>
+                    <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
+                        darkMode ? 'bg-slate-800/40 border-slate-700 focus-within:border-purple-500' : 'bg-slate-100/80 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
+                    }`}>
+                        <input
+                            type="number"
+                            value={bdtAmount}
+                            onChange={e => setBdtAmount(e.target.value)}
+                            placeholder="Min. 20 BDT"
+                            style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                            className="w-full bg-transparent text-xl font-black font-mono tracking-tight outline-none pr-16"
+                        />
+                        <span className="absolute right-3.5 font-black text-xs text-slate-500 dark:text-slate-400">
+                            BDT
+                        </span>
+                    </div>
+
+                    {/* Preset Buttons & Available Balance */}
+                    <div className="flex items-center justify-between mt-2 text-[11px]">
+                        <span className="font-medium text-slate-500 dark:text-slate-400">
+                            Available: <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">৳{Number(balance || 0).toFixed(2)}</span>
+                        </span>
+                        <div className="flex items-center gap-1">
+                            {[100, 500, 1000, 2000].map(val => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => setBdtAmount(val.toString())}
+                                    className="px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:border-purple-500 cursor-pointer"
                                 >
-                                    {t?.addMoney || 'ADD MONEY'} {lang === 'bn' ? 'করুন' : 'TO WALLET'}
-                                </CutCornerButton>
-                            ) : (
-                                <CutCornerButton 
-                                    onClick={handleConfirmBuy} 
-                                    disabled={!numBdt || !(destMode === 'connected' ? (receiveAddress || userTonAddress) : receiveAddress) || numBdt < 20} 
-                                    icon={Coins}
+                                    ৳{val}
+                                </button>
+                            ))}
+                            {balance > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setBdtAmount(Math.floor(balance).toString())}
+                                    className="px-2 py-0.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/40 text-[10px] font-black text-purple-600 dark:text-purple-400 cursor-pointer"
                                 >
-                                    {t?.confirmBuy || 'CONFIRM & BUY'} {selectedAsset}
-                                </CutCornerButton>
+                                    MAX
+                                </button>
                             )}
                         </div>
                     </div>
+                </div>
+
+                {/* 5. NOTE & FEES */}
+                <div className="pt-1 text-[11px] text-slate-400 space-y-1">
+                    <div className="flex justify-between">
+                        <span>Rate</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Withdrawal Fees</span>
+                        <span className="font-black text-emerald-600 dark:text-emerald-400">0 USDT</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Note:</span>
+                        <span className="font-medium text-slate-500 dark:text-slate-400">⚡ Instant On-Chain Delivery</span>
+                    </div>
+                </div>
+
+                {/* Error Banner */}
+                {errorMessage && (
+                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2.5 flex items-start gap-2">
+                        <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
+                    </div>
                 )}
-            </CutCornerCard>
+
+                {/* 6. BOTTOM BAR (BYBIT STYLE) + PURPLE BUTTON */}
+                <div className={`mt-6 pt-3 border-t flex items-center justify-between gap-4 ${
+                    darkMode ? 'border-slate-800' : 'border-slate-200'
+                }`}>
+                    <div>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-white">
+                            {calculatedCrypto || '0.00'} <span className="text-xs font-bold text-purple-600 dark:text-purple-400">{selectedAsset}</span>
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                            Amount Received (আপনি পাবেন)
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={hasInsufficientBalance ? onGoToAddMoney : handleConfirmBuy}
+                        disabled={!hasInsufficientBalance && (!numBdt || numBdt < 20 || stage === 'processing')}
+                        className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
+                    >
+                        {stage === 'processing' ? (
+                            <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                            <Zap size={16} fill="currentColor" />
+                        )}
+                        <span>
+                            {hasInsufficientBalance 
+                                ? (lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money') 
+                                : (lang === 'bn' ? 'উইথড্র / বাই' : 'Withdraw')}
+                        </span>
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
 
-function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadData }) {
+function SellCryptoPage({ 
+    user, 
+    balance = 0, 
+    lang = 'bn', 
+    t, 
+    darkMode = false, 
+    initialAsset = 'GRAM',
+    onBack, 
+    onDone, 
+    onGoToWithdraw, 
+    reloadData 
+}) {
     const userTonAddress = useTonAddress();
     const [tonConnectUI] = useTonConnectUI();
-    const [step, setStep] = useState(1);
-    const [asset, setAsset] = useState('GRAM'); // 'GRAM' (TON) or 'USDT'
+    const [asset, setAsset] = useState(initialAsset || 'GRAM');
+    const [selectedNetwork, setSelectedNetwork] = useState('TON'); // 'TON' | 'ARBITRUM' | 'BEP20'
+    const [isNetworkDropdownOpen, setIsNetworkDropdownOpen] = useState(false);
     const [cryptoAmount, setCryptoAmount] = useState('');
-    const [trxId, setTrxId] = useState('');
+    const [userEvmAddress, setUserEvmAddress] = useState('');
+    const [isEvmChecking, setIsEvmChecking] = useState(false);
+    const [evmCheckMsg, setEvmCheckMsg] = useState(null);
+    const [copiedAddress, setCopiedAddress] = useState(false);
     const [loading, setLoading] = useState(false);
     const [isTonSending, setIsTonSending] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
-    const [copied, setCopied] = useState(false);
     const [sellResult, setSellResult] = useState(null);
-    const [showWalletDetails, setShowWalletDetails] = useState(false);
+    const [step, setStep] = useState(1);
+
+    useEffect(() => {
+        if (initialAsset && (initialAsset === 'GRAM' || initialAsset === 'USDT')) {
+            setAsset(initialAsset);
+        }
+    }, [initialAsset]);
+
+    useEffect(() => {
+        if (asset === 'GRAM') setSelectedNetwork('TON');
+    }, [asset]);
+
+    // Fetch deterministic EVM address for this user on Arbitrum / BEP20
+    useEffect(() => {
+        if (user?.id) {
+            fetchUserDepositAddress(user.id).then(res => {
+                if (res && res.address) {
+                    setUserEvmAddress(res.address);
+                }
+            }).catch(() => {});
+        }
+    }, [user?.id]);
+
     const [liveRates, setLiveRates] = useState(() => {
         try {
             const cached = localStorage.getItem('maruf_seller_rates');
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates?.USDT) {
-                    return {
-                        GRAM: parsed.rates.GRAM || 135,
-                        USDT: parsed.rates.USDT || 118
-                    };
+                    return { GRAM: parsed.rates.GRAM || 135, USDT: parsed.rates.USDT || 118 };
                 }
             }
-        } catch(e) {}
+        } catch (_) {}
         return { GRAM: 135, USDT: 118 };
     });
 
-    // Real-time 30-second live seller rates polling
     useEffect(() => {
         let isMounted = true;
         const fetchRates = () => {
@@ -5058,38 +5338,49 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 };
                 setLiveRates(newRates);
                 try {
-                    localStorage.setItem('maruf_seller_rates', JSON.stringify({
-                        rates: newRates,
-                        timestamp: Date.now()
-                    }));
-                } catch(e) {}
+                    localStorage.setItem('maruf_seller_rates', JSON.stringify({ rates: newRates, timestamp: Date.now() }));
+                } catch (_) {}
             }).catch(() => {});
         };
-
         fetchRates();
         const interval = setInterval(fetchRates, 30000);
         return () => { isMounted = false; clearInterval(interval); };
     }, []);
 
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
-    const currentRate = asset === 'USDT' 
-        ? (liveRates?.USDT || 118) 
-        : (liveRates?.GRAM || 135);
+    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 118) : (liveRates?.GRAM || 135);
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
+    const quickAmounts = asset === 'GRAM' ? [0.1, 0.5, 1, 5, 10] : [5, 10, 25, 50, 100];
 
-    const quickAmounts = asset === 'GRAM' ? [0.01, 0.05, 0.1, 1, 5] : [0.01, 0.05, 0.1, 1, 5];
+    const [showQrModal, setShowQrModal] = useState(false);
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(botWalletAddress);
-        setCopied(true);
-        if (window.Telegram?.WebApp?.HapticFeedback) {
-            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
-        }
-        setTimeout(() => setCopied(false), 2000);
-    };
+    const SELL_NETWORKS = [
+        { id: 'TON', name: 'The Open Network (TON)', shortName: 'TON', gasFee: '~0.015 TON', icon: 'ton.svg' },
+        { id: 'ARBITRUM', name: 'Arbitrum One (ARB)', shortName: 'Arbitrum', gasFee: '~0.00003 ETH', icon: 'arbitrum.svg' },
+        { id: 'BEP20', name: 'BNB Smart Chain (BEP20)', shortName: 'BSC', gasFee: '~0.0003 BNB', icon: 'bsc.svg' }
+    ];
 
-    // Direct Sell via Tonkeeper (Server auto-generates unique 10-15 char comment code & attaches to wallet payload)
+    // Background Auto-Polling for EVM deposits on Arbitrum & BEP20
+    useEffect(() => {
+        if (selectedNetwork === 'TON' || !user?.id) return;
+        const pollTimer = setInterval(() => {
+            checkEvmDeposit({ userId: user.id, network: selectedNetwork }).then(res => {
+                if (res && res.success) {
+                    setEvmCheckMsg({ type: 'success', text: res.message });
+                    if (reloadData) reloadData();
+                    if (window.Telegram?.WebApp?.HapticFeedback) {
+                        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                    }
+                }
+            }).catch(() => {});
+        }, 12000);
+        return () => clearInterval(pollTimer);
+    }, [selectedNetwork, user?.id]);
+
+    const activeNetworkObj = SELL_NETWORKS.find(n => n.id === selectedNetwork) || SELL_NETWORKS[0];
+
+    // TON direct sell via Tonkeeper
     const handleDirectSell = async () => {
         if (!userTonAddress) {
             tonConnectUI.openModal();
@@ -5122,10 +5413,8 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 throw new Error("Failed to prepare transaction");
             }
 
-            // Direct Wallet Confirmation (carries unique 10-15 char comment code automatically in transaction comment)
             await tonConnectUI.sendTransaction(txRes.tx);
 
-            // Verify comment code + amount arriving at admin wallet & credit user balance
             const res = await submitSellOrder({
                 userId: user?.id || 123456789,
                 asset,
@@ -5143,300 +5432,462 @@ function SellCryptoPage({ user, lang = 'bn', t, onDone, onGoToWithdraw, reloadDa
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 }
-                setStep(2); // Directly jump to Success Receipt
+                setStep(2);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
                 throw new Error(res.error || 'ব্যালেন্সে টাকা যোগ করতে সমস্যা হয়েছে');
             }
         } catch (err) {
-            console.error("TonConnect transfer error:", err);
             const isUserCancel = err.message?.includes('Reject') || err.message?.includes('cancel') || err.message?.includes('declined');
             setErrorMessage(isUserCancel 
                 ? (lang === 'bn' ? 'টোনকিপারে পেমেন্ট বাতিল করা হয়েছে।' : 'Payment rejected in Tonkeeper.')
-                : (err.message || (lang === 'bn' ? 'টোনকিপার দিয়ে পেমেন্ট ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Payment failed. Please try again.')));
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            }
+                : (err.message || (lang === 'bn' ? 'পেমেন্ট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।' : 'Payment failed. Please try again.')));
         } finally {
             setIsTonSending(false);
         }
     };
 
-    // LUXURY FINTECH SUCCESS RECEIPT WITH BLOOMING FLOWER
+    // EVM Check Deposit Handler
+    const handleCheckEvmDeposit = async () => {
+        if (!user?.id) return;
+        setIsEvmChecking(true);
+        setEvmCheckMsg(null);
+        setErrorMessage('');
+
+        try {
+            const res = await checkEvmDeposit({ userId: user.id, network: selectedNetwork });
+            if (res.success) {
+                setEvmCheckMsg({ type: 'success', text: res.message });
+                if (reloadData) reloadData();
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+            } else {
+                setEvmCheckMsg({ type: 'info', text: res.message });
+            }
+        } catch (err) {
+            setEvmCheckMsg({ type: 'error', text: err.message || 'ডিপোজিট চেক করতে সমস্যা হয়েছে।' });
+        } finally {
+            setIsEvmChecking(false);
+        }
+    };
+
+    // Success Screen
     if (step === 2) {
-        const creditedAmount = sellResult?.estimatedTk || estimatedTk;
         return (
-            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-2 text-center pb-24 max-w-sm mx-auto">
-                <CutCornerCard className="p-6 text-center space-y-4" flower={<SellCryptoMandalaPattern />}>
-                    {/* Blooming Flower Graphic */}
-                    <BloomingFlowerGraphic />
-
-                    {/* Status Badge */}
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-black uppercase tracking-wider">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                        <Sparkles size={12} />
-                        {lang === 'bn' ? 'বিক্রয় সফল হয়েছে' : 'SALE COMPLETED'}
+            <div className="flex flex-col items-center justify-center p-4 text-center max-w-sm mx-auto min-h-[70vh]">
+                <div className={`w-full p-6 text-center space-y-4 rounded-3xl border shadow-xl ${
+                    darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+                }`}>
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
+                        <Check size={36} strokeWidth={3} />
                     </div>
-
                     <div>
-                        <h2 className="text-xl font-black text-slate-900 tracking-tight mb-1">
-                            ৳{creditedAmount} BDT Added! 🎉
-                        </h2>
-                        <p className="text-slate-500 text-xs max-w-[280px] mx-auto leading-relaxed">
-                            {lang === 'bn' 
-                                ? 'আপনার ক্রিপ্টো বিক্রয় সফল হয়েছে এবং ব্যালেন্সে টাকা যুক্ত করা হয়েছে।' 
-                                : 'Your crypto sale was successful and BDT balance has been credited.'}
+                        <h2 className="text-xl font-black">{lang === 'bn' ? 'ক্রিপ্টো বিক্রয় সফল!' : 'Crypto Sell Completed!'}</h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            {sellResult?.amount} {asset} সফলভাবে বিক্রি করা হয়েছে।
                         </p>
                     </div>
-
-                    {/* Breakdown Details */}
-                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-200/80 text-left space-y-2 text-xs">
-                        <div className="flex justify-between items-center">
-                            <span className="text-slate-500 font-medium">Crypto Sold</span>
-                            <span className="font-bold text-slate-900">{numAmount} {asset}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-slate-500 font-medium">Rate</span>
-                            <span className="font-bold text-slate-900">1 {asset} ≈ ৳{currentRate} TK</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-slate-500 font-medium">Amount Credited</span>
-                            <span className="font-extrabold text-emerald-600 text-sm">৳{creditedAmount} BDT</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-slate-500 font-medium">Destination</span>
-                            <span className="font-bold text-slate-900">{lang === 'bn' ? 'ইন-অ্যাপ ব্যালেন্স' : 'In-App Balance'}</span>
-                        </div>
+                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                        <span className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
+                            +৳{sellResult?.estimatedTk} BDT
+                        </span>
+                        <span className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-400 mt-1">
+                            সরাসরি ইন-অ্যাপ ব্যালেন্সে জমা করা হয়েছে
+                        </span>
                     </div>
-
-                    {/* Action Buttons */}
-                    <div className="space-y-2.5 pt-2">
-                        <CutCornerButton 
-                            onClick={onGoToWithdraw} 
-                            icon={Wallet}
-                        >
-                            {t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS')}
-                        </CutCornerButton>
-                        <CutCornerButton 
-                            onClick={() => {
-                                setStep(1);
-                                setCryptoAmount('');
-                                setTrxId('');
-                                setErrorMessage('');
-                                onDone();
-                            }} 
-                            variant="secondary"
-                            icon={ArrowRight}
-                        >
-                            {lang === 'bn' ? 'হোমে ফিরে যান' : 'BACK TO HOME'}
-                        </CutCornerButton>
-                    </div>
-                </CutCornerCard>
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className="w-full h-[48px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-md cursor-pointer"
+                    >
+                        {lang === 'bn' ? 'ফিরে যান' : 'Done'}
+                    </button>
+                </div>
             </div>
         );
     }
 
-    // STEP 1: COMPACT NO-SCROLL SINGLE SCREEN
     return (
-        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-300 max-w-md mx-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between py-0.5">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-xs shrink-0">
-                        <ArrowRightLeft size={16} strokeWidth={2.5} />
+        <div className={`min-h-screen pb-24 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+            <div className="max-w-md mx-auto p-4 sm:p-5 space-y-4">
+                {/* 1. BYBIT TOP HEADER */}
+                <div className="flex items-center justify-between py-1">
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 cursor-pointer ${
+                            darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-800'
+                        }`}
+                    >
+                        <ArrowLeft size={18} />
+                    </button>
+                    <div className="flex items-center gap-2">
+                        <img 
+                            src={`${import.meta.env.BASE_URL}${asset === 'USDT' ? 'usdt.svg' : 'gram.svg'}`} 
+                            alt={asset} 
+                            className="w-6 h-6 object-contain rounded-full shadow-xs" 
+                        />
+                        <h1 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                            {asset}-On-Chain
+                        </h1>
                     </div>
-                    <div>
-                        <h2 className="text-[15px] font-black text-slate-900 leading-tight">
-                            {t?.sellCrypto || 'Sell Crypto'}
-                        </h2>
-                        <p className="text-slate-500 text-[11px] font-medium leading-none">
-                            {lang === 'bn' ? 'ক্রিপ্টো সোয়াপ করে ইন-অ্যাপ ব্যালেন্স নিন' : 'Swap crypto to account balance'}
-                        </p>
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (window.Telegram?.WebApp?.showAlert) {
+                                    window.Telegram.WebApp.showAlert(
+                                        lang === 'bn'
+                                            ? "অন-চেইন সেল: TON নেটওয়ার্কে টোনকিপার ওয়ালেট দিয়ে সরাসরি সেল করতে পারবেন। Arbitrum বা BEP20 নেটওয়ার্কে ইউনিক পার্সোনাল এড্রেসে পাঠালে অটোমেটিক ব্যালেন্স জমা হবে।"
+                                            : "On-Chain Sell: For TON, sell directly with Tonkeeper. For Arbitrum/BEP20, deposit to your unique address."
+                                    );
+                                }
+                            }}
+                            className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all active:scale-90 cursor-pointer ${
+                                darkMode ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-200 text-slate-600'
+                            }`}
+                        >
+                            <HelpCircle size={17} />
+                        </button>
                     </div>
                 </div>
-                {userTonAddress ? (
-                    <button 
-                        type="button"
-                        onClick={() => setShowWalletDetails(true)}
-                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 rounded-full text-[10px] font-bold active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
-                        title={userTonAddress}
-                    >
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                        <span>Connected</span>
-                    </button>
-                ) : (
-                    <button 
-                        type="button" 
-                        onClick={() => tonConnectUI.openModal()} 
-                        className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-[10px] font-bold shadow-xs active:scale-95"
-                    >
-                        {lang === 'bn' ? 'কানেক্ট' : 'Connect'}
-                    </button>
-                )}
-            </div>
 
-            <CutCornerCard className="p-3.5 space-y-3" flower={<SellCryptoMandalaPattern />}>
-                <div className="space-y-2.5">
-                    {/* 1. Asset Selection: GRAM vs USDT (Live 30s Market Rates) */}
-                    <div className="shrink-0">
-                        <div className="flex items-center justify-between mb-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">
-                                {t?.selectCrypto || 'Select Crypto Asset'}
-                            </label>
-                            <span className="inline-flex items-center gap-1 text-[8.5px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60 shadow-2xs">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                <span>{lang === 'bn' ? 'লাইভ রেট (৩০ সে.)' : 'Live Rate (30s)'}</span>
+                {/* 2. ADDRESS FIELD (Ultra-clean Bybit Style: Address + Copy + QR Only) */}
+                <div>
+                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                        darkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                        Address
+                    </label>
+
+                    {selectedNetwork === 'TON' ? (
+                        userTonAddress ? (
+                            <div className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
+                                darkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-100/80 border-slate-200'
+                            }`}>
+                                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
+                                    {userTonAddress}
+                                </span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(userTonAddress);
+                                            setCopiedAddress(true);
+                                            setTimeout(() => setCopiedAddress(false), 2000);
+                                        }}
+                                        className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60 font-bold text-xs flex items-center gap-1 hover:bg-purple-100 active:scale-95 transition-all cursor-pointer"
+                                    >
+                                        {copiedAddress ? <Check size={13} /> : <Copy size={13} />}
+                                        <span>{copiedAddress ? 'Copied' : 'Copy'}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowQrModal(true)}
+                                        className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all cursor-pointer shadow-2xs"
+                                        title="Show QR Code"
+                                    >
+                                        <QrCode size={15} />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <Wallet size={18} className="text-amber-600 shrink-0" />
+                                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                                        {lang === 'bn' ? 'টোনকিপার ওয়ালেট কানেক্ট নেই' : 'No Wallet Connected'}
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => tonConnectUI.openModal()}
+                                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs shrink-0 cursor-pointer shadow-xs active:scale-95"
+                                >
+                                    {lang === 'bn' ? 'কানেক্ট' : 'Connect'}
+                                </button>
+                            </div>
+                        )
+                    ) : (
+                        /* EVM PERSONAL UNIQUE DEPOSIT ADDRESS (ARBITRUM & BEP20) */
+                        <div className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 ${
+                            darkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-100/80 border-slate-200'
+                        }`}>
+                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
+                                {userEvmAddress || 'Generating unique EVM address...'}
                             </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (userEvmAddress) {
+                                            navigator.clipboard.writeText(userEvmAddress);
+                                            setCopiedAddress(true);
+                                            setTimeout(() => setCopiedAddress(false), 2000);
+                                        }
+                                    }}
+                                    className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60 font-bold text-xs flex items-center gap-1 hover:bg-purple-100 active:scale-95 transition-all cursor-pointer"
+                                >
+                                    {copiedAddress ? <Check size={13} /> : <Copy size={13} />}
+                                    <span>{copiedAddress ? 'Copied' : 'Copy'}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowQrModal(true)}
+                                    className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all cursor-pointer shadow-2xs"
+                                    title="Show QR Code"
+                                >
+                                    <QrCode size={15} />
+                                </button>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            {/* GRAM */}
-                            <button 
-                                type="button"
-                                onClick={() => setAsset('GRAM')}
-                                className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
-                                    asset === 'GRAM' 
-                                        ? 'tp-asset-card-selected border-indigo-400/80 bg-indigo-50/55 shadow-2xs' 
-                                        : 'tp-asset-card-unselected border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/50'
-                                }`}
-                            >
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <img src={`${import.meta.env.BASE_URL}gram.svg`} className="w-5 h-5 object-contain shrink-0" alt="GRAM" />
-                                    <div className="text-left min-w-0">
-                                        <span className="font-extrabold text-[11px] text-slate-900 block leading-tight truncate">GRAM</span>
-                                        <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{liveRates?.GRAM || 135} TK</span>
-                                    </div>
-                                </div>
-                                <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                                    asset === 'GRAM'
-                                        ? 'tp-asset-check-active bg-indigo-500 text-white'
-                                        : 'tp-asset-check-inactive border border-slate-300/80 bg-transparent'
-                                }`}>
-                                    {asset === 'GRAM' && <Check size={10} strokeWidth={3} />}
-                                </div>
-                            </button>
+                    )}
 
-                            {/* USDT */}
-                            <button 
-                                type="button"
-                                onClick={() => setAsset('USDT')}
-                                className={`p-2 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
-                                    asset === 'USDT' 
-                                        ? 'tp-asset-card-selected border-indigo-400/80 bg-indigo-50/55 shadow-2xs' 
-                                        : 'tp-asset-card-unselected border-slate-200/80 bg-slate-50/50 hover:bg-slate-100/50'
-                                }`}
-                            >
-                                <div className="flex items-center gap-2 min-w-0">
-                                    <img src={`${import.meta.env.BASE_URL}usdt.svg`} className="w-5 h-5 object-contain shrink-0" alt="USDT" />
-                                    <div className="text-left min-w-0">
-                                        <span className="font-extrabold text-[11px] text-slate-900 block leading-tight truncate">USDT</span>
-                                        <span className="text-[9px] text-indigo-500 font-bold block">≈ ৳{liveRates.USDT || 118} TK</span>
-                                    </div>
-                                </div>
-                                <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                                    asset === 'USDT'
-                                        ? 'tp-asset-check-active bg-indigo-500 text-white'
-                                        : 'tp-asset-check-inactive border border-slate-300/80 bg-transparent'
-                                }`}>
-                                    {asset === 'USDT' && <Check size={10} strokeWidth={3} />}
-                                </div>
-                            </button>
+                    {evmCheckMsg && selectedNetwork !== 'TON' && (
+                        <div className={`mt-2 p-2.5 rounded-xl text-xs font-bold ${
+                            evmCheckMsg.type === 'success' 
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200' 
+                                : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200'
+                        }`}>
+                            {evmCheckMsg.text}
                         </div>
+                    )}
+                </div>
+
+                {/* 3. NETWORK FIELD (With Logo, Gas Fee Badge & GRAM TON Lock) */}
+                <div>
+                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                        darkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                        Network
+                    </label>
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (asset === 'GRAM') return;
+                                setIsNetworkDropdownOpen(!isNetworkDropdownOpen);
+                            }}
+                            className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
+                                darkMode ? 'bg-slate-800/40 border-slate-700 text-white' : 'bg-slate-100/80 border-slate-200 text-slate-900'
+                            }`}
+                        >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <img 
+                                    src={`${import.meta.env.BASE_URL}${activeNetworkObj.icon}`} 
+                                    alt={activeNetworkObj.shortName} 
+                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
+                                />
+                                <span className="font-black text-xs truncate">
+                                    {activeNetworkObj.name}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
+                                    {activeNetworkObj.gasFee}
+                                </span>
+                                {asset !== 'GRAM' && (
+                                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isNetworkDropdownOpen ? 'rotate-180' : ''}`} />
+                                )}
+                            </div>
+                        </button>
+
+                        {/* Dropdown Options */}
+                        {isNetworkDropdownOpen && asset !== 'GRAM' && (
+                            <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border shadow-xl z-30 p-1.5 space-y-1 ${
+                                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                            }`}>
+                                {SELL_NETWORKS.map(net => {
+                                    const isSel = selectedNetwork === net.id;
+                                    return (
+                                        <button
+                                            key={net.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedNetwork(net.id);
+                                                setIsNetworkDropdownOpen(false);
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                                                isSel 
+                                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black' 
+                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <img 
+                                                    src={`${import.meta.env.BASE_URL}${net.icon}`} 
+                                                    alt={net.shortName} 
+                                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
+                                                />
+                                                <span className="text-xs truncate">{net.name}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
+                                                {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* 4. AMOUNT FIELD */}
+                <div>
+                    <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
+                        darkMode ? 'text-slate-300' : 'text-slate-700'
+                    }`}>
+                        Amount
+                    </label>
+                    <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
+                        darkMode ? 'bg-slate-800/40 border-slate-700 focus-within:border-purple-500' : 'bg-slate-100/80 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
+                    }`}>
+                        <input
+                            type="number"
+                            value={cryptoAmount}
+                            onChange={e => setCryptoAmount(e.target.value)}
+                            placeholder="Min. 1 USDT"
+                            style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                            className="w-full bg-transparent text-xl font-black font-mono tracking-tight outline-none pr-16"
+                        />
+                        <span className="absolute right-3.5 font-black text-xs text-slate-500 dark:text-slate-400">
+                            {asset}
+                        </span>
                     </div>
 
-                    {/* 2. Amount Input */}
-                    <div className="shrink-0">
-                        <div className="flex justify-between items-center mb-1">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                {lang === 'bn' ? `বিক্রয়ের পরিমাণ (${asset})` : `Amount to Sell (${asset})`}
-                            </label>
-                            <span className="text-[9px] font-bold text-indigo-600">
-                                {lang === 'bn' ? 'নূন্যতম ১ টাকা' : 'Min ৳1 BDT'}
-                            </span>
-                        </div>
-                        <div className="relative">
-                            <input 
-                                type="number" 
-                                value={cryptoAmount} 
-                                onChange={e => setCryptoAmount(e.target.value)} 
-                                placeholder="0.00" 
-                                className="w-full bg-slate-50 rounded-xl py-2 pl-3 pr-14 text-[14px] font-black text-slate-900 border border-slate-200 focus:border-indigo-600 focus:bg-white focus:ring-1 focus:ring-indigo-500/20 transition-all outline-none" 
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 font-black text-[10px] text-slate-400">{asset}</span>
-                        </div>
-                        <div className="flex gap-1.5 mt-1">
+                    {/* Preset Buttons & Available Balance */}
+                    <div className="flex items-center justify-between mt-2 text-[11px]">
+                        <span className="font-medium text-slate-500 dark:text-slate-400">
+                            Available: <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">1,000,000 {asset}</span>
+                        </span>
+                        <div className="flex items-center gap-1">
                             {quickAmounts.map(val => (
                                 <button
                                     key={val}
                                     type="button"
                                     onClick={() => setCryptoAmount(val.toString())}
-                                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
-                                        cryptoAmount === val.toString() 
-                                            ? 'bg-indigo-600 text-white shadow-xs ring-1 ring-indigo-400' 
-                                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                    }`}
+                                    className="px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:border-purple-500 cursor-pointer"
                                 >
                                     {val}
                                 </button>
                             ))}
                         </div>
                     </div>
+                </div>
 
-                    {/* 3. Receive Calculation Box */}
-                    <div className="bg-indigo-50/80 border border-indigo-100/90 rounded-xl px-3 py-2 flex justify-between items-center shrink-0">
-                        <div>
-                            <span className="text-[9px] font-black text-indigo-900 uppercase tracking-wider block">
-                                {lang === 'bn' ? 'আপনি মোট পাবেন' : 'You will receive'}
-                            </span>
-                            <span className="text-[10px] text-indigo-600 font-semibold">1 {asset} ≈ ৳{currentRate} BDT</span>
-                        </div>
-                        <div className="text-right">
-                            <span className="text-[16px] font-black text-indigo-700">৳{estimatedTk}</span>
-                            <span className="text-[11px] font-extrabold text-indigo-900 ml-1">BDT</span>
-                        </div>
+                {/* 5. NOTE & FEES */}
+                <div className="pt-1 text-[11px] text-slate-400 space-y-1">
+                    <div className="flex justify-between">
+                        <span>Rate</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {asset} ≈ ৳{currentRate} BDT</span>
                     </div>
-
-                    {/* Error Banner */}
-                    {errorMessage && (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-2 flex items-start gap-1.5 animate-in fade-in shrink-0">
-                            <AlertCircle size={14} className="text-red-600 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-red-700 font-medium leading-tight">{errorMessage}</p>
-                        </div>
-                    )}
-
-                    {/* 4. Action Button */}
-                    <div className="shrink-0 pt-1">
-                        {!userTonAddress ? (
-                            <CutCornerButton 
-                                onClick={() => tonConnectUI.openModal()} 
-                                icon={Wallet}
-                            >
-                                {lang === 'bn' ? 'ওয়ালেট কানেক্ট করুন (Tonkeeper)' : 'Connect Wallet to Sell'}
-                            </CutCornerButton>
-                        ) : (
-                            <CutCornerButton 
-                                onClick={handleDirectSell} 
-                                disabled={!numAmount || numAmount <= 0 || estimatedTk < 1 || isTonSending} 
-                                isSubmitting={isTonSending}
-                                icon={ArrowRightLeft}
-                            >
-                                {isTonSending 
-                                    ? (lang === 'bn' ? 'ব্লকচেইনে ভেরিফাই হচ্ছে...' : 'Verifying on-chain...') 
-                                    : (lang === 'bn' ? `কনফার্ম ও বিক্রি করুন (৳${estimatedTk} BDT)` : `Confirm & Sell for ৳${estimatedTk} BDT`)}
-                            </CutCornerButton>
-                        )}
+                    <div className="flex justify-between">
+                        <span>Withdrawal Fees</span>
+                        <span className="font-black text-emerald-600 dark:text-emerald-400">0 USDT</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Note:</span>
+                        <span className="font-medium text-slate-500 dark:text-slate-400">⚡ Instant On-Chain Verification</span>
                     </div>
                 </div>
-            </CutCornerCard>
 
-            <ConnectedWalletModal
-                isOpen={showWalletDetails}
-                onClose={() => setShowWalletDetails(false)}
-                userTonAddress={userTonAddress}
-                onDisconnect={async () => {
-                    if (tonConnectUI) await tonConnectUI.disconnect();
-                }}
-                lang={lang}
-            />
+                {/* Error Banner */}
+                {errorMessage && (
+                    <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2.5 flex items-start gap-2">
+                        <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
+                    </div>
+                )}
+
+                {/* 6. BOTTOM BAR (BYBIT STYLE) + PURPLE BUTTON */}
+                <div className={`mt-6 pt-3 border-t flex items-center justify-between gap-4 ${
+                    darkMode ? 'border-slate-800' : 'border-slate-200'
+                }`}>
+                    <div>
+                        <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-white">
+                            ৳{estimatedTk.toLocaleString('en-US')}
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                            Amount Received (আপনি পাবেন)
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={selectedNetwork === 'TON' ? handleDirectSell : handleCheckEvmDeposit}
+                        disabled={selectedNetwork === 'TON' ? (!userTonAddress || !numAmount || numAmount <= 0 || estimatedTk < 1 || isTonSending) : isEvmChecking}
+                        className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
+                    >
+                        {isTonSending || isEvmChecking ? (
+                            <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                            <Zap size={16} fill="currentColor" />
+                        )}
+                        <span>
+                            {selectedNetwork === 'TON'
+                                ? (!userTonAddress ? (lang === 'bn' ? 'কানেক্ট করুন' : 'Connect') : (lang === 'bn' ? 'উইথড্র / সেল' : 'Withdraw'))
+                                : (lang === 'bn' ? 'ডিপোজিট চেক' : 'Check Deposit')}
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            {/* HIGH-RES INTERACTIVE QR CODE MODAL */}
+            {showQrModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
+                    <div className={`w-full max-w-xs p-5 rounded-3xl border shadow-2xl space-y-4 animate-in zoom-in-95 text-center ${
+                        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+                    }`}>
+                        <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-800">
+                            <div className="flex items-center gap-2">
+                                <img src={`${import.meta.env.BASE_URL}${activeNetworkObj.icon}`} alt="" className="w-5 h-5 rounded-full" />
+                                <span className="text-xs font-black uppercase tracking-wider">{activeNetworkObj.shortName} QR Code</span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowQrModal(false)}
+                                className="w-7 h-7 rounded-full flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 cursor-pointer"
+                            >
+                                <X size={15} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-3 bg-white rounded-2xl border border-slate-200 inline-block mx-auto shadow-inner">
+                            <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                                    selectedNetwork === 'TON' ? (userTonAddress || '') : (userEvmAddress || '')
+                                )}`}
+                                alt="QR Code"
+                                className="w-48 h-48 object-contain mx-auto"
+                            />
+                        </div>
+
+                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                            <p className="font-mono text-[10.5px] font-bold text-slate-700 dark:text-slate-300 break-all select-all">
+                                {selectedNetwork === 'TON' ? userTonAddress : userEvmAddress}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const targetAddr = selectedNetwork === 'TON' ? userTonAddress : userEvmAddress;
+                                if (targetAddr) {
+                                    navigator.clipboard.writeText(targetAddr);
+                                    setCopiedAddress(true);
+                                    setTimeout(() => setCopiedAddress(false), 2000);
+                                }
+                            }}
+                            className="w-full h-11 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95 transition-all"
+                        >
+                            <Copy size={14} />
+                            <span>{copiedAddress ? 'এড্রেস কপি হয়েছে!' : 'এড্রেস কপি করুন'}</span>
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -5554,7 +6005,29 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
     }, 0);
 
     return (
-        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-20 max-w-md mx-auto">
+        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-20 max-w-md mx-auto relative">
+            {/* Soft beguni / lavender glow behind flower */}
+            <div
+                className="absolute -right-4 -top-2 w-[190px] h-[170px] pointer-events-none"
+                style={{
+                    background: 'radial-gradient(closest-side, rgba(233,213,255,0.7), rgba(243,232,255,0.25) 60%, transparent)'
+                }}
+            />
+
+            {/* Botanical Rose Botanical Line Art */}
+            <div
+                className="absolute -right-2 -top-4 w-[125px] h-[170px] overflow-hidden pointer-events-none select-none flex items-center justify-end"
+                style={{ WebkitMaskImage: 'linear-gradient(to bottom, black 72%, transparent 100%)', maskImage: 'linear-gradient(to bottom, black 72%, transparent 100%)' }}
+            >
+                <img
+                    src={roseBotanicalArt}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    className="w-full h-auto object-contain opacity-[0.80]"
+                />
+            </div>
+
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2.5">
@@ -5784,330 +6257,363 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
   };
 
   return (
-    <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
-      {/* 1. IDENTITY, THEME MOON TOGGLE & LANGUAGE MASTER CARD */}
-      <CutCornerCard className="p-4" flower={<></>}>
-         <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-               <div className="w-12 h-12 bg-indigo-50 border-2 border-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-black text-lg shrink-0 shadow-xs">
-                  {user?.first_name?.charAt(0)?.toUpperCase() || 'U'}
-               </div>
-               <div className="min-w-0">
-                  <h2 className="text-[15px] font-black text-slate-900 leading-tight truncate">{user?.first_name || 'User'}</h2>
-                  <p className="text-slate-400 text-[11px] font-medium truncate">@{user?.username || 'user'}</p>
-                  <div 
-                     onClick={handleCopyId}
-                     className={`inline-flex items-center gap-1.5 text-[10.5px] font-mono font-bold px-2 py-0.5 rounded cursor-pointer mt-1 transition-all select-none active:scale-95 ${
-                       copiedId
-                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
-                         : 'text-slate-600 bg-slate-100 hover:bg-slate-200/80 border border-slate-200'
-                     }`}
-                     title="Copy Bot ID"
-                  >
-                     <span>ID: {displayId}</span>
-                     {copiedId ? (
-                       <Check size={10} className="text-emerald-600 animate-in zoom-in" />
-                     ) : (
-                       <Copy size={10} className="text-slate-400" />
-                     )}
-                  </div>
-               </div>
+    <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24 relative">
+      {/* 1. EXECUTIVE USER VIP IDENTITY CARD */}
+      <div className={`rounded-3xl border transition-all p-4 shadow-sm relative overflow-hidden ${
+        darkMode 
+          ? 'bg-slate-900/95 border-slate-800 text-white' 
+          : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        {/* Soft aura glow behind card */}
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-gradient-to-bl from-purple-500/15 via-indigo-500/10 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          {/* Avatar & User Details */}
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="relative">
+              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 text-white font-black text-xl flex items-center justify-center shadow-md shadow-purple-600/25 shrink-0 select-none">
+                {user?.first_name?.charAt(0)?.toUpperCase() || 'U'}
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] text-white shadow-2xs font-bold">
+                ✓
+              </div>
             </div>
 
-            {/* Right Column: Dark Mode / Light Mode Toggle Button + Language Switcher Pill */}
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
-               {/* Prominent Dark Mode / Light Mode Toggle Button */}
-               <button
-                  type="button"
-                  onClick={onToggleDarkMode}
-                  title={darkMode ? (lang === 'bn' ? 'লাইট মোড চালু করুন' : 'Switch to Light Mode') : (lang === 'bn' ? 'ডার্ক মোড চালু করুন' : 'Switch to Dark Mode')}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-black transition-all duration-300 active:scale-90 cursor-pointer ${
-                     darkMode
-                        ? 'bg-indigo-950/90 border-indigo-400/50 text-amber-300 shadow-[0_0_14px_rgba(129,140,248,0.3)]'
-                        : 'bg-indigo-50 border-indigo-200/80 text-indigo-700 hover:bg-indigo-100 shadow-2xs'
-                  }`}
-               >
-                  {darkMode ? (
-                     <Sun size={14} className="text-amber-300 shrink-0" />
-                  ) : (
-                     <CrescentMoonIcon size={14} isDark={false} />
-                  )}
-                  <span>{darkMode ? (lang === 'bn' ? 'লাইট মোড' : 'Light Mode') : (lang === 'bn' ? 'ডার্ক মোড' : 'Dark Mode')}</span>
-               </button>
-
-               {/* Language Switcher Pill */}
-               <div className="flex bg-slate-100 p-0.5 rounded-lg gap-0.5 border border-slate-200/60">
-                  <button
-                     type="button"
-                     onClick={() => onSetLang && onSetLang('bn')}
-                     className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                        lang === 'bn' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                     }`}
-                  >
-                     🇧🇩 বাংলা
-                  </button>
-                  <button
-                     type="button"
-                     onClick={() => onSetLang && onSetLang('en')}
-                     className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                        lang === 'en' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                     }`}
-                  >
-                     🇬🇧 Eng
-                  </button>
-               </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-base font-black leading-tight truncate text-slate-900 dark:text-white">
+                  {user?.first_name || 'User'}
+                </h2>
+                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200/70 dark:border-purple-800/60">
+                  VIP 1
+                </span>
+              </div>
+              <p className="text-slate-400 text-xs font-medium truncate mt-0.5">
+                @{user?.username || 'user'}
+              </p>
+              
+              {/* MBS ID Badge with Copy */}
+              <button
+                type="button"
+                onClick={handleCopyId}
+                className={`inline-flex items-center gap-1.5 text-[10.5px] font-mono font-bold px-2.5 py-1 rounded-xl cursor-pointer mt-1.5 transition-all select-none active:scale-95 border ${
+                  copiedId
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
+                    : 'text-slate-600 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 border-slate-200/80 dark:border-slate-700/80'
+                }`}
+                title="Copy ID"
+              >
+                <span>ID: {displayId}</span>
+                {copiedId ? (
+                  <Check size={11} className="text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <Copy size={11} className="text-slate-400" />
+                )}
+              </button>
             </div>
-         </div>
-      </CutCornerCard>
+          </div>
 
-      {/* 2. WEALTH & PAYOUT MASTER CARD */}
-      <CutCornerCard className="p-4 space-y-3.5" flower={<></>}>
-         <div className="flex justify-between items-start">
+          {/* Quick Controls: Dark Mode Toggle + Language Pill */}
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {/* Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={onToggleDarkMode}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer shadow-2xs ${
+                darkMode
+                  ? 'bg-slate-800 border-slate-700 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.2)]'
+                  : 'bg-indigo-50/80 border-indigo-200/80 text-indigo-700 hover:bg-indigo-100'
+              }`}
+            >
+              {darkMode ? <Sun size={14} className="text-amber-300" /> : <CrescentMoonIcon size={14} isDark={false} />}
+              <span>{darkMode ? (lang === 'bn' ? 'লাইট মোড' : 'Light') : (lang === 'bn' ? 'ডার্ক মোড' : 'Dark')}</span>
+            </button>
+
+            {/* Language Switcher Pill */}
+            <div className="flex bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-200/70 dark:border-slate-700/70">
+              <button
+                type="button"
+                onClick={() => onSetLang && onSetLang('bn')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  lang === 'bn' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                }`}
+              >
+                বাংলা
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetLang && onSetLang('en')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  lang === 'en' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                }`}
+              >
+                Eng
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. EXECUTIVE BALANCE & WITHDRAWAL HUB CARD */}
+      <div className={`rounded-3xl border transition-all p-5 shadow-sm space-y-4 relative overflow-hidden ${
+        darkMode 
+          ? 'bg-slate-900/95 border-slate-800 text-white' 
+          : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        {/* Header: Available Balance + Verified Pill */}
+        <div className="flex justify-between items-start">
+          <div>
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">
+              {lang === 'bn' ? 'অ্যাভেইলেবল ব্যালেন্স' : 'Available Balance'}
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
+                {balance}
+              </span>
+              <span className="text-base font-black text-indigo-600 dark:text-indigo-400">
+                BDT
+              </span>
+            </div>
+          </div>
+          
+          <div className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 text-[10.5px] font-black flex items-center gap-1.5 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>{lang === 'bn' ? 'ভেরিফাইড একাউন্ট' : 'Verified'}</span>
+          </div>
+        </div>
+
+        {/* Saved Payout Wallet Box */}
+        <div className={`rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 ${
+          darkMode 
+            ? 'bg-slate-800/50 border-slate-700/70' 
+            : 'bg-slate-50 border-slate-200/80'
+        }`}>
+          {fiatWallet ? (
+            <>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                  <img 
+                    src={getPaymentLogo(fiatWallet.method)} 
+                    alt={fiatWallet.method} 
+                    className="w-full h-full object-contain" 
+                  />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight">
+                    {fiatWallet.method} Wallet
+                  </span>
+                  <span className="text-[11.5px] font-mono font-bold text-slate-600 dark:text-slate-300 block mt-0.5 truncate">
+                    {fiatWallet.number} {fiatWallet.name ? `• ${fiatWallet.name}` : ''}
+                  </span>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setWalletMethod(fiatWallet.method || 'bKash');
+                  setWalletNumber(fiatWallet.number || '');
+                  setWalletName(fiatWallet.name || '');
+                  setShowWalletModal(true);
+                }}
+                className="px-3 py-1.5 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 rounded-xl transition-all border border-slate-200 dark:border-slate-700 shadow-2xs flex items-center gap-1.5 text-xs font-bold active:scale-95 shrink-0 cursor-pointer"
+              >
+                <Edit3 size={13} />
+                <span>{lang === 'bn' ? 'পরিবর্তন' : 'Edit'}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black shrink-0 text-base">
+                  +
+                </div>
+                <div>
+                  <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight">
+                    {lang === 'bn' ? 'কোন ওয়ালেট যুক্ত নেই' : 'No Payout Wallet'}
+                  </span>
+                  <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 block">
+                    {lang === 'bn' ? 'টাকা তুলতে bKash বা Nagad ওয়ালেট যুক্ত করুন' : 'Add bKash or Nagad to cashout'}
+                  </span>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowWalletModal(true)}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-xs font-black shadow-xs active:scale-95 shrink-0 cursor-pointer"
+              >
+                {lang === 'bn' ? '+ যুক্ত করুন' : '+ Add'}
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Primary Withdraw Action Button (Tactile 3D Button with Purple Gradient) */}
+        <button
+          type="button"
+          onClick={handleWithdrawClick}
+          disabled={withdrawing}
+          className="w-full h-[52px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm flex items-center justify-center gap-2.5 border-t border-purple-300/40 shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3,0_6px_12px_rgba(79,70,229,0.25)] transition-all duration-150 disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 cursor-pointer"
+        >
+          <Wallet size={18} />
+          <span>{lang === 'bn' ? 'টাকা তুলুন (WITHDRAW)' : 'WITHDRAW FUNDS'}</span>
+        </button>
+      </div>
+
+      {/* 3. 30-DAY SPIN & STAR GIVEAWAY CARD */}
+      <div
+        onClick={onGoToSpin}
+        className={`p-3.5 rounded-3xl border transition-all cursor-pointer active:scale-[0.99] group shadow-xs hover:shadow-md ${
+          darkMode
+            ? 'bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 border-amber-500/30'
+            : 'bg-gradient-to-r from-amber-50/90 via-orange-50/30 to-white border-amber-200/80'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-2xl bg-amber-100/90 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800/60 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+              <TelegramAnimatedSticker src="tg-heart-gift-sticker.json" size={32} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-black text-slate-900 dark:text-white text-xs sm:text-[13px] leading-tight">
+                  {lang === 'bn' ? '৩০ দিনের মেগা স্পিন ও স্টার গিভওয়ে' : '30-Day Spin & Star Giveaway'}
+                </span>
+                <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white rounded-full text-[9px] font-black tracking-wide shadow-2xs">
+                  STAR GIFT & ৳500
+                </span>
+              </div>
+              <span className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold block mt-1 leading-snug">
+                {lang === 'bn' ? 'ডেইলি ফ্রি স্পিন, রেফার ও অ্যাড দেখে স্পিন করুন!' : 'Daily free spin, referral spin & watch 3 ads for spin!'}
+              </span>
+            </div>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-amber-100/90 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-all shadow-2xs">
+            <ChevronRight size={16} />
+          </div>
+        </div>
+      </div>
+
+      {/* 4. REFER & EARN CARD */}
+      <div
+        onClick={onGoToReferral}
+        className={`p-3.5 rounded-3xl border transition-all cursor-pointer active:scale-[0.99] group shadow-xs hover:shadow-md ${
+          darkMode
+            ? 'bg-gradient-to-r from-rose-950/30 via-slate-900 to-slate-900 border-rose-500/30'
+            : 'bg-gradient-to-r from-rose-50/90 via-pink-50/30 to-white border-rose-200/80'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-2xl bg-rose-100/90 dark:bg-rose-950/60 border border-rose-200/80 dark:border-rose-800/60 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+              <TelegramAnimatedSticker src="tg-rose-sticker.json" size={32} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-black text-slate-900 dark:text-white text-xs sm:text-[13px] leading-tight">
+                  {lang === 'bn' ? 'রেফার করুন এবং আয় করুন' : 'Refer Friends & Earn'}
+                </span>
+                <span className="px-2 py-0.5 bg-gradient-to-r from-rose-600 to-pink-600 text-white rounded-full text-[9px] font-black tracking-wide shadow-2xs">
+                  +৳5 / REF
+                </span>
+              </div>
+              <span className={`text-[11px] ${darkMode ? 'text-rose-300' : 'text-rose-700/85'} font-semibold inline-flex items-center gap-1 mt-1 leading-snug`}>
+                <span>{lang === 'bn' ? 'প্রতি সক্রিয় রেফারে ইনস্ট্যান্ট ৳৫ বোনাস পান' : 'Get instant ৳5 BDT per active referral'}</span>
+                <CustomRoseIcon size={13} />
+              </span>
+            </div>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-rose-100/90 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-all shadow-2xs">
+            <ChevronRight size={16} />
+          </div>
+        </div>
+      </div>
+
+      {/* 5. SERVICES & NAVIGATION MENU CARD */}
+      <div className={`p-2.5 rounded-3xl border transition-all shadow-sm space-y-1 ${
+        darkMode 
+          ? 'bg-slate-900/95 border-slate-800 text-white' 
+          : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        {/* History Row */}
+        <div 
+          onClick={onGoToHistory} 
+          className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/50 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform shrink-0 border border-purple-100 dark:border-purple-800/60 shadow-2xs">
+              <Clock size={17} />
+            </div>
             <div>
-               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
-                  {t?.availableBal || 'Available Balance'}
-               </span>
-               <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-black text-slate-900">{balance}</span>
-                  <span className="text-sm font-black text-indigo-600">TK</span>
-               </div>
+              <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight">
+                {lang === 'bn' ? 'ট্রানজ্যাকশন হিস্ট্রি' : 'Transaction History'}
+              </span>
+              <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+                {lang === 'bn' ? 'সকল লেনদেন ও উইথড্রয়ের বিস্তারিত বিবরণ' : 'All buys, sells & withdrawals'}
+              </span>
             </div>
-            <div className="px-2.5 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full text-[10px] font-black">
-               ✓ Verified
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
+        </div>
+
+        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+
+        {/* Customer Support Row */}
+        <div 
+          onClick={() => { setShowSupportModal(true); setSupportFeedback(null); }} 
+          className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform shrink-0 border border-indigo-100 dark:border-indigo-800/60 shadow-2xs">
+              <Headphones size={17} />
             </div>
-         </div>
-
-         {/* Saved Payout Wallet with Edit Icon */}
-         <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex items-center justify-between">
-            {fiatWallet ? (
-               <>
-                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                     <div className="w-10 h-10 rounded-xl tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
-                        <img 
-                           src={getPaymentLogo(fiatWallet.method)} 
-                           alt={fiatWallet.method} 
-                           className="w-full h-full object-contain" 
-                        />
-                     </div>
-                     <div className="min-w-0">
-                        <span className="text-[12px] font-black text-slate-900 block leading-tight">{fiatWallet.method} Wallet</span>
-                        <span className="text-[11px] font-mono font-bold text-slate-600 block mt-0.5 truncate">
-                           {fiatWallet.number} {fiatWallet.name ? `• ${fiatWallet.name}` : ''}
-                        </span>
-                     </div>
-                  </div>
-                  <button 
-                     type="button" 
-                     onClick={() => {
-                        setWalletMethod(fiatWallet.method || 'bKash');
-                        setWalletNumber(fiatWallet.number || '');
-                        setWalletName(fiatWallet.name || '');
-                        setShowWalletModal(true);
-                     }}
-                     className="p-1.5 bg-white text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all border border-slate-200 shadow-xs flex items-center gap-1 text-[11px] font-bold active:scale-95 shrink-0"
-                  >
-                     <Edit3 size={13} />
-                     <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
-                  </button>
-               </>
-            ) : (
-               <>
-                  <div className="flex items-center gap-2.5">
-                     <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 font-bold shrink-0">
-                        +
-                     </div>
-                     <div>
-                        <span className="text-[12px] font-black text-slate-800 block">
-                           {lang === 'bn' ? 'ওয়ালেট যুক্ত নেই' : 'No Payout Wallet'}
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                           {lang === 'bn' ? 'টাকা তুলতে bKash বা Nagad যোগ করুন' : 'Add bKash/Nagad to cashout'}
-                        </span>
-                     </div>
-                  </div>
-                  <button 
-                     type="button" 
-                     onClick={() => setShowWalletModal(true)}
-                     className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-[11px] font-bold shadow-xs active:scale-95"
-                  >
-                     {lang === 'bn' ? '+ যোগ করুন' : '+ Add'}
-                  </button>
-               </>
-            )}
-         </div>
-
-         {/* Primary Withdraw Action Button */}
-         <CutCornerButton 
-            onClick={handleWithdrawClick} 
-            disabled={withdrawing} 
-            icon={Wallet}
-         >
-            {t?.withdrawBalance || 'WITHDRAW BALANCE'}
-         </CutCornerButton>
-      </CutCornerCard>
-
-      {/* 2.4 30-DAY SPIN & STAR GIVEAWAY MASTER CARD */}
-      <CutCornerCard
-         className={`p-3 border ${
-            darkMode
-               ? 'bg-slate-900 border-amber-500/35'
-               : 'bg-gradient-to-br from-amber-50/95 via-white to-rose-50/90 border-amber-200/80'
-         }`}
-         flower={<CardRoseBranch />}
-      >
-         <div
-            onClick={onGoToSpin}
-            className="flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group p-1"
-         >
-            <div className="flex items-center gap-3 min-w-0">
-               <div className="w-10 h-10 rounded-xl bg-amber-100/90 border border-amber-200/80 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-                  <TelegramAnimatedSticker src="tg-heart-gift-sticker.json" size={30} />
-               </div>
-               <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                     <span className="font-black text-slate-900 text-[13px] leading-tight">
-                        {lang === 'bn' ? '৩০ দিনের মেগা স্পিন ও স্টার গিভওয়ে' : '30-Day Spin & Star Giveaway'}
-                     </span>
-                     <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white rounded-full text-[9px] font-black tracking-wide shadow-xs">
-                        STAR GIFT & ৳500
-                     </span>
-                  </div>
-                  <span className="text-[10.5px] text-amber-700 font-semibold block mt-0.5">
-                     {lang === 'bn' ? 'ডেইলি ফ্রি স্পিন, রেফার স্পিন ও ৩টি অ্যাড দেখে স্পিন করুন!' : 'Daily free spin, referral spin & watch 3 ads for spin!'}
-                  </span>
-               </div>
+            <div>
+              <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight">
+                {lang === 'bn' ? 'কাস্টমার সাপোর্ট' : 'Customer Support'}
+              </span>
+              <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+                {lang === 'bn' ? 'সরাসরি হেল্পলাইন ও অ্যাডমিনের সহায়তা' : 'Direct Helpline'}
+              </span>
             </div>
-            <div className="w-7 h-7 rounded-full bg-amber-100/90 text-amber-700 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-all">
-               <ChevronRight size={15} />
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
+        </div>
+
+        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+
+        {/* Video Guide Row */}
+        <div 
+          onClick={() => {
+            if (window.Telegram?.WebApp?.openLink) {
+              window.Telegram.WebApp.openLink('https://youtu.be/iimWerd2dPI');
+            } else {
+              window.open('https://youtu.be/iimWerd2dPI', '_blank');
+            }
+          }} 
+          className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/50 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover:scale-105 transition-transform shrink-0 border border-rose-100 dark:border-rose-800/60 shadow-2xs">
+              <PlayCircle size={17} />
             </div>
-         </div>
-      </CutCornerCard>
-
-      {/* 2.5 ROSE REFERRAL & EARN MASTER CARD */}
-      <CutCornerCard
-         className={`p-3 border ${
-            darkMode
-               ? 'bg-slate-900 border-rose-500/30'
-               : 'bg-gradient-to-br from-rose-50/95 via-white to-pink-50/90 border-rose-200/80'
-         }`}
-         flower={<CardRoseBranch />}
-      >
-         <div
-            onClick={onGoToReferral}
-            className="flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group p-1"
-         >
-            <div className="flex items-center gap-3 min-w-0">
-               <div className="w-10 h-10 rounded-xl bg-rose-100/90 border border-rose-200/80 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-                  <TelegramAnimatedSticker src="tg-rose-sticker.json" size={30} />
-               </div>
-               <div className="min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                     <span className="font-black text-slate-900 text-[13px] leading-tight">
-                        {lang === 'bn' ? 'রেফার করুন এবং আয় করুন' : 'Refer Friends & Earn'}
-                     </span>
-                     <span className="px-2 py-0.5 bg-rose-600 text-white rounded-full text-[9px] font-black tracking-wide shadow-xs">
-                        +৳5 / REF
-                     </span>
-                  </div>
-                  <span className={`text-[10.5px] ${darkMode ? 'text-rose-300' : 'text-rose-700/85'} font-semibold inline-flex items-center gap-1 mt-0.5`}>
-                     <span>{lang === 'bn' ? 'প্রতি অ্যাক্টিভ রেফারে নগদ ৫ টাকা বোনাস পান' : 'Get instant ৳5 BDT per active referral'}</span>
-                     <CustomRoseIcon size={13} />
-                  </span>
-               </div>
+            <div>
+              <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight">
+                {lang === 'bn' ? 'কীভাবে কেনাবেচা করবেন?' : 'How to Buy & Sell?'}
+              </span>
+              <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+                {lang === 'bn' ? 'ভিডিও টিউটোরিয়াল দেখে সহজে শিখুন' : 'Watch step-by-step video tutorial'}
+              </span>
             </div>
-            <div className="w-7 h-7 rounded-full bg-rose-100/90 text-rose-600 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-all">
-               <ChevronRight size={15} />
-            </div>
-         </div>
-      </CutCornerCard>
-
-      {/* 3. HISTORY & SUPPORT SERVICES MASTER CARD */}
-      <CutCornerCard className="p-2 space-y-1" flower={<></>}>
-         {/* History Row */}
-         <div 
-            onClick={onGoToHistory} 
-            className="p-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
-         >
-            <div className="flex items-center gap-3">
-               <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform shrink-0 border border-indigo-100">
-                  <Clock size={16} />
-               </div>
-               <div>
-                  <span className="font-bold text-slate-900 block text-[12px] leading-tight">
-                     {t?.transactionHistory || 'Transaction History'}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-medium">
-                     {t?.transactionHistorySub || 'All buys, sells & withdrawals'}
-                  </span>
-               </div>
-            </div>
-            <ChevronRight size={15} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
-         </div>
-
-         <div className="h-px bg-slate-100 w-full" />
-
-         {/* Customer Support Row */}
-         <div 
-            onClick={() => { setShowSupportModal(true); setSupportFeedback(null); }} 
-            className="p-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
-         >
-            <div className="flex items-center gap-3">
-               <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform shrink-0 border border-indigo-100">
-                  <Headphones size={16} />
-               </div>
-               <div>
-                  <span className="font-bold text-slate-900 block text-[12px] leading-tight">
-                     {t?.customerSupport || 'সাপোর্ট ও সাহায্য'}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-medium">
-                     {t?.customerSupportSub || 'সরাসরি অ্যাডমিন টিমের সাথে যোগাযোগ'}
-                  </span>
-               </div>
-            </div>
-            <ChevronRight size={15} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
-         </div>
-
-         <div className="h-px bg-slate-100 w-full" />
-
-         {/* How to Buy & Sell Video Guide Row */}
-         <div 
-            onClick={() => {
-               if (window.Telegram?.WebApp?.openLink) {
-                  window.Telegram.WebApp.openLink('https://youtu.be/iimWerd2dPI');
-               } else {
-                  window.open('https://youtu.be/iimWerd2dPI', '_blank');
-               }
-            }} 
-            className="p-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
-         >
-            <div className="flex items-center gap-3">
-               <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600 group-hover:scale-105 transition-transform shrink-0 border border-rose-100">
-                  <PlayCircle size={16} />
-               </div>
-               <div>
-                  <span className="font-bold text-slate-900 block text-[12px] leading-tight">
-                     {lang === 'bn' ? 'কীভাবে বাই-সেল করবেন' : 'How to Buy & Sell'}
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-medium">
-                     {lang === 'bn' ? 'টিউটোরিয়াল ভিডিও দেখে সহজে শিখুন' : 'Watch step-by-step video tutorial'}
-                  </span>
-               </div>
-            </div>
-            <ChevronRight size={15} className="text-slate-400 group-hover:text-rose-500 transition-colors" />
-         </div>
-      </CutCornerCard>
-
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-rose-500 dark:group-hover:text-rose-400 transition-colors" />
+        </div>
+      </div>
 
       {/* Support Message Modal */}
       {showSupportModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div 
-                  className="relative bg-white w-full max-w-[340px] p-5 shadow-2xl border border-indigo-100/60 animate-in zoom-in-95"
-                  style={{
-                      clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
-                  }}
-              >
-                  <FloralWatermark />
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className={`relative w-full max-w-[340px] p-6 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 duration-200 overflow-hidden ${
+                darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+              }`}>
                   <div className="flex justify-between items-center mb-3 relative z-10">
                       <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
@@ -6234,14 +6740,10 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
       )}
       {/* Wallet Setup Modal */}
       {showWalletModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-              <div 
-                  className="relative bg-white w-full max-w-[320px] p-6 shadow-2xl border border-indigo-100/60 animate-in zoom-in-95 slide-in-from-bottom-4"
-                  style={{
-                      clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
-                  }}
-              >
-                  <FloralWatermark />
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className={`relative w-full max-w-[340px] p-6 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 slide-in-from-bottom-4 overflow-hidden ${
+                darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+              }`}>
                   <div className="flex justify-between items-center mb-5 relative z-10">
                       <h3 className="text-xl font-extrabold text-slate-900">Wallet Setup</h3>
                       <button onClick={() => setShowWalletModal(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:text-gray-800">
@@ -6293,45 +6795,46 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                   </div>
 
                   <div className="mt-6">
-                      <CutCornerButton 
-                          onClick={handleSaveWallet} 
-                          disabled={!walletNumber || !walletName || isSaving} 
-                          isSubmitting={isSaving}
-                          icon={Save}
+                      <button
+                          type="button"
+                          onClick={handleSaveWallet}
+                          disabled={!walletNumber || !walletName || isSaving}
+                          className="w-full h-[48px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md disabled:opacity-50 cursor-pointer"
                       >
-                          {lang === 'bn' ? 'ওয়ালেট সেভ করুন' : 'SAVE WALLET'}
-                      </CutCornerButton>
+                          {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                          <span>{lang === 'bn' ? 'ওয়ালেট সেভ করুন' : 'SAVE WALLET'}</span>
+                      </button>
                   </div>
               </div>
           </div>
       )}
 
       {txStatus && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
-           <div 
-               className="relative bg-white w-full max-w-[300px] p-6 flex flex-col items-center text-center shadow-2xl border border-indigo-100/60 animate-in zoom-in-95 slide-in-from-bottom-4"
-               style={{
-                   clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
-               }}
-           >
-              <FloralWatermark />
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200">
+           <div className={`relative w-full max-w-[320px] p-6 flex flex-col items-center text-center rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 slide-in-from-bottom-4 overflow-hidden ${
+             darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+           }`}>
               <div className="relative z-10 w-full flex flex-col items-center">
                   {txStatus === 'success' ? (
-                     <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-                        <CheckCircle2 size={32} className="text-emerald-600" />
+                     <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mb-4 border border-emerald-200 dark:border-emerald-800/60">
+                        <CheckCircle2 size={32} />
                      </div>
                   ) : (
-                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                        <AlertCircle size={32} className="text-red-600" />
+                     <div className="w-16 h-16 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-full flex items-center justify-center mb-4 border border-rose-200 dark:border-rose-800/60">
+                        <AlertCircle size={32} />
                      </div>
                   )}
-                  <h3 className={`text-xl font-extrabold mb-2 ${txStatus === 'success' ? 'text-emerald-600' : 'text-red-600'}`}>
+                  <h3 className={`text-xl font-black mb-2 ${txStatus === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                      {txStatus === 'success' ? (lang === 'bn' ? 'সফল হয়েছে!' : 'Success!') : (lang === 'bn' ? 'ব্যর্থ হয়েছে' : 'Error')}
                   </h3>
-                  <p className="text-[13px] font-semibold text-slate-500 mb-6">{txMessage}</p>
-                  <CutCornerButton onClick={() => setTxStatus(null)} variant="secondary">
+                  <p className="text-[13px] font-semibold text-slate-500 dark:text-slate-400 mb-6">{txMessage}</p>
+                  <button
+                     type="button"
+                     onClick={() => setTxStatus(null)}
+                     className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                  >
                      {lang === 'bn' ? 'ঠিক আছে' : 'Close'}
-                  </CutCornerButton>
+                  </button>
               </div>
            </div>
         </div>
@@ -6810,6 +7313,7 @@ const SPIN_WHEEL_SLICES = [
     index: 0,
     id: '1_tk',
     title: '৳1 TK',
+    emoji: '🪙',
     subtitleBn: 'নগদ বোনাস',
     subtitleEn: 'Instant Cash',
     sticker: 'tg-coin-sticker.json',
@@ -6821,6 +7325,7 @@ const SPIN_WHEEL_SLICES = [
     index: 1,
     id: '5_tk',
     title: '৳5 TK',
+    emoji: '🌟',
     subtitleBn: 'লাকি ক্যাশ',
     subtitleEn: 'Lucky Cash',
     sticker: 'tg-star-sticker.json',
@@ -6832,6 +7337,7 @@ const SPIN_WHEEL_SLICES = [
     index: 2,
     id: '10_tk',
     title: '৳10 TK',
+    emoji: '💵',
     subtitleBn: 'সুপার ক্যাশ',
     subtitleEn: 'Super Cash',
     sticker: 'tg-cash-sticker.json',
@@ -6843,6 +7349,7 @@ const SPIN_WHEEL_SLICES = [
     index: 3,
     id: '20_tk',
     title: '৳20 TK',
+    emoji: '🔥',
     subtitleBn: 'হট প্রাইজ',
     subtitleEn: 'Hot Prize',
     sticker: 'tg-fire-sticker.json',
@@ -6854,6 +7361,7 @@ const SPIN_WHEEL_SLICES = [
     index: 4,
     id: 'teddy',
     title: 'Star Gift',
+    emoji: '💝',
     subtitleBn: '💝 স্টার গিফট',
     subtitleEn: '💝 Star Gift',
     sticker: 'tg-heart-gift-sticker.json',
@@ -6866,6 +7374,7 @@ const SPIN_WHEEL_SLICES = [
     index: 5,
     id: '100_tk',
     title: '৳100 TK',
+    emoji: '💰',
     subtitleBn: 'রয়েল ক্যাশ',
     subtitleEn: 'Royal Cash',
     sticker: 'tg-moneybag-sticker.json',
@@ -6877,6 +7386,7 @@ const SPIN_WHEEL_SLICES = [
     index: 6,
     id: 'again',
     title: 'Again',
+    emoji: '🎯',
     subtitleBn: 'আবার চেষ্টা করুন',
     subtitleEn: 'Try Later',
     sticker: 'tg-target-sticker.json',
@@ -6888,6 +7398,7 @@ const SPIN_WHEEL_SLICES = [
     index: 7,
     id: '500_tk',
     title: '৳500 TK',
+    emoji: '🏆',
     subtitleBn: 'মেগা ক্যাশ',
     subtitleEn: 'Mega Cash',
     sticker: 'tg-trophy-sticker.json',
@@ -6899,6 +7410,7 @@ const SPIN_WHEEL_SLICES = [
     index: 8,
     id: '1_usd',
     title: '$1 USD',
+    emoji: '💎',
     subtitleBn: '≈ ৳১২০ টাকা',
     subtitleEn: '≈ ৳120 BDT',
     sticker: 'tg-gem-sticker.json',
@@ -6941,6 +7453,7 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
   const [isSpinning, setIsSpinning] = useState(false);
   const [wheelRotation, setWheelRotation] = useState(0);
   const wheelRotationRef = useRef(0);
+  const wheelDomRef = useRef(null);
   const spinAnimRef = useRef(null);
   const [pointerKick, setPointerKick] = useState(false);
   const [activeSliceIndex, setActiveSliceIndex] = useState(0);
@@ -6981,54 +7494,8 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
     };
   }, [userId]);
 
-  // Ensure Monetag (Zone 12077323) & Adsgram scripts are loaded + trigger Monetag In-App Interstitial preload
-  useEffect(() => {
-    const zoneId = String(spinStatus.monetagZoneId || '12077323').trim();
-    if (zoneId) {
-      const scriptId = `monetag-sdk-${zoneId}`;
-      if (!document.getElementById(scriptId) && !document.querySelector(`script[data-zone="${zoneId}"]`)) {
-        const s = document.createElement('script');
-        s.id = scriptId;
-        s.src = '//libtl.com/sdk.js';
-        s.setAttribute('data-zone', zoneId);
-        s.setAttribute('data-sdk', `show_${zoneId}`);
-        s.async = true;
-        document.head.appendChild(s);
-      }
-      const initInAppTimer = setTimeout(() => {
-        const fn = window[`show_${zoneId}`];
-        if (typeof fn === 'function' && !window.__tpMonetagInAppInitialized) {
-          window.__tpMonetagInAppInitialized = true;
-          try {
-            fn({
-              type: 'inApp',
-              inAppSettings: {
-                frequency: 2,
-                capping: 0.1,
-                interval: 30,
-                timeout: 5,
-                everyPage: false
-              }
-            });
-          } catch (_) {}
-        }
-      }, 1200);
-      return () => clearTimeout(initInAppTimer);
-    }
-  }, [spinStatus.monetagZoneId]);
-
-  useEffect(() => {
-    if (spinStatus.adsgramBlockId) {
-      const scriptId = 'adsgram-sdk-script';
-      if (!document.getElementById(scriptId)) {
-        const s = document.createElement('script');
-        s.id = scriptId;
-        s.src = 'https://sad.adsgram.ai/js/sad.min.js';
-        s.async = true;
-        document.head.appendChild(s);
-      }
-    }
-  }, [spinStatus.adsgramBlockId]);
+  // External ad scripts are deferred and loaded on-demand when user clicks 'Watch Ad'
+  // (Prevents freezing the mobile UI on spin page navigation)
 
   // Live 1-second tick for 30-Day Event Countdown & 24h Daily Free Spin Cooldown
   useEffect(() => {
@@ -7088,7 +7555,9 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
       const currentAngle = startAngle + totalSpinDeg * eased;
 
       wheelRotationRef.current = currentAngle;
-      setWheelRotation(currentAngle);
+      if (wheelDomRef.current) {
+        wheelDomRef.current.style.transform = `rotate(${currentAngle}deg)`;
+      }
 
       const currentSectorTick = Math.floor((currentAngle + 20) / 40);
       if (currentSectorTick !== lastSectorTick) {
@@ -7138,7 +7607,9 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
     if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
     const preSpinLoop = () => {
       wheelRotationRef.current += 11;
-      setWheelRotation(wheelRotationRef.current);
+      if (wheelDomRef.current) {
+        wheelDomRef.current.style.transform = `rotate(${wheelRotationRef.current}deg)`;
+      }
       spinAnimRef.current = requestAnimationFrame(preSpinLoop);
     };
     spinAnimRef.current = requestAnimationFrame(preSpinLoop);
@@ -7462,11 +7933,13 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
                 );
               })}
 
-              {/* ROTATING INNER WHEEL DISC (DRIVEN BY 60FPS RAF) */}
+              {/* ROTATING INNER WHEEL DISC (DRIVEN BY 60FPS RAF - HARDWARE ACCELERATED) */}
               <div
+                ref={wheelDomRef}
                 className="relative w-full h-full rounded-full overflow-hidden border-[2.5px] border-slate-950/90 shadow-inner"
                 style={{
-                  transform: `rotate(${wheelRotation}deg)`
+                  transform: `rotate(${wheelRotation}deg)`,
+                  willChange: 'transform'
                 }}
               >
                 {/* SVG 9-Sector Radial Wheel Background */}
@@ -7538,7 +8011,9 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
                         style={{ minWidth: 46 }}
                       >
                         <div className="w-6 h-6 flex items-center justify-center">
-                          <TelegramAnimatedSticker src={slice.sticker} size={24} />
+                          <span className="text-[17px] leading-none select-none drop-shadow-xs">
+                            {slice.emoji}
+                          </span>
                         </div>
 
                         <span
@@ -8017,37 +8492,67 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
     const currentReceive = amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 ? Math.max(0, parseFloat(amount) - currentFee) : 0;
 
     return (
-        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
+        <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24">
             {/* Header */}
-            <div className="flex items-center gap-3 mb-4">
-                <button onClick={onBack} className="p-2 bg-white rounded-full premium-shadow text-[var(--color-text-primary)] active:scale-95 transition-transform border border-gray-100">
+            <div className="flex items-center gap-3 mb-2">
+                <button 
+                    type="button"
+                    onClick={onBack} 
+                    className="w-10 h-10 bg-white/95 dark:bg-slate-900/90 rounded-2xl flex items-center justify-center text-slate-700 dark:text-slate-300 active:scale-95 transition-all border border-slate-200/90 dark:border-slate-800 shadow-xs cursor-pointer"
+                >
                     <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
                 </button>
                 <div>
-                    <h2 className="text-[15px] font-extrabold text-[var(--color-text-primary)] leading-tight">
-                        {t?.withdrawFunds || 'Withdraw Funds'}
+                    <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">
+                        {t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'Withdraw Funds')}
                     </h2>
-                    <p className="text-[var(--color-text-secondary)] text-[12px] font-medium">
-                        {lang === 'bn' ? `${fiatWallet?.method || 'ওয়ালেট'}-এ ক্যাশআউট` : `Cashout to ${fiatWallet?.method || 'Wallet'}`}
+                    <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold">
+                        {lang === 'bn' ? `${fiatWallet?.method || 'ওয়ালেট'}-এ ইনস্ট্যান্ট ক্যাশআউট` : `Instant Cashout to ${fiatWallet?.method || 'Wallet'}`}
                     </p>
                 </div>
             </div>
 
-            {/* Optional Small Status Badge for Pending without blocking */}
+            {/* Available Balance Executive Card */}
+            <div className="p-4 rounded-3xl bg-gradient-to-r from-purple-600/10 via-indigo-600/10 to-violet-600/10 border border-purple-500/20 dark:border-purple-500/30 flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-sm shrink-0">
+                        <Wallet size={19} />
+                    </div>
+                    <div>
+                        <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                            {lang === 'bn' ? 'উত্তোলনযোগ্য ব্যালেন্স' : 'Available Balance'}
+                        </p>
+                        <p className="text-xl font-black text-slate-900 dark:text-white leading-none mt-0.5">
+                            ৳{balance.toFixed(2)} <span className="text-xs font-bold text-purple-600 dark:text-purple-400">BDT</span>
+                        </p>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleMax}
+                    className="px-3.5 py-1.5 rounded-xl bg-purple-600 text-white hover:bg-purple-700 text-xs font-black transition-all active:scale-95 cursor-pointer shadow-xs"
+                >
+                    MAX
+                </button>
+            </div>
+
+            {/* Optional Status Badge for Pending without blocking */}
             {fiatWithdrawPending && fiatWithdrawPending.status === 'pending' && (
-                <div className="bg-amber-50 border border-amber-200/80 p-3 rounded-2xl flex items-center justify-between gap-3 shadow-sm">
+                <div className="p-3.5 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 shadow-xs">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 bg-amber-500/20 text-amber-600 rounded-full flex items-center justify-center shrink-0">
-                            <Clock size={15} />
+                        <div className="w-9 h-9 bg-amber-500/20 text-amber-600 rounded-2xl flex items-center justify-center shrink-0">
+                            <Clock size={17} />
                         </div>
                         <div>
-                            <p className="text-[12px] font-bold text-amber-800">
-                                {lang === 'bn' ? 'প্রক্রিয়াধীন:' : 'Processing:'} ৳{fiatWithdrawPending.amount} TK
+                            <p className="text-xs font-black text-amber-900 dark:text-amber-300">
+                                {lang === 'bn' ? 'প্রক্রিয়াধীন:' : 'Processing:'} ৳{fiatWithdrawPending.amount} BDT
                             </p>
-                            <p className="text-[11px] text-amber-600">via {fiatWithdrawPending.method} ({fiatWithdrawPending.number})</p>
+                            <p className="text-[11px] text-amber-700/80 dark:text-amber-400 font-semibold">
+                                via {fiatWithdrawPending.method} ({fiatWithdrawPending.number})
+                            </p>
                         </div>
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-800 px-2 py-0.5 rounded-md">
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-800 dark:text-amber-300 px-2.5 py-1 rounded-xl border border-amber-500/30">
                         {t?.inProgress || 'In Progress'}
                     </span>
                 </div>
@@ -8055,13 +8560,13 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
 
             {/* Anti-Abuse Notification Banner for Deposit Users */}
             {isDepositUser && spentSinceLastDeposit < 20 && (
-                <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-3.5 text-xs flex items-start gap-3 shadow-xs">
-                    <span className="text-lg leading-none shrink-0">⚠️</span>
+                <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-3xl p-4 text-xs flex items-start gap-3 shadow-xs">
+                    <span className="text-xl leading-none shrink-0">⚠️</span>
                     <div className="space-y-1">
-                        <p className="font-extrabold text-[#92400E] text-[13px] leading-tight">
+                        <p className="font-black text-amber-900 dark:text-amber-300 text-[13px] leading-tight">
                             {lang === 'bn' ? 'উইথড্র নিরাপত্তা নীতি (Policy)' : 'Withdrawal Policy'}
                         </p>
-                        <p className="text-[#B45309] font-medium text-[12px] leading-relaxed">
+                        <p className="text-amber-800 dark:text-amber-400 font-semibold text-xs leading-relaxed">
                             {lang === 'bn' 
                                 ? `অ্যাড মানি করার পর উইথড্র চালু করতে নূন্যতম ২০ টাকার ক্রিপ্টো ক্রয় সম্পন্ন করুন। খরচ বাকি: ৳${Math.max(0, 20 - spentSinceLastDeposit)} টাকা।` 
                                 : `Please purchase at least 20 BDT crypto to unlock withdrawals. Remaining: ৳${Math.max(0, 20 - spentSinceLastDeposit)} BDT.`}
@@ -8070,59 +8575,72 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                 </div>
             )}
 
-            {/* Amount Input Card */}
-            <CutCornerCard className="p-3.5 space-y-2.5" flower={<WithdrawLilyPattern />}>
-                <label className="flex justify-between items-center mb-2">
-                    <span className="text-[11px] font-extrabold text-[var(--color-text-secondary)] uppercase tracking-[0.15em]">
+            {/* Amount Input Card (Executive Rounded-3xl Card) */}
+            <div className="p-5 rounded-3xl bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3">
+                <div className="flex justify-between items-center">
+                    <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         {lang === 'bn' ? `উত্তোলনের পরিমাণ (${isDepositUser ? 'মিনিমাম ৩০' : 'মিনিমাম ২০'} BDT)` : `Amount (Min ${minAmount} BDT)`}
                     </span>
-                    <span className="text-[12px] font-bold text-[var(--color-text-primary)]">
-                        {lang === 'bn' ? `ব্যালেন্স: ৳${balance.toFixed(2)}` : `Bal: ৳${balance.toFixed(2)}`}
+                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                        {isDepositUser ? 'Min ৳30' : 'Min ৳20'}
                     </span>
-                </label>
+                </div>
                 <div className="relative flex items-center">
-                    <span className="absolute left-3.5 text-gray-400 font-bold text-lg">৳</span>
+                    <span className="absolute left-4 text-purple-600 font-black text-2xl select-none">৳</span>
                     <input 
                         type="number" 
                         value={amount} 
                         onChange={(e) => setAmount(e.target.value)} 
-                        placeholder={isDepositUser ? "Min 30.00" : "Min 20.00"} 
-                        className="w-full h-[50px] bg-gray-50 border border-gray-100 rounded-xl pl-8 pr-16 font-black text-xl text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:bg-white focus:ring-2 focus:ring-[var(--color-brand)]/10 transition-all placeholder:text-gray-300"
+                        placeholder={isDepositUser ? "30.00" : "20.00"} 
+                        className="w-full h-[56px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl pl-10 pr-20 font-black text-2xl text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:bg-white dark:focus:bg-slate-800 focus:ring-4 focus:ring-purple-500/10 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
                     />
-                    <button onClick={handleMax} className="absolute right-2.5 px-2.5 py-1 bg-[var(--color-brand)]/10 text-[var(--color-brand)] font-bold text-[11px] rounded-lg active:scale-95 transition-transform">MAX</button>
+                    <button 
+                        type="button"
+                        onClick={handleMax} 
+                        className="absolute right-3 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl active:scale-95 transition-all shadow-xs cursor-pointer"
+                    >
+                        MAX
+                    </button>
                 </div>
-            </CutCornerCard>
+            </div>
 
             {/* Live Fee Breakdown */}
             {amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 && (
-                <CutCornerCard className="p-3 space-y-1.5 text-[12px]" flower={<WithdrawLilyPattern />}>
-                    <div className="flex justify-between items-center">
-                        <span className="text-slate-600 font-medium">{lang === 'bn' ? 'উত্তোলনের পরিমাণ' : 'Withdraw Amount'}</span>
-                        <span className="font-bold text-slate-900">৳ {parseFloat(amount).toFixed(2)}</span>
+                <div className="p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-2 text-xs">
+                    <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 font-bold">
+                        <span>{lang === 'bn' ? 'উত্তোলনের পরিমাণ:' : 'Withdraw Amount:'}</span>
+                        <span className="font-bold text-slate-900 dark:text-white">৳{parseFloat(amount).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-red-500 font-medium">{lang === 'bn' ? 'সেন্ড মানি ফি' : 'Send Money Fee'}</span>
-                        <span className="font-bold text-red-500">- ৳ {currentFee.toFixed(2)}</span>
+                    <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 font-bold">
+                        <span>{lang === 'bn' ? 'সেন্ড মানি ফি (Cashout Fee):' : 'Send Money Fee:'}</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                            {currentFee === 0 ? (lang === 'bn' ? 'ফ্রি (৳০.০০)' : 'FREE (৳0.00)') : `- ৳${currentFee.toFixed(2)}`}
+                        </span>
                     </div>
-                    <div className="h-px bg-slate-200 my-1 w-full" />
-                    <div className="flex justify-between items-center text-[12px]">
-                        <span className="text-emerald-700 font-bold">{t?.youReceive || (lang === 'bn' ? 'আপনি পাবেন' : 'You will receive')}</span>
-                        <span className="font-black text-emerald-700 text-[13px]">৳ {currentReceive.toFixed(2)}</span>
+                    <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 w-full" />
+                    <div className="flex justify-between items-center text-xs pt-0.5">
+                        <span className="text-slate-900 dark:text-white font-black text-sm">{t?.youReceive || (lang === 'bn' ? 'আপনি পাবেন' : 'You will receive')}</span>
+                        <span className="font-black text-emerald-600 dark:text-emerald-400 text-base font-mono">৳{currentReceive.toFixed(2)}</span>
                     </div>
-                </CutCornerCard>
+                </div>
             )}
 
-            {/* Saved Wallet Info with Edit Icon Aligned Right and Floral Underneath */}
-            <CutCornerCard className="p-3.5" flower={<WithdrawLilyPattern />}>
+            {/* Saved Wallet Info with Edit Icon Aligned Right */}
+            <div className="p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs">
                 <div className="flex items-center justify-between gap-3 w-full">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-xl tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                        <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200/90 dark:border-slate-700/80 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
                             <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h4 className="text-[13px] font-bold text-[var(--color-text-primary)] leading-tight">{fiatWallet?.method || 'bKash'} Wallet</h4>
-                            <p className="text-[12px] font-mono font-bold text-[var(--color-text-secondary)] truncate">{fiatWallet?.number}</p>
-                            {fiatWallet?.name && <p className="text-[11px] text-gray-400 truncate">{fiatWallet?.name}</p>}
+                            <div className="flex items-center gap-1.5">
+                                <h4 className="text-sm font-black text-slate-900 dark:text-white leading-tight">{fiatWallet?.method || 'bKash'} Wallet</h4>
+                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                                    {lang === 'bn' ? 'সক্রিয়' : 'Active'}
+                                </span>
+                            </div>
+                            <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 truncate mt-0.5">{fiatWallet?.number}</p>
+                            {fiatWallet?.name && <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold truncate">{fiatWallet?.name}</p>}
                         </div>
                     </div>
                     <button 
@@ -8133,35 +8651,40 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                             setEditName(fiatWallet?.name || '');
                             setShowEditWalletModal(true);
                         }}
-                        className="px-3 py-1.5 bg-indigo-50/90 text-indigo-700 hover:bg-indigo-100/90 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-bold border border-indigo-100 shrink-0 shadow-xs"
+                        className="px-3.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 dark:text-purple-300 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-black border border-purple-200/80 dark:border-purple-800/80 shrink-0 shadow-xs cursor-pointer"
                         title="Edit Wallet"
                     >
-                        <Edit3 size={14} />
+                        <Edit3 size={13} />
                         <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
                     </button>
                 </div>
-            </CutCornerCard>
+            </div>
 
             {/* Warning Note */}
-            <div className="bg-blue-50/60 border border-blue-100/70 p-3 rounded-xl flex items-center gap-2.5">
-                <Info size={16} className="text-blue-500 shrink-0" />
-                <p className="text-[11px] text-blue-700 font-medium leading-tight">
+            <div className="p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/40 flex items-start gap-2.5">
+                <Info size={16} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-blue-900 dark:text-blue-300 font-medium leading-relaxed">
                     {lang === 'bn' 
                         ? 'নূন্যতম উত্তোলন: ক্রিপ্টো বিক্রয় ২০ টাকা | অ্যাড মানি ৩০ টাকা। অ্যাড মানি করার পর ২০ টাকার ক্রিপ্টো ক্রয় করতে হবে।' 
                         : 'Min Withdraw: Crypto Sell 20 BDT | Deposit 30 BDT. Must trade 20 BDT crypto after deposit.'}
                 </p>
             </div>
 
-            {/* Submit Button */}
-            <div className="mt-2">
-                <CutCornerButton 
+            {/* Submit Button (Tactile 3D Button) */}
+            <div className="pt-2">
+                <button 
+                    type="button"
                     onClick={handleSubmit} 
                     disabled={!amount || isSubmitting} 
-                    isSubmitting={isSubmitting}
-                    icon={Wallet}
+                    className="w-full h-[54px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm flex items-center justify-center gap-2.5 border-t border-purple-300/40 shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3,0_6px_12px_rgba(79,70,229,0.25)] transition-all duration-150 disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed cursor-pointer"
                 >
-                    {t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS')}
-                </CutCornerButton>
+                    {isSubmitting ? (
+                        <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                        <Wallet size={18} />
+                    )}
+                    <span>{t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS')}</span>
+                </button>
             </div>
 
             {/* Blooming Flower Withdrawal Success Modal */}
@@ -8172,41 +8695,39 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                 lang={lang}
             />
 
-            {/* Edit Wallet Modal */}
+            {/* Edit Wallet Modal (Executive Rounded-3xl with 3D Button) */}
             {showEditWalletModal && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div 
-                        className="relative bg-white w-full max-w-[320px] p-6 shadow-2xl border border-indigo-100/60 animate-in zoom-in-95"
-                        style={{
-                            clipPath: 'polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)',
-                        }}
-                    >
-                        <FloralWatermark />
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-[340px] p-6 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white">
                         <div className="flex justify-between items-center mb-5 relative z-10">
-                            <h3 className="text-xl font-extrabold text-slate-900">
+                            <h3 className="text-lg font-black text-slate-900 dark:text-white">
                                 {lang === 'bn' ? 'ওয়ালেট পরিবর্তন' : 'Edit Wallet'}
                             </h3>
-                            <button onClick={() => setShowEditWalletModal(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:text-gray-800">
-                                <X size={16} strokeWidth={3} />
+                            <button 
+                                type="button"
+                                onClick={() => setShowEditWalletModal(false)} 
+                                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                            >
+                                <X size={16} strokeWidth={2.5} />
                             </button>
                         </div>
                         
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Select Method</label>
+                                <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Select Method</label>
                                 <div className="flex gap-2">
                                     {['bKash', 'Nagad'].map(method => (
                                         <button
                                             key={method}
                                             type="button"
                                             onClick={() => setEditMethod(method)}
-                                            className={`flex-1 py-2.5 px-3 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all ${
+                                            className={`flex-1 py-2.5 px-3 rounded-2xl border flex items-center justify-center gap-2 font-black text-xs transition-all cursor-pointer ${
                                                 editMethod === method 
-                                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm' 
-                                                    : 'border-gray-200 bg-gray-50 text-gray-600'
+                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shadow-xs' 
+                                                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400'
                                             }`}
                                         >
-                                            <div className="w-7 h-7 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                            <div className="w-7 h-7 rounded-xl tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                                 <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
                                             </div>
                                             {method}
@@ -8216,37 +8737,38 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                             </div>
                             
                             <div>
-                                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Wallet Number</label>
+                                <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Wallet Number</label>
                                 <input 
                                     type="tel" 
                                     placeholder="e.g. 017XXXXXXXX" 
                                     value={editNumber} 
                                     onChange={(e) => setEditNumber(e.target.value)} 
-                                    className="w-full h-[48px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 font-bold text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:bg-white transition-all text-sm" 
+                                    className="w-full h-[50px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 font-bold text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:bg-white dark:focus:bg-slate-800 transition-all text-sm" 
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Account Name</label>
+                                <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Account Name</label>
                                 <input 
                                     type="text" 
                                     placeholder="Enter Full Name" 
                                     value={editName} 
                                     onChange={(e) => setEditName(e.target.value)} 
-                                    className="w-full h-[48px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 font-bold text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:bg-white transition-all text-sm" 
+                                    className="w-full h-[50px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 font-bold text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:bg-white dark:focus:bg-slate-800 transition-all text-sm" 
                                 />
                             </div>
                         </div>
 
                         <div className="mt-6">
-                            <CutCornerButton 
-                                onClick={handleSaveEditedWallet} 
-                                disabled={!editNumber || !editName || isSavingWallet} 
-                                isSubmitting={isSavingWallet}
-                                icon={Save}
+                            <button
+                                type="button"
+                                onClick={handleSaveEditedWallet}
+                                disabled={!editNumber || !editName || isSavingWallet}
+                                className="w-full h-[50px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs flex items-center justify-center gap-2 border-t border-purple-300/40 shadow-[0_4px_0_#3730a3,0_10px_20px_rgba(79,70,229,0.3)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 cursor-pointer"
                             >
-                                {lang === 'bn' ? 'আপডেট করুন' : 'UPDATE WALLET'}
-                            </CutCornerButton>
+                                {isSavingWallet ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                <span>{lang === 'bn' ? 'আপডেট করুন' : 'UPDATE WALLET'}</span>
+                            </button>
                         </div>
                     </div>
                 </div>

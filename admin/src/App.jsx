@@ -698,6 +698,10 @@ function Dashboard() {
   const isDark = theme === 'dark';
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
+  // Live real-time market rates
+  const liveGramBdt = parseFloat(data.realGramBdt || (data.marketRates?.realGramBdt) || 153.34);
+  const liveUsdtBdt = parseFloat(data.realUsdtBdt || (data.marketRates?.realUsdtBdt) || 124.01);
+
   // Combined real-time activities for the top-right live ticker
   const recentActivities = useMemo(() => {
     const list = [];
@@ -996,7 +1000,7 @@ function Dashboard() {
             {parseFloat(data.tonNativeBalance || data.gramBalance || 0).toFixed(2)}
           </div>
           <div className="text-[10px] text-slate-400 mt-1">
-            ≈ ৳{(parseFloat(data.tonNativeBalance || data.gramBalance || 0) * 220).toLocaleString('en-US', { maximumFractionDigits: 0 })} BDT
+            ≈ ৳{(parseFloat(data.tonNativeBalance || data.gramBalance || 0) * liveGramBdt).toLocaleString('en-US', { maximumFractionDigits: 0 })} BDT
           </div>
         </div>
 
@@ -1012,7 +1016,7 @@ function Dashboard() {
             ${parseFloat(data.tonUsdtBalance || 0).toFixed(2)}
           </div>
           <div className="text-[10px] text-slate-400 mt-1">
-            ≈ ৳{(parseFloat(data.tonUsdtBalance || 0) * 130).toLocaleString('en-US', { maximumFractionDigits: 0 })} BDT
+            ≈ ৳{(parseFloat(data.tonUsdtBalance || 0) * liveUsdtBdt).toLocaleString('en-US', { maximumFractionDigits: 0 })} BDT
           </div>
         </div>
 
@@ -1133,9 +1137,9 @@ function Dashboard() {
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
+              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5" title="Live Real-Time Market Rate">
                 <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-                Rate: ৳220 / GRAM
+                Rate: ৳{liveGramBdt.toFixed(2)} / GRAM
               </span>
             </div>
 
@@ -1156,7 +1160,7 @@ function Dashboard() {
               <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold ${
                 isDark ? 'bg-purple-950/40 border-purple-800/40 text-purple-200' : 'bg-white border-purple-200 text-purple-900'
               }`}>
-                ≈ ৳{(parseFloat(data.tonNativeBalance || data.gramBalance || 0) * 220).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
+                ≈ ৳{(parseFloat(data.tonNativeBalance || data.gramBalance || 0) * liveGramBdt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
               </div>
 
               <button
@@ -1196,9 +1200,9 @@ function Dashboard() {
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5" title="Live Real-Time Market Rate">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Rate: ৳130 / USDT
+                Rate: ৳{liveUsdtBdt.toFixed(2)} / USDT
               </span>
             </div>
 
@@ -1219,7 +1223,7 @@ function Dashboard() {
               <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold ${
                 isDark ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-200' : 'bg-white border-emerald-200 text-emerald-900'
               }`}>
-                ≈ ৳{(parseFloat(data.tonUsdtBalance || 0) * 130).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
+                ≈ ৳{(parseFloat(data.tonUsdtBalance || 0) * liveUsdtBdt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
               </div>
 
               <button
@@ -1497,10 +1501,14 @@ function BotWallet() {
   const evmUsdtVal = parseFloat(data.evmBalance || 0);
   const usdtBalanceVal = tonUsdtVal + evmUsdtVal;
   const tonGasVal = parseFloat(data.tonNativeBalance || data.tonBalance || 0);
-  const liveTonUsdtRate = parseFloat(data.liveTonUsdtRate || 1.32);
+  const liveTonUsdtRate = parseFloat(data.liveTonUsdtRate || data.realGramUsdt || 1.2365);
 
-  const gramBdtVal = gramBalanceVal * 220;
-  const usdtBdtVal = usdtBalanceVal * 130;
+  // Live real-time market rates for Admin Treasury valuation
+  const liveGramBdt = parseFloat(data.realGramBdt || (data.marketRates?.realGramBdt) || (liveTonUsdtRate * 124.01));
+  const liveUsdtBdt = parseFloat(data.realUsdtBdt || (data.marketRates?.realUsdtBdt) || 124.01);
+
+  const gramBdtVal = gramBalanceVal * liveGramBdt;
+  const usdtBdtVal = usdtBalanceVal * liveUsdtBdt;
   const totalVaultBdt = gramBdtVal + usdtBdtVal;
 
   const gramPercent = totalVaultBdt > 0 ? Math.round((gramBdtVal / totalVaultBdt) * 100) : 50;
@@ -1875,7 +1883,7 @@ function BotWallet() {
                 </span>
               </div>
               <div className="text-xs font-bold text-slate-400 mt-1 flex flex-wrap items-center gap-2">
-                <span>≈ ${(totalVaultBdt / 120).toFixed(2)} USD</span>
+                <span>≈ ${(totalVaultBdt / (liveUsdtBdt || 124.01)).toFixed(2)} USD</span>
                 <span className="w-1 h-1 rounded-full bg-slate-500"></span>
                 <span className="text-emerald-400">
                   Auto-Swappable Capacity: ~{(gramBalanceVal + Math.max(0, (tonUsdtVal / liveTonUsdtRate) * 0.96)).toFixed(2)} GRAM
@@ -2105,9 +2113,9 @@ function BotWallet() {
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
+              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5" title="Live Real-Time Market Rate">
                 <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-                Rate: ৳220 / GRAM
+                Rate: ৳{liveGramBdt.toFixed(2)} / GRAM
               </span>
             </div>
 
@@ -2185,9 +2193,9 @@ function BotWallet() {
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5" title="Live Real-Time Market Rate">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Rate: ৳130 / USDT
+                Rate: ৳{liveUsdtBdt.toFixed(2)} / USDT
               </span>
             </div>
 
@@ -4751,21 +4759,21 @@ function BotSettings() {
           {/* GRAM Card */}
           <div className="p-5 rounded-2xl bg-purple-500/10 border border-purple-500/20 relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase">GRAM Rate</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">GRAM Live Rate</span>
               <Gem size={18} className="text-purple-400" />
             </div>
-            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = 220 ৳ BDT</div>
-            <p className="text-[11px] text-slate-400 mt-1">বাই ও সেল উভয় ক্ষেত্রে এই রেট অনুযায়ী টাকা হিসাব হবে।</p>
+            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = {parseFloat(data.realGramBdt || 153.34).toFixed(2)} ৳ BDT</div>
+            <p className="text-[11px] text-slate-400 mt-1">লাইভ মার্কেট রেট (Live CoinGecko / TonAPI)</p>
           </div>
 
           {/* USDT Card */}
           <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase">USDT Rate</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">USDT Live Rate</span>
               <DollarSign size={18} className="text-emerald-400" />
             </div>
-            <div className="text-2xl font-black text-emerald-400 mt-2 font-mono">1 USDT = 130 ৳ BDT</div>
-            <p className="text-[11px] text-slate-400 mt-1">বাই ও সেল উভয় ক্ষেত্রে এই রেট অনুযায়ী টাকা হিসাব হবে।</p>
+            <div className="text-2xl font-black text-emerald-400 mt-2 font-mono">1 USDT = {parseFloat(data.realUsdtBdt || 124.01).toFixed(2)} ৳ BDT</div>
+            <p className="text-[11px] text-slate-400 mt-1">লাইভ মার্কেট রেট (Live USD / BDT Rate)</p>
           </div>
         </div>
       </div>

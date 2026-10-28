@@ -3,6 +3,13 @@ const TelegramBot = require('node-telegram-bot-api');
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
+const escapeHtml = (str) => {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+};
+
 const crypto = require('crypto');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
@@ -2998,7 +3005,16 @@ async function updateMarketRates() {
 
         const realGramUsdt = Number(tonUsdt.toFixed(4));
 
-        // Base USDT Rates in BDT:
+        // Real-time Live USD/BDT Forex Market Rate
+        let liveUsdToBdt = 124.0;
+        try {
+            const fxRes = await axios.get('https://open.er-api.com/v6/latest/USD', { timeout: 3500 });
+            if (fxRes.data?.rates?.BDT) {
+                liveUsdToBdt = Number(parseFloat(fxRes.data.rates.BDT).toFixed(2));
+            }
+        } catch (eFx) {}
+
+        // Base USDT Rates in BDT for Platform Trading:
         // Sell USDT = 118 TK, Direct Buy USDT = 130 TK
         const sellUsdt = 118;
         const buyUsdt = 130;
@@ -3014,10 +3030,13 @@ async function updateMarketRates() {
         const baseBuyGramBdt = realGramUsdt * gramBuyUsdBase;
         const buyGram = Math.round(baseBuyGramBdt + 10);
 
+        // True Live Market Valuation Price for 1 GRAM in BDT:
+        const realLiveGramBdt = Number((realGramUsdt * liveUsdToBdt).toFixed(2));
+
         cachedMarketRates = {
-            realUsdtBdt: sellUsdt,
+            realUsdtBdt: liveUsdToBdt,
             realGramUsdt,
-            realGramBdt: Number(baseSellGramBdt.toFixed(2)),
+            realGramBdt: realLiveGramBdt,
             buyRates: {
                 USDT: buyUsdt, // 130 TK
                 GRAM: buyGram, // (liveGramUsdt * 125) + 10 TK
@@ -3720,8 +3739,15 @@ app.post('/api/miniapp/sell', async (req, res) => {
         const config = botConfig || {};
         const dataGroup = config.dataGroupId || config.adminGroupId;
         if (dataGroup && bot) {
+            const userData = updatedDoc.data() || userDoc.data() || {};
+            const userName = userData.first_name || userData.firstName || 'User';
+            const rawUname = userData.username ? userData.username.replace('@', '') : '';
+            const userUname = rawUname ? `@${rawUname}` : 'None';
+
             const msg = `<blockquote><b>⚡ নতুন ক্রিপ্টো বিক্রয় (Crypto Sold - Verified)!</b>\n\n` +
-                `👤 <b>User:</b> <code>${userId}</code>\n` +
+                `👤 <b>Name:</b> <a href="tg://user?id=${userId}">${escapeHtml(userName)}</a>\n` +
+                `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
+                `🔗 <b>Username:</b> ${userUname}\n` +
                 `💎 <b>বিক্রয়:</b> <b>${numAmount} ${normAsset}</b>\n` +
                 `💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳${verifiedTk} BDT</b>\n` +
                 `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
@@ -3747,6 +3773,171 @@ app.post('/api/miniapp/sell', async (req, res) => {
     } catch(e) {
         console.error("Sell order error:", e);
         res.status(500).json({ error: e.message });
+    } finally {
+        releaseUserFinancialLock(userId);
+    }
+});
+
+// =======================================================
+// DETERMINISTIC USER EVM DEPOSIT ADDRESS (ARBITRUM & BEP20)
+// =======================================================
+function getUserEvmDepositAddress(userId) {
+    if (!userId) return null;
+    const masterSecret = process.env.BOT_EVM_PRIVATE_KEY || 'maruf-teach-bot-evm-master-key-2026';
+    const userPrivKey = ethers.keccak256(ethers.toUtf8Bytes(masterSecret + ":user_deposit:" + userId));
+    const userWallet = new ethers.Wallet(userPrivKey);
+    return userWallet.address;
+}
+
+app.get('/api/miniapp/deposit-address/:userId', (req, res) => {
+    try {
+        const { userId } = req.params;
+        if (!userId) return res.status(400).json({ error: 'User ID required' });
+        const address = getUserEvmDepositAddress(userId);
+        return res.json({ success: true, address, userId });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
+    const { userId, network } = req.body;
+    if (!userId) return res.status(400).json({ error: 'User ID required' });
+
+    const cleanNet = (network === 'ARBITRUM' || network === 'ARB') ? 'ARBITRUM' : 'BEP20';
+    const netCfg = EVM_NETWORKS_CONFIG[cleanNet];
+    if (!netCfg) return res.status(400).json({ error: 'Invalid network' });
+
+    const userEvmAddress = getUserEvmDepositAddress(userId);
+    if (!userEvmAddress) return res.status(400).json({ error: 'Failed to derive address' });
+
+    // Financial Mutex Lock - Prevents concurrent double-claim race condition
+    const hasLock = acquireUserFinancialLock(userId);
+    if (!hasLock) {
+        return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
+    }
+
+    try {
+        const provider = new ethers.JsonRpcProvider(netCfg.rpc);
+        const usdtContract = new ethers.Contract(
+            netCfg.usdtContract,
+            ['function balanceOf(address) view returns (uint256)'],
+            provider
+        );
+
+        const balanceUnits = await usdtContract.balanceOf(userEvmAddress);
+        const curBal = parseFloat(ethers.formatUnits(balanceUnits, netCfg.usdtDecimals));
+
+        if (curBal < 0.1) {
+            return res.json({ 
+                success: false, 
+                message: `এখনো কোনো USDT পাওয়া যায়নি। ট্রানজেকশন সফল হলে ১-২ মিনিট পর আবার চেক করুন।`,
+                address: userEvmAddress,
+                balance: curBal 
+            });
+        }
+
+        // Check already credited amount
+        const checkPrev = await db.collection('miniapp_sells')
+            .where('userId', '==', userId)
+            .where('wallet', '==', userEvmAddress)
+            .where('network', '==', cleanNet)
+            .where('status', '==', 'completed')
+            .get();
+
+        let previouslyCredited = 0;
+        checkPrev.forEach(d => {
+            previouslyCredited += Number(d.data().amount || 0);
+        });
+
+        const uncreditedAmount = curBal - previouslyCredited;
+        if (uncreditedAmount < 0.1) {
+            return res.json({
+                success: false,
+                message: `বর্তমান ব্যালেন্সের (${curBal} USDT) সবটুকু ইতিমধ্যে জমা করা হয়েছে। নতুন ডিপোজিট পাওয়া যায়নি।`,
+                address: userEvmAddress,
+                balance: curBal
+            });
+        }
+
+        const serverSellRate = Number(cachedMarketRates?.sellRates?.USDT) || 118;
+        const creditedTk = Math.floor(uncreditedAmount * serverSellRate);
+
+        const docRef = await db.collection('miniapp_sells').add({
+            userId,
+            asset: 'USDT',
+            amount: uncreditedAmount,
+            estimatedTk: creditedTk,
+            network: cleanNet,
+            wallet: userEvmAddress,
+            status: 'completed',
+            type: 'evm_onchain_deposit',
+            timestamp: FieldValue.serverTimestamp()
+        });
+
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        if (userDoc.exists) {
+            await userRef.update({
+                balance: FieldValue.increment(creditedTk),
+                totalCryptoSellBdt: FieldValue.increment(creditedTk),
+                hasSellBalance: true,
+                hasDepositWithoutTrade: false
+            });
+        } else {
+            await userRef.set({
+                balance: creditedTk,
+                totalCryptoSellBdt: creditedTk,
+                joinedAt: FieldValue.serverTimestamp(),
+                hasSellBalance: true,
+                hasDepositWithoutTrade: false
+            }, { merge: true });
+        }
+
+        // Referral reward check
+        checkAndRewardReferral(userId).catch(err => console.warn("Sell referral check err:", err.message));
+
+        // Notify Admin Data Group
+        const config = botConfig || {};
+        const dataGroup = config.dataGroupId || config.adminGroupId;
+        if (dataGroup && bot) {
+            const uData = (await userRef.get()).data() || {};
+            const uName = uData.first_name || uData.firstName || 'User';
+            const rawEvmUname = uData.username ? uData.username.replace('@', '') : '';
+            const evmUname = rawEvmUname ? `@${rawEvmUname}` : 'None';
+
+            const adminMsg = `<blockquote><b>⚡ নতুন ক্রিপ্টো বিক্রয় (EVM On-Chain Deposit - Verified)!</b>\n\n` +
+                `👤 <b>Name:</b> <a href="tg://user?id=${userId}">${escapeHtml(uName)}</a>\n` +
+                `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
+                `🔗 <b>Username:</b> ${evmUname}\n` +
+                `💎 <b>Asset:</b> ${uncreditedAmount} USDT\n` +
+                `🌐 <b>Network:</b> ${netCfg.name}\n` +
+                `৳ <b>Added:</b> ৳${creditedTk} BDT\n` +
+                `🏦 <b>Deposit Wallet:</b> <code>${userEvmAddress}</code>\n` +
+                `🆔 <b>Order ID:</b> <code>${docRef.id}</code></blockquote>`;
+            bot.sendMessage(dataGroup, adminMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+        }
+
+        // Notify User in Telegram
+        if (bot && userId) {
+            const userMsg = `💰 <b>USDT অন-চেইন ডিপোজিট সফল!</b>\n\n` +
+                `🌐 <b>Network:</b> ${netCfg.name}\n` +
+                `💵 <b>Amount:</b> ${uncreditedAmount} USDT\n` +
+                `৳ <b>ব্যালেন্সে জমা:</b> ৳${creditedTk} BDT\n\n` +
+                `⚡ <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে সফলভাবে যোগ করা হয়েছে।</i>`;
+            bot.sendMessage(userId, userMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
+        }
+
+        return res.json({
+            success: true,
+            creditedAmount: uncreditedAmount,
+            creditedTk,
+            orderId: docRef.id,
+            message: `অভিনন্দন! আপনার ${uncreditedAmount} USDT সফলভাবে গৃহীত হয়েছে এবং ৳${creditedTk} ব্যালেন্সে যোগ করা হয়েছে।`
+        });
+    } catch (err) {
+        console.error("Check EVM deposit error:", err);
+        return res.status(500).json({ error: 'ডিপোজিট চেক করতে সমস্যা হয়েছে: ' + err.message });
     } finally {
         releaseUserFinancialLock(userId);
     }
@@ -4252,7 +4443,11 @@ app.get('/api/stats', async (req, res) => {
             networkBalances: networkBalances,
             evmAddress: evmAddr,
             tonAddress: tonAddr,
-            liveTonUsdtRate: cachedMarketRates?.realGramUsdt || 1.32
+            liveTonUsdtRate: cachedMarketRates?.realGramUsdt || 1.32,
+            realGramBdt: cachedMarketRates?.realGramBdt || 153.20,
+            realUsdtBdt: cachedMarketRates?.realUsdtBdt || 124.00,
+            realGramUsdt: cachedMarketRates?.realGramUsdt || 1.235,
+            marketRates: cachedMarketRates
         };
 
         statsCache = { data: resultData, timestamp: now };
@@ -4813,8 +5008,15 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         const config = botConfig || {};
         const dataGroup = config.dataGroupId || config.adminGroupId;
         if (dataGroup && bot) {
+            const addUserData = userDoc.data() || {};
+            const addUserName = addUserData.first_name || addUserData.firstName || 'User';
+            const rawAddUname = addUserData.username ? addUserData.username.replace('@', '') : '';
+            const addUname = rawAddUname ? `@${rawAddUname}` : 'None';
+
             const dataAddMoneyMsg = `<blockquote><b>${PE.moneyBag} নতুন টাকা যুক্ত (Add Money)!</b>\n\n` +
-                `${PE.user} <b>User:</b> <code>${userId}</code>\n` +
+                `👤 <b>Name:</b> <a href="tg://user?id=${userId}">${escapeHtml(addUserName)}</a>\n` +
+                `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
+                `🔗 <b>Username:</b> ${addUname}\n` +
                 `${PE.dollar} <b>পরিমাণ:</b> <b>৳${amount} BDT</b> (${gatewayLabel})\n` +
                 `${PE.moneyBag} <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
                 `${PE.note} <b>TrxID:</b> <code>${trxId}</code>\n` +
@@ -5162,8 +5364,15 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         const dataGroup = config.dataGroupId || adminGroupId;
         if (dataGroup) {
+            const buyUserData = userDoc.data() || {};
+            const buyUserName = buyUserData.first_name || buyUserData.firstName || 'User';
+            const rawBuyUname = buyUserData.username ? buyUserData.username.replace('@', '') : '';
+            const buyUname = rawBuyUname ? `@${rawBuyUname}` : 'None';
+
             const dataBuyMsg = `<blockquote><b>${PE.gem} নতুন ক্রিপ্টো ক্রয় সম্পন্ন (Live Instant)!</b>\n\n` +
-                `${PE.user} <b>User:</b> <code>${userId}</code>\n` +
+                `👤 <b>Name:</b> <a href="tg://user?id=${userId}">${escapeHtml(buyUserName)}</a>\n` +
+                `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
+                `🔗 <b>Username:</b> ${buyUname}\n` +
                 `${PE.gem} <b>ক্রিপ্টো:</b> <b>${cryptoAmount} ${asset} (${selectedNetwork})</b>\n` +
                 `${PE.dollar} <b>ব্যালেন্স থেকে কাটা:</b> <b>৳${bdtAmount} BDT</b>\n` +
                 `${PE.wallet} <b>Wallet:</b> <code>${receiveAddress}</code>\n` +

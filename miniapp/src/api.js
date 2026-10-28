@@ -379,3 +379,33 @@ export const watchSpinAd = async (userId) => {
     }
 };
 
+export const fetchUserDepositAddress = async (userId) => {
+    try {
+        const res = await axios.get(`${API_URL}/api/miniapp/deposit-address/${userId}`);
+        return res.data;
+    } catch (e) {
+        console.error("fetchUserDepositAddress error:", e);
+        return null;
+    }
+};
+
+export const checkEvmDeposit = async ({ userId, network }) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/check-evm-deposit`, { userId, network });
+        return res.data;
+    } catch (e) {
+        throw new Error(e.response?.data?.error || e.message || 'Failed to check deposit');
+    }
+};
+
+export const fetchUserHistory = async (userId) => {
+    try {
+        const res = await axios.get(`${API_URL}/api/miniapp/history/${userId}?_t=${Date.now()}`);
+        return res.data;
+    } catch (e) {
+        console.error("fetchUserHistory error:", e);
+        return { success: false, history: [] };
+    }
+};
+
+
