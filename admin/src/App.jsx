@@ -6809,8 +6809,8 @@ function AdminLoginScreen({ onLoginSuccess }) {
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="maruf.admin@trustpay.com"
-                className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
+                placeholder="Enter Admin Gmail..."
+                className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 transition-colors"
               />
             </div>
 
@@ -6953,7 +6953,7 @@ function AdminLoginScreen({ onLoginSuccess }) {
                 inputMode="numeric"
                 value={layer1Code}
                 onChange={(e) => setLayer1Code(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder="5664055"
+                placeholder="•••••••"
                 className="w-full py-3.5 px-4 rounded-xl text-xl font-black font-mono tracking-[0.3em] text-center text-cyan-400 bg-[#14102c] border border-cyan-800/60 placeholder-slate-700 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all"
               />
             </div>
@@ -7001,7 +7001,7 @@ function AdminLoginScreen({ onLoginSuccess }) {
                 autoFocus
                 value={layer2Keyword}
                 onChange={(e) => setLayer2Keyword(e.target.value)}
-                placeholder="Enter Sheet Secret Keyword..."
+                placeholder="•••••••••••••••"
                 className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-amber-300 bg-[#14102c] border border-amber-800/60 placeholder-slate-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
               />
             </div>
@@ -7037,10 +7037,10 @@ function AdminLoginScreen({ onLoginSuccess }) {
               <div className="text-2xl font-black text-white tracking-wide">"Who are you?"</div>
             </div>
 
-            {/* Honeypot Input Box (MUST BE KEPT EMPTY) */}
+            {/* Honeypot Input Box */}
             <div>
               <label className="block text-[11px] font-bold text-slate-400 mb-1 text-center">
-                Answer Input Box <span className="text-rose-400 font-normal">(Do NOT type anything)</span>
+                Clearance Response Input
               </label>
               <input
                 type="text"
@@ -7058,8 +7058,8 @@ function AdminLoginScreen({ onLoginSuccess }) {
                     triggerHoneypotTrap(layer3Answer);
                   }
                 }}
-                placeholder="[Leave this box completely empty]"
-                className="w-full py-2.5 px-3 rounded-xl text-xs font-mono text-center text-rose-300 bg-[#160f29] border border-slate-700 placeholder-slate-600 focus:outline-none focus:border-rose-500 transition-colors"
+                placeholder="Enter identity or response..."
+                className="w-full py-2.5 px-3 rounded-xl text-xs font-mono text-center text-slate-200 bg-[#160f29] border border-slate-700 placeholder-slate-600 focus:outline-none focus:border-purple-500 transition-colors"
               />
             </div>
 
