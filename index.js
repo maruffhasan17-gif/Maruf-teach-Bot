@@ -4022,9 +4022,113 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
     }
 });
 // =======================================================
-// ADMIN PANEL SECURITY: MILITARY-GRADE 2FA & FIREWALL
+// ADMIN PANEL SECURITY: MILITARY-GRADE 2FA & STRICT IP WHITELIST
 // =======================================================
 const MASTER_ADMIN_ID = '8799135330'; // Maruf's Telegram ID
+const ADMIN_SECRET_PATH = '/tp-admin-vault-8799135330-x99k28df77';
+
+function normalizeIp(ip) {
+    if (!ip) return '';
+    let clean = String(ip).trim();
+    if (clean.startsWith('::ffff:')) clean = clean.slice(7);
+    return clean;
+}
+
+// Strict Admin Whitelist: ONLY Maruf's Laptop IP + Localhost
+const allowedAdminIps = new Set([
+    '103.191.174.53', // Maruf Laptop (M/s. Chesta, Bogra)
+    '127.0.0.1',
+    '::1',
+    'localhost'
+]);
+
+async function syncAllowedAdminIpsFromDb() {
+    try {
+        const snap = await db.collection('settings').doc('allowed_admin_ips').get();
+        if (snap.exists && Array.isArray(snap.data()?.ips)) {
+            snap.data().ips.forEach(ip => {
+                const norm = normalizeIp(ip);
+                if (norm) allowedAdminIps.add(norm);
+            });
+            console.log(`[AdminSecurity] Loaded ${allowedAdminIps.size} allowed Admin IPs from Firestore.`);
+        } else {
+            await db.collection('settings').doc('allowed_admin_ips').set({
+                ips: Array.from(allowedAdminIps),
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            console.log('[AdminSecurity] Initialized allowed Admin IPs in Firestore.');
+        }
+    } catch (e) {
+        console.warn('[AdminSecurity] syncAllowedAdminIpsFromDb warning:', e.message);
+    }
+}
+syncAllowedAdminIpsFromDb();
+
+async function addAllowedAdminIp(ip) {
+    const norm = normalizeIp(ip);
+    if (!norm) return false;
+    allowedAdminIps.add(norm);
+    try {
+        await db.collection('settings').doc('allowed_admin_ips').set({
+            ips: Array.from(allowedAdminIps),
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+        return true;
+    } catch (_) { return false; }
+}
+
+async function removeAllowedAdminIp(ip) {
+    const norm = normalizeIp(ip);
+    if (!norm) return false;
+    if (norm === '127.0.0.1' || norm === '::1') return false;
+    allowedAdminIps.delete(norm);
+    try {
+        await db.collection('settings').doc('allowed_admin_ips').set({
+            ips: Array.from(allowedAdminIps),
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+        return true;
+    } catch (_) { return false; }
+}
+
+function isIpAllowedForAdmin(ip) {
+    const norm = normalizeIp(ip);
+    if (!norm) return false;
+    return allowedAdminIps.has(norm);
+}
+
+// Strict IP Whitelist Middleware: Immediately blocks non-whitelisted IPs from accessing Admin
+function requireAdminIpWhitelist(req, res, next) {
+    const clientIp = getClientIp(req);
+    const normalized = normalizeIp(clientIp);
+
+    if (!isIpAllowedForAdmin(normalized)) {
+        console.warn(`[AdminSecurity] 🚨 UNAUTHORIZED IP BLOCKED: ${clientIp} -> ${req.method} ${req.originalUrl}`);
+        
+        const userAgent = String(req.headers['user-agent'] || 'Unknown');
+        const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+        sendSecurityAlert(
+            `🚨 <b>UNAUTHORIZED ADMIN ACCESS BLOCKED</b>\n\n` +
+            `❌ <b>অননুমোদিত আইপি:</b> এই আইপি হোয়াইটলিস্টে নেই!\n` +
+            `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
+            `📍 <b>পাথ:</b> <code>${escapeHtml(req.originalUrl)}</code>\n` +
+            `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(userAgent.slice(0, 100))}</code>\n` +
+            `⏰ <b>সময়:</b> ${timeStr}\n\n` +
+            `🛡 <i>অ্যাক্সেস তাৎক্ষণিক ব্লক করা হয়েছে।</i>\n` +
+            `আইপি চিরতরে ব্যান করতে পাঠান: <code>/banip ${clientIp}</code>`
+        ).catch(() => {});
+
+        if (req.path.startsWith('/api/')) {
+            return res.status(403).json({
+                error: 'Access Denied: Your IP (' + clientIp + ') is not authorized. Strict Firewall Active.',
+                unauthorizedIp: true
+            });
+        }
+
+        return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway</small></body></html>');
+    }
+    next();
+} // Maruf's Telegram ID
 
 // Hardened secret that immediately invalidates all previous sessions
 const ADMIN_TOKEN_SECRET = crypto
@@ -4179,6 +4283,10 @@ async function sendAdmin2FACode(code, clientIp = 'Unknown', userAgent = 'Unknown
     console.log(`[Admin 2FA] Dispatching OTP to Master Admin for IP: ${clientIp}`);
     await sendSecurityAlert(msg);
 }
+
+// STRICT IP WHITELIST: Block all unauthorized IPs in the world from reaching Admin API
+app.use('/api/admin', requireAdminIpWhitelist);
+app.use(['/api/stats', '/api/withdraw', '/api/approve-fraud', '/api/transactions'], requireAdminIpWhitelist);
 
 app.post('/api/admin/login', async (req, res) => {
     try {
@@ -8054,15 +8162,53 @@ const MOBILE_BLOCKED_HTML = `<!doctype html>
 </body>
 </html>`;
 
-// Serve Admin on / with anti-cache headers for HTML (Desktop Only)
-app.use((req, res, next) => {
-    if (isMobileRequest(req) && (req.path === '/' || req.path === '/index.html' || req.path.startsWith('/admin') || !path.extname(req.path))) {
+// Public IP Inspector: allows Maruf to check his current public IP at any time
+app.get('/api/my-ip', (req, res) => {
+    const ip = getClientIp(req);
+    const norm = normalizeIp(ip);
+    const isAllowed = isIpAllowedForAdmin(norm);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Trust Pay — Client IP Inspector</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { background: #0b0f19; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+    .box { background: #111827; border: 1px solid #1f2937; border-radius: 20px; padding: 32px 24px; max-width: 480px; width: 100%; text-align: center; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
+    .icon { font-size: 40px; margin-bottom: 12px; }
+    h2 { margin: 0 0 10px; font-size: 20px; }
+    .ip { font-size: 24px; font-weight: 800; color: #38bdf8; background: #0f172a; padding: 14px 18px; border-radius: 12px; border: 1px dashed #0284c7; margin: 18px 0; font-family: ui-monospace, monospace; word-break: break-all; }
+    .status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 700; margin-bottom: 16px; }
+    .allowed { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .blocked { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    p { color: #94a3b8; font-size: 13px; line-height: 1.6; margin: 0; }
+    code { background: #1e293b; color: #f1f5f9; padding: 3px 8px; border-radius: 6px; font-family: monospace; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">🌐</div>
+    <h2>আপনার বর্তমান পাবলিক আইপি (Client IP)</h2>
+    <div class="ip">${ip}</div>
+    <div class="status ${isAllowed ? 'allowed' : 'blocked'}">
+      ${isAllowed ? '✅ অ্যাডমিন প্যানেলে অনুমোদিত (Whitelisted)' : '⛔ অ্যাডমিন প্যানেলে অননুমোদিত (Blocked)'}
+    </div>
+    <p>যদি আপনার আইপি পরিবর্তন হয়ে থাকে এবং আপনি অ্যাডমিন প্যানেলে ঢুকতে চান, তবে টেলিগ্রাম বটে এই কমান্ডটি পাঠান:<br><br><code>/addadminip ${ip}</code></p>
+  </div>
+</body>
+</html>`);
+});
+
+// Serve Admin Panel Static Assets EXCLUSIVELY under ADMIN_SECRET_PATH (IP Whitelisted & Desktop Only)
+app.use(ADMIN_SECRET_PATH, requireAdminIpWhitelist, (req, res, next) => {
+    if (isMobileRequest(req)) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
         return res.status(403).send(MOBILE_BLOCKED_HTML);
     }
     next();
-});
-app.use(express.static(path.join(__dirname, 'admin/dist'), {
+}, express.static(path.join(__dirname, 'admin/dist'), {
     maxAge: '1d',
     etag: true,
     setHeaders: (res, filePath) => {
@@ -8073,17 +8219,31 @@ app.use(express.static(path.join(__dirname, 'admin/dist'), {
         }
     }
 }));
-app.use((req, res) => {
+
+// Fallback SPA routes for Admin Panel inside ADMIN_SECRET_PATH
+const adminVaultRegex = new RegExp('^' + ADMIN_SECRET_PATH + '(/.*)?$');
+app.get(adminVaultRegex, requireAdminIpWhitelist, (req, res) => {
     if (isMobileRequest(req)) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
         return res.status(403).send(MOBILE_BLOCKED_HTML);
     }
-    const p = path.join(__dirname, 'admin/dist/index.html');
+    const adminIndex = path.join(__dirname, 'admin/dist/index.html');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
-    if (fs.existsSync(p)) res.sendFile(p);
-    else res.send("Backend is running!");
+    if (fs.existsSync(adminIndex)) {
+        res.sendFile(adminIndex);
+    } else {
+        res.status(404).send("Admin bundle not built yet.");
+    }
+});
+
+// Decoy 404 handler for Root and Unhandled Routes (NEVER serve Admin on Root)
+app.use((req, res) => {
+    if (req.path.startsWith('/app')) {
+        return res.redirect('/app/');
+    }
+    res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
 });
 
 
@@ -8175,6 +8335,66 @@ const PORT = process.env.PORT || 3000; app.listen(PORT, () => { console.log('Ser
 function registerMasterSecurityCommands(botInstance) {
     if (!botInstance) return;
 
+    botInstance.onText(/\/getadminurl/, async (msg) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const adminUrl = `https://maruf-teach-bot.onrender.com${ADMIN_SECRET_PATH}/`;
+        const resp = `🔐 <b>Trust Pay — Secret Admin Panel URL</b>\n\n` +
+            `🌐 <b>গোপন অ্যাডমিন লিঙ্ক:</b>\n` +
+            `<a href="${adminUrl}">${adminUrl}</a>\n\n` +
+            `🛡 <b>কঠোর নিরাপত্তা ফায়ারওয়াল সক্রিয়:</b>\n` +
+            `• শুধুমাত্র আপনার অনুমোদিত ল্যাপটপ আইপি (<code>103.191.174.53</code>) থেকেই এই লিঙ্ক খোলা যাবে।\n` +
+            `• পৃথিবীর সমস্ত অন্যান্য আইপি ও মোবাইল ডিভাইস এই লিঙ্কে ঢুকতে গেলে 404 Not Found পাবে।\n` +
+            `• রুট লিঙ্ক (<code>/</code>) সম্পূর্ণ বন্ধ করে 404 ডেসিভ করা হয়েছে।\n\n` +
+            `🌐 <i>আপনার বর্তমান আইপি চেক করতে:</i>\n` +
+            `<code>https://maruf-teach-bot.onrender.com/api/my-ip</code>`;
+        botInstance.sendMessage(msg.chat.id, resp, { parse_mode: 'HTML', disable_web_page_preview: true });
+    });
+
+    botInstance.onText(/\/addadminip(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const ip = match[1]?.trim();
+        if (!ip) return botInstance.sendMessage(msg.chat.id, "⚠️ আইপি দিন। যেমন: <code>/addadminip 103.191.174.53</code>", { parse_mode: 'HTML' });
+        const ok = await addAllowedAdminIp(ip);
+        if (ok) {
+            botInstance.sendMessage(msg.chat.id, `✅ <b>আইপি <code>${ip}</code> সফলভাবে অ্যাডমিন হোয়াইটলিস্টে যুক্ত করা হয়েছে!</b>\n\nএখন এই আইপি থেকে অ্যাডমিন প্যানেল খোলা যাবে।`, { parse_mode: 'HTML' });
+        } else {
+            botInstance.sendMessage(msg.chat.id, "❌ আইপি যুক্ত করতে সমস্যা হয়েছে।");
+        }
+    });
+
+    botInstance.onText(/\/allowmyip(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const ip = match[1]?.trim();
+        if (!ip) return botInstance.sendMessage(msg.chat.id, "⚠️ আইপি দিন। যেমন: <code>/allowmyip 103.191.174.53</code>", { parse_mode: 'HTML' });
+        const ok = await addAllowedAdminIp(ip);
+        if (ok) {
+            botInstance.sendMessage(msg.chat.id, `✅ <b>আইপি <code>${ip}</code> সফলভাবে হোয়াইটলিস্টে যুক্ত হয়েছে!</b>`, { parse_mode: 'HTML' });
+        } else {
+            botInstance.sendMessage(msg.chat.id, "❌ আইপি যুক্ত করা যায়নি।");
+        }
+    });
+
+    botInstance.onText(/\/removeadminip(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const ip = match[1]?.trim();
+        if (!ip) return botInstance.sendMessage(msg.chat.id, "⚠️ আইপি দিন। যেমন: <code>/removeadminip 103.191.174.53</code>", { parse_mode: 'HTML' });
+        const ok = await removeAllowedAdminIp(ip);
+        if (ok) {
+            botInstance.sendMessage(msg.chat.id, `🗑️ <b>আইপি <code>${ip}</code> অ্যাডমিন হোয়াইটলিস্ট থেকে রিমুভ করা হয়েছে।</b>`, { parse_mode: 'HTML' });
+        } else {
+            botInstance.sendMessage(msg.chat.id, "❌ আইপি রিমুভ করা যায়নি।");
+        }
+    });
+
+    botInstance.onText(/\/adminips/, async (msg) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const list = Array.from(allowedAdminIps);
+        const resp = `🛡 <b>Whitelisted Admin IPs (${list.length}):</b>\n\n` + 
+            list.map(ip => `• <code>${ip}</code>${ip === '103.191.174.53' ? ' <i>(Maruf Laptop)</i>' : ''}`).join('\n') +
+            `\n\n💡 <i>শুধুমাত্র এই আইপিগুলো ছাড়া পৃথিবীর আর কোনো আইপি অ্যাডমিন প্যানেল বা অ্যাডমিন এপিআই এক্সেস করতে পারবে না।</i>`;
+        botInstance.sendMessage(msg.chat.id, resp, { parse_mode: 'HTML' });
+    });
+
     botInstance.onText(/\/getadmincreds/, async (msg) => {
         if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
         try {
@@ -8257,13 +8477,16 @@ function registerMasterSecurityCommands(botInstance) {
 
     botInstance.onText(/\/securitystatus/, async (msg) => {
         if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
-        const resp = `🛡 <b>Trust Pay — Security Firewall Status</b>\n\n` +
+        const resp = `🛡 <b>Trust Pay — Military-Grade Security Status</b>\n\n` +
+            `• <b>Admin Whitelisted IPs:</b> ${allowedAdminIps.size} (Only Maruf Laptop)\n` +
+            `• <b>Secret Admin Vault URL:</b> ACTIVE (Obfuscated)\n` +
+            `• <b>Root (/) Route:</b> LOCKED (Decoy 404)\n` +
             `• <b>Active 2FA Sessions:</b> ${pendingAdmin2FASessions.size}\n` +
-            `• <b>Banned IPs:</b> ${bannedIps.size}\n` +
+            `• <b>Banned Attacker IPs:</b> ${bannedIps.size}\n` +
             `• <b>Desktop-Only Guard:</b> ACTIVE\n` +
-            `• <b>Brute-force Shield:</b> ACTIVE (Max 3 attempts)\n` +
+            `• <b>Brute-Force Shield:</b> ACTIVE (Max 3 attempts -> Lock/Ban)\n` +
             `• <b>2FA Telegram Delivery:</b> ACTIVE (ID ${MASTER_ADMIN_ID})\n\n` +
-            `<i>আপনার অ্যাকাউন্ট ও অ্যাডমিন প্যানেল ১০০% সুরক্ষিত।</i>`;
+            `<i>সার্ভার এবং অ্যাডমিন প্যানেল ১০০% কঠোর সুরক্ষায় নিয়োজিত।</i>`;
         botInstance.sendMessage(msg.chat.id, resp, { parse_mode: 'HTML' });
     });
 }

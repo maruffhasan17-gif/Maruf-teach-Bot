@@ -6808,7 +6808,7 @@ export default function App() {
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       <TonConnectUIProvider manifestUrl={`${API_BASE}/tonconnect-manifest.json`}>
-        <Router>
+        <Router basename={import.meta.env.BASE_URL}>
           <Layout
             onOpenCreateTrx={() => setIsCreateTrxOpen(true)}
             onLogout={handleLogout}
