@@ -466,8 +466,10 @@ html.dark .tp-cut-corner-inner {
 }
 
 /* Keep bKash & Nagad logo badges pure crisp white in Dark Mode so dark logo text stays 100% visible */
+.tp-payment-logo-box,
 html.dark .tp-payment-logo-box {
   background-color: #FFFFFF !important;
+  background: #FFFFFF !important;
   border-color: rgba(226, 232, 240, 0.9) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
 }

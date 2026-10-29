@@ -5521,7 +5521,7 @@ function SellCryptoPage({
     const userTonAddress = useTonAddress();
     const [tonConnectUI] = useTonConnectUI();
     const [asset, setAsset] = useState(initialAsset || 'GRAM');
-    const [selectedNetwork, setSelectedNetwork] = useState('TON'); // 'TON' | 'ARBITRUM' | 'BEP20'
+    const [selectedNetwork, setSelectedNetwork] = useState('TON'); // TON is the only active network
     const [isNetworkDropdownOpen, setIsNetworkDropdownOpen] = useState(false);
     const [cryptoAmount, setCryptoAmount] = useState('');
     const [userEvmAddress, setUserEvmAddress] = useState('');
@@ -5547,16 +5547,12 @@ function SellCryptoPage({
         if (asset === 'GRAM') setSelectedNetwork('TON');
     }, [asset]);
 
-    // Fetch deterministic EVM address for this user on Arbitrum / BEP20
+    // Lock to TON network as Arbitrum and BEP20 are Coming Soon
     useEffect(() => {
-        if (user?.id) {
-            fetchUserDepositAddress(user.id).then(res => {
-                if (res && res.address) {
-                    setUserEvmAddress(res.address);
-                }
-            }).catch(() => {});
+        if (selectedNetwork !== 'TON') {
+            setSelectedNetwork('TON');
         }
-    }, [user?.id]);
+    }, [selectedNetwork]);
 
     const [liveRates, setLiveRates] = useState(() => {
         try {
@@ -5599,27 +5595,12 @@ function SellCryptoPage({
     const quickAmounts = asset === 'GRAM' ? [0.1, 0.5, 1, 5, 10] : [5, 10, 25, 50, 100];
 
     const SELL_NETWORKS = [
-        { id: 'TON', name: 'The Open Network (TON)', shortName: 'TON', gasFee: '~0.015 TON', icon: 'ton.svg' },
-        { id: 'ARBITRUM', name: 'Arbitrum One (ARB)', shortName: 'Arbitrum', gasFee: '~0.00003 ETH', icon: 'arbitrum.svg' },
-        { id: 'BEP20', name: 'BNB Smart Chain (BEP20)', shortName: 'BSC', gasFee: '~0.0003 BNB', icon: 'bsc.svg' }
+        { id: 'TON', name: 'The Open Network (TON)', shortName: 'TON', gasFee: '~0.015 TON', disabled: false },
+        { id: 'ARBITRUM', name: 'Arbitrum One (ARB)', shortName: 'Arbitrum', gasFee: '', disabled: true, badge: 'Coming Soon' },
+        { id: 'BEP20', name: 'BNB Smart Chain (BEP20)', shortName: 'BSC', gasFee: '', disabled: true, badge: 'Coming Soon' }
     ];
 
-    // Background Auto-Polling for EVM deposits on Arbitrum & BEP20
-    useEffect(() => {
-        if (selectedNetwork === 'TON' || !user?.id) return;
-        const pollTimer = setInterval(() => {
-            checkEvmDeposit({ userId: user.id, network: selectedNetwork }).then(res => {
-                if (res && res.success) {
-                    setEvmCheckMsg({ type: 'success', text: res.message });
-                    if (reloadData) reloadData();
-                    if (window.Telegram?.WebApp?.HapticFeedback) {
-                        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                    }
-                }
-            }).catch(() => {});
-        }, 12000);
-        return () => clearInterval(pollTimer);
-    }, [selectedNetwork, user?.id]);
+
 
     const activeNetworkObj = SELL_NETWORKS.find(n => n.id === selectedNetwork) || SELL_NETWORKS[0];
 
@@ -5845,29 +5826,10 @@ function SellCryptoPage({
                             </div>
                         )
                     ) : (
-                        /* EVM PERSONAL UNIQUE DEPOSIT ADDRESS (ARBITRUM & BEP20) */
-                        <div className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 shadow-xs ${
-                            darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
-                        }`}>
-                            <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
-                                {userEvmAddress || 'Generating unique EVM address...'}
+                        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center">
+                            <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                                {lang === 'bn' ? 'এই নেটওয়ার্কটি শীঘ্রই আসছে (Coming Soon)' : 'This network is coming soon'}
                             </span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (userEvmAddress) {
-                                            navigator.clipboard.writeText(userEvmAddress);
-                                            setCopiedAddress(true);
-                                            setTimeout(() => setCopiedAddress(false), 2000);
-                                        }
-                                    }}
-                                    className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60 font-bold text-xs flex items-center gap-1 hover:bg-purple-100 active:scale-95 transition-all cursor-pointer"
-                                >
-                                    {copiedAddress ? <Check size={13} /> : <Copy size={13} />}
-                                    <span>{copiedAddress ? 'Copied' : 'Copy'}</span>
-                                </button>
-                            </div>
                         </div>
                     )}
 
@@ -5901,19 +5863,21 @@ function SellCryptoPage({
                             }`}
                         >
                             <div className="flex items-center gap-2.5 min-w-0">
-                                <img 
-                                    src={`${import.meta.env.BASE_URL}${activeNetworkObj.icon}`} 
-                                    alt={activeNetworkObj.shortName} 
-                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
-                                />
+                                <NetworkLogo id={activeNetworkObj.id} className="w-5 h-5 shrink-0 rounded-full" />
                                 <span className="font-black text-xs truncate">
                                     {activeNetworkObj.name}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
-                                    {activeNetworkObj.gasFee}
-                                </span>
+                                {activeNetworkObj.disabled ? (
+                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                        Coming Soon
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
+                                        {activeNetworkObj.gasFee}
+                                    </span>
+                                )}
                                 {asset !== 'GRAM' && (
                                     <ChevronDown size={16} className={`text-slate-400 transition-transform ${isNetworkDropdownOpen ? 'rotate-180' : ''}`} />
                                 )}
@@ -5927,31 +5891,40 @@ function SellCryptoPage({
                             }`}>
                                 {SELL_NETWORKS.map(net => {
                                     const isSel = selectedNetwork === net.id;
+                                    const isDisabled = !!net.disabled;
                                     return (
                                         <button
                                             key={net.id}
                                             type="button"
+                                            disabled={isDisabled}
                                             onClick={() => {
+                                                if (isDisabled) return;
                                                 setSelectedNetwork(net.id);
                                                 setIsNetworkDropdownOpen(false);
                                             }}
-                                            className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
-                                                isSel 
-                                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black' 
-                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold'
+                                            className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all ${
+                                                isDisabled 
+                                                    ? 'opacity-45 cursor-not-allowed select-none bg-slate-100/40 dark:bg-slate-800/20' 
+                                                    : isSel 
+                                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black cursor-pointer' 
+                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold cursor-pointer'
                                             }`}
                                         >
                                             <div className="flex items-center gap-2.5 min-w-0">
-                                                <img 
-                                                    src={`${import.meta.env.BASE_URL}${net.icon}`} 
-                                                    alt={net.shortName} 
-                                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
-                                                />
-                                                <span className="text-xs truncate">{net.name}</span>
+                                                <NetworkLogo id={net.id} className="w-5 h-5 shrink-0 rounded-full" />
+                                                <span className="text-xs truncate font-bold">{net.name}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">
-                                                <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
-                                                {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
+                                                {isDisabled ? (
+                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                                        Coming Soon
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
+                                                        {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
+                                                    </>
+                                                )}
                                             </div>
                                         </button>
                                     );
@@ -6547,7 +6520,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
           {fiatWallet ? (
             <>
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box">
                   <img 
                     src={getPaymentLogo(fiatWallet.method)} 
                     alt={fiatWallet.method} 
@@ -8785,7 +8758,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             <div className="p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs">
                 <div className="flex items-center justify-between gap-3 w-full">
                     <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                        <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200/90 dark:border-slate-700/80 p-1.5 flex items-center justify-center shrink-0 shadow-xs">
+                        <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200/90 p-1.5 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box">
                             <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
