@@ -6402,7 +6402,8 @@ function BroadcastCenter() {
 // EXECUTIVE ADMIN LOGIN SCREEN (DATABASE-BACKED GMAIL & PASSWORD + 2FA)
 // =========================================================================
 function AdminLoginScreen({ onLoginSuccess }) {
-  const [step, setStep] = useState('credentials'); // 'credentials' | '2fa'
+  // Authentication Stages: 'credentials' -> '2fa' -> 'layer1' -> 'layer2' -> 'layer3'
+  const [step, setStep] = useState('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -6413,6 +6414,39 @@ function AdminLoginScreen({ onLoginSuccess }) {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
 
+  // 3-Layer Quantum Vault States
+  const [vaultSessionToken, setVaultSessionToken] = useState('');
+  const [layer1Code, setLayer1Code] = useState('');
+  const [layer2Keyword, setLayer2Keyword] = useState('');
+  const [layer3Answer, setLayer3Answer] = useState('');
+
+  // Layer 3 Sensor Hold & Double-Click Mechanics
+  const [holdProgress, setHoldProgress] = useState(0); // 0 to 30000 ms
+  const [isHolding, setIsHolding] = useState(false);
+  const [holdUnlocked, setHoldUnlocked] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
+  const [isTrapTriggered, setIsTrapTriggered] = useState(false);
+
+  const holdIntervalRef = React.useRef(null);
+  const holdStartTimeRef = React.useRef(0);
+
+  // Trigger Honeypot Trap (Immediate 404 & IP Ban)
+  const triggerHoneypotTrap = async (typedAnswer) => {
+    setIsTrapTriggered(true);
+    try {
+      await fetch(`${API_BASE}/api/admin/trap-triggered`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vaultSessionToken,
+          reason: 'Input written in Who are you honeypot',
+          answer: typedAnswer
+        })
+      });
+    } catch (_) {}
+  };
+
+  // STEP 1: Gmail & Password Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -6440,7 +6474,6 @@ function AdminLoginScreen({ onLoginSuccess }) {
       if (!res.ok || !data.success) {
         setError(data.error || 'Invalid Admin Gmail or Password. Access denied.');
       } else if (data.require2FA) {
-        // Step 1 Success: Proceed to Telegram 2FA
         setTempToken(data.tempToken);
         setStep('2fa');
         setOtpCode('');
@@ -6457,6 +6490,7 @@ function AdminLoginScreen({ onLoginSuccess }) {
     }
   };
 
+  // STEP 2: Telegram 2FA OTP Submission
   const handleVerify2FA = async (e) => {
     e.preventDefault();
     setError('');
@@ -6478,9 +6512,14 @@ function AdminLoginScreen({ onLoginSuccess }) {
         })
       });
       const data = await res.json();
-      if (!res.ok || !data.success || !data.token) {
+      if (!res.ok || !data.success) {
         setError(data.error || 'ভুল বা মেয়াদোত্তীর্ণ ওটিপি কোড! অনুগ্রহ করে আবার চেষ্টা করুন।');
-      } else {
+      } else if (data.requireQuantumVault) {
+        setVaultSessionToken(data.vaultSessionToken);
+        setStep('layer1');
+        setLayer1Code('');
+        setError('');
+      } else if (data.token) {
         localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
         localStorage.setItem(ADMIN_EMAIL_KEY, data.email || email.trim());
         onLoginSuccess(data.token);
@@ -6515,6 +6554,184 @@ function AdminLoginScreen({ onLoginSuccess }) {
     }
   };
 
+  // QUANTUM LAYER 1: Database Secret Code Verification
+  const handleVerifyLayer1 = async (e) => {
+    e.preventDefault();
+    setError('');
+    const cleanCode = layer1Code.trim();
+    if (!cleanCode) {
+      setError('অনুগ্রহ করে লেয়ার ১ সিক্রেট কোড লিখুন।');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/verify-layer1`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vaultSessionToken, secretCode: cleanCode })
+      });
+      if (res.status === 404 || res.status === 403) {
+        setIsTrapTriggered(true);
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.error || 'ভুল সিক্রেট কোড! এক্সেস বাতিল।');
+      } else {
+        setStep('layer2');
+        setLayer2Keyword('');
+        setError('');
+      }
+    } catch (err) {
+      setError('সার্ভারে যোগাযোগ সম্ভব হয়নি।');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // QUANTUM LAYER 2: Off-site Google Sheet Keyword Verification
+  const handleVerifyLayer2 = async (e) => {
+    e.preventDefault();
+    setError('');
+    const cleanKw = layer2Keyword.trim();
+    if (!cleanKw) {
+      setError('অনুগ্রহ করে গুগল শিট কি-ওয়ার্ড লিখুন।');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/verify-layer2`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vaultSessionToken, keyword: cleanKw })
+      });
+      if (res.status === 404 || res.status === 403) {
+        setIsTrapTriggered(true);
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError(data.error || 'ভুল কি-ওয়ার্ড! এক্সেস বাতিল।');
+      } else {
+        setStep('layer3');
+        setLayer3Answer('');
+        setError('');
+        setHoldProgress(0);
+        setHoldUnlocked(false);
+        setClickCount(0);
+      }
+    } catch (err) {
+      setError('সার্ভারে যোগাযোগ সম্ভব হয়নি।');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // QUANTUM LAYER 3: 30-Second Hold & Double Click
+  const startHolding = () => {
+    if (holdUnlocked || loading) return;
+    if (layer3Answer.trim().length > 0) {
+      triggerHoneypotTrap(layer3Answer);
+      return;
+    }
+    setIsHolding(true);
+    holdStartTimeRef.current = Date.now();
+    holdIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - holdStartTimeRef.current;
+      if (elapsed >= 30000) {
+        clearInterval(holdIntervalRef.current);
+        setHoldProgress(30000);
+        setIsHolding(false);
+        setHoldUnlocked(true);
+        setClickCount(0);
+      } else {
+        setHoldProgress(elapsed);
+      }
+    }, 50);
+  };
+
+  const stopHolding = () => {
+    if (holdUnlocked) return;
+    if (holdIntervalRef.current) {
+      clearInterval(holdIntervalRef.current);
+      holdIntervalRef.current = null;
+    }
+    setIsHolding(false);
+    if (holdProgress < 30000) {
+      setHoldProgress(0);
+    }
+  };
+
+  const handleLayer3Click = () => {
+    // If typed into honeypot input: TRAP!
+    if (layer3Answer.trim().length > 0) {
+      triggerHoneypotTrap(layer3Answer);
+      return;
+    }
+    if (!holdUnlocked) {
+      setError('দয়া করে প্রথমে সেন্সর বাটনটি একটানা ৩০ সেকেন্ড চেপে ধরে রাখুন (Hold for 30s)।');
+      return;
+    }
+    const nextCount = clickCount + 1;
+    setClickCount(nextCount);
+    if (nextCount >= 2) {
+      handleFinalUnlock();
+    }
+  };
+
+  const handleFinalUnlock = async () => {
+    if (layer3Answer.trim().length > 0) {
+      triggerHoneypotTrap(layer3Answer);
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/verify-layer3`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vaultSessionToken,
+          answer: '',
+          holdDurationMs: 30000,
+          doubleClicked: true
+        })
+      });
+      if (res.status === 404 || res.status === 403) {
+        setIsTrapTriggered(true);
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.token) {
+        setError(data.error || 'লেয়ার ৩ চ্যালেঞ্জ সম্পন্ন হয়নি!');
+      } else {
+        localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
+        localStorage.setItem(ADMIN_EMAIL_KEY, data.email || email.trim());
+        onLoginSuccess(data.token);
+      }
+    } catch (err) {
+      setError('ভেরিফিকেশন সম্পন্ন করা যায়নি।');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // If Honeypot Trap Triggered -> Deceptive 404 Not Found Page
+  if (isTrapTriggered) {
+    return (
+      <div className="min-h-screen bg-[#0b0f19] text-[#94a3b8] flex flex-col items-center justify-center p-6 text-center font-mono select-none">
+        <div className="max-w-md w-full p-8 bg-[#111827] border border-red-900/40 rounded-2xl shadow-2xl">
+          <div className="text-5xl font-black text-rose-500 mb-2">404</div>
+          <h1 className="text-xl font-bold text-white mb-2">Not Found</h1>
+          <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+            The requested URL / security endpoint was not found on this server.
+          </p>
+          <div className="h-[1px] bg-slate-800 my-4" />
+          <p className="text-[11px] text-slate-500">Security Firewall: Connection Terminated & IP Logged.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#070510] text-slate-100 flex items-center justify-center p-6 relative overflow-hidden">
       {/* Ambient Background Glows */}
@@ -6523,7 +6740,7 @@ function AdminLoginScreen({ onLoginSuccess }) {
 
       <div className="max-w-md w-full bg-[#0d0a1f]/95 border border-purple-500/30 rounded-3xl p-8 shadow-2xl shadow-purple-950/50 backdrop-blur-xl relative z-10">
         {/* Brand Header */}
-        <div className="flex flex-col items-center text-center mb-7">
+        <div className="flex flex-col items-center text-center mb-6">
           <div className="relative mb-3.5">
             <img
               src="/logo.png"
@@ -6539,15 +6756,29 @@ function AdminLoginScreen({ onLoginSuccess }) {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black text-white tracking-tight">Trust Pay</h1>
             <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-widest">
-              {step === '2fa' ? '2FA SECURED' : 'PRO ADMIN'}
+              {step === 'credentials' && 'PRO ADMIN'}
+              {step === '2fa' && '2FA SECURED'}
+              {step === 'layer1' && 'VAULT LAYER 1/3'}
+              {step === 'layer2' && 'VAULT LAYER 2/3'}
+              {step === 'layer3' && 'SENTINEL 3/3'}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1 font-medium">
-            {step === '2fa' ? 'Two-Factor Telegram Security Authorization' : 'Protected Executive Treasury & Order Control Center'}
+            {step === 'credentials' && 'Protected Executive Treasury & Order Control Center'}
+            {step === '2fa' && 'Two-Factor Telegram Security Authorization'}
+            {step === 'layer1' && 'Quantum Vault 1: Core Database Secret Pin'}
+            {step === 'layer2' && 'Quantum Vault 2: Off-site Cloud Sheet Clearance'}
+            {step === 'layer3' && 'Quantum Vault 3: Sentinel Honeypot & Kinetic Sensor'}
           </p>
           <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-[10px] font-bold text-purple-300">
             <Lock size={11} className="text-purple-400" />
-            <span>{step === '2fa' ? 'Telegram 2-Step OTP Verification' : 'Database-Verified Desktop Security'}</span>
+            <span>
+              {step === 'credentials' && 'Desktop-Only Firewall Protected'}
+              {step === '2fa' && 'Telegram 2-Step OTP Verification'}
+              {step === 'layer1' && 'Database Encrypted Pin Clearance'}
+              {step === 'layer2' && 'Off-Site Google Sheet Verification'}
+              {step === 'layer3' && '30-Second Kinetic Sensor Ritual'}
+            </span>
           </div>
         </div>
 
@@ -6565,76 +6796,8 @@ function AdminLoginScreen({ onLoginSuccess }) {
           </div>
         )}
 
-        {step === '2fa' ? (
-          /* STEP 2: TELEGRAM 2FA OTP VERIFICATION */
-          <form onSubmit={handleVerify2FA} className="space-y-4">
-            <div className="p-3.5 rounded-2xl bg-indigo-950/50 border border-indigo-500/40 text-indigo-200 text-xs flex items-start gap-2.5">
-              <Send size={16} className="text-indigo-400 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="font-bold text-white text-[12px]">টেলিগ্রাম উইথড্র বটে ওটিপি পাঠানো হয়েছে</p>
-                <p className="text-slate-300 text-[11px] leading-relaxed">
-                  আপনার <b>Withdraw Manager Bot</b> অথবা <b>Withdraw গ্রুপে</b> পাঠানো ৬ ডিজিটের কোডটি নিচে লিখুন:
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5 text-center">
-                6-Digit Security Code (OTP)
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={6}
-                autoFocus
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
-                className="w-full py-3.5 px-4 rounded-xl text-2xl font-black font-mono tracking-[0.45em] text-center text-emerald-400 bg-[#14102c] border border-purple-800/60 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || otpCode.length < 6}
-              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={15} className="animate-spin" />
-                  <span>Verifying Code...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck size={16} />
-                  <span>Verify & Unlock Control Center</span>
-                </>
-              )}
-            </button>
-
-            <div className="flex items-center justify-between pt-2 text-xs">
-              <button
-                type="button"
-                onClick={() => { setStep('credentials'); setError(''); setResendMsg(''); }}
-                className="text-slate-400 hover:text-slate-200 font-semibold cursor-pointer transition-colors"
-              >
-                ← Back to Login
-              </button>
-              <button
-                type="button"
-                onClick={handleResendOtp}
-                disabled={resendLoading}
-                className="text-purple-400 hover:text-purple-300 font-bold cursor-pointer transition-colors flex items-center gap-1 disabled:opacity-50"
-              >
-                {resendLoading ? <RefreshCw size={12} className="animate-spin" /> : null}
-                <span>Resend Code</span>
-              </button>
-            </div>
-          </form>
-        ) : (
-          /* STEP 1: GMAIL & PASSWORD */
+        {/* STEP 1: GMAIL & PASSWORD */}
+        {step === 'credentials' && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
@@ -6646,7 +6809,7 @@ function AdminLoginScreen({ onLoginSuccess }) {
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="trustpaybot@gmail.com"
+                placeholder="maruf.admin@trustpay.com"
                 className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
               />
             </div>
@@ -6688,16 +6851,302 @@ function AdminLoginScreen({ onLoginSuccess }) {
               ) : (
                 <>
                   <Unlock size={15} />
-                  <span>Unlock Admin Control Center</span>
+                  <span>Verify Credentials</span>
                 </>
               )}
             </button>
           </form>
         )}
 
+        {/* STEP 2: TELEGRAM 2FA OTP */}
+        {step === '2fa' && (
+          <form onSubmit={handleVerify2FA} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-indigo-950/50 border border-indigo-500/40 text-indigo-200 text-xs flex items-start gap-2.5">
+              <Send size={16} className="text-indigo-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-white text-[12px]">টেলিগ্রাম উইথড্র বটে ওটিপি পাঠানো হয়েছে</p>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  আপনার <b>Withdraw Manager Bot</b> এ পাঠানো ৬ ডিজিটের কোডটি লিখুন:
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5 text-center">
+                6-Digit Security Code (OTP)
+              </label>
+              <input
+                type="text"
+                required
+                maxLength={6}
+                autoFocus
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                className="w-full py-3.5 px-4 rounded-xl text-2xl font-black font-mono tracking-[0.45em] text-center text-emerald-400 bg-[#14102c] border border-purple-800/60 placeholder-slate-600 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || otpCode.length < 6}
+              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={15} className="animate-spin" />
+                  <span>Verifying Code...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={16} />
+                  <span>Proceed to Quantum Vault</span>
+                </>
+              )}
+            </button>
+
+            <div className="flex items-center justify-between pt-2 text-xs">
+              <button
+                type="button"
+                onClick={() => { setStep('credentials'); setError(''); setResendMsg(''); }}
+                className="text-slate-400 hover:text-slate-200 font-semibold cursor-pointer transition-colors"
+              >
+                ← Back
+              </button>
+              <button
+                type="button"
+                onClick={handleResendOtp}
+                disabled={resendLoading}
+                className="text-purple-400 hover:text-purple-300 font-bold cursor-pointer transition-colors flex items-center gap-1 disabled:opacity-50"
+              >
+                {resendLoading ? <RefreshCw size={12} className="animate-spin" /> : null}
+                <span>Resend Code</span>
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* QUANTUM LAYER 1: Database Secret Code */}
+        {step === 'layer1' && (
+          <form onSubmit={handleVerifyLayer1} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-purple-950/50 border border-purple-500/40 text-purple-200 text-xs flex items-start gap-2.5">
+              <ShieldAlert size={16} className="text-purple-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-white text-[12px]">লেয়ার ১: ডাটাবেস মাস্টার সিক্রেট পিন</p>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  শুধুমাত্র ডেটাবেসে সংরক্ষিত ৭ ডিজিটের গোপন মাস্টার কোডটি লিখুন:
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5 text-center">
+                Database Secret Master Pin
+              </label>
+              <input
+                type="text"
+                required
+                maxLength={10}
+                autoFocus
+                inputMode="numeric"
+                value={layer1Code}
+                onChange={(e) => setLayer1Code(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="5664055"
+                className="w-full py-3.5 px-4 rounded-xl text-xl font-black font-mono tracking-[0.3em] text-center text-cyan-400 bg-[#14102c] border border-cyan-800/60 placeholder-slate-700 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !layer1Code.trim()}
+              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-xl shadow-cyan-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={15} className="animate-spin" />
+                  <span>Validating Clearance...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={16} />
+                  <span>Unlock Layer 1</span>
+                </>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* QUANTUM LAYER 2: Off-site Google Sheet Keyword */}
+        {step === 'layer2' && (
+          <form onSubmit={handleVerifyLayer2} className="space-y-4">
+            <div className="p-3.5 rounded-2xl bg-blue-950/50 border border-blue-500/40 text-blue-200 text-xs flex items-start gap-2.5">
+              <Sparkles size={16} className="text-blue-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold text-white text-[12px]">লেয়ার ২: অফ-সাইট গুগল শিট ভেরিফিকেশন</p>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  আপনার ক্লাউড গুগল শিটের <b>Cell A1</b>-এ সংরক্ষিত সিক্রেট কি-ওয়ার্ডটি লিখুন:
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5 text-center">
+                Google Sheet Secret Keyword
+              </label>
+              <input
+                type="text"
+                required
+                autoFocus
+                value={layer2Keyword}
+                onChange={(e) => setLayer2Keyword(e.target.value)}
+                placeholder="Enter Sheet Secret Keyword..."
+                className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-amber-300 bg-[#14102c] border border-amber-800/60 placeholder-slate-600 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !layer2Keyword.trim()}
+              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-xl shadow-amber-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw size={15} className="animate-spin" />
+                  <span>Connecting to Cloud Sheet...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={16} />
+                  <span>Unlock Layer 2</span>
+                </>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* QUANTUM LAYER 3: The "Who are you?" Honeypot & 30-Second Sensor Hold */}
+        {step === 'layer3' && (
+          <div className="space-y-4 select-none">
+            {/* The Question */}
+            <div className="p-4 rounded-2xl bg-gradient-to-b from-slate-900 to-[#120d26] border border-amber-500/40 text-center">
+              <span className="text-[10px] font-black tracking-widest uppercase text-amber-400/90 block mb-1">
+                SENTINEL CLEARANCE QUESTION
+              </span>
+              <div className="text-2xl font-black text-white tracking-wide">"Who are you?"</div>
+            </div>
+
+            {/* Honeypot Input Box (MUST BE KEPT EMPTY) */}
+            <div>
+              <label className="block text-[11px] font-bold text-slate-400 mb-1 text-center">
+                Answer Input Box <span className="text-rose-400 font-normal">(Do NOT type anything)</span>
+              </label>
+              <input
+                type="text"
+                value={layer3Answer}
+                onChange={(e) => {
+                  setLayer3Answer(e.target.value);
+                  if (e.target.value.trim().length > 0) {
+                    // Trigger honeypot immediately on typing!
+                    triggerHoneypotTrap(e.target.value);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    triggerHoneypotTrap(layer3Answer);
+                  }
+                }}
+                placeholder="[Leave this box completely empty]"
+                className="w-full py-2.5 px-3 rounded-xl text-xs font-mono text-center text-rose-300 bg-[#160f29] border border-slate-700 placeholder-slate-600 focus:outline-none focus:border-rose-500 transition-colors"
+              />
+            </div>
+
+            {/* Hold Sensor Progress Display */}
+            <div className="bg-[#14102c] border border-purple-800/40 rounded-2xl p-4 text-center">
+              <div className="flex items-center justify-between text-xs font-mono mb-2">
+                <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                  {holdUnlocked ? 'SENSOR READY' : isHolding ? 'CHARGING SENSOR...' : 'STANDBY'}
+                </span>
+                <span className={`font-black ${holdUnlocked ? 'text-emerald-400' : 'text-purple-400'}`}>
+                  {(holdProgress / 1000).toFixed(1)}s / 30.0s
+                </span>
+              </div>
+
+              {/* Progress Gauge Bar */}
+              <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-purple-900/60 p-0.5">
+                <div
+                  className={`h-full rounded-full transition-all duration-75 ${
+                    holdUnlocked
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-400 shadow-lg shadow-emerald-500/50'
+                      : 'bg-gradient-to-r from-purple-600 via-indigo-500 to-emerald-400'
+                  }`}
+                  style={{ width: `${(holdProgress / 30000) * 100}%` }}
+                />
+              </div>
+
+              <p className="text-[11px] text-slate-400 mt-2 font-medium">
+                {holdUnlocked
+                  ? '✅ ৩০ সেকেন্ড সেন্সর চার্জড! এখন নিচে দ্রুত ২ বার ক্লিক করুন।'
+                  : isHolding
+                  ? '⚡ সেন্সর চার্জ হচ্ছে... আঙুল বা মাউস সরাবেন না!'
+                  : '👉 ইনপুট বক্স ফাঁকা রেখে বাটনটি একটানা ৩০ সেকেন্ড চেপে ধরে রাখুন।'}
+              </p>
+            </div>
+
+            {/* The Interactive Hold & Click Button */}
+            {!holdUnlocked ? (
+              <button
+                type="button"
+                onMouseDown={startHolding}
+                onMouseUp={stopHolding}
+                onMouseLeave={stopHolding}
+                onTouchStart={startHolding}
+                onTouchEnd={stopHolding}
+                className={`w-full py-4 px-4 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 select-none ${
+                  isHolding
+                    ? 'bg-gradient-to-r from-amber-600 to-emerald-600 shadow-emerald-600/40 animate-pulse'
+                    : 'bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 shadow-purple-900/40'
+                }`}
+              >
+                <Zap size={16} className={isHolding ? 'animate-bounce text-yellow-300' : 'text-purple-300'} />
+                <span>
+                  {isHolding
+                    ? `HOLDING: ${(holdProgress / 1000).toFixed(1)}s / 30.0s`
+                    : 'PRESS & HOLD SENSOR (30 SECONDS)'}
+                </span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleLayer3Click}
+                disabled={loading}
+                className="w-full py-4 px-4 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white shadow-2xl shadow-emerald-500/50 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95 animate-pulse"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" />
+                    <span>AUTHORIZING MASTER CLEARANCE...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={18} />
+                    <span>
+                      {clickCount === 0
+                        ? '🔓 DOUBLE-CLICK NOW (CLICK 1/2)'
+                        : '🔓 DOUBLE-CLICK NOW (CLICK 2/2)'}
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="mt-6 pt-5 border-t border-purple-900/30 flex items-center justify-between text-[11px] text-slate-500 font-semibold">
           <span className="flex items-center gap-1.5">
-            <Shield size={12} className="text-emerald-400" /> Telegram 2FA Auth Guard
+            <Shield size={12} className="text-emerald-400" /> 3-Layer Quantum Vault Guard
           </span>
           <span>Desktop Only Mode</span>
         </div>
@@ -6705,7 +7154,6 @@ function AdminLoginScreen({ onLoginSuccess }) {
     </div>
   );
 }
-
 // =========================================================================
 // MAIN EXPORT
 // =========================================================================

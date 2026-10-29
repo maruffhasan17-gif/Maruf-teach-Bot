@@ -480,6 +480,10 @@ syncBannedIpsFromDb();
 async function addBannedIp(ip, reason = 'Intrusion / brute-force attempt') {
     const cleanIp = String(ip).trim();
     if (!cleanIp || cleanIp === '127.0.0.1' || cleanIp === '::1') return;
+    if (typeof isIpAllowedForAdmin === 'function' && isIpAllowedForAdmin(cleanIp)) {
+        console.warn(`[SecurityFirewall] Skipping permanent ban for whitelisted admin IP: ${cleanIp}`);
+        return;
+    }
     bannedIps.add(cleanIp);
     try {
         await db.collection('settings').doc('banned_ips').set({
@@ -4064,6 +4068,96 @@ async function syncAllowedAdminIpsFromDb() {
 }
 syncAllowedAdminIpsFromDb();
 
+// 3-LAYER QUANTUM VAULT CONFIGURATION & CACHE
+let cachedVaultConfig = {
+    secretCode: '5664055', // Layer 1 Secret Code
+    sheetUrl: '',          // Layer 2 Google Sheet URL
+    sheetKeyword: 'MarufOwnerVault2026', // Layer 2 Fallback keyword
+    updatedAt: null
+};
+
+let cachedSheetKeyword = {
+    keyword: '',
+    fetchedAt: 0
+};
+
+async function syncVaultConfigFromDb() {
+    try {
+        const snap = await db.collection('settings').doc('admin_vault_layer').get();
+        if (snap.exists && snap.data()) {
+            const d = snap.data();
+            cachedVaultConfig.secretCode = d.secretCode || '5664055';
+            cachedVaultConfig.sheetUrl = d.sheetUrl || '';
+            cachedVaultConfig.sheetKeyword = d.sheetKeyword || 'MarufOwnerVault2026';
+            console.log('[VaultSecurity] ✓ Loaded Quantum Vault settings from Firestore.');
+        } else {
+            await db.collection('settings').doc('admin_vault_layer').set({
+                secretCode: '5664055',
+                sheetUrl: '',
+                sheetKeyword: 'MarufOwnerVault2026',
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            console.log('[VaultSecurity] ✓ Initialized Quantum Vault settings in Firestore.');
+        }
+    } catch (e) {
+        console.warn('[VaultSecurity] syncVaultConfigFromDb warning:', e.message);
+    }
+}
+syncVaultConfigFromDb();
+
+async function fetchGoogleSheetKeyword() {
+    if (cachedSheetKeyword.keyword && (Date.now() - cachedSheetKeyword.fetchedAt < 60000)) {
+        return cachedSheetKeyword.keyword;
+    }
+    const sheetUrl = cachedVaultConfig.sheetUrl || process.env.VAULT_GOOGLE_SHEET_URL || '';
+    if (!sheetUrl) {
+        return cachedVaultConfig.sheetKeyword || 'MarufOwnerVault2026';
+    }
+
+    try {
+        let exportUrl = sheetUrl;
+        const match = sheetUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+            exportUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv`;
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+
+        const resp = await fetch(exportUrl, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
+        });
+        clearTimeout(timeout);
+
+        if (!resp.ok) {
+            console.warn('[VaultLayer2] Google Sheet fetch HTTP status:', resp.status);
+            return cachedVaultConfig.sheetKeyword || 'MarufOwnerVault2026';
+        }
+
+        const csvText = await resp.text();
+        const firstLine = csvText.split(/\r?\n/)[0] || '';
+        const rawCell = firstLine.split(',')[0] || '';
+        const cleanWord = rawCell.replace(/^[\"'\s]+|[\"'\s]+$/g, '').trim();
+
+        if (cleanWord) {
+            cachedSheetKeyword = {
+                keyword: cleanWord,
+                fetchedAt: Date.now()
+            };
+            console.log('[VaultLayer2] ✓ Live Google Sheet keyword fetched:', cleanWord);
+            return cleanWord;
+        }
+    } catch (err) {
+        console.warn('[VaultLayer2] Google Sheet fetch error:', err.message);
+    }
+
+    return cachedVaultConfig.sheetKeyword || 'MarufOwnerVault2026';
+}
+
+// In-memory 3-Layer Quantum Vault Sessions (5 minutes TTL)
+const quantumVaultSessions = new Map();
+
 async function addAllowedAdminIp(ip) {
     const norm = normalizeIp(ip);
     if (!norm) return false;
@@ -4280,7 +4374,7 @@ async function sendAdmin2FACode(code, clientIp = 'Unknown', userAgent = 'Unknown
         `🔑 <i>পাসওয়ার্ড পরিবর্তন করতে পাঠান:</i>\n` +
         `<code>/setadminpassword নতুন_পাসওয়ার্ড</code>`;
 
-    console.log(`[Admin 2FA] Dispatching OTP to Master Admin for IP: ${clientIp}`);
+    console.log(`[Admin 2FA] Dispatching OTP [${code}] to Master Admin for IP: ${clientIp}`);
     await sendSecurityAlert(msg);
 }
 
@@ -4454,13 +4548,27 @@ app.post('/api/admin/verify-2fa', async (req, res) => {
             });
         }
 
-        // 2FA Verified! Clean up session & issue official admin JWT token
+        // 2FA Verified! Transition to 3-Layer Quantum Vault Challenge
         pendingAdmin2FASessions.delete(tempToken);
-        const token = createAdminToken(session.email);
+        const vaultSessionToken = crypto.randomBytes(32).toString('hex');
+        quantumVaultSessions.set(vaultSessionToken, {
+            email: session.email,
+            clientIp,
+            userAgent: session.userAgent,
+            stage: 'layer1',
+            layer1Passed: false,
+            layer2Passed: false,
+            layer3Passed: false,
+            layer3StartTime: 0,
+            expiresAt: Date.now() + 5 * 60 * 1000
+        });
+
         return res.json({
             success: true,
-            token,
-            email: session.email
+            requireQuantumVault: true,
+            vaultSessionToken,
+            currentLayer: 1,
+            message: 'Telegram 2FA ভেরিফাইড! ৩-লেয়ার সর্বোচ্চ সিকিউরিটি চ্যালেঞ্জ সম্পন্ন করুন।'
         });
     } catch (e) {
         return res.status(500).json({ error: e.message });
@@ -4488,6 +4596,216 @@ app.post('/api/admin/resend-2fa', async (req, res) => {
         return res.json({ success: true, message: 'নতুন ভেরিফিকেশন কোড উইথড্র বটে পাঠানো হয়েছে।' });
     } catch (e) {
         return res.status(500).json({ error: e.message });
+    }
+});
+
+// =======================================================
+// 3-LAYER QUANTUM VAULT ENDPOINTS
+// =======================================================
+
+// LAYER 1: Database Secret Master Code ("5664055")
+app.post('/api/admin/verify-layer1', async (req, res) => {
+    try {
+        const clientIp = getClientIp(req);
+        if (bannedIps.has(clientIp)) {
+            return res.status(403).json({ error: 'Your IP has been permanently banned.' });
+        }
+        const { vaultSessionToken, secretCode } = req.body || {};
+        if (!vaultSessionToken || !secretCode) {
+            return res.status(400).json({ error: 'ভল্ট সেশন টোকেন এবং কোড আবশ্যক।' });
+        }
+        const session = quantumVaultSessions.get(vaultSessionToken);
+        if (!session || Date.now() > session.expiresAt) {
+            quantumVaultSessions.delete(vaultSessionToken);
+            return res.status(400).json({ error: 'ভল্ট সেশনের মেয়াদ শেষ হয়েছে। দয়া করে আবার লগইন করুন।' });
+        }
+
+        const cleanInput = String(secretCode).trim();
+        const expectedCode = String(cachedVaultConfig.secretCode || '5664055').trim();
+
+        if (cleanInput !== expectedCode) {
+            // ONE MISTAKE = PERMANENT BAN
+            quantumVaultSessions.delete(vaultSessionToken);
+            await addBannedIp(clientIp, `Layer 1 Breach Attempt: wrong secret code [${cleanInput.slice(0, 20)}]`);
+
+            const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+            const critMsg = `🚨 <b>CRITICAL QUANTUM VAULT BREACH (Layer 1)</b>\n\n` +
+                `❌ <b>লেয়ার ১ সিক্রেট কোড ভুল দেওয়া হয়েছে!</b>\n` +
+                `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
+                `⌨️ <b>ইনপুট:</b> <code>${escapeHtml(cleanInput.slice(0, 30))}</code>\n` +
+                `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(session.userAgent || 'Unknown')}</code>\n` +
+                `⏰ <b>সময়:</b> ${timeStr}\n\n` +
+                `🛡 <b>ব্যবস্থা:</b> আইপি ফায়ারওয়াল দ্বারা চিরতরে ব্যান করা হয়েছে!`;
+            sendSecurityAlert(critMsg).catch(() => {});
+
+            return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
+        }
+
+        // Layer 1 Passed!
+        session.layer1Passed = true;
+        session.stage = 'layer2';
+        quantumVaultSessions.set(vaultSessionToken, session);
+
+        return res.json({
+            success: true,
+            currentLayer: 2,
+            message: 'লেয়ার ১ অনুমোদিত! লেয়ার ২ (গুগল শিট কি-ওয়ার্ড) প্রদান করুন।'
+        });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+// LAYER 2: Off-site Google Sheet Keyword Verification
+app.post('/api/admin/verify-layer2', async (req, res) => {
+    try {
+        const clientIp = getClientIp(req);
+        if (bannedIps.has(clientIp)) {
+            return res.status(403).json({ error: 'Your IP has been permanently banned.' });
+        }
+        const { vaultSessionToken, keyword } = req.body || {};
+        if (!vaultSessionToken || !keyword) {
+            return res.status(400).json({ error: 'টোকেন এবং কি-ওয়ার্ড আবশ্যক।' });
+        }
+        const session = quantumVaultSessions.get(vaultSessionToken);
+        if (!session || !session.layer1Passed || Date.now() > session.expiresAt) {
+            quantumVaultSessions.delete(vaultSessionToken);
+            return res.status(400).json({ error: 'লেয়ার ১ অনুমোদিত নয় অথবা সেশন মেয়াদোত্তীর্ণ।' });
+        }
+
+        const cleanInput = String(keyword).trim();
+        const expectedKeyword = await fetchGoogleSheetKeyword();
+
+        if (!cleanInput || cleanInput.toLowerCase() !== expectedKeyword.trim().toLowerCase()) {
+            // ONE MISTAKE = PERMANENT BAN
+            quantumVaultSessions.delete(vaultSessionToken);
+            await addBannedIp(clientIp, `Layer 2 Breach Attempt: wrong sheet keyword [${cleanInput.slice(0, 30)}]`);
+
+            const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+            const critMsg = `🚨 <b>CRITICAL QUANTUM VAULT BREACH (Layer 2)</b>\n\n` +
+                `❌ <b>লেয়ার ২ গুগল শিট কি-ওয়ার্ড ভুল দেওয়া হয়েছে!</b>\n` +
+                `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
+                `⌨️ <b>ইনপুট:</b> <code>${escapeHtml(cleanInput.slice(0, 30))}</code>\n` +
+                `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(session.userAgent || 'Unknown')}</code>\n` +
+                `⏰ <b>সময়:</b> ${timeStr}\n\n` +
+                `🛡 <b>ব্যবস্থা:</b> আইপি ফায়ারওয়াল দ্বারা চিরতরে ব্যান করা হয়েছে!`;
+            sendSecurityAlert(critMsg).catch(() => {});
+
+            return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
+        }
+
+        // Layer 2 Passed!
+        session.layer2Passed = true;
+        session.stage = 'layer3';
+        session.layer3StartTime = Date.now();
+        quantumVaultSessions.set(vaultSessionToken, session);
+
+        return res.json({
+            success: true,
+            currentLayer: 3,
+            message: 'লেয়ার ২ অনুমোদিত! লেয়ার ৩ (চূড়ান্ত নিরাপত্তা চ্যালেঞ্জ) সম্পন্ন করুন।'
+        });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+// LAYER 3: The "Who are you?" Honeypot Riddle & 30s Sensor Hold Ritual
+app.post('/api/admin/verify-layer3', async (req, res) => {
+    try {
+        const clientIp = getClientIp(req);
+        if (bannedIps.has(clientIp)) {
+            return res.status(403).json({ error: 'Your IP has been permanently banned.' });
+        }
+        const { vaultSessionToken, answer, holdDurationMs, doubleClicked } = req.body || {};
+        const session = quantumVaultSessions.get(vaultSessionToken);
+        if (!session || !session.layer1Passed || !session.layer2Passed || Date.now() > session.expiresAt) {
+            quantumVaultSessions.delete(vaultSessionToken);
+            return res.status(400).json({ error: 'লেয়ার ১ ও ২ সম্পন্ন হয়নি অথবা সেশন মেয়াদোত্তীর্ণ।' });
+        }
+
+        // RULE 1: If input box was NOT empty -> HONEYPOT TRAP TRIGGERED!
+        const cleanAnswer = String(answer || '').trim();
+        if (cleanAnswer.length > 0) {
+            quantumVaultSessions.delete(vaultSessionToken);
+            await addBannedIp(clientIp, `Layer 3 Honeypot Triggered: answered [${cleanAnswer.slice(0, 30)}]`);
+
+            const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+            const critMsg = `🚨 <b>HONEYPOT TRAP TRIGGERED! (Layer 3)</b>\n\n` +
+                `💀 <b>অনুপ্রবেশকারী "Who are you?" ট্র্যাপে ধরা পড়েছে!</b>\n` +
+                `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
+                `⌨️ <b>ট্র্যাপ উত্তর:</b> <code>${escapeHtml(cleanAnswer.slice(0, 50))}</code>\n` +
+                `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(session.userAgent || 'Unknown')}</code>\n` +
+                `⏰ <b>সময়:</b> ${timeStr}\n\n` +
+                `🛡 <b>ফলাফল:</b> ইনপুট লেখার কারণে আইপি চিরতরে ব্যান এবং 404 ডেসিভ করা হয়েছে!`;
+            sendSecurityAlert(critMsg).catch(() => {});
+
+            return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
+        }
+
+        // RULE 2: Must be held for at least 30,000 ms (30 seconds) AND double-clicked
+        const holdTime = Number(holdDurationMs) || 0;
+        const elapsedServerTime = session.layer3StartTime ? (Date.now() - session.layer3StartTime) : 0;
+
+        if (holdTime < 30000 || !doubleClicked || elapsedServerTime < 29000) {
+            quantumVaultSessions.delete(vaultSessionToken);
+            await addBannedIp(clientIp, `Layer 3 Ritual Failed: hold ${holdTime}ms, doubleClicked: ${doubleClicked}`);
+
+            const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+            const critMsg = `🚨 <b>LAYER 3 RITUAL FAILED</b>\n\n` +
+                `❌ ৩০ সেকেন্ড হোল্ড অথবা ডাবল ক্লিক নিয়ম ভঙ্গ হয়েছে!\n` +
+                `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
+                `⏱ <b>হোল্ড সময়:</b> ${Math.round(holdTime / 1000)}s\n` +
+                `⏰ <b>সময়:</b> ${timeStr}\n\n` +
+                `🛡 <b>ব্যবস্থা:</b> আইপি ব্যান করা হয়েছে!`;
+            sendSecurityAlert(critMsg).catch(() => {});
+
+            return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
+        }
+
+        // ALL 3 LAYERS PASSED 100%! Issue official Admin JWT Token!
+        quantumVaultSessions.delete(vaultSessionToken);
+        const token = createAdminToken(session.email);
+
+        const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+        const successMsg = `👑 <b>QUANTUM VAULT CLEARANCE SUCCESSFUL!</b>\n\n` +
+            `✅ অ্যাডমিন মারুফ ৩-লেয়ার সর্বোচ্চ সিকিউরিটি পাস করে সফলভাবে অ্যাডমিন প্যানেলে প্রবেশ করেছেন!\n\n` +
+            `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
+            `⏰ <b>সময়:</b> ${timeStr}\n` +
+            `🛡 <b>স্ট্যাটাস:</b> Full Executive Authorization Granted.`;
+        sendSecurityAlert(successMsg).catch(() => {});
+
+        return res.json({
+            success: true,
+            token,
+            email: session.email
+        });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+// CLIENT HONEYPOT TRAP DETONATOR
+app.post('/api/admin/trap-triggered', async (req, res) => {
+    try {
+        const clientIp = getClientIp(req);
+        const { vaultSessionToken, reason, answer } = req.body || {};
+        if (vaultSessionToken) quantumVaultSessions.delete(vaultSessionToken);
+        await addBannedIp(clientIp, `Honeypot trap triggered: ${reason} [${String(answer || '').slice(0, 30)}]`);
+
+        const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+        sendSecurityAlert(
+            `🚨 <b>CLIENT HONEYPOT TRAP DETONATED!</b>\n\n` +
+            `💀 অনুপ্রবেশকারী "Who are you?" ইনপুট বক্সে লিখে সাবমিট করার সাথে সাথে ক্লায়েন্ট ও সার্ভারে ফায়ারওয়াল ট্র্যাপ ডেটোনেট হয়েছে!\n\n` +
+            `🌐 <b>ব্যানকৃত আইপি:</b> <code>${clientIp}</code>\n` +
+            `⌨️ <b>ইনপুট:</b> <code>${escapeHtml(String(answer || '').slice(0, 50))}</code>\n` +
+            `⏰ <b>সময়:</b> ${timeStr}\n` +
+            `🛡 <b>ফলাফল:</b> হ্যাকার 404 ডেকয় পেজে আটকে গেছে এবং তার আইপি ব্যান করা হয়েছে!`
+        ).catch(() => {});
+
+        return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p></body></html>');
+    } catch (e) {
+        return res.status(404).send('404 Not Found');
     }
 });
 
@@ -4521,7 +4839,7 @@ app.get('/api/admin/session', requireAdminAuth, (req, res) => {
 
 // Protect all /api/admin/* routes (except login, 2fa verification endpoints, and avatar image redirect)
 app.use('/api/admin', (req, res, next) => {
-    if (req.path === '/login' || req.path === '/verify-2fa' || req.path === '/resend-2fa' || req.path.startsWith('/user-avatar/')) {
+    if (req.path === '/login' || req.path === '/verify-2fa' || req.path === '/resend-2fa' || req.path === '/verify-layer1' || req.path === '/verify-layer2' || req.path === '/verify-layer3' || req.path === '/trap-triggered' || req.path.startsWith('/user-avatar/')) {
         return next();
     }
     return requireAdminAuth(req, res, next);
@@ -8384,6 +8702,90 @@ function registerMasterSecurityCommands(botInstance) {
         } else {
             botInstance.sendMessage(msg.chat.id, "❌ আইপি রিমুভ করা যায়নি।");
         }
+    });
+
+    botInstance.onText(/\/vaultstatus/, async (msg) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const liveKeyword = await fetchGoogleSheetKeyword();
+        const resp = `🛡 <b>Trust Pay — 3-Layer Quantum Vault Status</b>\n\n` +
+            `🔐 <b>Layer 1 (Database Secret Code):</b> <code>${cachedVaultConfig.secretCode}</code>\n` +
+            `🌐 <b>Layer 2 (Google Sheet URL):</b> ${cachedVaultConfig.sheetUrl ? `<code>${cachedVaultConfig.sheetUrl}</code>` : '<i>Not configured yet (Using fallback keyword)</i>'}\n` +
+            `🔑 <b>Layer 2 (Active Keyword):</b> <code>${liveKeyword}</code>\n` +
+            `💀 <b>Layer 3 (Who are you? Trap):</b> ACTIVE (Empty input + 30s Hold + Double Click)\n\n` +
+            `💡 <b>কমান্ডসমূহ:</b>\n` +
+            `• <code>/setvaultcode নতুন_কোড</code> — লেয়ার ১ কোড পরিবর্তন\n` +
+            `• <code>/setsheeturl গুগল_শিট_লিংক</code> — গুগল শিট লিঙ্ক সেট\n` +
+            `• <code>/setsheetkeyword নতুন_শব্দ</code> — সরাসরি কি-ওয়ার্ড সেট\n` +
+            `• <code>/checksheet</code> — গুগল শিট থেকে লাইভ টেস্ট`;
+        botInstance.sendMessage(msg.chat.id, resp, { parse_mode: 'HTML', disable_web_page_preview: true });
+    });
+
+    botInstance.onText(/\/setvaultcode(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const newCode = match[1]?.trim();
+        if (!newCode || newCode.length < 4) {
+            return botInstance.sendMessage(msg.chat.id, "⚠️ কোড প্রদান করুন। যেমন: <code>/setvaultcode 5664055</code>", { parse_mode: 'HTML' });
+        }
+        try {
+            await db.collection('settings').doc('admin_vault_layer').set({
+                secretCode: newCode,
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            cachedVaultConfig.secretCode = newCode;
+            botInstance.sendMessage(msg.chat.id, `✅ <b>লেয়ার ১ সিক্রেট কোড সফলভাবে আপডেট হয়েছে!</b>\n\n🔑 <b>নতুন কোড:</b> <code>${newCode}</code>`, { parse_mode: 'HTML' });
+        } catch (e) {
+            botInstance.sendMessage(msg.chat.id, `Error: ${e.message}`);
+        }
+    });
+
+    botInstance.onText(/\/setsheeturl(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const rawUrl = match[1]?.trim();
+        if (!rawUrl || !rawUrl.includes('docs.google.com')) {
+            return botInstance.sendMessage(msg.chat.id, "⚠️ সঠিক গুগল শিট লিঙ্ক প্রদান করুন। যেমন:\n<code>/setsheeturl https://docs.google.com/spreadsheets/d/XXXX/edit</code>", { parse_mode: 'HTML' });
+        }
+        try {
+            await db.collection('settings').doc('admin_vault_layer').set({
+                sheetUrl: rawUrl,
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            cachedVaultConfig.sheetUrl = rawUrl;
+            cachedSheetKeyword.keyword = ''; // bust cache
+
+            botInstance.sendMessage(msg.chat.id, "⟳ গুগল শিট থেকে কি-ওয়ার্ড ফেচ করা হচ্ছে...");
+            const fetched = await fetchGoogleSheetKeyword();
+            botInstance.sendMessage(msg.chat.id, `✅ <b>গুগল শিট লিঙ্ক সফলভাবে সেট ও কানেক্ট করা হয়েছে!</b>\n\n📄 <b>শিটের Cell A1 থেকে প্রাপ্ত কি-ওয়ার্ড:</b> <code>${fetched}</code>\n\n<i>অ্যাডমিন প্যানেলে লগইন করার সময় লেয়ার ২-তে এই কি-ওয়ার্ডটি চাইবে।</i>`, { parse_mode: 'HTML' });
+        } catch (e) {
+            botInstance.sendMessage(msg.chat.id, `Error: ${e.message}`);
+        }
+    });
+
+    botInstance.onText(/\/setsheetkeyword(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const newKw = match[1]?.trim();
+        if (!newKw) {
+            return botInstance.sendMessage(msg.chat.id, "⚠️ কি-ওয়ার্ড প্রদান করুন। যেমন: <code>/setsheetkeyword MySecretName</code>", { parse_mode: 'HTML' });
+        }
+        try {
+            await db.collection('settings').doc('admin_vault_layer').set({
+                sheetKeyword: newKw,
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            cachedVaultConfig.sheetKeyword = newKw;
+            cachedSheetKeyword.keyword = newKw;
+            botInstance.sendMessage(msg.chat.id, `✅ <b>লেয়ার ২ কি-ওয়ার্ড সরাসরি আপডেট করা হয়েছে:</b> <code>${newKw}</code>`, { parse_mode: 'HTML' });
+        } catch (e) {
+            botInstance.sendMessage(msg.chat.id, `Error: ${e.message}`);
+        }
+    });
+
+    botInstance.onText(/\/checksheet/, async (msg) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const t0 = Date.now();
+        cachedSheetKeyword.keyword = ''; // force live fetch
+        const kw = await fetchGoogleSheetKeyword();
+        const duration = Date.now() - t0;
+        botInstance.sendMessage(msg.chat.id, `📊 <b>Google Sheet Live Test:</b>\n\n• <b>Cell A1 Keyword:</b> <code>${kw}</code>\n• <b>Response Time:</b> ${duration}ms\n• <b>Configured URL:</b> ${cachedVaultConfig.sheetUrl || 'None (Fallback mode)'}`, { parse_mode: 'HTML', disable_web_page_preview: true });
     });
 
     botInstance.onText(/\/adminips/, async (msg) => {
