@@ -446,6 +446,16 @@ app.use(cors());
 
 app.disable('x-powered-by');
 
+// Authentic Nginx 404 Not Found Template (100% Real-looking Decoy)
+const REAL_404_HTML = `<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx/1.24.0</center>
+</body>
+</html>`;
+
+
 // --- FORT-KNOX SECURITY FIREWALL: CLIENT IP & IP BLACKLIST ---
 function getClientIp(req) {
     const cfIp = req.headers['cf-connecting-ip'];
@@ -477,14 +487,29 @@ async function syncBannedIpsFromDb() {
 }
 syncBannedIpsFromDb();
 
-async function addBannedIp(ip, reason = 'Intrusion / brute-force attempt') {
+async function addBannedIp(ip, reason = 'Intrusion / brute-force attempt', force = false) {
     const cleanIp = String(ip).trim();
     if (!cleanIp || cleanIp === '127.0.0.1' || cleanIp === '::1') return;
-    if (typeof isIpAllowedForAdmin === 'function' && isIpAllowedForAdmin(cleanIp)) {
-        console.warn(`[SecurityFirewall] Skipping permanent ban for whitelisted admin IP: ${cleanIp}`);
-        return;
+    const norm = typeof normalizeIp === 'function' ? normalizeIp(cleanIp) : cleanIp.toLowerCase();
+    
+    // If not forced and is localhost, skip
+    if (!force && (cleanIp === '127.0.0.1' || cleanIp === 'localhost')) return;
+
+    // If forced by Owner (/banip) or intruder, remove from allowedAdminIps
+    if (force && typeof allowedAdminIps !== 'undefined') {
+        allowedAdminIps.delete(cleanIp);
+        if (norm) allowedAdminIps.delete(norm);
+        try {
+            await db.collection('settings').doc('allowed_admin_ips').set({
+                ips: Array.from(allowedAdminIps),
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch (_) {}
     }
+
     bannedIps.add(cleanIp);
+    if (norm) bannedIps.add(norm);
+
     try {
         await db.collection('settings').doc('banned_ips').set({
             ips: Array.from(bannedIps),
@@ -502,7 +527,9 @@ async function addBannedIp(ip, reason = 'Intrusion / brute-force attempt') {
 
 async function removeBannedIp(ip) {
     const cleanIp = String(ip).trim();
+    const norm = typeof normalizeIp === 'function' ? normalizeIp(cleanIp) : cleanIp.toLowerCase();
     bannedIps.delete(cleanIp);
+    if (norm) bannedIps.delete(norm);
     try {
         await db.collection('settings').doc('banned_ips').set({
             ips: Array.from(bannedIps),
@@ -511,11 +538,15 @@ async function removeBannedIp(ip) {
     } catch (_) {}
 }
 
-// Global Security Firewall: Immediate 403 rejection for any banned IP
+// Global Security Firewall: Immediate 404 rejection for any banned IP
 app.use((req, res, next) => {
     const clientIp = getClientIp(req);
-    if (bannedIps.has(clientIp)) {
-        return res.status(403).send('<html><body style="background:#0f172a;color:#ef4444;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;padding:2rem;background:#1e293b;border-radius:1rem;border:1px solid #dc2626;"><h2>⛔ 403 Forbidden</h2><p>Access Denied: Your IP (' + escapeHtml(clientIp) + ') has been blocked by Trust Pay Security Firewall.</p></div></body></html>');
+    const norm = typeof normalizeIp === 'function' ? normalizeIp(clientIp) : clientIp.toLowerCase();
+    if (bannedIps.has(clientIp) || (norm && bannedIps.has(norm))) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        return res.status(404).send(REAL_404_HTML);
     }
     next();
 });
@@ -4185,44 +4216,58 @@ async function removeAllowedAdminIp(ip) {
     } catch (_) { return false; }
 }
 
-function isIpAllowedForAdmin(ip) {
-    const norm = normalizeIp(ip);
-    if (!norm) return false;
-    return allowedAdminIps.has(norm);
+function isClientAllowedAdmin(clientIp) {
+    const raw = String(clientIp || '').trim();
+    const norm = normalizeIp(raw);
+
+    // 1. If IP is banned -> Strictly Forbidden
+    if (bannedIps.has(raw) || (norm && bannedIps.has(norm))) {
+        return false;
+    }
+
+    // 2. If IP is in allowedAdminIps -> Allowed
+    if (allowedAdminIps.has(raw) || (norm && allowedAdminIps.has(norm))) {
+        return true;
+    }
+
+    // 3. All other IPs worldwide -> Strictly Forbidden
+    return false;
 }
 
-// Strict IP Whitelist Middleware: Immediately blocks non-whitelisted IPs from accessing Admin
+function isIpAllowedForAdmin(ip) {
+    return isClientAllowedAdmin(ip);
+}
+
+// Strict IP Whitelist Middleware: Immediately blocks non-whitelisted IPs from accessing Admin with REAL 404
 function requireAdminIpWhitelist(req, res, next) {
     const clientIp = getClientIp(req);
-    const normalized = normalizeIp(clientIp);
 
-    if (!isIpAllowedForAdmin(normalized)) {
-        console.warn(`[AdminSecurity] 🚨 UNAUTHORIZED IP BLOCKED: ${clientIp} -> ${req.method} ${req.originalUrl}`);
+    if (!isClientAllowedAdmin(clientIp)) {
+        console.warn(`[AdminSecurity] 🚨 404 DECOY SERVED TO UNAUTHORIZED/BANNED IP: ${clientIp} -> ${req.method} ${req.originalUrl}`);
         
-        const userAgent = String(req.headers['user-agent'] || 'Unknown');
-        const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
-        sendSecurityAlert(
-            `🚨 <b>UNAUTHORIZED ADMIN ACCESS BLOCKED</b>\n\n` +
-            `❌ <b>অননুমোদিত আইপি:</b> এই আইপি হোয়াইটলিস্টে নেই!\n` +
-            `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
-            `📍 <b>পাথ:</b> <code>${escapeHtml(req.originalUrl)}</code>\n` +
-            `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(userAgent.slice(0, 100))}</code>\n` +
-            `⏰ <b>সময়:</b> ${timeStr}\n\n` +
-            `🛡 <i>অ্যাক্সেস তাৎক্ষণিক ব্লক করা হয়েছে।</i>\n` +
-            `আইপি চিরতরে ব্যান করতে পাঠান: <code>/banip ${clientIp}</code>`
-        ).catch(() => {});
-
-        if (req.path.startsWith('/api/')) {
-            return res.status(403).json({
-                error: 'Access Denied: Your IP (' + clientIp + ') is not authorized. Strict Firewall Active.',
-                unauthorizedIp: true
-            });
+        if (clientIp !== '127.0.0.1' && clientIp !== '::1') {
+            const userAgent = String(req.headers['user-agent'] || 'Unknown');
+            const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+            sendSecurityAlert(
+                `🚨 <b>UNAUTHORIZED ADMIN ACCESS BLOCKED (404 SERVED)</b>\n\n` +
+                `❌ <b>অননুমোদিত আইপি (হোয়াইটলিস্টে নেই বা ব্যানড)!</b>\n` +
+                `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
+                `📍 <b>পাথ:</b> <code>${escapeHtml(req.originalUrl)}</code>\n` +
+                `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(userAgent.slice(0, 100))}</code>\n` +
+                `⏰ <b>সময়:</b> ${timeStr}\n\n` +
+                `🛡 <i>ক্লায়েন্টকে নিখুঁত রিয়েল 404 Not Found (Nginx) পেজ পরিবেশন করা হয়েছে।</i>\n` +
+                `আইপি ব্যান করতে: <code>/banip ${clientIp}</code>\n` +
+                `হোয়াইটলিস্টে যোগ করতে: <code>/addadminip ${clientIp}</code>`
+            ).catch(() => {});
         }
 
-        return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway</small></body></html>');
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        return res.status(404).send(REAL_404_HTML);
     }
     next();
-} // Maruf's Telegram ID
+}
 
 // Hardened secret that immediately invalidates all previous sessions
 const ADMIN_TOKEN_SECRET = crypto
@@ -4638,7 +4683,7 @@ app.post('/api/admin/verify-layer1', async (req, res) => {
                 `🛡 <b>ব্যবস্থা:</b> আইপি ফায়ারওয়াল দ্বারা চিরতরে ব্যান করা হয়েছে!`;
             sendSecurityAlert(critMsg).catch(() => {});
 
-            return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
+            return res.status(404).send(REAL_404_HTML);
         }
 
         // Layer 1 Passed!
@@ -4691,7 +4736,7 @@ app.post('/api/admin/verify-layer2', async (req, res) => {
                 `🛡 <b>ব্যবস্থা:</b> আইপি ফায়ারওয়াল দ্বারা চিরতরে ব্যান করা হয়েছে!`;
             sendSecurityAlert(critMsg).catch(() => {});
 
-            return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
+            return res.status(404).send(REAL_404_HTML);
         }
 
         // Layer 2 Passed!
@@ -4740,7 +4785,7 @@ app.post('/api/admin/verify-layer3', async (req, res) => {
                 `🛡 <b>ফলাফল:</b> ইনপুট লেখার কারণে আইপি চিরতরে ব্যান এবং 404 ডেসিভ করা হয়েছে!`;
             sendSecurityAlert(critMsg).catch(() => {});
 
-            return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
+            return res.status(404).send(REAL_404_HTML);
         }
 
         // RULE 2: Must be held for at least 30,000 ms (30 seconds) AND double-clicked
@@ -4760,7 +4805,7 @@ app.post('/api/admin/verify-layer3', async (req, res) => {
                 `🛡 <b>ব্যবস্থা:</b> আইপি ব্যান করা হয়েছে!`;
             sendSecurityAlert(critMsg).catch(() => {});
 
-            return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
+            return res.status(404).send(REAL_404_HTML);
         }
 
         // ALL 3 LAYERS PASSED 100%! Issue official Admin JWT Token!
@@ -4803,9 +4848,9 @@ app.post('/api/admin/trap-triggered', async (req, res) => {
             `🛡 <b>ফলাফল:</b> হ্যাকার 404 ডেকয় পেজে আটকে গেছে এবং তার আইপি ব্যান করা হয়েছে!`
         ).catch(() => {});
 
-        return res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p></body></html>');
+        return res.status(404).send(REAL_404_HTML);
     } catch (e) {
-        return res.status(404).send('404 Not Found');
+        return res.status(404).send(REAL_404_HTML);
     }
 });
 
@@ -8558,10 +8603,10 @@ app.get(adminVaultRegex, requireAdminIpWhitelist, (req, res) => {
 
 // Decoy 404 handler for Root and Unhandled Routes (NEVER serve Admin on Root)
 app.use((req, res) => {
-    if (req.path.startsWith('/app')) {
-        return res.redirect('/app/');
-    }
-    res.status(404).send('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#94a3b8;"><h1 style="color:#f1f5f9;">404 Not Found</h1><p>The requested endpoint does not exist on this server.</p><hr style="border-color:#334155;max-width:400px;margin:20px auto;"><small>Trust Pay Gateway v2.0</small></body></html>');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.status(404).send(REAL_404_HTML);
 });
 
 
@@ -8672,6 +8717,7 @@ function registerMasterSecurityCommands(botInstance) {
         if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
         const ip = match[1]?.trim();
         if (!ip) return botInstance.sendMessage(msg.chat.id, "⚠️ আইপি দিন। যেমন: <code>/addadminip 103.191.174.53</code>", { parse_mode: 'HTML' });
+        await removeBannedIp(ip);
         const ok = await addAllowedAdminIp(ip);
         if (ok) {
             botInstance.sendMessage(msg.chat.id, `✅ <b>আইপি <code>${ip}</code> সফলভাবে অ্যাডমিন হোয়াইটলিস্টে যুক্ত করা হয়েছে!</b>\n\nএখন এই আইপি থেকে অ্যাডমিন প্যানেল খোলা যাবে।`, { parse_mode: 'HTML' });
@@ -8855,8 +8901,9 @@ function registerMasterSecurityCommands(botInstance) {
         if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
         const ip = match[1]?.trim();
         if (!ip) return botInstance.sendMessage(msg.chat.id, "⚠️ আইপি এড্রেস দিন। যেমন: <code>/banip 123.45.67.89</code>", { parse_mode: 'HTML' });
-        await addBannedIp(ip, `Manual ban by Owner ${msg.from.id}`);
-        botInstance.sendMessage(msg.chat.id, `⛔ <b>আইপি <code>${ip}</code> সফলভাবে ফায়ারওয়াল দ্বারা ব্যান করা হয়েছে!</b>`, { parse_mode: 'HTML' });
+        await addBannedIp(ip, `Manual ban by Owner ${msg.from.id}`, true);
+        await removeAllowedAdminIp(ip);
+        botInstance.sendMessage(msg.chat.id, `⛔ <b>আইপি <code>${ip}</code> সফলভাবে পার্মানেন্ট ব্যান করা হয়েছে!</b>\n\n🛡 <i>এখন এই আইপি থেকে অ্যাডমিন প্যানেলে ঢুকতে গেলে রিয়েল 404 Not Found পেজ আসবে।</i>\n\n💡 <i>ভবিষ্যতে আনব্যান ও এক্সেস ফিরিয়ে দিতে পাঠান:</i>\n<code>/unbanip ${ip}</code>\n<code>/addadminip ${ip}</code>`, { parse_mode: 'HTML' });
     });
 
     botInstance.onText(/\/unbanip(?:\s+(.+))?/, async (msg, match) => {
@@ -8864,7 +8911,7 @@ function registerMasterSecurityCommands(botInstance) {
         const ip = match[1]?.trim();
         if (!ip) return botInstance.sendMessage(msg.chat.id, "⚠️ আইপি এড্রেস দিন। যেমন: <code>/unbanip 123.45.67.89</code>", { parse_mode: 'HTML' });
         await removeBannedIp(ip);
-        botInstance.sendMessage(msg.chat.id, `✅ <b>আইপি <code>${ip}</code> আনব্যান করা হয়েছে।</b>`, { parse_mode: 'HTML' });
+        botInstance.sendMessage(msg.chat.id, `✅ <b>আইপি <code>${ip}</code> সফলভাবে আনব্যান করা হয়েছে।</b>\n\n💡 <i>অ্যাডমিন প্যানেলে এক্সেস দেওয়ার জন্য হোয়াইটলিস্টে যোগ করতে পাঠান:</i>\n<code>/addadminip ${ip}</code>`, { parse_mode: 'HTML' });
     });
 
     botInstance.onText(/\/bannedips/, async (msg) => {
