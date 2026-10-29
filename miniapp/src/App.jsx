@@ -429,12 +429,31 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
     )}
     {page === 'add-money' && (
       <>
-        {/* Top-right flower removed: the hero now uses the custom lotus line-art image */}
-        <div className="absolute top-[40%] -left-16 w-72 h-72 text-indigo-900 opacity-[0.035] tp-bg-flower-addmoney transform rotate-15">
-          <AddMoneyFloraPattern className="w-full h-full opacity-100" />
-        </div>
-        <div className="absolute bottom-16 -left-10 w-80 h-80 text-indigo-900 opacity-[0.045] tp-bg-flower-addmoney transform -rotate-30">
-          <AddMoneyFloraPattern className="w-full h-full opacity-100" />
+        {/* Soft lavender/purple ambient aura glow */}
+        <div
+          className="absolute -top-12 -right-12 w-[320px] h-[340px] pointer-events-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(closest-side, rgba(168,85,247,0.18), transparent)'
+              : 'radial-gradient(closest-side, rgba(233,213,255,0.7), rgba(243,232,255,0.25) 60%, transparent)'
+          }}
+        />
+
+        {/* Delicate Botanical Rose Art at bottom-left — prominent and visible */}
+        <div
+          className="absolute -left-6 bottom-16 w-[240px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to top, black 80%, transparent 100%)',
+            maskImage: 'linear-gradient(to top, black 80%, transparent 100%)'
+          }}
+        >
+          <img
+            src={roseBotanicalArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.38] brightness-125' : 'opacity-[0.78]'}`}
+          />
         </div>
       </>
     )}
@@ -4242,11 +4261,13 @@ function AddMoneyPage({
                             }`}
                         >
                             <div className="flex items-center gap-2.5">
-                                <img
-                                    src={getPaymentLogo(paymentMethod)}
-                                    alt={paymentMethod}
-                                    className="w-6 h-6 object-contain rounded-md"
-                                />
+                                <div className="w-8 h-8 rounded-xl bg-white p-1 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs">
+                                    <img
+                                        src={getPaymentLogo(paymentMethod)}
+                                        alt={paymentMethod}
+                                        className="w-full h-full object-contain"
+                                    />
+                                </div>
                                 <span className="font-black text-sm">{paymentMethod}</span>
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                                     Personal Send Money
@@ -4275,11 +4296,13 @@ function AddMoneyPage({
                                         }`}
                                     >
                                         <div className="flex items-center gap-2.5">
-                                            <img
-                                                src={getPaymentLogo(method)}
-                                                alt={method}
-                                                className="w-5 h-5 object-contain rounded-md"
-                                            />
+                                            <div className="w-7 h-7 rounded-lg bg-white p-0.5 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs">
+                                                <img
+                                                    src={getPaymentLogo(method)}
+                                                    alt={method}
+                                                    className="w-full h-full object-contain"
+                                                />
+                                            </div>
                                             <span className="text-xs">{method}</span>
                                         </div>
                                         {paymentMethod === method && <Check size={16} className="text-purple-600 dark:text-purple-400" />}
@@ -6524,7 +6547,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
           {fiatWallet ? (
             <>
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shrink-0 shadow-xs">
                   <img 
                     src={getPaymentLogo(fiatWallet.method)} 
                     alt={fiatWallet.method} 
