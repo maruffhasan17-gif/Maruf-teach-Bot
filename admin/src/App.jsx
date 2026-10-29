@@ -6402,7 +6402,7 @@ function BroadcastCenter() {
 // EXECUTIVE ADMIN LOGIN SCREEN (DATABASE-BACKED GMAIL & PASSWORD + 2FA)
 // =========================================================================
 function AdminLoginScreen({ onLoginSuccess }) {
-  // Authentication Stages: 'credentials' -> '2fa' -> 'layer1' -> 'layer2' -> 'layer3'
+  // Authentication Stages: 'credentials' -> '2fa'
   const [step, setStep] = useState('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -6414,46 +6414,11 @@ function AdminLoginScreen({ onLoginSuccess }) {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMsg, setResendMsg] = useState('');
 
-  // 3-Layer Security States
-  const [vaultSessionToken, setVaultSessionToken] = useState('');
-  const [layer1Code, setLayer1Code] = useState('');
-  const [layer2Keyword, setLayer2Keyword] = useState('');
-  const [layer3Answer, setLayer3Answer] = useState('');
-
-  // Layer 3 Mechanics (100% Secret & Enigmatic - Zero Leaks)
-  const [isHolding, setIsHolding] = useState(false);
-  const [holdUnlocked, setHoldUnlocked] = useState(false);
-  const [clickCount, setClickCount] = useState(0);
-  const [isTrapTriggered, setIsTrapTriggered] = useState(false);
-
-  const holdIntervalRef = React.useRef(null);
-  const holdStartTimeRef = React.useRef(0);
-
-  // Trigger Honeypot Trap (Immediate 404 & IP Ban)
-  const triggerHoneypotTrap = async (typedAnswer) => {
-    setIsTrapTriggered(true);
-    try {
-      await fetch(`${API_BASE}/api/admin/trap-triggered`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vaultSessionToken,
-          reason: 'Input entered in Who are you honeypot challenge',
-          answer: typedAnswer
-        })
-      });
-    } catch (_) {}
-  };
-
   // STEP 1: Email & Password Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setResendMsg('');
-    if (isMobileDevice()) {
-      setError('Mobile devices are strictly forbidden from accessing the Admin Panel.');
-      return;
-    }
     if (!email.trim() || !password) {
       setError('Please enter both Admin Email and Password.');
       return;
@@ -6511,14 +6476,9 @@ function AdminLoginScreen({ onLoginSuccess }) {
         })
       });
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!res.ok || !data.success || !data.token) {
         setError(data.error || 'Invalid or expired code! Please retry.');
-      } else if (data.requireQuantumVault) {
-        setVaultSessionToken(data.vaultSessionToken);
-        setStep('layer1');
-        setLayer1Code('');
-        setError('');
-      } else if (data.token) {
+      } else {
         localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
         localStorage.setItem(ADMIN_EMAIL_KEY, data.email || email.trim());
         onLoginSuccess(data.token);
@@ -6546,7 +6506,7 @@ function AdminLoginScreen({ onLoginSuccess }) {
       if (!res.ok || !data.success) {
         setError(data.error || 'Could not resend verification code.');
       } else {
-        setResendMsg('New 6-digit verification code dispatched.');
+        setResendMsg('New 6-digit verification code dispatched to Telegram.');
       }
     } catch (err) {
       setError('Failed to resend code.');
@@ -6554,180 +6514,6 @@ function AdminLoginScreen({ onLoginSuccess }) {
       setResendLoading(false);
     }
   };
-
-  // CLEARANCE LEVEL 1: Master Security PIN
-  const handleVerifyLayer1 = async (e) => {
-    e.preventDefault();
-    setError('');
-    const cleanCode = layer1Code.trim();
-    if (!cleanCode) {
-      setError('Please enter the Master PIN.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/verify-layer1`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vaultSessionToken, secretCode: cleanCode })
-      });
-      if (res.status === 404 || res.status === 403) {
-        setIsTrapTriggered(true);
-        return;
-      }
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setError(data.error || 'Invalid PIN. Authorization failed.');
-      } else {
-        setStep('layer2');
-        setLayer2Keyword('');
-        setError('');
-      }
-    } catch (err) {
-      setError('Security server communication failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // CLEARANCE LEVEL 2: Cloud Security Passphrase
-  const handleVerifyLayer2 = async (e) => {
-    e.preventDefault();
-    setError('');
-    const cleanKw = layer2Keyword.trim();
-    if (!cleanKw) {
-      setError('Please enter the passphrase.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/verify-layer2`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vaultSessionToken, keyword: cleanKw })
-      });
-      if (res.status === 404 || res.status === 403) {
-        setIsTrapTriggered(true);
-        return;
-      }
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setError(data.error || 'Invalid passphrase. Authorization failed.');
-      } else {
-        setStep('layer3');
-        setLayer3Answer('');
-        setError('');
-        setIsHolding(false);
-        setHoldUnlocked(false);
-        setClickCount(0);
-      }
-    } catch (err) {
-      setError('Security server communication failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // CLEARANCE LEVEL 3: Secret Hold & Click Mechanics
-  const startHolding = () => {
-    if (holdUnlocked || loading) return;
-    if (layer3Answer.trim().length > 0) {
-      triggerHoneypotTrap(layer3Answer);
-      return;
-    }
-    setIsHolding(true);
-    holdStartTimeRef.current = Date.now();
-    if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
-    holdIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - holdStartTimeRef.current;
-      if (elapsed >= 30000) {
-        clearInterval(holdIntervalRef.current);
-        holdIntervalRef.current = null;
-        setIsHolding(false);
-        setHoldUnlocked(true);
-        setClickCount(0);
-      }
-    }, 100);
-  };
-
-  const stopHolding = () => {
-    if (holdUnlocked) return;
-    if (holdIntervalRef.current) {
-      clearInterval(holdIntervalRef.current);
-      holdIntervalRef.current = null;
-    }
-    setIsHolding(false);
-  };
-
-  const handleLayer3Click = (e) => {
-    e.preventDefault();
-    if (layer3Answer.trim().length > 0) {
-      triggerHoneypotTrap(layer3Answer);
-      return;
-    }
-    if (!holdUnlocked) {
-      setError('Authorization failed. Access denied.');
-      return;
-    }
-    const nextCount = clickCount + 1;
-    setClickCount(nextCount);
-    if (nextCount >= 2) {
-      handleFinalUnlock();
-    }
-  };
-
-  const handleFinalUnlock = async () => {
-    if (layer3Answer.trim().length > 0) {
-      triggerHoneypotTrap(layer3Answer);
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/verify-layer3`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vaultSessionToken,
-          answer: '',
-          holdDurationMs: 30000,
-          doubleClicked: true
-        })
-      });
-      if (res.status === 404 || res.status === 403) {
-        setIsTrapTriggered(true);
-        return;
-      }
-      const data = await res.json();
-      if (!res.ok || !data.success || !data.token) {
-        setError(data.error || 'Authorization failed. Access denied.');
-      } else {
-        localStorage.setItem(ADMIN_TOKEN_KEY, data.token);
-        localStorage.setItem(ADMIN_EMAIL_KEY, data.email || email.trim());
-        onLoginSuccess(data.token);
-      }
-    } catch (err) {
-      setError('Verification could not be completed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // If Honeypot Trap Triggered -> Realistic Deceptive 404 Not Found Page
-  if (isTrapTriggered) {
-    return (
-      <div className="min-h-screen bg-[#0b0f19] text-[#94a3b8] flex flex-col items-center justify-center p-6 text-center font-mono select-none">
-        <div className="max-w-md w-full p-8 bg-[#111827] border border-red-900/40 rounded-2xl shadow-2xl">
-          <div className="text-5xl font-black text-rose-500 mb-2">404</div>
-          <h1 className="text-xl font-bold text-white mb-2">Not Found</h1>
-          <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-            The requested URL / security endpoint was not found on this server.
-          </p>
-          <div className="h-[1px] bg-slate-800 my-4" />
-          <p className="text-[11px] text-slate-500">Security Firewall: Connection Terminated & IP Logged.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#070510] text-slate-100 flex items-center justify-center p-6 relative overflow-hidden">
@@ -6753,28 +6539,20 @@ function AdminLoginScreen({ onLoginSuccess }) {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black text-white tracking-tight">Trust Pay</h1>
             <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-widest uppercase">
-              {step === 'credentials' && 'PORTAL LOGIN'}
-              {step === '2fa' && '2FA VERIFICATION'}
-              {step === 'layer1' && 'SECURITY LEVEL 1'}
-              {step === 'layer2' && 'SECURITY LEVEL 2'}
-              {step === 'layer3' && 'SECURITY LEVEL 3'}
+              {step === 'credentials' ? 'ADMIN LOGIN' : '2FA SECURITY'}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1 font-medium">
-            {step === 'credentials' && 'Authorized Access Only'}
-            {step === '2fa' && 'Two-Factor Telegram Authorization'}
-            {step === 'layer1' && 'Level 1 Security Clearance'}
-            {step === 'layer2' && 'Level 2 Security Clearance'}
-            {step === 'layer3' && 'Level 3 Identity Verification'}
+            {step === 'credentials'
+              ? 'Protected Treasury & System Management'
+              : 'Two-Factor Telegram Security Authorization'}
           </p>
           <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-[10px] font-bold text-purple-300">
             <Lock size={11} className="text-purple-400" />
             <span>
-              {step === 'credentials' && 'Desktop Firewall Active'}
-              {step === '2fa' && 'Two-Factor Verification Protocol'}
-              {step === 'layer1' && 'PIN Clearance Protocol'}
-              {step === 'layer2' && 'Security Passphrase Protocol'}
-              {step === 'layer3' && 'Identity Verification Protocol'}
+              {step === 'credentials'
+                ? 'Authorized Whitelisted Access Only'
+                : 'Telegram 2-Step OTP Protocol Active'}
             </span>
           </div>
         </div>
@@ -6889,7 +6667,7 @@ function AdminLoginScreen({ onLoginSuccess }) {
               ) : (
                 <>
                   <ShieldCheck size={16} />
-                  <span>Verify Code</span>
+                  <span>Verify Code & Enter</span>
                 </>
               )}
             </button>
@@ -6915,163 +6693,11 @@ function AdminLoginScreen({ onLoginSuccess }) {
           </form>
         )}
 
-        {/* CLEARANCE LEVEL 1: Master Security PIN */}
-        {step === 'layer1' && (
-          <form onSubmit={handleVerifyLayer1} className="space-y-4">
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5 text-center">
-                Master Security PIN
-              </label>
-              <input
-                type="password"
-                required
-                maxLength={10}
-                autoFocus
-                inputMode="numeric"
-                value={layer1Code}
-                onChange={(e) => setLayer1Code(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder="•••••••"
-                className="w-full py-3.5 px-4 rounded-xl text-xl font-black font-mono tracking-[0.3em] text-center text-cyan-400 bg-[#14102c] border border-cyan-800/60 placeholder-slate-700 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !layer1Code.trim()}
-              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-xl shadow-cyan-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={15} className="animate-spin" />
-                  <span>Validating PIN...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck size={16} />
-                  <span>Verify PIN</span>
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* CLEARANCE LEVEL 2: Cloud Security Passphrase */}
-        {step === 'layer2' && (
-          <form onSubmit={handleVerifyLayer2} className="space-y-4">
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5 text-center">
-                Security Passphrase
-              </label>
-              <input
-                type="password"
-                required
-                autoFocus
-                value={layer2Keyword}
-                onChange={(e) => setLayer2Keyword(e.target.value)}
-                placeholder="•••••••••••••••"
-                className="w-full py-3.5 px-4 rounded-xl text-sm font-bold text-center text-amber-300 bg-[#14102c] border border-amber-800/60 placeholder-slate-700 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !layer2Keyword.trim()}
-              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white shadow-xl shadow-amber-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={15} className="animate-spin" />
-                  <span>Validating Passphrase...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck size={16} />
-                  <span>Verify Passphrase</span>
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* CLEARANCE LEVEL 3: Secret Honeypot Challenge - Zero Leaks */}
-        {step === 'layer3' && (
-          <div className="space-y-4 select-none">
-            {/* The Question */}
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-slate-900 to-[#120d26] border border-purple-500/30 text-center">
-              <div className="text-2xl font-black text-white tracking-wide">"Who are you?"</div>
-            </div>
-
-            {/* Honeypot Input Box */}
-            <div>
-              <input
-                type="text"
-                autoFocus
-                autoComplete="off"
-                value={layer3Answer}
-                onChange={(e) => {
-                  setLayer3Answer(e.target.value);
-                  if (e.target.value.trim().length > 0) {
-                    triggerHoneypotTrap(e.target.value);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (e.target.value.trim().length > 0) {
-                      triggerHoneypotTrap(e.target.value);
-                    } else if (!holdUnlocked) {
-                      setError('Authorization failed. Access denied.');
-                    }
-                  }
-                }}
-                placeholder="Enter response..."
-                className="w-full py-3 px-4 rounded-xl text-sm font-medium text-center text-slate-200 bg-[#160f29] border border-purple-900/60 placeholder-slate-600 focus:outline-none focus:border-purple-500 transition-colors"
-              />
-            </div>
-
-            {/* Single Interactive Button - Zero hints */}
-            <button
-              type="button"
-              onMouseDown={startHolding}
-              onMouseUp={stopHolding}
-              onMouseLeave={stopHolding}
-              onTouchStart={startHolding}
-              onTouchEnd={stopHolding}
-              onClick={handleLayer3Click}
-              disabled={loading}
-              className={`w-full py-3.5 px-4 rounded-xl font-black text-xs uppercase tracking-wider text-white shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer select-none active:scale-98 ${
-                holdUnlocked
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/40 ring-2 ring-emerald-400/30'
-                  : isHolding
-                  ? 'bg-gradient-to-r from-purple-800 to-indigo-800 shadow-purple-950/60 scale-[0.99]'
-                  : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-900/40'
-              }`}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={15} className="animate-spin" />
-                  <span>Verifying...</span>
-                </>
-              ) : holdUnlocked ? (
-                <>
-                  <ShieldCheck size={16} className="text-emerald-300" />
-                  <span>{clickCount === 0 ? 'Confirm Authorization (Click 1/2)' : 'Confirm Authorization (Click 2/2)'}</span>
-                </>
-              ) : (
-                <>
-                  <Lock size={15} className="text-purple-300" />
-                  <span>Authorize</span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
         <div className="mt-6 pt-5 border-t border-purple-900/30 flex items-center justify-between text-[11px] text-slate-500 font-semibold">
           <span className="flex items-center gap-1.5">
-            <Shield size={12} className="text-emerald-400" /> Multi-Layer Security Vault Guard
+            <Shield size={12} className="text-emerald-400" /> Telegram 2FA Protected
           </span>
-          <span>Desktop Only Mode</span>
+          <span>Trust Pay Security</span>
         </div>
       </div>
     </div>

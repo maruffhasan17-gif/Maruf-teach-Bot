@@ -4593,27 +4593,25 @@ app.post('/api/admin/verify-2fa', async (req, res) => {
             });
         }
 
-        // 2FA Verified! Transition to 3-Layer Quantum Vault Challenge
+        // 2FA Verified! Issue Admin Bearer Token Directly
         pendingAdmin2FASessions.delete(tempToken);
-        const vaultSessionToken = crypto.randomBytes(32).toString('hex');
-        quantumVaultSessions.set(vaultSessionToken, {
-            email: session.email,
-            clientIp,
-            userAgent: session.userAgent,
-            stage: 'layer1',
-            layer1Passed: false,
-            layer2Passed: false,
-            layer3Passed: false,
-            layer3StartTime: 0,
-            expiresAt: Date.now() + 5 * 60 * 1000
-        });
+        const token = createAdminToken(session.email);
+
+        const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+        sendSecurityAlert(
+            `🔐 <b>ADMIN LOGIN SUCCESSFUL</b>\n\n` +
+            `✅ <b>অ্যাডমিন লগইন সফল হয়েছে!</b>\n` +
+            `📧 <b>ইমেইল:</b> <code>${session.email}</code>\n` +
+            `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
+            `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(session.userAgent || 'Unknown')}</code>\n` +
+            `⏰ <b>সময়:</b> ${timeStr}`
+        ).catch(() => {});
 
         return res.json({
             success: true,
-            requireQuantumVault: true,
-            vaultSessionToken,
-            currentLayer: 1,
-            message: 'Telegram 2FA ভেরিফাইড! ৩-লেয়ার সর্বোচ্চ সিকিউরিটি চ্যালেঞ্জ সম্পন্ন করুন।'
+            token,
+            email: session.email,
+            message: 'অ্যাডমিন লগইন সফল হয়েছে।'
         });
     } catch (e) {
         return res.status(500).json({ error: e.message });
@@ -8565,13 +8563,7 @@ app.get('/api/my-ip', (req, res) => {
 });
 
 // Serve Admin Panel Static Assets EXCLUSIVELY under ADMIN_SECRET_PATH (IP Whitelisted & Desktop Only)
-app.use(ADMIN_SECRET_PATH, requireAdminIpWhitelist, (req, res, next) => {
-    if (isMobileRequest(req)) {
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-        return res.status(403).send(MOBILE_BLOCKED_HTML);
-    }
-    next();
-}, express.static(path.join(__dirname, 'admin/dist'), {
+app.use(ADMIN_SECRET_PATH, requireAdminIpWhitelist, express.static(path.join(__dirname, 'admin/dist'), {
     maxAge: '1d',
     etag: true,
     setHeaders: (res, filePath) => {
@@ -8586,10 +8578,6 @@ app.use(ADMIN_SECRET_PATH, requireAdminIpWhitelist, (req, res, next) => {
 // Fallback SPA routes for Admin Panel inside ADMIN_SECRET_PATH
 const adminVaultRegex = new RegExp('^' + ADMIN_SECRET_PATH + '(/.*)?$');
 app.get(adminVaultRegex, requireAdminIpWhitelist, (req, res) => {
-    if (isMobileRequest(req)) {
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-        return res.status(403).send(MOBILE_BLOCKED_HTML);
-    }
     const adminIndex = path.join(__dirname, 'admin/dist/index.html');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
