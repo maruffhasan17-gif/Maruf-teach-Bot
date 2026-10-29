@@ -446,6 +446,76 @@ app.use(cors());
 
 app.disable('x-powered-by');
 
+// --- FORT-KNOX SECURITY FIREWALL: CLIENT IP & IP BLACKLIST ---
+function getClientIp(req) {
+    const cfIp = req.headers['cf-connecting-ip'];
+    if (cfIp) return String(cfIp).trim();
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+        const parts = String(forwarded).split(',');
+        if (parts.length > 0 && parts[0].trim()) return parts[0].trim();
+    }
+    const realIp = req.headers['x-real-ip'];
+    if (realIp) return String(realIp).trim();
+    const socketIp = req.socket?.remoteAddress;
+    if (socketIp) {
+        if (socketIp.startsWith('::ffff:')) return socketIp.slice(7);
+        return socketIp;
+    }
+    return '127.0.0.1';
+}
+
+const bannedIps = new Set();
+async function syncBannedIpsFromDb() {
+    try {
+        const snap = await db.collection('settings').doc('banned_ips').get();
+        if (snap.exists && Array.isArray(snap.data()?.ips)) {
+            snap.data().ips.forEach(ip => bannedIps.add(String(ip).trim()));
+            console.log(`[SecurityFirewall] Loaded ${bannedIps.size} banned IPs from Firestore.`);
+        }
+    } catch (_) {}
+}
+syncBannedIpsFromDb();
+
+async function addBannedIp(ip, reason = 'Intrusion / brute-force attempt') {
+    const cleanIp = String(ip).trim();
+    if (!cleanIp || cleanIp === '127.0.0.1' || cleanIp === '::1') return;
+    bannedIps.add(cleanIp);
+    try {
+        await db.collection('settings').doc('banned_ips').set({
+            ips: Array.from(bannedIps),
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+        await db.collection('security_logs').add({
+            action: 'IP_BANNED',
+            ip: cleanIp,
+            reason,
+            timestamp: FieldValue.serverTimestamp()
+        });
+        console.warn(`[SecurityFirewall] ⛔ BANNED IP: ${cleanIp} (${reason})`);
+    } catch (_) {}
+}
+
+async function removeBannedIp(ip) {
+    const cleanIp = String(ip).trim();
+    bannedIps.delete(cleanIp);
+    try {
+        await db.collection('settings').doc('banned_ips').set({
+            ips: Array.from(bannedIps),
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+    } catch (_) {}
+}
+
+// Global Security Firewall: Immediate 403 rejection for any banned IP
+app.use((req, res, next) => {
+    const clientIp = getClientIp(req);
+    if (bannedIps.has(clientIp)) {
+        return res.status(403).send('<html><body style="background:#0f172a;color:#ef4444;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;"><div style="text-align:center;padding:2rem;background:#1e293b;border-radius:1rem;border:1px solid #dc2626;"><h2>⛔ 403 Forbidden</h2><p>Access Denied: Your IP (' + escapeHtml(clientIp) + ') has been blocked by Trust Pay Security Firewall.</p></div></body></html>');
+    }
+    next();
+});
+
 // --- ENTERPRISE SECURITY HEADERS MIDDLEWARE (Prevents MIME Sniffing, Clickjacking & XSS) ---
 app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -3952,50 +4022,42 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
     }
 });
 // =======================================================
-// ADMIN PANEL SECURITY: DESKTOP-ONLY + FIRESTORE AUTH
+// ADMIN PANEL SECURITY: MILITARY-GRADE 2FA & FIREWALL
 // =======================================================
-const ADMIN_DEFAULT_EMAIL = 'trustpaybot@gmail.com';
-const ADMIN_DEFAULT_PASS = 'Maruf1232#+';
+const MASTER_ADMIN_ID = '8799135330'; // Maruf's Telegram ID
+
+// Hardened secret that immediately invalidates all previous sessions
 const ADMIN_TOKEN_SECRET = crypto
     .createHash('sha256')
-    .update((serviceAccount?.private_key || 'trustpay-secret-key') + '::admin_portal_v1')
+    .update((serviceAccount?.private_key || 'trustpay-secret-key') + '::admin_hardened_shield_v2_2026')
     .digest('hex');
 
 let cachedAdminCreds = {
-    email: ADMIN_DEFAULT_EMAIL,
-    password: ADMIN_DEFAULT_PASS
+    email: process.env.ADMIN_EMAIL || 'maruf.admin@trustpay.com',
+    password: process.env.ADMIN_PASSWORD || 'Maruf#2026!AdminSec99'
 };
 
 async function ensureAdminCredentialsInDb() {
     try {
         const authRef = db.collection('settings').doc('admin_auth');
         const doc = await authRef.get();
-        if (!doc.exists || !doc.data()?.email || !doc.data()?.password) {
+        if (doc.exists && doc.data()?.email && doc.data()?.password) {
+            cachedAdminCreds = {
+                email: doc.data().email,
+                password: doc.data().password
+            };
+            console.log('[AdminSecurity] ✓ Active credentials synced from Firestore (settings/admin_auth).');
+        } else {
             await authRef.set({
-                email: ADMIN_DEFAULT_EMAIL,
-                password: ADMIN_DEFAULT_PASS,
+                email: cachedAdminCreds.email,
+                password: cachedAdminCreds.password,
                 desktopOnly: true,
                 updatedAt: FieldValue.serverTimestamp()
             }, { merge: true });
-            console.log('[AdminSecurity] Seeded default admin credentials into Firestore (settings/admin_auth).');
-        } else {
-            const data = doc.data();
-            // Ensure requested credentials are synced in Firestore
-            if (data.email !== ADMIN_DEFAULT_EMAIL || data.password !== ADMIN_DEFAULT_PASS) {
-                await authRef.set({
-                    email: ADMIN_DEFAULT_EMAIL,
-                    password: ADMIN_DEFAULT_PASS,
-                    desktopOnly: true,
-                    updatedAt: FieldValue.serverTimestamp()
-                }, { merge: true });
-            }
-            cachedAdminCreds = {
-                email: ADMIN_DEFAULT_EMAIL,
-                password: ADMIN_DEFAULT_PASS
-            };
+            console.log('[AdminSecurity] ✓ Initialized admin credentials in Firestore.');
         }
     } catch (err) {
-        console.warn('[AdminSecurity] Firestore admin_auth sync warning (using fallback):', err.message);
+        console.warn('[AdminSecurity] Firestore admin_auth sync warning:', err.message);
     }
 }
 ensureAdminCredentialsInDb();
@@ -4053,57 +4115,97 @@ function requireAdminAuth(req, res, next) {
     next();
 }
 
-// In-memory sessions for Admin 2FA verification (5 minutes TTL)
+// In-memory rate limiting for login attempts
+const adminLoginAttempts = new Map(); // ip -> { count, lockedUntil, totalFails }
+function recordFailedLogin(ip) {
+    const now = Date.now();
+    const rec = adminLoginAttempts.get(ip) || { count: 0, lockedUntil: 0, totalFails: 0 };
+    rec.count += 1;
+    rec.totalFails += 1;
+    if (rec.count >= 3) {
+        rec.lockedUntil = now + 2 * 60 * 60 * 1000; // 2 hours lockout
+    }
+    adminLoginAttempts.set(ip, rec);
+    return rec;
+}
+function resetFailedLogin(ip) {
+    const rec = adminLoginAttempts.get(ip);
+    if (rec) {
+        rec.count = 0;
+        rec.lockedUntil = 0;
+        adminLoginAttempts.set(ip, rec);
+    }
+}
+
+// In-memory sessions for Admin 2FA verification (5 minutes TTL, max 3 OTP attempts)
 const pendingAdmin2FASessions = new Map();
 
-async function sendAdmin2FACode(code) {
-    const msg = `🔐 <b>Trust Pay — Admin 2FA Login Code</b>\n\n` +
-        `অ্যাডমিন প্যানেলে লগইন করার জন্য আপনার ২-স্টেপ ভেরিফিকেশন কোড:\n\n` +
-        `👉 <code>${code}</code> 👈 <i>(ট্যাপ করে কোডটি কপি করুন)</i>\n\n` +
-        `⏱ <b>মেয়াদ:</b> ৫ মিনিট\n` +
-        `🖥 <b>ডিভাইস:</b> Desktop Admin Control Center\n` +
-        `⚠️ <i>আপনি লগইন রিকোয়েস্ট না করে থাকলে দ্রুত পাসওয়ার্ড পরিবর্তন করুন!</i>`;
-
-    const targets = ['8799135330']; // Maruf's Telegram ID
+async function sendSecurityAlert(msgHtml) {
+    const targets = [MASTER_ADMIN_ID];
     const config = botConfig || {};
     const withdrawGroup = config.withdrawGroupId || config.adminGroupId;
     if (withdrawGroup && !targets.includes(withdrawGroup.toString())) {
         targets.push(withdrawGroup.toString());
     }
-
-    console.log(`[Admin 2FA] Dispatching OTP ${code} to:`, targets);
     for (const target of targets) {
-        let sent = false;
-        // Priority 1: Dedicated Withdraw Bot
         if (withdrawBot) {
             try {
-                await withdrawBot.sendMessage(target, msg, { parse_mode: 'HTML' });
-                sent = true;
-                console.log(`[Admin 2FA] Sent via withdrawBot to ${target}`);
-            } catch (err) {
-                console.warn(`[Admin 2FA] withdrawBot send error to ${target}:`, err.message);
-            }
+                await withdrawBot.sendMessage(target, msgHtml, { parse_mode: 'HTML' });
+                continue;
+            } catch (_) {}
         }
-        // Fallback: Primary Bot
-        if (!sent && bot) {
+        if (bot) {
             try {
-                await bot.sendMessage(target, msg, { parse_mode: 'HTML' });
-                console.log(`[Admin 2FA] Sent via primary bot to ${target}`);
-            } catch (err2) {
-                console.error(`[Admin 2FA] primary bot send error to ${target}:`, err2.message);
-            }
+                await bot.sendMessage(target, msgHtml, { parse_mode: 'HTML' });
+            } catch (_) {}
         }
     }
 }
 
+async function sendAdmin2FACode(code, clientIp = 'Unknown', userAgent = 'Unknown') {
+    const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+    const msg = `🔐 <b>Trust Pay — Admin 2FA Login Code</b>\n\n` +
+        `অ্যাডমিন প্যানেলে লগইন করার ভেরিফিকেশন কোড:\n\n` +
+        `👉 <code>${code}</code> 👈 <i>(ট্যাপ করে কপি করুন)</i>\n\n` +
+        `⏱ <b>মেয়াদ:</b> ৫ মিনিট (সর্বোচ্চ ৩ বার চেষ্টা)\n` +
+        `🌐 <b>আইপি:</b> <code>${clientIp}</code>\n` +
+        `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(userAgent.slice(0, 100))}</code>\n` +
+        `⏰ <b>সময়:</b> ${timeStr}\n\n` +
+        `⚠️ <i>যদি আপনি এই চেষ্টা না করে থাকেন, তবে তৎক্ষণাৎ আইপি ব্লক করতে বটে পাঠান:</i>\n` +
+        `<code>/banip ${clientIp}</code>\n\n` +
+        `🔑 <i>পাসওয়ার্ড পরিবর্তন করতে পাঠান:</i>\n` +
+        `<code>/setadminpassword নতুন_পাসওয়ার্ড</code>`;
+
+    console.log(`[Admin 2FA] Dispatching OTP to Master Admin for IP: ${clientIp}`);
+    await sendSecurityAlert(msg);
+}
+
 app.post('/api/admin/login', async (req, res) => {
     try {
+        const clientIp = getClientIp(req);
+        const userAgent = String(req.headers['user-agent'] || 'Unknown');
+
+        // Check if IP is permanently banned
+        if (bannedIps.has(clientIp)) {
+            return res.status(403).json({ error: 'Your IP has been permanently banned by Security Firewall.' });
+        }
+
         if (isMobileRequest(req)) {
             return res.status(403).json({
                 error: 'মোবাইল ডিভাইস থেকে অ্যাডমিন প্যানেলে প্রবেশ সম্পূর্ণ নিষিদ্ধ! শুধুমাত্র ডেস্কটপ (PC/Laptop) ব্যবহার করুন।',
                 mobileBlocked: true
             });
         }
+
+        // Check sliding lockout for this IP
+        const attemptRecord = adminLoginAttempts.get(clientIp);
+        if (attemptRecord && attemptRecord.lockedUntil > Date.now()) {
+            const minsLeft = Math.ceil((attemptRecord.lockedUntil - Date.now()) / 60000);
+            return res.status(429).json({
+                error: `অত্যাধিক ভুল চেষ্টার কারণে আপনার আইপি সাময়িক লক করা হয়েছে। দয়া করে ${minsLeft} মিনিট পর আবার চেষ্টা করুন।`
+            });
+        }
+
         const { email, password } = req.body || {};
         if (!email || !password) {
             return res.status(400).json({ error: 'ইমেইল এবং পাসওয়ার্ড প্রদান করুন।' });
@@ -4127,18 +4229,25 @@ app.post('/api/admin/login', async (req, res) => {
             inputEmail === cachedAdminCreds.email.trim().toLowerCase() &&
             inputPass === cachedAdminCreds.password
         ) {
-            // Step 1: Credentials matched! Generate 6-digit OTP and session tempToken
+            // Success Step 1: Reset failed attempts for this IP
+            resetFailedLogin(clientIp);
+
+            // Generate 6-digit OTP and secure session tempToken
             const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
             const tempToken = crypto.randomBytes(24).toString('hex');
             
             pendingAdmin2FASessions.set(tempToken, {
                 otpCode,
                 email: cachedAdminCreds.email,
+                clientIp,
+                userAgent,
+                failedAttempts: 0,
+                maxAttempts: 3,
                 expiresAt: Date.now() + 5 * 60 * 1000
             });
 
-            // Dispatch OTP instantly via Withdraw Bot!
-            sendAdmin2FACode(otpCode).catch(e => console.error("sendAdmin2FACode error:", e.message));
+            // Dispatch 2FA with IP and User-Agent to Maruf
+            sendAdmin2FACode(otpCode, clientIp, userAgent).catch(e => console.error("sendAdmin2FACode error:", e.message));
 
             return res.json({
                 success: true,
@@ -4148,8 +4257,34 @@ app.post('/api/admin/login', async (req, res) => {
             });
         }
 
+        // Credentials Mismatch! Track failure and alert Maruf
+        const rec = recordFailedLogin(clientIp);
+        const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+
+        // Instant Security Warning to Telegram
+        const alertMsg = `🚨 <b>সতর্কবার্তা: অ্যাডমিন প্যানেলে অনুপ্রবেশের চেষ্টা ব্যর্থ!</b>\n\n` +
+            `কেউ একজন ভুল পাসওয়ার্ড দিয়ে অ্যাডমিন প্যানেলে ঢোকার চেষ্টা করেছে!\n\n` +
+            `📧 <b>চেষ্টাকৃত ইমেইল:</b> <code>${escapeHtml(inputEmail)}</code>\n` +
+            `🌐 <b>অনুপ্রবেশকারীর আইপি:</b> <code>${clientIp}</code>\n` +
+            `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(userAgent.slice(0, 100))}</code>\n` +
+            `⏰ <b>সময়:</b> ${timeStr}\n` +
+            `🔢 <b>ব্যর্থ চেষ্টা:</b> ${rec.count}/3 (মোট ব্যর্থ: ${rec.totalFails})\n\n` +
+            `<i>এই আইপিকে ফায়ারওয়ালে ব্যান করতে বটে পাঠান:</i>\n` +
+            `<code>/banip ${clientIp}</code>`;
+        sendSecurityAlert(alertMsg).catch(() => {});
+
+        // If >= 5 total fails, auto-ban IP permanently
+        if (rec.totalFails >= 5) {
+            await addBannedIp(clientIp, '5+ failed admin login attempts (Brute-force attack)');
+            const banAlert = `⛔ <b>FIREWALL AUTO-BAN: আক্রমণকারী ব্লকড!</b>\n\n` +
+                `বারংবার ভুল পাসওয়ার্ড দিয়ে হ্যাকিং চেষ্টার জন্য আইপি <code>${clientIp}</code> ফায়ারওয়াল দ্বারা স্থায়ীভাবে ব্যান করা হয়েছে!`;
+            sendSecurityAlert(banAlert).catch(() => {});
+        }
+
         return res.status(401).json({
-            error: 'ভুল ইমেইল অথবা পাসওয়ার্ড! সঠিক অ্যাডমিন তথ্য দিয়ে আবার চেষ্টা করুন।'
+            error: rec.count >= 3
+                ? 'পরপর ৩ বার ভুল তথ্য দেওয়ায় আপনার আইপি ২ ঘণ্টার জন্য সাময়িক লক করা হয়েছে।'
+                : `ভুল ইমেইল অথবা পাসওয়ার্ড! আপনার আর মাত্র ${3 - rec.count} টি সুযোগ বাকি আছে।`
         });
     } catch (e) {
         return res.status(500).json({ error: e.message });
@@ -4158,6 +4293,11 @@ app.post('/api/admin/login', async (req, res) => {
 
 app.post('/api/admin/verify-2fa', async (req, res) => {
     try {
+        const clientIp = getClientIp(req);
+        if (bannedIps.has(clientIp)) {
+            return res.status(403).json({ error: 'Your IP has been permanently banned by Security Firewall.' });
+        }
+
         if (isMobileRequest(req)) {
             return res.status(403).json({
                 error: 'মোবাইল ডিভাইস থেকে প্রবেশ সম্পূর্ণ নিষিদ্ধ!',
@@ -4176,8 +4316,34 @@ app.post('/api/admin/verify-2fa', async (req, res) => {
             pendingAdmin2FASessions.delete(tempToken);
             return res.status(400).json({ error: 'ভেরিফিকেশন কোডের মেয়াদ (৫ মিনিট) শেষ হয়ে গেছে। আবার লগইন করুন।' });
         }
+
+        // Validate OTP with 3-attempt brute-force protection
         if (session.otpCode.trim() !== String(otpCode).trim()) {
-            return res.status(400).json({ error: 'ভুল ভেরিফিকেশন কোড! উইথড্র বটে পাঠানো ৬ ডিজিটের কোডটি দিন।' });
+            session.failedAttempts = (session.failedAttempts || 0) + 1;
+            const remaining = session.maxAttempts - session.failedAttempts;
+
+            if (remaining <= 0) {
+                // Destroy session & auto-ban attacker IP
+                pendingAdmin2FASessions.delete(tempToken);
+                await addBannedIp(clientIp, '3 failed 2FA OTP verification attempts (OTP Brute-force)');
+                
+                const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+                const critMsg = `🚨 <b>CRITICAL SECURITY FIREWALL ALERT</b>\n\n` +
+                    `কারো একজন ৩ বার ভুল ২FA কোড দেওয়ার কারণে সেশন ধ্বংস করা হয়েছে এবং আইপি স্থায়ীভাবে ব্যান করা হয়েছে!\n\n` +
+                    `🌐 <b>ব্যানকৃত আইপি:</b> <code>${clientIp}</code>\n` +
+                    `🖥 <b>ডিভাইস:</b> <code>${escapeHtml(session.userAgent || 'Unknown')}</code>\n` +
+                    `⏰ <b>সময়:</b> ${timeStr}\n` +
+                    `🛡 <b>ফলাফল:</b> অনুপ্রবেশকারী সম্পূর্ণ ব্লকড।`;
+                sendSecurityAlert(critMsg).catch(() => {});
+
+                return res.status(403).json({
+                    error: 'পরপর ৩ বার ভুল কোড দেওয়ায় আপনার সেশন বাতিল ও আইপি স্থায়ীভাবে ব্যান করা হয়েছে।'
+                });
+            }
+
+            return res.status(400).json({
+                error: `ভুল ভেরিফিকেশন কোড! আপনার আর মাত্র ${remaining} টি সুযোগ বাকি আছে।`
+            });
         }
 
         // 2FA Verified! Clean up session & issue official admin JWT token
@@ -4195,6 +4361,10 @@ app.post('/api/admin/verify-2fa', async (req, res) => {
 
 app.post('/api/admin/resend-2fa', async (req, res) => {
     try {
+        const clientIp = getClientIp(req);
+        if (bannedIps.has(clientIp)) {
+            return res.status(403).json({ error: 'Access denied.' });
+        }
         const { tempToken } = req.body || {};
         if (!tempToken) return res.status(400).json({ error: 'Token is required' });
         const session = pendingAdmin2FASessions.get(tempToken);
@@ -4203,10 +4373,31 @@ app.post('/api/admin/resend-2fa', async (req, res) => {
         }
         const newCode = Math.floor(100000 + Math.random() * 900000).toString();
         session.otpCode = newCode;
+        session.failedAttempts = 0; // reset attempts for new code
         session.expiresAt = Date.now() + 5 * 60 * 1000;
         pendingAdmin2FASessions.set(tempToken, session);
-        await sendAdmin2FACode(newCode);
+        await sendAdmin2FACode(newCode, clientIp, session.userAgent);
         return res.json({ success: true, message: 'নতুন ভেরিফিকেশন কোড উইথড্র বটে পাঠানো হয়েছে।' });
+    } catch (e) {
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/change-password', requireAdminAuth, async (req, res) => {
+    try {
+        const { newPassword, currentPassword } = req.body || {};
+        if (!newPassword || newPassword.length < 8) {
+            return res.status(400).json({ error: 'নতুন পাসওয়ার্ড নূন্যতম ৮ অক্ষরের হতে হবে।' });
+        }
+        if (currentPassword !== cachedAdminCreds.password) {
+            return res.status(400).json({ error: 'বর্তমান পাসওয়ার্ড সঠিক নয়।' });
+        }
+        await db.collection('settings').doc('admin_auth').set({
+            password: newPassword,
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+        cachedAdminCreds.password = newPassword;
+        return res.json({ success: true, message: 'অ্যাডমিন পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে।' });
     } catch (e) {
         return res.status(500).json({ error: e.message });
     }
@@ -7980,6 +8171,104 @@ To receive your payout, please send your *TON Address* now:`;
 const PORT = process.env.PORT || 3000; app.listen(PORT, () => { console.log('Server on ' + PORT); });
 
 
+// Master Security Commands for Owner Maruf (Telegram ID: 8799135330)
+function registerMasterSecurityCommands(botInstance) {
+    if (!botInstance) return;
+
+    botInstance.onText(/\/getadmincreds/, async (msg) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        try {
+            const doc = await db.collection('settings').doc('admin_auth').get();
+            const data = doc.exists ? doc.data() : cachedAdminCreds;
+            const resp = `🔐 <b>Trust Pay — Current Admin Credentials</b>\n\n` +
+                `📧 <b>Admin Email:</b> <code>${data.email}</code>\n` +
+                `🔑 <b>Admin Password:</b> <code>${data.password}</code>\n\n` +
+                `💡 <i>পাসওয়ার্ড পরিবর্তন করতে পাঠান:</i>\n` +
+                `<code>/setadminpassword আপনার_নতুন_পাসওয়ার্ড</code>\n\n` +
+                `💡 <i>ইমেইল পরিবর্তন করতে পাঠান:</i>\n` +
+                `<code>/setadminemail আপনার_নতুন_ইমেইল</code>`;
+            botInstance.sendMessage(msg.chat.id, resp, { parse_mode: 'HTML' });
+        } catch (e) {
+            botInstance.sendMessage(msg.chat.id, `Error: ${e.message}`);
+        }
+    });
+
+    botInstance.onText(/\/setadminpassword(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const newPass = match[1]?.trim();
+        if (!newPass || newPass.length < 8) {
+            return botInstance.sendMessage(msg.chat.id, "⚠️ দয়া করে নূন্যতম ৮ অক্ষরের একটি শক্তিশালী পাসওয়ার্ড দিন। যেমন:\n<code>/setadminpassword MyPass2026#</code>", { parse_mode: 'HTML' });
+        }
+        try {
+            await db.collection('settings').doc('admin_auth').set({
+                password: newPass,
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            cachedAdminCreds.password = newPass;
+            botInstance.sendMessage(msg.chat.id, `✅ <b>অ্যাডমিন পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে!</b>\n\n🔑 <b>নতুন পাসওয়ার্ড:</b> <code>${newPass}</code>`, { parse_mode: 'HTML' });
+        } catch (e) {
+            botInstance.sendMessage(msg.chat.id, `Error: ${e.message}`);
+        }
+    });
+
+    botInstance.onText(/\/setadminemail(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const newEmail = match[1]?.trim().toLowerCase();
+        if (!newEmail || !newEmail.includes('@')) {
+            return botInstance.sendMessage(msg.chat.id, "⚠️ সঠিক ইমেইল এড্রেস প্রদান করুন। যেমন:\n<code>/setadminemail admin@trustpay.com</code>", { parse_mode: 'HTML' });
+        }
+        try {
+            await db.collection('settings').doc('admin_auth').set({
+                email: newEmail,
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+            cachedAdminCreds.email = newEmail;
+            botInstance.sendMessage(msg.chat.id, `✅ <b>অ্যাডমিন ইমেইল সফলভাবে পরিবর্তন করা হয়েছে!</b>\n\n📧 <b>নতুন ইমেইল:</b> <code>${newEmail}</code>`, { parse_mode: 'HTML' });
+        } catch (e) {
+            botInstance.sendMessage(msg.chat.id, `Error: ${e.message}`);
+        }
+    });
+
+    botInstance.onText(/\/banip(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const ip = match[1]?.trim();
+        if (!ip) return botInstance.sendMessage(msg.chat.id, "⚠️ আইপি এড্রেস দিন। যেমন: <code>/banip 123.45.67.89</code>", { parse_mode: 'HTML' });
+        await addBannedIp(ip, `Manual ban by Owner ${msg.from.id}`);
+        botInstance.sendMessage(msg.chat.id, `⛔ <b>আইপি <code>${ip}</code> সফলভাবে ফায়ারওয়াল দ্বারা ব্যান করা হয়েছে!</b>`, { parse_mode: 'HTML' });
+    });
+
+    botInstance.onText(/\/unbanip(?:\s+(.+))?/, async (msg, match) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const ip = match[1]?.trim();
+        if (!ip) return botInstance.sendMessage(msg.chat.id, "⚠️ আইপি এড্রেস দিন। যেমন: <code>/unbanip 123.45.67.89</code>", { parse_mode: 'HTML' });
+        await removeBannedIp(ip);
+        botInstance.sendMessage(msg.chat.id, `✅ <b>আইপি <code>${ip}</code> আনব্যান করা হয়েছে।</b>`, { parse_mode: 'HTML' });
+    });
+
+    botInstance.onText(/\/bannedips/, async (msg) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const list = Array.from(bannedIps);
+        if (list.length === 0) {
+            return botInstance.sendMessage(msg.chat.id, "🛡 বর্তমানে কোনো আইপি ব্যান তালিকায় নেই।");
+        }
+        const resp = `⛔ <b>Banned IPs (${list.length}):</b>\n\n` + list.map(ip => `• <code>${ip}</code>`).join('\n');
+        botInstance.sendMessage(msg.chat.id, resp, { parse_mode: 'HTML' });
+    });
+
+    botInstance.onText(/\/securitystatus/, async (msg) => {
+        if (msg.from?.id?.toString() !== MASTER_ADMIN_ID && msg.chat?.id?.toString() !== MASTER_ADMIN_ID) return;
+        const resp = `🛡 <b>Trust Pay — Security Firewall Status</b>\n\n` +
+            `• <b>Active 2FA Sessions:</b> ${pendingAdmin2FASessions.size}\n` +
+            `• <b>Banned IPs:</b> ${bannedIps.size}\n` +
+            `• <b>Desktop-Only Guard:</b> ACTIVE\n` +
+            `• <b>Brute-force Shield:</b> ACTIVE (Max 3 attempts)\n` +
+            `• <b>2FA Telegram Delivery:</b> ACTIVE (ID ${MASTER_ADMIN_ID})\n\n` +
+            `<i>আপনার অ্যাকাউন্ট ও অ্যাডমিন প্যানেল ১০০% সুরক্ষিত।</i>`;
+        botInstance.sendMessage(msg.chat.id, resp, { parse_mode: 'HTML' });
+    });
+}
+registerMasterSecurityCommands(bot);
+
 // Bot Wallet Commands for Admin
 bot.onText(/\/msg (\d+) ([\s\S]+)/, async (msg, match) => {
     const chatId = msg.chat.id;
@@ -8104,9 +8393,12 @@ try {
     withdrawBot = new TelegramBot(WITHDRAW_BOT_TOKEN, { polling: true });
     console.log('[WithdrawBot] ✓ Withdraw Manager Bot started successfully');
 
+    registerMasterSecurityCommands(withdrawBot);
     withdrawBot.setMyCommands([
         { command: 'withdraw', description: 'ক্যাশআউট সিরিয়াল অনুযায়ী শুরু করুন' },
         { command: 'list', description: 'সকল পেন্ডিং রিকোয়েস্টের তালিকা' },
+        { command: 'getadmincreds', description: 'বর্তমান অ্যাডমিন ইমেইল ও পাসওয়ার্ড দেখুন' },
+        { command: 'securitystatus', description: 'ফায়ারওয়াল ও নিরাপত্তা স্ট্যাটাস' },
         { command: 'help', description: 'সাহায্য ও নিয়মাবলী' }
     ]).catch(() => {});
 } catch(e) {
