@@ -1646,7 +1646,7 @@ const RestrictedNoticeScreen = ({ onBack, reason, restrictedUntil, lang = 'bn', 
 const transformTxToNotification = (tx, lang = 'bn') => {
   const type = tx.type;
   const status = String(tx.status || 'pending').toLowerCase();
-  const isRejected = status === 'rejected';
+  const isRejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
   const isCompleted = status === 'completed' || status === 'approved' || status === 'success';
   const ts = tx.timestamp?._seconds
     ? tx.timestamp._seconds * 1000
@@ -1709,15 +1709,31 @@ const transformTxToNotification = (tx, lang = 'bn') => {
     }
   } else if (type === 'sell') {
     category = 'trade';
-    variant = 'success';
     const asset = tx.asset || 'USDT';
     const cAmt = tx.amount || 0;
     const tk = tx.estimatedTk || tx.creditedTk || 0;
-    title = lang === 'bn' ? `${asset} সেল সফল` : `${asset} Sold Successfully`;
-    body = lang === 'bn'
-      ? `${cAmt} ${asset} বিক্রি সম্পন্ন হয়েছে এবং +৳${tk} আপনার একাউন্টে যোগ হয়েছে।`
-      : `Successfully sold ${cAmt} ${asset}. +৳${tk} credited to your account.`;
-    amount = `+৳${tk}`;
+    if (isCompleted) {
+      variant = 'success';
+      title = lang === 'bn' ? `${asset} সেল সফল` : `${asset} Sold Successfully`;
+      body = lang === 'bn'
+        ? `${cAmt} ${asset} বিক্রি সম্পন্ন হয়েছে এবং +৳${tk} আপনার একাউন্টে যোগ হয়েছে।`
+        : `Successfully sold ${cAmt} ${asset}. +৳${tk} credited to your account.`;
+      amount = `+৳${tk}`;
+    } else if (isRejected) {
+      variant = 'error';
+      title = lang === 'bn' ? `${asset} সেল বাতিল` : `${asset} Sell Cancelled`;
+      body = lang === 'bn'
+        ? `${cAmt} ${asset} বিক্রি সম্পন্ন হয়নি বা ওয়ালেটে বাতিল করা হয়েছে।`
+        : `${cAmt} ${asset} sell was cancelled or rejected.`;
+      amount = `0 ${asset}`;
+    } else {
+      variant = 'warning';
+      title = lang === 'bn' ? `${asset} সেল প্রক্রিয়া চলছে` : `${asset} Sell Processing`;
+      body = lang === 'bn'
+        ? `${cAmt} ${asset} ব্লকচেইনে যাচাই করা হচ্ছে...`
+        : `Verifying ${cAmt} ${asset} sell...`;
+      amount = `+৳${tk}`;
+    }
   } else if (type === 'buy') {
     category = 'trade';
     const asset = tx.asset || 'GRAM';
@@ -3465,7 +3481,7 @@ function HomePage({
   const getTxView = (tx) => {
     const type = tx.type;
     const status = String(tx.status || 'pending').toLowerCase();
-    const rejected = status === 'rejected';
+    const rejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
     let isCredit = false, amount = 0, title = '', subtitle = '', Icon = ArrowRightLeft, iconWrap = '';
     if (type === 'add_money') {
       isCredit = true; amount = parseFloat(tx.amount || tx.totalBdt) || 0;
@@ -3473,10 +3489,18 @@ function HomePage({
       subtitle = tx.paymentMethod || 'bKash / Nagad';
       Icon = ArrowDownLeft; iconWrap = 'bg-emerald-500/10 text-emerald-500';
     } else if (type === 'sell') {
-      isCredit = true; amount = parseFloat(tx.estimatedTk || tx.amount) || 0;
-      title = lang === 'bn' ? `${tx.asset || 'TON'} বিক্রয়` : `Sold ${tx.asset || 'TON'}`;
-      subtitle = `${tx.amount} ${tx.asset || 'TON'}`;
-      Icon = ArrowUpRight; iconWrap = 'bg-violet-500/10 text-violet-500';
+      amount = parseFloat(tx.estimatedTk || tx.amount) || 0;
+      if (rejected) {
+        isCredit = false;
+        title = lang === 'bn' ? `${tx.asset || 'TON'} বিক্রয় বাতিল` : `Sold ${tx.asset || 'TON'} (Cancelled)`;
+        subtitle = `${tx.amount} ${tx.asset || 'TON'}`;
+        Icon = ArrowUpRight; iconWrap = 'bg-rose-500/10 text-rose-500';
+      } else {
+        isCredit = true;
+        title = lang === 'bn' ? `${tx.asset || 'TON'} বিক্রয়` : `Sold ${tx.asset || 'TON'}`;
+        subtitle = `${tx.amount} ${tx.asset || 'TON'}`;
+        Icon = ArrowUpRight; iconWrap = 'bg-violet-500/10 text-violet-500';
+      }
     } else if (type === 'buy') {
       amount = parseFloat(tx.totalBdt || tx.amount) || 0; isCredit = rejected;
       title = rejected ? (lang === 'bn' ? 'ক্রয় রিফান্ড' : 'Buy Refunded') : (lang === 'bn' ? `${tx.asset || 'TON'} ক্রয়` : `Bought ${tx.asset || 'TON'}`);
@@ -5715,15 +5739,43 @@ function SellCryptoPage({
             activeSellCode = txRes.sellCode;
 
             // Trigger Tonkeeper / TonConnect transaction
-            let sdkError = null;
+            let txResult = null;
             try {
-                await tonConnectUI.sendTransaction(txRes.tx);
+                txResult = await tonConnectUI.sendTransaction(txRes.tx);
             } catch (err) {
-                console.warn("tonConnectUI sendTransaction error or mobile app switch:", err.message);
-                sdkError = err;
+                console.warn("tonConnectUI sendTransaction error or cancel:", err);
+                isCompleted = true;
+                clearTimeout(progressTimer);
+
+                const errStr = String(err?.message || err || '').toLowerCase();
+                const isUserCancel = errStr.includes('reject') || 
+                                     errStr.includes('cancel') || 
+                                     errStr.includes('decline') || 
+                                     errStr.includes('abort') || 
+                                     errStr.includes('closed') ||
+                                     err?.name === 'UserRejectsError';
+
+                const cancelMsg = isUserCancel
+                    ? (lang === 'bn' ? 'ওয়ালেটে লেনদেন বাতিল করা হয়েছে।' : 'Transaction was cancelled in wallet.')
+                    : (lang === 'bn' ? 'ওয়ালেট থেকে কোনো রেসপন্স পাওয়া যায়নি বা লেনদেন বাতিল হয়েছে।' : (err?.message || 'Transaction was cancelled.'));
+
+                setErrorMessage(cancelMsg);
+                setTransferStage('error');
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
+                }
+                return; // STOP! NEVER call submitSellOrder when transaction was cancelled or rejected!
             }
 
-            // Immediately verify on-chain! Even if TonConnect threw because user switched back from Tonkeeper
+            if (!txResult || !txResult.boc) {
+                isCompleted = true;
+                clearTimeout(progressTimer);
+                setErrorMessage(lang === 'bn' ? 'ওয়ালেটে লেনদেন অনুমোদিত হয়নি।' : 'Transaction was not signed.');
+                setTransferStage('error');
+                return;
+            }
+
+            // Immediately verify on-chain strictly after valid Tonkeeper signed transaction!
             setTransferStage('verifying');
             const res = await submitSellOrder({
                 userId: user?.id || 123456789,
@@ -5732,6 +5784,7 @@ function SellCryptoPage({
                 estimatedTk,
                 sellCode: activeSellCode,
                 wallet: userTonAddress,
+                boc: txResult.boc,
                 status: 'completed'
             });
 
@@ -5747,15 +5800,16 @@ function SellCryptoPage({
                     window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 }
             } else {
-                throw new Error(res.error || 'ব্যালেন্সে টাকা যোগ করতে সমস্যা হয়েছে');
+                throw new Error(res.error || (lang === 'bn' ? 'ব্যালেন্সে টাকা যোগ করতে সমস্যা হয়েছে' : 'Failed to credit balance'));
             }
         } catch (err) {
             isCompleted = true;
             clearTimeout(progressTimer);
-            const isUserCancel = err.message?.includes('Reject') || err.message?.includes('cancel') || err.message?.includes('declined');
+            const errStr = String(err?.message || err || '').toLowerCase();
+            const isUserCancel = errStr.includes('reject') || errStr.includes('cancel') || errStr.includes('decline') || errStr.includes('abort');
             const msg = isUserCancel 
-                ? (lang === 'bn' ? 'টোনকিপারে পেমেন্ট বাতিল করা হয়েছে।' : 'Payment rejected in Tonkeeper.')
-                : (err.message || (lang === 'bn' ? 'পেমেন্ট ভেরিফাই করা যায়নি। আপনি যদি পাঠিয়ে থাকেন, তবে "ডিপোজিট চেক করুন" বাটন চাপুন।' : 'Payment could not be verified yet. Click Check Deposit to retry.'));
+                ? (lang === 'bn' ? 'ওয়ালেটে লেনদেন বাতিল করা হয়েছে।' : 'Payment rejected in wallet.')
+                : (err.message || (lang === 'bn' ? 'পেমেন্ট ভেরিফাই করা যায়নি।' : 'Payment verification failed.'));
             setErrorMessage(msg);
             setTransferStage('error');
         }
@@ -6174,7 +6228,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
     const getItemDetails = (tx) => {
         const type = tx.type;
         const status = (tx.status || 'pending').toLowerCase();
-        const isRejected = status === 'rejected';
+        const isRejected = status === 'rejected' || status === 'failed' || status === 'cancelled';
 
         let isCredit = false;
         let bdtAmount = 0;
@@ -6191,12 +6245,20 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
             Icon = ArrowDownLeft;
             iconWrap = 'bg-emerald-500/10 text-emerald-500';
         } else if (type === 'sell') {
-            isCredit = true;
             bdtAmount = parseFloat(tx.estimatedTk || tx.amount) || 0;
-            title = lang === 'bn' ? `${tx.asset || 'TON'} বিক্রয়` : `Sold ${tx.asset || 'TON'}`;
-            subtitle = `${lang === 'bn' ? 'বিক্রি:' : 'Sold:'} ${tx.amount} ${tx.asset || 'TON'}`;
-            Icon = ArrowUpRight;
-            iconWrap = 'bg-violet-500/10 text-violet-500';
+            if (isRejected) {
+                isCredit = false;
+                title = lang === 'bn' ? `${tx.asset || 'TON'} বিক্রয় বাতিল` : `Sell Cancelled`;
+                subtitle = `${lang === 'bn' ? 'বাতিল:' : 'Cancelled:'} ${tx.amount} ${tx.asset || 'TON'}`;
+                Icon = ArrowUpRight;
+                iconWrap = 'bg-rose-500/10 text-rose-500';
+            } else {
+                isCredit = true;
+                title = lang === 'bn' ? `${tx.asset || 'TON'} বিক্রয়` : `Sold ${tx.asset || 'TON'}`;
+                subtitle = `${lang === 'bn' ? 'বিক্রি:' : 'Sold:'} ${tx.amount} ${tx.asset || 'TON'}`;
+                Icon = ArrowUpRight;
+                iconWrap = 'bg-violet-500/10 text-violet-500';
+            }
         } else if (type === 'buy') {
             bdtAmount = parseFloat(tx.totalBdt || tx.amount) || 0;
             if (isRejected) {

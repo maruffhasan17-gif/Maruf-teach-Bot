@@ -373,7 +373,7 @@ const OFFICIAL_CHANNEL = process.env.CHANNEL_USERNAME || '@maruf_teach';
 const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
-const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261030v35';
+const WEB_APP_URL = 'https://maruf-teach-bot.onrender.com/app/?v=20261030v36';
 const appOpenMarkup = {
     reply_markup: {
         inline_keyboard: [
@@ -3505,6 +3505,7 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
                 success: true,
                 sellCode: cleanSellCode,
                 tx: {
+                    network: '-239',
                     validUntil: Math.floor(Date.now() / 1000) + 600,
                     messages: [{
                         address: targetContract,
@@ -3516,13 +3517,15 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
         } else {
             const amountInNano = Math.floor(amount * 1e9);
             const commentPayload = commentCell.toBoc().toString('base64');
+            const canonicalAdminAddr = Address.parse(adminWallet).toString();
             res.json({
                 success: true,
                 sellCode: cleanSellCode,
                 tx: {
+                    network: '-239',
                     validUntil: Math.floor(Date.now() / 1000) + 600,
                     messages: [{
-                        address: adminWallet,
+                        address: canonicalAdminAddr,
                         amount: amountInNano.toString(),
                         payload: commentPayload
                     }]
@@ -8261,6 +8264,10 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
         if (sellsRes.status === 'fulfilled' && sellsRes.value) {
             sellsRes.value.forEach(doc => {
                 const data = doc.data();
+                // Never return failed or cancelled sells in user-facing notifications / transaction history
+                if (data.status === 'failed' || data.status === 'cancelled') {
+                    return;
+                }
                 history.push({ 
                     id: doc.id, 
                     type: 'sell', 
