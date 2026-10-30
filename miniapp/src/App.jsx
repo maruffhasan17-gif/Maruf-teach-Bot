@@ -953,6 +953,62 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode =
   );
 };
 
+// ============================================================================
+// OFFICIAL BLOCKCHAIN NETWORK VECTOR LOGOS (CRISP SVG)
+// ============================================================================
+export function NetworkLogo({ id, networkId, size = 20, className = "w-5 h-5 shrink-0 rounded-full" }) {
+    const netId = String(id || networkId || 'TON').toUpperCase();
+
+    if (netId === 'TON') {
+        return (
+            <svg viewBox="0 0 56 56" width={size} height={size} className={className}>
+                <circle cx="28" cy="28" r="28" fill="#0098EA"/>
+                <path fill="#FFFFFF" d="M37.6,15.6H18.4c-3.5,0-5.7,3.8-4,6.9l11.8,20.5c0.8,1.3,2.7,1.3,3.5,0l11.8-20.5 C43.3,19.4,41.1,15.6,37.6,15.6L37.6,15.6z M26.3,36.8l-2.6-5l-6.2-11.1c-0.4-0.7,0.1-1.6,1-1.6h7.8L26.3,36.8L26.3,36.8z M38.5,20.7l-6.2,11.1l-2.6,5V19.1h7.8C38.4,19.1,38.9,20,38.5,20.7z"/>
+            </svg>
+        );
+    }
+
+    if (netId === 'BEP20' || netId === 'BSC' || netId === 'BNB') {
+        return (
+            <svg viewBox="0 0 56 56" width={size} height={size} className={className}>
+                <circle cx="28" cy="28" r="28" fill="#F0B90B"/>
+                <g fill="#FFFFFF">
+                    <polygon points="28,14.5 31.9,18.4 28,22.3 24.1,18.4"/>
+                    <polygon points="20.2,22.3 24.1,26.2 20.2,30.1 16.3,26.2"/>
+                    <polygon points="35.8,22.3 39.7,26.2 35.8,30.1 31.9,26.2"/>
+                    <polygon points="28,30.1 31.9,34 28,37.9 24.1,34"/>
+                    <polygon points="28,24.1 30.1,26.2 28,28.3 25.9,26.2"/>
+                    <polygon points="28,10.6 34.8,17.4 32.1,20.1 28,16 23.9,20.1 21.2,17.4"/>
+                    <polygon points="28,41.4 34.8,34.6 32.1,31.9 28,36 23.9,31.9 21.2,34.6"/>
+                    <polygon points="41.4,26.2 34.6,19.4 31.9,22.1 36,26.2 31.9,30.3 34.6,33"/>
+                    <polygon points="10.6,26.2 17.4,19.4 20.1,22.1 16,26.2 20.1,30.3 17.4,33"/>
+                </g>
+            </svg>
+        );
+    }
+
+    if (netId === 'ARBITRUM' || netId === 'ARB') {
+        return (
+            <svg viewBox="0 0 32 32" fill="none" width={size} height={size} className={className}>
+                <circle cx="16" cy="16" r="16" fill="#2D374B"/>
+                <path d="M16.0039 19.7661L19.6819 25.5391L23.0799 23.5691L18.2499 15.9561L16.0039 19.7661ZM26.1739 21.2541L26.1719 19.6771L20.8929 11.4551L18.9329 14.7781L24.0289 23.0181L25.8729 21.9511C25.962 21.8785 26.0348 21.7881 26.0866 21.6856C26.1385 21.5831 26.1682 21.4708 26.1739 21.3561V21.2541Z" fill="#28A0F0"/>
+                <path d="M4.05469 22.742L6.65569 24.241L15.3137 10.356L13.8447 10.318C12.5927 10.301 11.2447 10.626 10.6247 11.637L5.70869 19.257L4.05569 21.798V22.743L4.05469 22.742ZM20.3107 10.356L16.4387 10.37L7.67669 24.83L10.7387 26.593L11.5717 25.181L20.3107 10.357V10.356Z" fill="white"/>
+            </svg>
+        );
+    }
+
+    return (
+        <img 
+            src={`${import.meta.env.BASE_URL}${netId.toLowerCase()}.svg`} 
+            alt={netId} 
+            className={className} 
+            onError={(e) => {
+                e.target.style.display = 'none';
+            }}
+        />
+    );
+}
+
 const getPaymentLogo = (method) => {
   if (method === 'bKash') return `${import.meta.env.BASE_URL}bkash.png`;
   return `${import.meta.env.BASE_URL}nagad.png`;
@@ -4993,9 +5049,9 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     }, []);
 
     const BUY_NETWORKS = [
-        { id: 'TON', name: 'The Open Network (TON)', shortName: 'TON', gasFee: '~0.015 TON', icon: 'ton.svg' },
-        { id: 'ARBITRUM', name: 'Arbitrum One (ARB)', shortName: 'Arbitrum', gasFee: '~0.00003 ETH', icon: 'arbitrum.svg' },
-        { id: 'BEP20', name: 'BNB Smart Chain (BEP20)', shortName: 'BSC', gasFee: '~0.0003 BNB', icon: 'bsc.svg' }
+        { id: 'TON', name: 'The Open Network (TON)', shortName: 'TON', gasFee: '~0.015 TON', disabled: false },
+        { id: 'ARBITRUM', name: 'Arbitrum One (ARB)', shortName: 'Arbitrum', gasFee: '', disabled: true, badge: 'Coming Soon' },
+        { id: 'BEP20', name: 'BNB Smart Chain (BEP20)', shortName: 'BSC', gasFee: '', disabled: true, badge: 'Coming Soon' }
     ];
 
     const activeNetworkObj = BUY_NETWORKS.find(n => n.id === selectedNetwork) || BUY_NETWORKS[0];
@@ -5311,19 +5367,21 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                             }`}
                         >
                             <div className="flex items-center gap-2.5 min-w-0">
-                                <img 
-                                    src={`${import.meta.env.BASE_URL}${activeNetworkObj.icon}`} 
-                                    alt={activeNetworkObj.shortName} 
-                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
-                                />
+                                <NetworkLogo id={activeNetworkObj.id} className="w-5 h-5 shrink-0 rounded-full" />
                                 <span className="font-black text-xs truncate">
                                     {activeNetworkObj.name}
                                 </span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                                <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
-                                    {activeNetworkObj.gasFee}
-                                </span>
+                                {activeNetworkObj.disabled ? (
+                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                        Coming Soon
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md border border-purple-200/60 dark:border-purple-800/60">
+                                        {activeNetworkObj.gasFee}
+                                    </span>
+                                )}
                                 {selectedAsset !== 'GRAM' && (
                                     <ChevronDown size={16} className={`text-slate-400 transition-transform ${isNetworkDropdownOpen ? 'rotate-180' : ''}`} />
                                 )}
@@ -5337,31 +5395,40 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                             }`}>
                                 {BUY_NETWORKS.map(net => {
                                     const isSel = selectedNetwork === net.id;
+                                    const isDisabled = !!net.disabled;
                                     return (
                                         <button
                                             key={net.id}
                                             type="button"
+                                            disabled={isDisabled}
                                             onClick={() => {
+                                                if (isDisabled) return;
                                                 setSelectedNetwork(net.id);
                                                 setIsNetworkDropdownOpen(false);
                                             }}
-                                            className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
-                                                isSel 
-                                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black' 
-                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold'
+                                            className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all ${
+                                                isDisabled 
+                                                    ? 'opacity-45 cursor-not-allowed select-none bg-slate-100/40 dark:bg-slate-800/20' 
+                                                    : isSel 
+                                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black cursor-pointer' 
+                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold cursor-pointer'
                                             }`}
                                         >
                                             <div className="flex items-center gap-2.5 min-w-0">
-                                                <img 
-                                                    src={`${import.meta.env.BASE_URL}${net.icon}`} 
-                                                    alt={net.shortName} 
-                                                    className="w-5 h-5 object-contain shrink-0 rounded-full" 
-                                                />
-                                                <span className="text-xs truncate">{net.name}</span>
+                                                <NetworkLogo id={net.id} className="w-5 h-5 shrink-0 rounded-full" />
+                                                <span className="text-xs truncate font-bold">{net.name}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">
-                                                <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
-                                                {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
+                                                {isDisabled ? (
+                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                                        Coming Soon
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <span className="text-[10px] opacity-75 font-mono">{net.gasFee}</span>
+                                                        {isSel && <Check size={14} className="text-purple-600 dark:text-purple-400" />}
+                                                    </>
+                                                )}
                                             </div>
                                         </button>
                                     );

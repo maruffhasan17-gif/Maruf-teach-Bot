@@ -32,7 +32,7 @@ Format exactly like this (use code blocks for copy-pasting):
 🚀 আজকের অফার লিংক (বট লিংক):
 👉 [এখানে আপনি আপনার বট লিংক বসিয়ে নেবেন]
 
-💵 ১ ডলার বিক্রি করার বট লিংক:
+💵 Crypto Buy Sell Bot Link:
 👉 https://t.me/maruf_teach/94
 
 📢 সব অফারের আপডেট আগে পেতে আমাদের টেলিগ্রাম চ্যানেলে জয়েন করুন:
