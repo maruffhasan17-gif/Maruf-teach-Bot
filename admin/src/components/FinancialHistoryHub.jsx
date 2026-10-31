@@ -375,7 +375,7 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           
           {/* Stream Switcher Tabs */}
-          <div className="flex flex-wrap gap-1.5 p-1 rounded-2xl bg-black/40 border border-slate-800">
+          <div className={`flex flex-wrap gap-1.5 p-1 rounded-2xl ${isDark ? "bg-black/40 border-slate-800" : "bg-slate-100 border-slate-200"} border`}>
             {[
               { id: 'all', label: `All Streams (${unifiedStream.length})` },
               { id: 'buys', label: `Crypto Buys (${stats.totalBuysCount})` },
@@ -390,7 +390,7 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
                 className={`py-2 px-3.5 rounded-xl font-black text-xs transition-all cursor-pointer ${
                   activeTab === tab.id
                     ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/30'
-                    : 'text-slate-400 hover:text-white'
+                    : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {tab.label}
@@ -405,7 +405,7 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="py-2 px-3 rounded-xl text-xs font-bold bg-black/40 border border-slate-800 text-slate-200 outline-none focus:border-purple-500 cursor-pointer"
+              className={`py-2 px-3 rounded-xl text-xs font-bold ${isDark ? "bg-black/40 border-slate-800 text-slate-200" : "bg-slate-50 border-slate-200 text-slate-800"} border outline-none focus:border-purple-500 cursor-pointer`}
             >
               <option value="all">All Statuses</option>
               <option value="completed">Completed / Paid</option>
@@ -421,7 +421,7 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search TrxID, User, Gateway..."
-                className="w-full py-2 pl-9 pr-3 rounded-xl text-xs font-bold bg-black/40 border border-slate-800 text-white placeholder-slate-500 outline-none focus:border-purple-500 transition-all font-mono"
+                className={`w-full py-2 pl-9 pr-3 rounded-xl text-xs font-bold ${isDark ? "bg-black/40 border-slate-800 text-white placeholder-slate-500" : "bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400"} border outline-none focus:border-purple-500 transition-all font-mono`}
               />
               {search && (
                 <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">

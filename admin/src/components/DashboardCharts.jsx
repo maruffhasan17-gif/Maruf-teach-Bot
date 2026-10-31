@@ -133,13 +133,13 @@ export function InfographicConcentricRings({ verifiedPercent = 74, completionRat
       </div>
 
       {/* Bottom Color Graded Legend */}
-      <div className="relative z-10 grid grid-cols-3 gap-2 pt-3 border-t border-slate-700/30 text-center">
+      <div className={`relative z-10 grid grid-cols-3 gap-2 pt-3 border-t ${isDark ? "border-slate-700/30" : "border-slate-200"} text-center`}>
         <div className="space-y-0.5">
           <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-amber-400">
             <span className="w-2 h-2 rounded-full bg-gradient-to-r from-amber-400 to-pink-500 shadow-sm shadow-pink-500/50" />
             Verified
           </div>
-          <div className="text-xs font-black text-white font-mono">{verifiedPercent}%</div>
+          <div className={`text-xs font-black font-mono ${isDark ? "text-white" : "text-slate-900"}`}>{verifiedPercent}%</div>
         </div>
 
         <div className="space-y-0.5">
@@ -147,7 +147,7 @@ export function InfographicConcentricRings({ verifiedPercent = 74, completionRat
             <span className="w-2 h-2 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 shadow-sm shadow-cyan-500/50" />
             Success
           </div>
-          <div className="text-xs font-black text-white font-mono">{completionRate}%</div>
+          <div className={`text-xs font-black font-mono ${isDark ? "text-white" : "text-slate-900"}`}>{completionRate}%</div>
         </div>
 
         <div className="space-y-0.5">
@@ -155,7 +155,7 @@ export function InfographicConcentricRings({ verifiedPercent = 74, completionRat
             <span className="w-2 h-2 rounded-full bg-gradient-to-r from-purple-400 to-pink-500 shadow-sm shadow-purple-500/50" />
             Reserves
           </div>
-          <div className="text-xs font-black text-white font-mono">98.5%</div>
+          <div className={`text-xs font-black font-mono ${isDark ? "text-white" : "text-slate-900"}`}>98.5%</div>
         </div>
       </div>
     </div>
@@ -211,14 +211,14 @@ export function InfographicBarChart({ isDark = true }) {
         {bars.map((bar, i) => (
           <div key={i} className="flex flex-col items-center gap-2 group z-10">
             {/* The Bar */}
-            <div className="w-5 md:w-6 bg-slate-800/40 rounded-t-md relative flex items-end justify-center overflow-hidden h-36">
+            <div className={`w-5 md:w-6 ${isDark ? "bg-slate-800/40" : "bg-slate-100"} rounded-t-md relative flex items-end justify-center overflow-hidden h-36`}>
               <div 
                 className={`w-full rounded-t-md bg-gradient-to-t ${bar.grad} transition-all duration-500 group-hover:brightness-125 shadow-lg`}
                 style={{ height: `${bar.height}%` }}
               />
             </div>
             {/* Label */}
-            <span className="text-[10px] font-mono font-bold text-slate-400 group-hover:text-cyan-400 transition-colors">
+            <span className={`text-[10px] font-mono font-bold ${isDark ? "text-slate-400" : "text-slate-600"} group-hover:text-cyan-600 transition-colors`}>
               0{i + 1}
             </span>
           </div>
@@ -226,14 +226,14 @@ export function InfographicBarChart({ isDark = true }) {
       </div>
 
       {/* Bottom Mini Metrics Pills */}
-      <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-700/30 mt-3 text-xs">
+      <div className={`flex items-center justify-between gap-3 pt-4 border-t ${isDark ? "border-slate-700/30" : "border-slate-200"} mt-3 text-xs`}>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-amber-400 to-pink-500" />
-          <span className="text-slate-400 text-[11px] font-semibold">Buy Inflow: <strong className="text-white">৳145,200</strong></span>
+          <span className={`${isDark ? "text-slate-400" : "text-slate-600"} text-[11px] font-semibold`}>Buy Inflow: <strong className={isDark ? "text-white" : "text-slate-900"}>৳145,200</strong></span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500" />
-          <span className="text-slate-400 text-[11px] font-semibold">Fiat Outflow: <strong className="text-white">৳98,400</strong></span>
+          <span className={`${isDark ? "text-slate-400" : "text-slate-600"} text-[11px] font-semibold`}>Fiat Outflow: <strong className={isDark ? "text-white" : "text-slate-900"}>৳98,400</strong></span>
         </div>
       </div>
     </div>
@@ -316,7 +316,7 @@ export function InfographicWaveChart({ isDark = true }) {
         </svg>
 
         {/* Timeline Markers */}
-        <div className="flex justify-between text-[10px] font-mono text-slate-400 px-2 mt-1">
+        <div className={`flex justify-between text-[10px] font-mono ${isDark ? "text-slate-400" : "text-slate-600"} px-2 mt-1`}>
           <span>01</span>
           <span>02</span>
           <span>03</span>
@@ -326,8 +326,8 @@ export function InfographicWaveChart({ isDark = true }) {
       </div>
 
       {/* Description / Summary */}
-      <div className="pt-3 border-t border-slate-700/30 flex items-center justify-between text-xs">
-        <span className="text-slate-400 font-medium">Auto Rebalancing</span>
+      <div className={`pt-3 border-t ${isDark ? "border-slate-700/30" : "border-slate-200"} flex items-center justify-between text-xs`}>
+        <span className={`${isDark ? "text-slate-400" : "text-slate-600"} font-medium`}>Auto Rebalancing</span>
         <span className="font-mono font-bold text-emerald-400 flex items-center gap-1">
           <TrendingUp size={13} /> +28.4% Weekly
         </span>
@@ -382,13 +382,14 @@ export function InfographicRadarGauge({ isDark = true }) {
       </div>
 
       {/* Quick Details */}
-      <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-700/30 text-center text-xs">
-        <div className="p-2 rounded-xl bg-slate-900/60 border border-purple-900/30">
-          <div className="text-[10px] text-slate-400 uppercase font-bold">Gas Limit</div>
+      <div className={`grid grid-cols-2 gap-2 pt-3 border-t ${isDark ? "border-slate-700/30" : "border-slate-200"} text-center text-xs`}>
+        <div className={`p-2 rounded-xl ${isDark ? "bg-slate-900/60 border-purple-900/30" : "bg-slate-50 border-slate-200"}`}>
+
+          <div className={`text-[10px] ${isDark ? "text-slate-400" : "text-slate-600"} uppercase font-bold`}>Gas Limit</div>
           <div className="font-mono font-bold text-cyan-300">0.05 TON</div>
         </div>
         <div className="p-2 rounded-xl bg-slate-900/60 border border-purple-900/30">
-          <div className="text-[10px] text-slate-400 uppercase font-bold">Smart Memo</div>
+          <div className={`text-[10px] ${isDark ? "text-slate-400" : "text-slate-600"} uppercase font-bold`}>Smart Memo</div>
           <div className="font-mono font-bold text-pink-300">'TrustPay'</div>
         </div>
       </div>
@@ -424,10 +425,10 @@ export function InfographicPillSliders({ isDark = true }) {
         {/* Pill 1: Amber to Pink with Play Icon */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-bold">
-            <span className="text-white">GRAM Jetton Reserve</span>
+            <span className={isDark ? "text-white" : "text-slate-900"}>GRAM Jetton Reserve</span>
             <span className="text-amber-400 font-mono">82%</span>
           </div>
-          <div className="h-8 rounded-full bg-slate-800/60 p-1 flex items-center border border-white/10 shadow-inner">
+          <div className={`h-8 rounded-full ${isDark ? "bg-slate-800/60 border-white/10" : "bg-slate-100 border-slate-200"} p-1 flex items-center border shadow-inner`}>
             <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-pink-500 flex items-center justify-end pr-2 transition-all duration-1000 shadow-lg shadow-pink-500/30" style={{ width: '82%' }}>
               <span className="w-5 h-5 rounded-full bg-white text-pink-600 flex items-center justify-center shadow-md">
                 <Play size={10} className="fill-pink-600 ml-0.5" />
@@ -439,10 +440,10 @@ export function InfographicPillSliders({ isDark = true }) {
         {/* Pill 2: Magenta to Purple with Play Icon */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-bold">
-            <span className="text-white">USDT Tether Reserve</span>
+            <span className={isDark ? "text-white" : "text-slate-900"}>USDT Tether Reserve</span>
             <span className="text-purple-400 font-mono">68%</span>
           </div>
-          <div className="h-8 rounded-full bg-slate-800/60 p-1 flex items-center border border-white/10 shadow-inner">
+          <div className={`h-8 rounded-full ${isDark ? "bg-slate-800/60 border-white/10" : "bg-slate-100 border-slate-200"} p-1 flex items-center border shadow-inner`}>
             <div className="h-full rounded-full bg-gradient-to-r from-pink-500 to-purple-600 flex items-center justify-end pr-2 transition-all duration-1000 shadow-lg shadow-purple-500/30" style={{ width: '68%' }}>
               <span className="w-5 h-5 rounded-full bg-white text-purple-600 flex items-center justify-center shadow-md">
                 <Play size={10} className="fill-purple-600 ml-0.5" />
@@ -454,10 +455,10 @@ export function InfographicPillSliders({ isDark = true }) {
         {/* Pill 3: Cyan to Ocean Blue */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs font-bold">
-            <span className="text-white">Fiat Payout Vault</span>
+            <span className={isDark ? "text-white" : "text-slate-900"}>Fiat Payout Vault</span>
             <span className="text-cyan-400 font-mono">94%</span>
           </div>
-          <div className="h-8 rounded-full bg-slate-800/60 p-1 flex items-center border border-white/10 shadow-inner">
+          <div className={`h-8 rounded-full ${isDark ? "bg-slate-800/60 border-white/10" : "bg-slate-100 border-slate-200"} p-1 flex items-center border shadow-inner`}>
             <div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-600 flex items-center justify-end pr-2 transition-all duration-1000 shadow-lg shadow-cyan-500/30" style={{ width: '94%' }}>
               <span className="w-5 h-5 rounded-full bg-white text-blue-600 flex items-center justify-center shadow-md">
                 <Play size={10} className="fill-blue-600 ml-0.5" />
@@ -468,9 +469,9 @@ export function InfographicPillSliders({ isDark = true }) {
       </div>
 
       {/* Footer Info */}
-      <div className="pt-3 border-t border-slate-700/30 text-[11px] text-slate-400 flex items-center justify-between">
+      <div className={`pt-3 border-t ${isDark ? "border-slate-700/30" : "border-slate-200"} text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"} flex items-center justify-between`}>
         <span>Instant Liquidity</span>
-        <span className="font-bold text-white">৳ 350,000 Total Capacity</span>
+        <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>৳ 350,000 Total Capacity</span>
       </div>
     </div>
   );
@@ -552,7 +553,7 @@ export function InfographicLineChart({ isDark = true }) {
         </svg>
 
         {/* Labels */}
-        <div className="flex justify-between text-[10px] font-mono text-slate-400 px-1 mt-1">
+        <div className={`flex justify-between text-[10px] font-mono ${isDark ? "text-slate-400" : "text-slate-600"} px-1 mt-1`}>
           <span>01</span>
           <span>02</span>
           <span>03</span>
@@ -562,7 +563,7 @@ export function InfographicLineChart({ isDark = true }) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-3 border-t border-slate-700/30 text-xs">
+      <div className={`flex items-center justify-between pt-3 border-t ${isDark ? "border-slate-700/30" : "border-slate-200"} text-xs`}>
         <div className="flex items-center gap-1.5 text-amber-400 font-bold">
           <span className="w-2 h-2 rounded-full bg-amber-400" /> Users
         </div>

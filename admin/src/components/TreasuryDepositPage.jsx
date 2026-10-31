@@ -675,14 +675,14 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
           </div>
 
           {/* Mode Switcher */}
-          <div className="inline-flex p-1 rounded-2xl bg-slate-900/90 border border-slate-800">
+          <div className={`inline-flex p-1 rounded-2xl ${isDark ? "bg-slate-900/90 border-slate-800" : "bg-slate-100 border-slate-200"}`}>
             <button
               type="button"
               onClick={() => setDepositMode('exchange')}
               className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
                 depositMode === 'exchange'
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-white'
+                  : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <QrCode size={14} />
@@ -697,7 +697,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
                 depositMode === 'tonkeeper'
                   ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
+                  : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Wallet size={14} />
@@ -998,7 +998,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                 className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   swapDirection === 'USDT_TO_GRAM'
                     ? 'bg-gradient-to-r from-emerald-600 to-purple-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
+                    : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <AssetLogo asset="USDT" size={18} />
@@ -1011,7 +1011,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                 className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   swapDirection === 'GRAM_TO_USDT'
                     ? 'bg-gradient-to-r from-purple-600 to-emerald-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
+                    : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <AssetLogo asset="GRAM" size={18} />

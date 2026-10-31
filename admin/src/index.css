@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
 body {
-  background-color: #090d24;
-  color: #f1f5f9;
+  background-color: #f8fafc;
+  color: #0f172a;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow-x: hidden;
 }
 
+html.dark body, body.dark {
+  background-color: #090d24;
+  color: #f1f5f9;
+}
+
 /* Custom glowing glassmorphic scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(13, 16, 45, 0.6);
+  background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.4);
+  background: rgba(148, 163, 184, 0.4);
   border-radius: 99px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+}
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.4);
+}
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(236, 72, 153, 0.7);
+}
+
+/* TonConnect Button Clean Resizing */
+.ton-connect-custom-wrapper button {
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  border-radius: 12px !important;
+  height: 32px !important;
+  padding: 0 10px !important;
 }
 
 @keyframes cosmicPulse {
