@@ -770,7 +770,7 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
         </div>
       </>
     )}
-    {(page === 'transfer' || page === 'two-step') && (
+    {(page === 'transfer' || page === 'two-step' || page === 'support') && (
       <>
         <div
           className="absolute -top-12 -right-12 w-[330px] h-[350px] pointer-events-none"
@@ -797,7 +797,7 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
         </div>
       </>
     )}
-    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'buy' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && page !== 'notifications' && page !== 'transfer' && page !== 'two-step' && (
+    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'buy' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && page !== 'notifications' && page !== 'transfer' && page !== 'two-step' && page !== 'support' && (
       <>
         <div
           className="absolute -top-12 -right-12 w-80 h-80 pointer-events-none"
@@ -2419,12 +2419,11 @@ function TwoStepPinModal({
   lang = 'bn'
 }) {
   const [pin, setPin] = useState('');
-  const [activeLen, setActiveLen] = useState(pinLength === 6 ? 6 : 4);
+  const activeLen = Number(pinLength) === 6 ? 6 : 4;
 
   useEffect(() => {
     if (isOpen) {
       setPin('');
-      setActiveLen(pinLength === 6 ? 6 : 4);
     }
   }, [isOpen, pinLength]);
 
@@ -2465,28 +2464,7 @@ function TwoStepPinModal({
           </button>
         </div>
 
-        {/* 4 Digit / 6 Digit Selector Tabs above input */}
-        <div className="relative z-10 flex bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl gap-1 border border-slate-200/80 dark:border-slate-700/80 mb-2">
-          {[4, 6].map((len) => (
-            <button
-              key={len}
-              type="button"
-              onClick={() => {
-                setActiveLen(len);
-                setPin('');
-              }}
-              className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeLen === len
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
-              }`}
-            >
-              {len} Digit ({len} সংখ্যা)
-            </button>
-          ))}
-        </div>
-
-        {/* Bot Number Keypad */}
+        {/* Bot Number Keypad — automatically renders 4 or 6 boxes matching user's configured PIN */}
         <div className="relative z-10">
           <BotNumberKeypad
             pin={pin}
@@ -2542,7 +2520,7 @@ function TwoStepPage({
   lang = 'bn'
 }) {
   const [toggleOn, setToggleOn] = useState(Boolean(twoStepEnabled));
-  const [pinLength, setPinLength] = useState(twoStepLength === 6 ? 6 : 4);
+  const [pinLength, setPinLength] = useState(Number(twoStepLength) === 6 ? 6 : 4);
   const [pin, setPin] = useState('');
   const [currentPinForDisable, setCurrentPinForDisable] = useState('');
   const [mode, setMode] = useState(twoStepEnabled ? 'IdleEnabled' : 'IdleDisabled'); // 'IdleDisabled' | 'SettingPin' | 'IdleEnabled' | 'DisablingPin'
@@ -2551,11 +2529,15 @@ function TwoStepPage({
 
   useEffect(() => {
     setToggleOn(Boolean(twoStepEnabled));
-    setPinLength(twoStepLength === 6 ? 6 : 4);
+    setPinLength(Number(twoStepLength) === 6 ? 6 : 4);
     setMode(twoStepEnabled ? 'IdleEnabled' : 'IdleDisabled');
     setPin('');
     setCurrentPinForDisable('');
   }, [twoStepEnabled, twoStepLength]);
+
+  // Keep toggle visually ON whenever 2-Step is currently enabled (even while entering PIN to turn it off!)
+  const isSwitchVisuallyOn = twoStepEnabled ? true : toggleOn;
+  const activeSavedLen = Number(twoStepLength) === 6 ? 6 : 4;
 
   const handleToggleClick = () => {
     playAppSound('confirm');
@@ -2572,13 +2554,13 @@ function TwoStepPage({
         setPin('');
       }
     } else {
-      // Currently ON -> user wants to turn OFF (requires current PIN verification)
+      // Currently ON -> user wants to turn OFF (MUST verify current PIN first; switch stays ON until verified)
       if (mode === 'DisablingPin') {
         setToggleOn(true);
         setMode('IdleEnabled');
         setCurrentPinForDisable('');
       } else {
-        setToggleOn(false);
+        setToggleOn(true);
         setMode('DisablingPin');
         setCurrentPinForDisable('');
       }
@@ -2593,11 +2575,13 @@ function TwoStepPage({
       const res = await setupTwoStepPin({
         userId: user?.id || 123456789,
         action: 'enable',
-        pin
+        pin,
+        pinLength
       });
       if (res?.success) {
         playAppSound('success');
         if (onUpdateTwoStepState) onUpdateTwoStepState(true, pinLength);
+        setToggleOn(true);
         setMode('IdleEnabled');
         setPin('');
         setFeedback({
@@ -2619,7 +2603,7 @@ function TwoStepPage({
   };
 
   const handleDisablePin = async () => {
-    if (currentPinForDisable.length !== pinLength) return;
+    if (currentPinForDisable.length !== activeSavedLen) return;
     setLoading(true);
     setFeedback(null);
     try {
@@ -2630,13 +2614,14 @@ function TwoStepPage({
       });
       if (res?.success) {
         playAppSound('success');
+        setToggleOn(false);
         if (onUpdateTwoStepState) onUpdateTwoStepState(false, 4);
         setMode('IdleDisabled');
         setCurrentPinForDisable('');
         setFeedback({
           type: 'success',
           text: lang === 'bn'
-            ? '২-স্টেপ ভেরিফিকেশন বন্ধ করা হয়েছে।'
+            ? '২-স্টেপ ভেরিফিকেশন সফলভাবে বন্ধ করা হয়েছে।'
             : '2-Step verification has been turned off.'
         });
       }
@@ -2644,7 +2629,7 @@ function TwoStepPage({
       playAppSound('error');
       setFeedback({
         type: 'error',
-        text: e.message || (lang === 'bn' ? 'ভুল পিন কোড দিয়েছেন!' : 'Incorrect PIN!')
+        text: e.message || (lang === 'bn' ? 'ভুল পিন কোড দিয়েছেন! সঠিক পিন ছাড়া ২-স্টেপ বন্ধ করা যাবে না।' : 'Incorrect PIN! Cannot turn off 2-Step without the same PIN.')
       });
     } finally {
       setLoading(false);
@@ -2725,7 +2710,7 @@ function TwoStepPage({
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border shrink-0 ${
-              toggleOn
+              isSwitchVisuallyOn
                 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500'
                 : 'bg-purple-500/15 border-purple-500/30 text-purple-600 dark:text-purple-400'
             }`}>
@@ -2736,19 +2721,21 @@ function TwoStepPage({
                 {lang === 'bn' ? '২-স্টেপ পাসওয়ার্ড টগল' : 'Enable 2-Step Password'}
               </h4>
               <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                {toggleOn
-                  ? (lang === 'bn' ? 'সিকিউরিটি পাসওয়ার্ড সক্রিয়' : 'Security password enabled')
+                {twoStepEnabled
+                  ? (mode === 'DisablingPin'
+                      ? (lang === 'bn' ? `বন্ধ করতে নিচে আপনার ${activeSavedLen} ডিজিট পিন দিন` : `Enter your ${activeSavedLen}-digit PIN below to turn off`)
+                      : (lang === 'bn' ? `সিকিউরিটি পাসওয়ার্ড সক্রিয় (${activeSavedLen} ডিজিট)` : `Security PIN active (${activeSavedLen} digits)`))
                   : (lang === 'bn' ? 'টগলটি অন করে ৪ বা ৬ ডিজিট পিন দিন' : 'Turn on toggle to set a 4 or 6 digit PIN')}
               </p>
             </div>
           </div>
 
-          {/* Smooth Toggle Switch */}
+          {/* Smooth Toggle Switch — stays ON while twoStepEnabled is true until PIN verification completes */}
           <button
             type="button"
             onClick={handleToggleClick}
             className={`w-14 h-8 rounded-full p-1 transition-all duration-300 cursor-pointer flex items-center shrink-0 ${
-              toggleOn
+              isSwitchVisuallyOn
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-500 justify-end shadow-[0_0_14px_rgba(16,185,129,0.4)]'
                 : 'bg-slate-300 dark:bg-slate-700 justify-start'
             }`}
@@ -2843,35 +2830,490 @@ function TwoStepPage({
           </div>
         )}
 
-        {/* DISABLING PIN VERIFICATION */}
+        {/* DISABLING PIN VERIFICATION — REQUIRES EXACT SAME PIN TO TURN OFF */}
         {mode === 'DisablingPin' && (
           <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-3.5 animate-in slide-in-from-top-3 duration-200">
-            <div className="text-center">
+            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-center space-y-0.5">
               <p className="text-xs font-black text-rose-600 dark:text-rose-400">
                 {lang === 'bn'
-                  ? `২-স্টেপ বন্ধ করতে আপনার বর্তমান ${pinLength} ডিজিট পিন দিন`
-                  : `Enter your current ${pinLength}-digit PIN to turn off 2-Step`}
+                  ? `🔒 ২-স্টেপ বন্ধ করতে আপনার বর্তমান ${activeSavedLen} ডিজিট পিন দিন`
+                  : `🔒 Enter your current ${activeSavedLen}-digit PIN to turn off 2-Step`}
+              </p>
+              <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-medium">
+                {lang === 'bn'
+                  ? 'যে পিন দিয়ে ২-স্টেপ অন করেছিলেন, ঠিক সেই পিনটি না দিলে এটি অফ হবে না'
+                  : 'You must enter the exact same PIN you used to enable 2-Step'}
               </p>
             </div>
 
             <BotNumberKeypad
               pin={currentPinForDisable}
-              maxLength={pinLength}
+              maxLength={activeSavedLen}
               onChangePin={setCurrentPinForDisable}
               disabled={loading}
               darkMode={darkMode}
               lang={lang}
             />
 
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  setMode('IdleEnabled');
+                  setCurrentPinForDisable('');
+                  setFeedback(null);
+                }}
+                className={`flex-1 h-[48px] rounded-2xl font-black text-xs border transition-all active:scale-95 cursor-pointer ${
+                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                }`}
+              >
+                {lang === 'bn' ? 'বাতিল করুন' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={loading || currentPinForDisable.length !== activeSavedLen}
+                onClick={handleDisablePin}
+                className="flex-[1.5] h-[48px] rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 text-white font-black text-xs shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? <Loader2 size={17} className="animate-spin" /> : <Shield size={17} />}
+                <span>{lang === 'bn' ? '২-স্টেপ বন্ধ নিশ্চিত করুন' : 'Confirm Turn Off'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// DEDICATED CUSTOMER SUPPORT PAGE (OPENED FROM PROFILE)
+// ============================================================================
+function SupportPage({
+  user,
+  onBack,
+  darkMode = false,
+  lang = 'bn'
+}) {
+  const [supportCategory, setSupportCategory] = useState(null);
+  const [supportSubject, setSupportSubject] = useState('');
+  const [supportMsg, setSupportMsg] = useState('');
+  const [supportImagePreview, setSupportImagePreview] = useState(null);
+  const [isCompressingImage, setIsCompressingImage] = useState(false);
+  const [isSendingSupport, setIsSendingSupport] = useState(false);
+  const [supportFeedback, setSupportFeedback] = useState(null);
+
+  const SUPPORT_CATEGORIES = [
+    {
+      id: 'Account',
+      titleBn: 'Account (অ্যাকাউন্ট)',
+      titleEn: 'Account Issue',
+      subjectBn: 'Account Issue — অ্যাকাউন্ট সংক্রান্ত সমস্যা',
+      subjectEn: 'Account Support Request',
+      iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25',
+      IconComp: User
+    },
+    {
+      id: 'Buy',
+      titleBn: 'Buy (ক্রিপ্টো ক্রয়)',
+      titleEn: 'Buy Crypto',
+      subjectBn: 'Buy Crypto Issue — ক্রিপ্টো ক্রয় সংক্রান্ত সমস্যা',
+      subjectEn: 'Buy Crypto Support Request',
+      iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25',
+      IconComp: Coins
+    },
+    {
+      id: 'Sell',
+      titleBn: 'Sell (ক্রিপ্টো বিক্রয়)',
+      titleEn: 'Sell Crypto',
+      subjectBn: 'Sell Crypto Issue — ক্রিপ্টো বিক্রয় সংক্রান্ত সমস্যা',
+      subjectEn: 'Sell Crypto Support Request',
+      iconBg: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25',
+      IconComp: ArrowRightLeft
+    },
+    {
+      id: 'Add Money',
+      titleBn: 'Add Money (অ্যাড মানি)',
+      titleEn: 'Add Money',
+      subjectBn: 'Add Money Issue — অ্যাড মানি ও TrxID সমস্যা',
+      subjectEn: 'Add Money / Deposit Support Request',
+      iconBg: 'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/25',
+      IconComp: PlusCircle
+    },
+    {
+      id: 'Withdraw',
+      titleBn: 'Withdraw (উইথড্র)',
+      titleEn: 'Withdraw Funds',
+      subjectBn: 'Withdraw Issue — টাকা উত্তোলন (Withdraw) সমস্যা',
+      subjectEn: 'Withdrawal Support Request',
+      iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25',
+      IconComp: Wallet
+    },
+    {
+      id: 'Others',
+      titleBn: 'Others (অন্যান্য)',
+      titleEn: 'Other Issues',
+      subjectBn: 'General Inquiry — অন্যান্য বিষয় সংক্রান্ত সহায়তা',
+      subjectEn: 'General / Other Support Request',
+      iconBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/25',
+      IconComp: HelpCircle
+    }
+  ];
+
+  const handleSelectSupportCategory = (cat) => {
+    playAppSound('confirm');
+    setSupportCategory(cat);
+    setSupportSubject(lang === 'bn' ? cat.subjectBn : cat.subjectEn);
+    setSupportFeedback(null);
+  };
+
+  const handleSupportImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      playAppSound('error');
+      return;
+    }
+    setIsCompressingImage(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_DIM = 1000;
+          let w = img.width;
+          let h = img.height;
+          if (w > h && w > MAX_DIM) {
+            h = Math.round((h * MAX_DIM) / w);
+            w = MAX_DIM;
+          } else if (h > MAX_DIM) {
+            w = Math.round((w * MAX_DIM) / h);
+            h = MAX_DIM;
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          setSupportImagePreview(compressedDataUrl);
+        } catch (_) {
+          setSupportImagePreview(event.target.result);
+        } finally {
+          setIsCompressingImage(false);
+        }
+      };
+      img.onerror = () => setIsCompressingImage(false);
+      img.src = event.target.result;
+    };
+    reader.onerror = () => setIsCompressingImage(false);
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-28 relative">
+      {/* Dedicated Page Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (supportCategory && !supportFeedback) {
+                setSupportCategory(null);
+              } else {
+                onBack();
+              }
+            }}
+            className="w-9 h-9 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
+          >
+            <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
+          </button>
+          <div>
+            <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">
+              {lang === 'bn' ? 'কাস্টমার সাপোর্ট সেন্টার' : 'Customer Support Center'}
+            </h2>
+            <p className="text-[11px] text-slate-400 font-medium">
+              {supportCategory
+                ? (lang === 'bn' ? 'সমস্যার বিস্তারিত লিখে সাবমিট করুন' : 'Fill out details & submit')
+                : (lang === 'bn' ? 'যে বিষয়ে সহায়তা প্রয়োজন তা নির্বাচন করুন' : 'Select the topic you need help with')}
+            </p>
+          </div>
+        </div>
+        <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
+          24/7 LIVE
+        </span>
+      </div>
+
+      {/* Main Support Content Card */}
+      <div className={`p-4 rounded-3xl border shadow-xs relative overflow-hidden ${
+        darkMode ? 'bg-slate-900/95 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        <div className="absolute -right-3 -top-3 w-28 h-28 pointer-events-none select-none opacity-35 overflow-hidden">
+          <img src={roseBotanicalArt} alt="" className="w-full h-auto object-contain" />
+        </div>
+
+        {/* STATE A: FEEDBACK AFTER SUBMISSION */}
+        {supportFeedback ? (
+          <div className="py-5 text-center space-y-3.5 animate-in zoom-in-95 duration-200 relative z-10">
+            {supportFeedback.success ? (
+              <LuxurySuccessEmblem size={76} />
+            ) : (
+              <div className="w-14 h-14 mx-auto rounded-full flex items-center justify-center border bg-rose-500/15 text-rose-500 border-rose-500/30">
+                <AlertCircle size={30} />
+              </div>
+            )}
+            <div>
+              <h4 className="text-base font-black text-slate-900 dark:text-white">
+                {supportFeedback.success
+                  ? (lang === 'bn' ? 'সাপোর্ট রিকোয়েস্ট পাঠানো হয়েছে!' : 'Support Ticket Sent!')
+                  : (lang === 'bn' ? 'পাঠাতে ব্যর্থ হয়েছে' : 'Submission Failed')}
+              </h4>
+              {supportFeedback.ticketId && (
+                <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/25 text-[10.5px] font-mono font-bold">
+                  Ticket ID: #{supportFeedback.ticketId.slice(0, 8).toUpperCase()}
+                </span>
+              )}
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                {supportFeedback.message}
+              </p>
+            </div>
             <button
               type="button"
-              disabled={loading || currentPinForDisable.length !== pinLength}
-              onClick={handleDisablePin}
-              className="w-full h-[50px] rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 text-white font-black text-sm shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              onClick={() => {
+                setSupportCategory(null);
+                setSupportFeedback(null);
+                onBack();
+              }}
+              className="w-full mt-2 h-[46px] bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black rounded-2xl text-xs shadow-md active:scale-95 transition-all cursor-pointer"
             >
-              {loading ? <Loader2 size={18} className="animate-spin" /> : <Shield size={18} />}
-              <span>{lang === 'bn' ? '২-স্টেপ বন্ধ নিশ্চিত করুন' : 'Confirm Turn Off'}</span>
+              {lang === 'bn' ? 'ঠিক আছে (OK)' : 'Done'}
             </button>
+          </div>
+
+        /* STATE B: STEP 1 — COMPACT CATEGORY SELECTION (NO SUB-DESCRIPTIONS) */
+        ) : !supportCategory ? (
+          <div className="space-y-3 relative z-10 animate-in fade-in duration-200">
+            <div className={`p-2.5 rounded-2xl border text-[11.5px] font-bold leading-snug ${
+              darkMode ? 'bg-indigo-950/35 border-indigo-800/50 text-indigo-200' : 'bg-indigo-50/80 border-indigo-100 text-indigo-900'
+            }`}>
+              {lang === 'bn'
+                ? '👇 কোন বিষয়ে আপনার সাহায্য প্রয়োজন সিলেক্ট করুন:'
+                : '👇 Select the category you need help with:'}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {SUPPORT_CATEGORIES.map((cat) => {
+                const IconC = cat.IconComp;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => handleSelectSupportCategory(cat)}
+                    className={`px-3 py-2.5 rounded-2xl border text-left transition-all active:scale-95 cursor-pointer flex items-center justify-between gap-2 group ${
+                      darkMode
+                        ? 'bg-slate-800/75 hover:bg-slate-800 border-slate-700/80 hover:border-purple-500/50'
+                        : 'bg-slate-50/90 hover:bg-purple-50/60 border-slate-200/90 hover:border-purple-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${cat.iconBg}`}>
+                        <IconC size={17} />
+                      </div>
+                      <span className="font-black text-xs text-slate-900 dark:text-white leading-tight truncate">
+                        {lang === 'bn' ? cat.titleBn : cat.titleEn}
+                      </span>
+                    </div>
+                    <ChevronRight size={14} className="text-slate-400 group-hover:text-purple-500 transition-colors shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+        /* STATE C: STEP 2 — AUTO-FILLED SUBJECT + DETAILS + HIGH-CONTRAST IMAGE PREVIEW + SUBMIT */
+        ) : (
+          <div className="space-y-3.5 relative z-10 animate-in slide-in-from-right-4 duration-200">
+            {/* Auto-Filled Subject Box */}
+            <div className={`p-3 rounded-2xl border ${
+              darkMode ? 'bg-slate-800/80 border-purple-500/35' : 'bg-purple-50/70 border-purple-200'
+            }`}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                  {lang === 'bn' ? 'বিষয় (Auto Subject)' : 'Subject (Auto-Filled)'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSupportCategory(null)}
+                  className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                >
+                  {lang === 'bn' ? 'বিষয় পরিবর্তন' : 'Change Topic'}
+                </button>
+              </div>
+              <div className="text-xs font-black text-slate-900 dark:text-white leading-snug">
+                {supportSubject}
+              </div>
+            </div>
+
+            {/* Details Input */}
+            <div>
+              <label className="block text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                {lang === 'bn' ? 'সমস্যার বিস্তারিত বিবরণ (Details) *' : 'Issue Details *'}
+              </label>
+              <textarea
+                rows={4}
+                value={supportMsg}
+                onChange={(e) => setSupportMsg(e.target.value)}
+                placeholder={
+                  lang === 'bn'
+                    ? 'আপনার সমস্যার বিস্তারিত এখানে লিখুন (যেমন: TrxID, টাকার পরিমাণ বা ওয়ালেট নাম্বার)...'
+                    : 'Describe your issue in detail (e.g., TrxID, amount, or wallet number)...'
+                }
+                style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                className={`w-full rounded-2xl p-3 text-xs font-medium outline-none resize-none border transition-all ${
+                  darkMode
+                    ? 'bg-slate-800/70 border-slate-700 focus:border-purple-500 placeholder:text-slate-500'
+                    : 'bg-slate-50 border-slate-200 focus:bg-white focus:border-purple-500 placeholder:text-slate-400'
+                }`}
+              />
+            </div>
+
+            {/* Optional Image / Screenshot Attachment with High-Contrast Preview */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                  {lang === 'bn' ? 'স্ক্রিনশট / ছবি (ঐচ্ছিক - Optional)' : 'Screenshot / Image (Optional)'}
+                </label>
+                {supportImagePreview && (
+                  <button
+                    type="button"
+                    onClick={() => setSupportImagePreview(null)}
+                    className="text-[10.5px] font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+                  >
+                    {lang === 'bn' ? 'মুছে ফেলুন' : 'Remove'}
+                  </button>
+                )}
+              </div>
+
+              {supportImagePreview ? (
+                <div
+                  style={{
+                    backgroundColor: darkMode ? '#0f172a' : '#f0fdf4',
+                    borderColor: darkMode ? '#10b981' : '#86efac'
+                  }}
+                  className="relative rounded-2xl overflow-hidden border-2 p-2.5 flex items-center gap-3 shadow-xs"
+                >
+                  <img
+                    src={supportImagePreview}
+                    alt="Preview"
+                    className="w-14 h-14 object-cover rounded-xl border border-emerald-500/40 shrink-0 bg-white"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      style={{ color: darkMode ? '#34d399' : '#047857' }}
+                      className="text-xs font-black truncate"
+                    >
+                      {lang === 'bn' ? '✓ স্ক্রিনশট যুক্ত করা হয়েছে' : '✓ Screenshot Attached'}
+                    </p>
+                    <p
+                      style={{ color: darkMode ? '#cbd5e1' : '#334155' }}
+                      className="text-[10.5px] font-semibold mt-0.5 leading-snug"
+                    >
+                      {lang === 'bn' ? 'সাবমিট করলে সরাসরি সাপোর্ট টিমে যাবে' : 'Will be sent directly to support team'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSupportImagePreview(null)}
+                    style={{ backgroundColor: '#ef4444', color: '#ffffff' }}
+                    className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 cursor-pointer shadow-xs active:scale-90 transition-transform"
+                  >
+                    <X size={14} strokeWidth={2.5} />
+                  </button>
+                </div>
+              ) : (
+                <label className={`w-full py-3 px-3 rounded-2xl border border-dashed flex items-center justify-center gap-2 text-xs font-bold cursor-pointer transition-all active:scale-[0.99] ${
+                  darkMode
+                    ? 'bg-slate-800/40 border-slate-700 text-slate-300 hover:border-purple-500/50'
+                    : 'bg-slate-50 border-slate-300 text-slate-700 hover:border-purple-400'
+                }`}>
+                  <Camera size={15} className="text-purple-500 shrink-0" />
+                  <span>
+                    {isCompressingImage
+                      ? (lang === 'bn' ? 'ছবি প্রস্তুত হচ্ছে...' : 'Processing image...')
+                      : (lang === 'bn' ? '+ স্ক্রিনশট আপলোড করুন (Optional)' : '+ Upload Screenshot (Optional)')}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleSupportImageChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setSupportCategory(null)}
+                className={`flex-1 h-[46px] rounded-2xl font-black text-xs active:scale-95 transition-all cursor-pointer border ${
+                  darkMode
+                    ? 'bg-slate-800 border-slate-700 text-slate-300'
+                    : 'bg-slate-100 border-slate-200 text-slate-700'
+                }`}
+              >
+                {lang === 'bn' ? 'পেছনে যান' : 'Back'}
+              </button>
+              <button
+                type="button"
+                disabled={isSendingSupport || isCompressingImage || !supportMsg.trim()}
+                onClick={async () => {
+                  if (!supportMsg.trim()) return;
+                  setIsSendingSupport(true);
+                  try {
+                    const res = await submitSupportMessage({
+                      userId: user?.id,
+                      name: user?.first_name,
+                      username: user?.username,
+                      category: supportCategory?.id || 'Others',
+                      subject: supportSubject,
+                      message: supportMsg.trim(),
+                      imageBase64: supportImagePreview || null
+                    });
+                    setSupportMsg('');
+                    setSupportImagePreview(null);
+                    playAppSound('success');
+                    setSupportFeedback({
+                      success: true,
+                      ticketId: res?.ticketId || '',
+                      message: lang === 'bn'
+                        ? 'আপনার মেসেজ সফলভাবে আমাদের সাপোর্ট টিমে পাঠানো হয়েছে। অ্যাডমিন টিম খুব শীঘ্রই উত্তর দিবে।'
+                        : 'Your support ticket has been sent to our team. We will reply shortly.'
+                    });
+                  } catch (err) {
+                    playAppSound('error');
+                    setSupportFeedback({
+                      success: false,
+                      message: err.message || (lang === 'bn' ? 'পাঠাতে সমস্যা হয়েছে, আবার চেষ্টা করুন।' : 'Failed to send, try again.')
+                    });
+                  } finally {
+                    setIsSendingSupport(false);
+                  }
+                }}
+                className="flex-[1.5] h-[46px] bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/25 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isSendingSupport ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <>
+                    <Send size={14} />
+                    <span>{lang === 'bn' ? 'সাবমিট করুন' : 'Submit Ticket'}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -3922,9 +4364,24 @@ export default function App() {
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
   const [pendingReceivedTransfer, setPendingReceivedTransfer] = useState(null);
   const [mbsId, setMbsId] = useState(null);
-  const [twoStepEnabled, setTwoStepEnabled] = useState(false);
-  const [twoStepLength, setTwoStepLength] = useState(4);
   const [user, setUser] = useState(() => resolveTelegramUser());
+  const [twoStepEnabled, setTwoStepEnabled] = useState(() => {
+    try {
+      const uid = resolveTelegramUser()?.id;
+      return uid ? localStorage.getItem(`tp_twostep_enabled_${uid}`) === 'true' : false;
+    } catch (_) {
+      return false;
+    }
+  });
+  const [twoStepLength, setTwoStepLength] = useState(() => {
+    try {
+      const uid = resolveTelegramUser()?.id;
+      const savedLen = uid ? Number(localStorage.getItem(`tp_twostep_len_${uid}`)) : 4;
+      return savedLen === 6 ? 6 : 4;
+    } catch (_) {
+      return 4;
+    }
+  });
   const hasShownWdNoticeOnHomeRef = useRef(null);
   const hasPlayedReceivedSoundRef = useRef(null);
 
@@ -4095,8 +4552,14 @@ export default function App() {
         setPendingReceivedTransfer(null);
       }
       if (data.mbsId) setMbsId(data.mbsId);
-      setTwoStepEnabled(Boolean(data.twoStepEnabled));
-      setTwoStepLength(Number(data.twoStepLength) === 6 ? 6 : 4);
+      const nextTwoStepEnabled = Boolean(data.twoStepEnabled);
+      const nextTwoStepLen = Number(data.twoStepLength) === 6 ? 6 : 4;
+      setTwoStepEnabled(nextTwoStepEnabled);
+      setTwoStepLength(nextTwoStepLen);
+      try {
+        localStorage.setItem(`tp_twostep_enabled_${targetId}`, String(nextTwoStepEnabled));
+        localStorage.setItem(`tp_twostep_len_${targetId}`, String(nextTwoStepLen));
+      } catch (_) {}
       if (data.photoUrl) {
         setUser(prev => (prev && !prev.photo_url ? { ...prev, photo_url: data.photoUrl } : prev));
       }
@@ -4348,7 +4811,7 @@ export default function App() {
         
         <div className="relative z-10 p-4 max-w-md mx-auto">
           {/* Header - shown only on primary tabs */}
-          {activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'withdraw' && activeTab !== 'notifications' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'spin' && activeTab !== 'transfer' && activeTab !== 'two-step' && (
+          {activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'withdraw' && activeTab !== 'notifications' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'spin' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (
             <div id="main-app-header" className="flex justify-between items-center mb-5 pt-2 transition-all duration-300">
                <div className="flex items-center gap-3">
                  <div className="w-[44px] h-[44px] flex items-center justify-center shrink-0">
@@ -4485,6 +4948,7 @@ export default function App() {
                   twoStepEnabled={twoStepEnabled}
                   twoStepLength={twoStepLength}
                   onGoToTwoStep={() => setActiveTab('two-step')}
+                  onGoToSupport={() => setActiveTab('support')}
                   onGoToTransfer={() => setActiveTab('transfer')}
                   onGoToWithdraw={() => setActiveTab('withdraw')} 
                   onGoToHistory={() => setActiveTab('history')} 
@@ -4624,10 +5088,24 @@ export default function App() {
                   twoStepEnabled={twoStepEnabled}
                   twoStepLength={twoStepLength}
                   onUpdateTwoStepState={(enabled, len) => {
-                      setTwoStepEnabled(enabled);
-                      setTwoStepLength(len);
-                      loadData(user?.id || 123456789);
+                      const cleanLen = Number(len) === 6 ? 6 : 4;
+                      setTwoStepEnabled(Boolean(enabled));
+                      setTwoStepLength(cleanLen);
+                      const uid = user?.id || 123456789;
+                      try {
+                        localStorage.setItem(`tp_twostep_enabled_${uid}`, String(Boolean(enabled)));
+                        localStorage.setItem(`tp_twostep_len_${uid}`, String(cleanLen));
+                      } catch (_) {}
+                      loadData(uid);
                   }}
+                  onBack={() => setActiveTab('profile')}
+                  darkMode={darkMode}
+                  lang={lang}
+              />
+          )}
+          {activeTab === 'support' && (
+              <SupportPage
+                  user={user}
                   onBack={() => setActiveTab('profile')}
                   darkMode={darkMode}
                   lang={lang}
@@ -4646,7 +5124,7 @@ export default function App() {
         </div>
 
         {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
-        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && activeTab !== 'spin' && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && (() => {
+        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && activeTab !== 'spin' && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (() => {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
@@ -8375,7 +8853,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
     );
 }
 
-function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
+function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToSupport, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const displayId = mbsId || user?.mbsId || (user?.id ? 'MBS' + String(user.id).slice(-5) : 'MBS00000');
@@ -8400,139 +8878,11 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
   const [txStatus, setTxStatus] = useState(null);
   const [txMessage, setTxMessage] = useState('');
 
-  const [showSupportModal, setShowSupportModal] = useState(false);
-  const [supportCategory, setSupportCategory] = useState(null);
-  const [supportSubject, setSupportSubject] = useState('');
-  const [supportMsg, setSupportMsg] = useState('');
-  const [supportImagePreview, setSupportImagePreview] = useState(null);
-  const [isCompressingImage, setIsCompressingImage] = useState(false);
-  const [isSendingSupport, setIsSendingSupport] = useState(false);
-  const [supportFeedback, setSupportFeedback] = useState(null);
-
-  const SUPPORT_CATEGORIES = [
-    {
-      id: 'Account',
-      titleBn: 'Account (অ্যাকাউন্ট)',
-      titleEn: 'Account Issue',
-      descBn: 'ভেরিফিকেশন, প্রোফাইল বা অ্যাকাউন্ট সমস্যা',
-      descEn: 'Verification, profile or account access',
-      subjectBn: 'Account Issue — অ্যাকাউন্ট সংক্রান্ত সমস্যা',
-      subjectEn: 'Account Support Request',
-      iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25',
-      IconComp: User
-    },
-    {
-      id: 'Buy',
-      titleBn: 'Buy (ক্রিপ্টো ক্রয়)',
-      titleEn: 'Buy Crypto',
-      descBn: 'TON, GRAM বা USDT ক্রয় ও ওয়ালেট ডেলিভারি',
-      descEn: 'Buying TON, GRAM or USDT on-chain',
-      subjectBn: 'Buy Crypto Issue — ক্রিপ্টো ক্রয় সংক্রান্ত সমস্যা',
-      subjectEn: 'Buy Crypto Support Request',
-      iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25',
-      IconComp: Coins
-    },
-    {
-      id: 'Sell',
-      titleBn: 'Sell (ক্রিপ্টো বিক্রয়)',
-      titleEn: 'Sell Crypto',
-      descBn: 'ক্রিপ্টো সেন্ড বা বিক্রয়ের টাকা ব্যালেন্সে যোগ',
-      descEn: 'Selling crypto or balance credit',
-      subjectBn: 'Sell Crypto Issue — ক্রিপ্টো বিক্রয় সংক্রান্ত সমস্যা',
-      subjectEn: 'Sell Crypto Support Request',
-      iconBg: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25',
-      IconComp: ArrowRightLeft
-    },
-    {
-      id: 'Add Money',
-      titleBn: 'Add Money (অ্যাড মানি)',
-      titleEn: 'Add Money',
-      descBn: 'বিকাশ/নগদ সেন্ড মানি বা TrxID ভেরিফিকেশন',
-      descEn: 'bKash/Nagad Send Money or TrxID issue',
-      subjectBn: 'Add Money Issue — অ্যাড মানি ও TrxID সমস্যা',
-      subjectEn: 'Add Money / Deposit Support Request',
-      iconBg: 'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/25',
-      IconComp: PlusCircle
-    },
-    {
-      id: 'Withdraw',
-      titleBn: 'Withdraw (উইথড্র)',
-      titleEn: 'Withdraw Funds',
-      descBn: 'বিকাশ বা নগদে টাকা উত্তোলন সংক্রান্ত সহায়তা',
-      descEn: 'Cashout / payout to bKash or Nagad',
-      subjectBn: 'Withdraw Issue — টাকা উত্তোলন (Withdraw) সমস্যা',
-      subjectEn: 'Withdrawal Support Request',
-      iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25',
-      IconComp: Wallet
-    },
-    {
-      id: 'Others',
-      titleBn: 'Others (অন্যান্য)',
-      titleEn: 'Other Issues',
-      descBn: 'রেফারেল, স্পিন বা অন্যান্য যেকোনো প্রশ্ন',
-      descEn: 'Referral, spin or general inquiry',
-      subjectBn: 'General Inquiry — অন্যান্য বিষয় সংক্রান্ত সহায়তা',
-      subjectEn: 'General / Other Support Request',
-      iconBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/25',
-      IconComp: HelpCircle
-    }
-  ];
-
-  const handleSelectSupportCategory = (cat) => {
-    playAppSound('confirm');
-    setSupportCategory(cat);
-    setSupportSubject(lang === 'bn' ? cat.subjectBn : cat.subjectEn);
-    setSupportFeedback(null);
-  };
-
-  const handleSupportImageChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      playAppSound('error');
-      return;
-    }
-    setIsCompressingImage(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const MAX_DIM = 1000;
-          let w = img.width;
-          let h = img.height;
-          if (w > h && w > MAX_DIM) {
-            h = Math.round((h * MAX_DIM) / w);
-            w = MAX_DIM;
-          } else if (h > MAX_DIM) {
-            w = Math.round((w * MAX_DIM) / h);
-            h = MAX_DIM;
-          }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-          setSupportImagePreview(compressedDataUrl);
-        } catch (_) {
-          setSupportImagePreview(event.target.result);
-        } finally {
-          setIsCompressingImage(false);
-        }
-      };
-      img.onerror = () => setIsCompressingImage(false);
-      img.src = event.target.result;
-    };
-    reader.onerror = () => setIsCompressingImage(false);
-    reader.readAsDataURL(file);
-  };
-
   useEffect(() => {
     if (setIsModalOpen) {
-      setIsModalOpen(showWalletModal || showSupportModal || !!txStatus);
+      setIsModalOpen(showWalletModal || !!txStatus);
     }
-  }, [showWalletModal, showSupportModal, txStatus, setIsModalOpen]);
+  }, [showWalletModal, txStatus, setIsModalOpen]);
   
   const handleWithdrawClick = () => {
       if (fiatWallet) {
@@ -8902,11 +9252,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
 
         {/* Customer Support Row */}
         <div 
-          onClick={() => {
-            setShowSupportModal(true);
-            setSupportCategory(null);
-            setSupportFeedback(null);
-          }} 
+          onClick={onGoToSupport} 
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
         >
           <div className="flex items-center gap-3">
@@ -8918,7 +9264,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                 {lang === 'bn' ? 'কাস্টমার সাপোর্ট' : 'Customer Support'}
               </span>
               <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
-                {lang === 'bn' ? 'Account, Buy, Sell, Add Money, Withdraw ও অন্যান্য সহায়তা' : 'Direct Helpline & Ticket Center'}
+                {lang === 'bn' ? '২৪/৭ হেল্পলাইন ও টিকেট সেন্টার' : '24/7 Helpline & Ticket Center'}
               </span>
             </div>
           </div>
@@ -8955,313 +9301,6 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
         </div>
       </div>
 
-      {/* 2-STEP CUSTOMER SUPPORT CENTER MODAL */}
-      {showSupportModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
-              <div className={`relative w-full max-w-[365px] max-h-[88vh] overflow-y-auto p-5 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 duration-200 ${
-                darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
-              }`}>
-                  {/* Header */}
-                  <div className="flex justify-between items-center mb-3.5 relative z-10">
-                      <div className="flex items-center gap-2.5">
-                          {supportCategory && !supportFeedback ? (
-                              <button
-                                  type="button"
-                                  onClick={() => setSupportCategory(null)}
-                                  className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-all active:scale-90 cursor-pointer ${
-                                      darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-700'
-                                  }`}
-                                  title="Back"
-                              >
-                                  <ArrowLeft size={15} strokeWidth={2.5} />
-                              </button>
-                          ) : (
-                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600/20 to-indigo-600/20 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/30">
-                                  <Headphones size={18} />
-                              </div>
-                          )}
-                          <div>
-                              <h3 className="text-[15px] font-black text-slate-900 dark:text-white leading-tight">
-                                  {lang === 'bn' ? 'কাস্টমার সাপোর্ট সেন্টার' : 'Customer Support Center'}
-                              </h3>
-                              <p className="text-[11px] text-slate-400 font-semibold">
-                                  {supportCategory
-                                      ? (lang === 'bn' ? 'সমস্যার বিস্তারিত লিখে সাবমিট করুন' : 'Fill out details & submit')
-                                      : (lang === 'bn' ? 'যে বিষয়ে সমস্যা সেটিতে ক্লিক করুন' : 'Select the topic you need help with')}
-                              </p>
-                          </div>
-                      </div>
-                      <button 
-                          type="button"
-                          onClick={() => {
-                              setShowSupportModal(false);
-                              setSupportCategory(null);
-                              setSupportFeedback(null);
-                          }} 
-                          className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white flex items-center justify-center active:scale-90 transition-all cursor-pointer"
-                      >
-                          <X size={15} strokeWidth={2.5} />
-                      </button>
-                  </div>
-
-                  {/* STATE A: FEEDBACK AFTER SUBMISSION */}
-                  {supportFeedback ? (
-                      <div className="py-5 text-center space-y-3.5 animate-in zoom-in-95 duration-200">
-                          <div className={`w-14 h-14 mx-auto rounded-full flex items-center justify-center border ${
-                              supportFeedback.success
-                                  ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
-                                  : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
-                          }`}>
-                              {supportFeedback.success ? <CheckCircle2 size={30} /> : <AlertCircle size={30} />}
-                          </div>
-                          <div>
-                              <h4 className="text-base font-black text-slate-900 dark:text-white">
-                                  {supportFeedback.success
-                                      ? (lang === 'bn' ? 'সাপোর্ট রিকোয়েস্ট পাঠানো হয়েছে!' : 'Support Ticket Sent!')
-                                      : (lang === 'bn' ? 'পাঠাতে ব্যর্থ হয়েছে' : 'Submission Failed')}
-                              </h4>
-                              {supportFeedback.ticketId && (
-                                  <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/25 text-[10.5px] font-mono font-bold">
-                                      Ticket ID: #{supportFeedback.ticketId.slice(0, 8).toUpperCase()}
-                                  </span>
-                              )}
-                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                                  {supportFeedback.message}
-                              </p>
-                          </div>
-                          <button 
-                              type="button"
-                              onClick={() => {
-                                  setShowSupportModal(false);
-                                  setSupportCategory(null);
-                                  setSupportFeedback(null);
-                              }}
-                              className="w-full mt-2 h-[44px] bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black rounded-2xl text-xs shadow-md active:scale-95 transition-all cursor-pointer"
-                          >
-                              {lang === 'bn' ? 'ঠিক আছে (OK)' : 'Done'}
-                          </button>
-                      </div>
-
-                  /* STATE B: STEP 1 — SELECT 1 OF THE 6 CATEGORIES (Account, Buy, Sell, Add Money, Withdraw, Others) */
-                  ) : !supportCategory ? (
-                      <div className="space-y-2.5 pt-1 animate-in fade-in duration-200">
-                          <div className={`p-2.5 rounded-2xl border text-[11px] font-medium leading-relaxed ${
-                              darkMode ? 'bg-indigo-950/35 border-indigo-800/50 text-indigo-200' : 'bg-indigo-50/80 border-indigo-100 text-indigo-900'
-                          }`}>
-                              {lang === 'bn'
-                                  ? '👇 নিচের অপশনগুলো থেকে আপনার সমস্যার বিষয়টি নির্বাচন করুন:'
-                                  : '👇 Please choose the category that matches your issue:'}
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2.5">
-                              {SUPPORT_CATEGORIES.map((cat) => {
-                                  const IconC = cat.IconComp;
-                                  return (
-                                      <button
-                                          key={cat.id}
-                                          type="button"
-                                          onClick={() => handleSelectSupportCategory(cat)}
-                                          className={`p-3 rounded-2xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between gap-2 group ${
-                                              darkMode
-                                                  ? 'bg-slate-800/70 hover:bg-slate-800 border-slate-700/80 hover:border-purple-500/50'
-                                                  : 'bg-slate-50/90 hover:bg-purple-50/50 border-slate-200/90 hover:border-purple-300'
-                                          }`}
-                                      >
-                                          <div className="flex items-center justify-between w-full">
-                                              <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${cat.iconBg}`}>
-                                                  <IconC size={17} />
-                                              </div>
-                                              <ChevronRight size={14} className="text-slate-400 group-hover:text-purple-500 transition-colors" />
-                                          </div>
-                                          <div>
-                                              <div className="font-black text-xs text-slate-900 dark:text-white leading-tight">
-                                                  {lang === 'bn' ? cat.titleBn : cat.titleEn}
-                                              </div>
-                                              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 line-clamp-2 leading-snug">
-                                                  {lang === 'bn' ? cat.descBn : cat.descEn}
-                                              </div>
-                                          </div>
-                                      </button>
-                                  );
-                              })}
-                          </div>
-                      </div>
-
-                  /* STATE C: STEP 2 — AUTO-FILLED SUBJECT + DETAILS + OPTIONAL IMAGE UPLOAD + SUBMIT */
-                  ) : (
-                      <div className="space-y-3.5 pt-1 animate-in slide-in-from-right-4 duration-200">
-                          {/* Auto-Filled Subject Box */}
-                          <div className={`p-3 rounded-2xl border ${
-                              darkMode ? 'bg-slate-800/80 border-purple-500/35' : 'bg-purple-50/70 border-purple-200'
-                          }`}>
-                              <div className="flex items-center justify-between mb-1">
-                                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
-                                      {lang === 'bn' ? 'বিষয় (Auto Subject)' : 'Subject (Auto-Filled)'}
-                                  </span>
-                                  <button
-                                      type="button"
-                                      onClick={() => setSupportCategory(null)}
-                                      className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                                  >
-                                      {lang === 'bn' ? 'বিষয় পরিবর্তন' : 'Change Topic'}
-                                  </button>
-                              </div>
-                              <div className="text-xs font-black text-slate-900 dark:text-white leading-snug">
-                                  {supportSubject}
-                              </div>
-                          </div>
-
-                          {/* Details Input */}
-                          <div>
-                              <label className="block text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                                  {lang === 'bn' ? 'সমস্যার বিস্তারিত বিবরণ (Details) *' : 'Issue Details *'}
-                              </label>
-                              <textarea
-                                  rows={4}
-                                  value={supportMsg}
-                                  onChange={(e) => setSupportMsg(e.target.value)}
-                                  placeholder={
-                                      lang === 'bn'
-                                          ? 'আপনার সমস্যার বিস্তারিত এখানে লিখুন (যেমন: TrxID, টাকার পরিমাণ বা ওয়ালেট নাম্বার)...'
-                                          : 'Describe your issue in detail (e.g., TrxID, amount, or wallet number)...'
-                                  }
-                                  style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-                                  className={`w-full rounded-2xl p-3 text-xs font-medium outline-none resize-none border transition-all ${
-                                      darkMode
-                                          ? 'bg-slate-800/70 border-slate-700 focus:border-purple-500 placeholder:text-slate-500'
-                                          : 'bg-slate-50 border-slate-200 focus:bg-white focus:border-purple-500 placeholder:text-slate-400'
-                                  }`}
-                              />
-                          </div>
-
-                          {/* Optional Image / Screenshot Attachment */}
-                          <div>
-                              <div className="flex items-center justify-between mb-1.5">
-                                  <label className="text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                                      {lang === 'bn' ? 'স্ক্রিনশট / ছবি (ঐচ্ছিক - Optional)' : 'Screenshot / Image (Optional)'}
-                                  </label>
-                                  {supportImagePreview && (
-                                      <button
-                                          type="button"
-                                          onClick={() => setSupportImagePreview(null)}
-                                          className="text-[10.5px] font-bold text-rose-500 hover:underline cursor-pointer"
-                                      >
-                                          {lang === 'bn' ? 'মুছে ফেলুন' : 'Remove'}
-                                      </button>
-                                  )}
-                              </div>
-
-                              {supportImagePreview ? (
-                                  <div className="relative rounded-2xl overflow-hidden border border-purple-500/40 bg-slate-950/40 p-1.5 flex items-center gap-3">
-                                      <img
-                                          src={supportImagePreview}
-                                          alt="Preview"
-                                          className="w-14 h-14 object-cover rounded-xl border border-slate-700 shrink-0"
-                                      />
-                                      <div className="min-w-0 flex-1">
-                                          <p className="text-xs font-black text-emerald-500 truncate">
-                                              {lang === 'bn' ? '✓ স্ক্রিনশট যুক্ত করা হয়েছে' : '✓ Screenshot Attached'}
-                                          </p>
-                                          <p className="text-[10px] text-slate-400">
-                                              {lang === 'bn' ? 'সাবমিট করলে সরাসরি সাপোর্ট গ্রুপে যাবে' : 'Will be sent directly to support group'}
-                                          </p>
-                                      </div>
-                                      <button
-                                          type="button"
-                                          onClick={() => setSupportImagePreview(null)}
-                                          className="w-7 h-7 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 cursor-pointer"
-                                      >
-                                          <X size={14} />
-                                      </button>
-                                  </div>
-                              ) : (
-                                  <label className={`w-full py-2.5 px-3 rounded-2xl border border-dashed flex items-center justify-center gap-2 text-xs font-bold cursor-pointer transition-all active:scale-[0.99] ${
-                                      darkMode
-                                          ? 'bg-slate-800/40 border-slate-700 text-slate-300 hover:border-purple-500/50'
-                                          : 'bg-slate-50 border-slate-300 text-slate-600 hover:border-purple-400'
-                                  }`}>
-                                      <Camera size={15} className="text-purple-500 shrink-0" />
-                                      <span>
-                                          {isCompressingImage
-                                              ? (lang === 'bn' ? 'ছবি প্রস্তুত হচ্ছে...' : 'Processing image...')
-                                              : (lang === 'bn' ? '+ স্ক্রিনশট আপলোড করুন (Optional)' : '+ Upload Screenshot (Optional)')}
-                                      </span>
-                                      <input
-                                          type="file"
-                                          accept="image/*"
-                                          onChange={handleSupportImageChange}
-                                          className="hidden"
-                                      />
-                                  </label>
-                              )}
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex gap-2.5 pt-1">
-                              <button
-                                  type="button"
-                                  onClick={() => setSupportCategory(null)}
-                                  className={`flex-1 h-[44px] rounded-2xl font-black text-xs active:scale-95 transition-all cursor-pointer border ${
-                                      darkMode
-                                          ? 'bg-slate-800 border-slate-700 text-slate-300'
-                                          : 'bg-slate-100 border-slate-200 text-slate-700'
-                                  }`}
-                              >
-                                  {lang === 'bn' ? 'পেছনে যান' : 'Back'}
-                              </button>
-                              <button
-                                  type="button"
-                                  disabled={isSendingSupport || isCompressingImage || !supportMsg.trim()}
-                                  onClick={async () => {
-                                      if (!supportMsg.trim()) return;
-                                      setIsSendingSupport(true);
-                                      try {
-                                          const res = await submitSupportMessage({
-                                              userId: user?.id,
-                                              name: user?.first_name,
-                                              username: user?.username,
-                                              category: supportCategory?.id || 'Others',
-                                              subject: supportSubject,
-                                              message: supportMsg.trim(),
-                                              imageBase64: supportImagePreview || null
-                                          });
-                                          setSupportMsg('');
-                                          setSupportImagePreview(null);
-                                          playAppSound('success');
-                                          setSupportFeedback({
-                                              success: true,
-                                              ticketId: res?.ticketId || '',
-                                              message: lang === 'bn'
-                                                  ? 'আপনার মেসেজ সফলভাবে আমাদের সাপোর্ট গ্রুপে পাঠানো হয়েছে। অ্যাডমিন টিম খুব শীঘ্রই উত্তর দিবে।'
-                                                  : 'Your support ticket has been sent to our team. We will reply shortly.'
-                                          });
-                                      } catch (err) {
-                                          playAppSound('error');
-                                          setSupportFeedback({
-                                              success: false,
-                                              message: err.message || (lang === 'bn' ? 'পাঠাতে সমস্যা হয়েছে, আবার চেষ্টা করুন।' : 'Failed to send, try again.')
-                                          });
-                                      } finally {
-                                          setIsSendingSupport(false);
-                                      }
-                                  }}
-                                  className="flex-[1.4] h-[44px] bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/25 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
-                              >
-                                  {isSendingSupport ? (
-                                      <Loader2 size={16} className="animate-spin" />
-                                  ) : (
-                                      <>
-                                          <Send size={14} />
-                                          <span>{lang === 'bn' ? 'সাবমিট করুন' : 'Submit Ticket'}</span>
-                                      </>
-                                  )}
-                              </button>
-                          </div>
-                      </div>
-                  )}
-              </div>
-          </div>
-      )}
       {/* Wallet Setup Modal */}
       {showWalletModal && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-300">
