@@ -451,6 +451,16 @@ export const acknowledgeWithdrawNotice = async (userId) => {
     }
 };
 
+export const acknowledgeReceivedTransfer = async (userId, transferId = '') => {
+    try {
+        if (!userId || Number(userId) === 123456789) return { success: true };
+        const res = await axios.post(`${API_URL}/api/miniapp/ack-received-transfer`, { userId, transferId });
+        return res.data;
+    } catch (e) {
+        return { success: false };
+    }
+};
+
 export const setupTwoStepPin = async (payload) => {
     try {
         const fp = getDeviceFingerprint();

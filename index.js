@@ -3314,12 +3314,29 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             userRef.set({ status: 'active', isRestricted: false, restrictReason: null }, { merge: true }).catch(() => {});
         }
 
+        let pendingReceivedTransfer = data.pendingReceivedTransfer || null;
+        if (pendingReceivedTransfer && pendingReceivedTransfer.senderId) {
+            try {
+                const av = await Promise.race([
+                    getOrFetchUserAvatar(String(pendingReceivedTransfer.senderId)),
+                    new Promise(r => setTimeout(() => r(null), 1500))
+                ]);
+                if (av && av.dataUrl) {
+                    pendingReceivedTransfer = {
+                        ...pendingReceivedTransfer,
+                        senderAvatarDataUrl: av.dataUrl
+                    };
+                }
+            } catch (_) {}
+        }
+
         const isBanned = data.status === 'banned' || Boolean(data.isBanned);
         const isRestricted = data.status === 'restricted' && (!data.restrictedUntil || new Date(data.restrictedUntil) > new Date());
         res.json({ 
             balance: data.balance || 0,
             fiatWallet: data.fiatWallet || null,
             fiatWithdrawPending: pendingWithdraw,
+            pendingReceivedTransfer,
             mbsId: mbsId,
             photoUrl: data.photoUrl || data.photo_url || null,
             twoStepEnabled: Boolean(data.twoStepEnabled && data.twoStepPinHash),
@@ -3409,64 +3426,120 @@ app.post('/api/miniapp/ack-withdraw-notice', async (req, res) => {
     }
 });
 
-// Public MiniApp User Avatar Proxy (works on all mobile devices without exposing BOT_TOKEN or hitting Admin IP firewall)
+// One-Time Money Received Popup Acknowledge: clears pendingReceivedTransfer when user clicks "Okay"
+app.post('/api/miniapp/ack-received-transfer', async (req, res) => {
+    try {
+        const { userId } = req.body || {};
+        if (!userId || Number(userId) === 123456789) return res.json({ success: true });
+        if (!verifyRequestCallerIdentity(req, userId)) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+        const userRef = db.collection('users').doc(String(userId));
+        await userRef.set({ pendingReceivedTransfer: null }, { merge: true });
+        return res.json({ success: true });
+    } catch (e) {
+        return res.json({ success: false });
+    }
+});
+
+// Public MiniApp User Avatar Proxy & Data-URI Resolver
+// Note: Telegram's file download server returns Content-Type: application/octet-stream, which is blocked by
+// browsers when X-Content-Type-Options: nosniff is set! We detect the true image/* MIME type from magic bytes.
 const miniappAvatarBufferCache = new Map();
+
+function detectImageMimeType(buf, rawHeader, fileUrl = '') {
+    if (buf && buf.length >= 4) {
+        if (buf[0] === 0xFF && buf[1] === 0xD8) return 'image/jpeg';
+        if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return 'image/png';
+        if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return 'image/gif';
+        if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return 'image/webp';
+    }
+    const cleanHeader = String(rawHeader || '').toLowerCase().trim();
+    if (cleanHeader.startsWith('image/')) return cleanHeader;
+    if (/\.png(\?|$)/i.test(fileUrl)) return 'image/png';
+    if (/\.webp(\?|$)/i.test(fileUrl)) return 'image/webp';
+    if (/\.gif(\?|$)/i.test(fileUrl)) return 'image/gif';
+    return 'image/jpeg';
+}
+
+async function getOrFetchUserAvatar(rawUserId, uData = null) {
+    const cleanId = String(rawUserId || '').trim();
+    if (!cleanId || cleanId === '12345' || cleanId === '123456789' || !/^\d+$/.test(cleanId)) {
+        return null;
+    }
+
+    const now = Date.now();
+    if (miniappAvatarBufferCache.has(cleanId)) {
+        const cached = miniappAvatarBufferCache.get(cleanId);
+        if (cached.expireAt > now) {
+            if (cached.buffer) {
+                const validCt = detectImageMimeType(cached.buffer, cached.contentType);
+                return {
+                    buffer: cached.buffer,
+                    contentType: validCt,
+                    dataUrl: cached.dataUrl || `data:${validCt};base64,${cached.buffer.toString('base64')}`
+                };
+            }
+            return null;
+        }
+    }
+
+    let fileUrl = null;
+    if (bot) {
+        const photos = await bot.getUserProfilePhotos(cleanId, { limit: 1 }).catch(() => null);
+        if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
+            const photoSizes = photos.photos[0];
+            const chosenPhoto = photoSizes.length > 1 ? photoSizes[1] : photoSizes[0];
+            fileUrl = await bot.getFileLink(chosenPhoto.file_id).catch(() => null);
+        }
+    }
+
+    let userDocData = uData;
+    if (!fileUrl) {
+        if (!userDocData) {
+            const uDoc = await db.collection('users').doc(cleanId).get().catch(() => null);
+            if (uDoc && uDoc.exists) userDocData = uDoc.data() || {};
+        }
+        const pUrl = userDocData?.photoUrl || userDocData?.photo_url;
+        if (pUrl && /^https?:\/\//i.test(pUrl)) {
+            fileUrl = pUrl;
+        } else if (userDocData?.username) {
+            const cleanUname = String(userDocData.username).replace(/^@/, '').trim();
+            if (cleanUname) {
+                fileUrl = `https://t.me/i/userpic/320/${encodeURIComponent(cleanUname)}.jpg`;
+            }
+        }
+    }
+
+    if (fileUrl) {
+        const imgRes = await axios.get(fileUrl, { responseType: 'arraybuffer', timeout: 5000 }).catch(() => null);
+        if (imgRes && imgRes.data && imgRes.data.byteLength > 100) {
+            const buf = Buffer.from(imgRes.data);
+            const contentType = detectImageMimeType(buf, imgRes.headers?.['content-type'], fileUrl);
+            const dataUrl = `data:${contentType};base64,${buf.toString('base64')}`;
+            miniappAvatarBufferCache.set(cleanId, { buffer: buf, contentType, dataUrl, expireAt: now + 3600000 });
+            if (miniappAvatarBufferCache.size > 300) {
+                const firstKey = miniappAvatarBufferCache.keys().next().value;
+                if (firstKey) miniappAvatarBufferCache.delete(firstKey);
+            }
+            return { buffer: buf, contentType, dataUrl };
+        }
+    }
+
+    miniappAvatarBufferCache.set(cleanId, { buffer: null, expireAt: now + 180000 });
+    return null;
+}
+
 app.get('/api/miniapp/user-avatar/:userId', async (req, res) => {
     try {
         const rawUserId = String(req.params.userId || '').trim();
-        if (!rawUserId || rawUserId === '12345' || rawUserId === '123456789' || !/^\d+$/.test(rawUserId)) {
-            return res.status(404).send('No avatar');
+        const av = await getOrFetchUserAvatar(rawUserId);
+        if (av && av.buffer) {
+            res.setHeader('Content-Type', av.contentType || 'image/jpeg');
+            res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+            return res.send(av.buffer);
         }
-
-        const now = Date.now();
-        if (miniappAvatarBufferCache.has(rawUserId)) {
-            const cached = miniappAvatarBufferCache.get(rawUserId);
-            if (cached.expireAt > now) {
-                if (cached.buffer) {
-                    res.setHeader('Content-Type', cached.contentType || 'image/jpeg');
-                    res.setHeader('Cache-Control', 'public, max-age=3600');
-                    return res.send(cached.buffer);
-                }
-                return res.status(404).send('No avatar');
-            }
-        }
-
-        let fileUrl = null;
-        if (bot) {
-            const photos = await bot.getUserProfilePhotos(rawUserId, { limit: 1 }).catch(() => null);
-            if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
-                const bestPhoto = photos.photos[0][photos.photos[0].length - 1];
-                fileUrl = await bot.getFileLink(bestPhoto.file_id).catch(() => null);
-            }
-        }
-
-        if (!fileUrl) {
-            const uDoc = await db.collection('users').doc(rawUserId).get().catch(() => null);
-            if (uDoc && uDoc.exists) {
-                const pUrl = uDoc.data()?.photoUrl || uDoc.data()?.photo_url;
-                if (pUrl && /^https?:\/\//i.test(pUrl)) {
-                    fileUrl = pUrl;
-                }
-            }
-        }
-
-        if (fileUrl) {
-            const imgRes = await axios.get(fileUrl, { responseType: 'arraybuffer', timeout: 6000 }).catch(() => null);
-            if (imgRes && imgRes.data) {
-                const buf = Buffer.from(imgRes.data);
-                const contentType = imgRes.headers?.['content-type'] || 'image/jpeg';
-                miniappAvatarBufferCache.set(rawUserId, { buffer: buf, contentType, expireAt: now + 3600000 });
-                if (miniappAvatarBufferCache.size > 300) {
-                    const firstKey = miniappAvatarBufferCache.keys().next().value;
-                    if (firstKey) miniappAvatarBufferCache.delete(firstKey);
-                }
-                res.setHeader('Content-Type', contentType);
-                res.setHeader('Cache-Control', 'public, max-age=3600');
-                return res.send(buf);
-            }
-        }
-
-        miniappAvatarBufferCache.set(rawUserId, { buffer: null, expireAt: now + 300000 });
         return res.status(404).send('No avatar');
     } catch (e) {
         return res.status(404).send('No avatar');
@@ -3665,12 +3738,25 @@ app.get('/api/miniapp/lookup-user/:query', async (req, res) => {
             (uData.fiatWallet && uData.fiatWallet.number)
         );
 
+        // Fetch Telegram Profile Picture and embed as instant base64 Data-URI so it never fails on mobile WebView
+        let avatarDataUrl = null;
+        try {
+            const av = await Promise.race([
+                getOrFetchUserAvatar(uId, uData),
+                new Promise(r => setTimeout(() => r(null), 2200))
+            ]);
+            if (av && av.dataUrl) {
+                avatarDataUrl = av.dataUrl;
+            }
+        } catch (_) {}
+
         const recipientPayload = {
             userId: uId,
             mbsId,
             name,
             username,
-            photoUrl: `/api/miniapp/user-avatar/${uId}`,
+            avatarDataUrl,
+            photoUrl: avatarDataUrl || uData.photoUrl || uData.photo_url || `/api/miniapp/user-avatar/${uId}`,
             isVerified,
             isSelf,
             status: uData.status || 'active'
@@ -3688,9 +3774,12 @@ app.get('/api/miniapp/lookup-user/:query', async (req, res) => {
     }
 });
 
+// Idempotency / Replay-Protection Cache for P2P Money Transfers
+const recentTransferSignatures = new Map();
+
 // Atomic Zero-Trust P2P Money Transfer Endpoint
 app.post('/api/miniapp/transfer-money', async (req, res) => {
-    let { userId, senderId: bodySenderId, recipientQuery, amount, twoStepPin, note } = req.body || {};
+    let { userId, senderId: bodySenderId, recipientQuery, amount, twoStepPin, note, comment } = req.body || {};
     const effectiveUserId = userId || bodySenderId;
     if (!effectiveUserId || !recipientQuery || !amount) {
         return res.status(400).json({ error: 'প্রাপকের আইডি এবং টাকার পরিমাণ সঠিকভাবে দিন।' });
@@ -3716,7 +3805,11 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
 
     let receiverLockId = null;
     try {
-        const numAmount = Number(parseFloat(String(amount).replace(/,/g, '')).toFixed(2));
+        const rawAmtStr = String(amount).replace(/,/g, '').trim();
+        if (!/^\d+(\.\d{1,2})?$/.test(rawAmtStr)) {
+            return res.status(400).json({ error: 'অনুগ্রহ করে সঠিক টাকার পরিমাণ দিন (সর্বোচ্চ ২ দশমিক ঘর)।' });
+        }
+        const numAmount = Number(parseFloat(rawAmtStr).toFixed(2));
         if (!Number.isFinite(numAmount) || numAmount < 10) {
             return res.status(400).json({ error: 'সর্বনিম্ন ট্রান্সফার ১০ টাকা (Minimum transfer is 10 BDT)' });
         }
@@ -3751,6 +3844,13 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
             return res.status(400).json({ error: 'নিজের অ্যাকাউন্টে নিজের ব্যালেন্স ট্রান্সফার করা যাবে না!' });
         }
 
+        // 6b. Anti-Double-Spend / Duplicate Replay Cooldown (8 seconds for same sender -> receiver + amount)
+        const replaySig = `${senderId}_${receiverId}_${numAmount.toFixed(2)}`;
+        const lastReplayAt = recentTransferSignatures.get(replaySig) || 0;
+        if (Date.now() - lastReplayAt < 8000) {
+            return res.status(429).json({ error: 'এইমাত্র একই পরিমাণ টাকা পাঠানো হয়েছে! ডাবল ট্রান্সফার রোধে ৮ সেকেন্ড অপেক্ষা করুন।' });
+        }
+
         const receiverData = resolvedRecipient.data || {};
         if (receiverData.status === 'banned' || receiverData.isBanned) {
             return res.status(400).json({ error: 'প্রাপকের অ্যাকাউন্টটি নিষিদ্ধ (Banned) থাকায় টাকা পাঠানো যাবে না।' });
@@ -3770,7 +3870,21 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
         const receiverMbsId = receiverData.mbsId || ('MBS' + receiverId.slice(-5));
         const senderName = senderData.firstName || senderData.first_name || 'User';
         const receiverName = receiverData.firstName || receiverData.first_name || 'User';
-        const cleanNote = note ? escapeHtml(String(note).trim().slice(0, 100)) : '';
+        const rawCommentText = String(comment !== undefined ? comment : (note || '')).trim().slice(0, 100);
+        const cleanNote = rawCommentText ? escapeHtml(rawCommentText) : '';
+
+        // One-Time Popup payload for the Receiver when they next open the Mini App
+        const pendingReceivedPayload = {
+            transferId,
+            senderId,
+            senderMbsId,
+            senderName,
+            senderUsername: senderData.username ? String(senderData.username).replace(/^@/, '') : '',
+            senderPhotoUrl: senderData.photoUrl || senderData.photo_url || `/api/miniapp/user-avatar/${senderId}`,
+            amount: numAmount,
+            comment: rawCommentText,
+            createdAt: Date.now()
+        };
 
         let updatedSenderBal = 0;
         let updatedReceiverBal = 0;
@@ -3809,6 +3923,7 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
             t.update(receiverRef, {
                 balance: updatedReceiverBal,
                 totalTransferReceivedBdt: FieldValue.increment(numAmount),
+                pendingReceivedTransfer: pendingReceivedPayload,
                 hasSellBalance: true,
                 updatedAt: FieldValue.serverTimestamp()
             });
@@ -3825,25 +3940,33 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
                 receiverName,
                 amount: numAmount,
                 fee: 0,
-                note: cleanNote,
+                note: rawCommentText,
+                comment: rawCommentText,
                 status: 'completed',
                 timestamp: FieldValue.serverTimestamp(),
                 createdAt: Date.now()
             });
         });
 
+        recentTransferSignatures.set(replaySig, Date.now());
+        if (recentTransferSignatures.size > 500) {
+            const oldestKey = recentTransferSignatures.keys().next().value;
+            if (oldestKey) recentTransferSignatures.delete(oldestKey);
+        }
         statsCache.timestamp = 0;
 
         // 8. Instant Telegram Bot Notifications (with Custom Animated Emojis <tg-emoji>) to Receiver, Sender & Admin Group
         if (bot) {
             const senderUnameStr = senderData.username ? ` (@${String(senderData.username).replace(/^@/, '')})` : '';
             const receiverUnameStr = receiverData.username ? ` (@${String(receiverData.username).replace(/^@/, '')})` : '';
+            const commentLine = cleanNote ? `${PE.note} <b>মন্তব্য (Comment):</b> <i>"${cleanNote}"</i>\n` : '';
 
             const senderMsg = `<b>${PE.flyingCash} মানি ট্রান্সফার সফল! (Transfer Money Confirmed!)</b>\n\n` +
                 `<blockquote>${PE.user} <b>প্রাপক (Sent To):</b> <b>${escapeHtml(receiverName)}</b>${escapeHtml(receiverUnameStr)}\n` +
                 `${PE.idCard} <b>প্রাপকের ID:</b> <code>${receiverMbsId}</code> (UID: <code>${receiverId}</code>)\n` +
                 `${PE.dollar} <b>পাঠানো পরিমাণ (Amount):</b> <b>৳${numAmount.toFixed(2)} BDT</b>\n` +
                 `${PE.sparkles} <b>ট্রান্সফার ফি (Fee):</b> <code>৳0.00 BDT (Free)</code>\n` +
+                commentLine +
                 `${PE.moneyBag} <b>বর্তমান ব্যালেন্স (New Balance):</b> <b>৳${updatedSenderBal.toFixed(2)} BDT</b>\n` +
                 `${PE.note} <b>Trx Ref:</b> <code>${transferId}</code>\n` +
                 `${PE.globe} <b>Status:</b> <code>Sent Successfully</code></blockquote>\n\n` +
@@ -3855,6 +3978,7 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
                 `${PE.idCard} <b>প্রেরকের ID:</b> <code>${senderMbsId}</code> (UID: <code>${senderId}</code>)\n` +
                 `${PE.flyingCash} <b>প্রাপ্ত টাকা (Received):</b> <b>+৳${numAmount.toFixed(2)} BDT</b>\n` +
                 `${PE.dollar} <b>ট্রান্সফার ফি (Fee):</b> <code>৳0.00 BDT (Free)</code>\n` +
+                commentLine +
                 `${PE.moneyBag} <b>নতুন ব্যালেন্স (New Balance):</b> <b>৳${updatedReceiverBal.toFixed(2)} BDT</b>\n` +
                 `${PE.note} <b>Trx Ref:</b> <code>${transferId}</code>\n` +
                 `${PE.globe} <b>Status:</b> <code>Completed Instantly</code></blockquote>\n\n` +
@@ -3867,6 +3991,7 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
                     `📤 <b>প্রেরক (Sender):</b> <a href="tg://user?id=${senderId}">${escapeHtml(senderName)}</a> (<code>${senderMbsId}</code> / <code>${senderId}</code>)\n` +
                     `📥 <b>প্রাপক (Receiver):</b> <a href="tg://user?id=${receiverId}">${escapeHtml(receiverName)}</a> (<code>${receiverMbsId}</code> / <code>${receiverId}</code>)\n` +
                     `💰 <b>পরিমাণ:</b> <b>৳${numAmount.toFixed(2)} BDT</b>\n` +
+                    (cleanNote ? `💬 <b>মন্তব্য:</b> <i>"${cleanNote}"</i>\n` : '') +
                     `💼 <b>প্রেরকের নতুন ব্যালেন্স:</b> ৳${updatedSenderBal.toFixed(2)} BDT\n` +
                     `💼 <b>প্রাপকের নতুন ব্যালেন্স:</b> ৳${updatedReceiverBal.toFixed(2)} BDT\n` +
                     `#️⃣ <b>Ref ID:</b> <code>${transferId}</code></blockquote>`;
@@ -3878,6 +4003,7 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
             success: true,
             transferId,
             amount: numAmount,
+            comment: rawCommentText,
             newBalance: updatedSenderBal,
             recipientName: receiverName,
             recipientMbsId: receiverMbsId,

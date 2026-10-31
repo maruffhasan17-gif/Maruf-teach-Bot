@@ -4,7 +4,7 @@ import { Home, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, Arrow
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchSpinStatus, executeSpin, watchSpinAd, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, setupTwoStepPin, lookupRecipientUser, submitTransferMoney } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchSpinStatus, executeSpin, watchSpinAd, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, lookupRecipientUser, submitTransferMoney } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/referral-banner.jpg';
@@ -1287,6 +1287,124 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode =
 };
 
 // ============================================================================
+// ONE-TIME ANIMATED "MONEY RECEIVED" POPUP CARD FOR RECIPIENT
+// ============================================================================
+const MoneyReceivedPopupModal = ({ transfer, onDismiss, lang = 'bn', darkMode = false }) => {
+  if (!transfer) return null;
+
+  const senderName = transfer.senderName || 'Trust Pay User';
+  const senderMbsId = transfer.senderMbsId || (transfer.senderId ? `MBS${String(transfer.senderId).slice(-5)}` : '');
+  const amountFormatted = Number(transfer.amount || 0).toFixed(2);
+  const commentText = String(transfer.comment || transfer.note || '').trim();
+
+  return (
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+      <div className={`relative w-full max-w-[355px] p-6 rounded-[32px] shadow-2xl border text-center space-y-4 animate-in zoom-in-95 duration-300 overflow-hidden ${
+        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        {/* Ambient Emerald Celebration Glow + Botanical Sakura Art */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 rounded-full bg-emerald-500/20 blur-2xl pointer-events-none" />
+        <img
+          src={sakuraBranchArt}
+          alt=""
+          className={`absolute -top-3 -right-3 w-32 h-32 object-contain pointer-events-none select-none ${
+            darkMode ? 'opacity-[0.16] brightness-125' : 'opacity-[0.2]'
+          }`}
+        />
+        <img
+          src={lotusLineArt}
+          alt=""
+          className={`absolute -bottom-4 -left-4 w-28 h-28 object-contain pointer-events-none select-none ${
+            darkMode ? 'opacity-[0.1] brightness-125' : 'opacity-[0.14]'
+          }`}
+        />
+
+        {/* Animated Celebration Emblem */}
+        <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'টাকা পেয়েছেন • MONEY RECEIVED' : 'MONEY RECEIVED'} />
+
+        {/* Title & Amount */}
+        <div className="relative z-10 space-y-1">
+          <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+            {lang === 'bn' ? 'অভিনন্দন! আপনি টাকা পেয়েছেন 🎉' : 'Money Received! 🎉'}
+          </h3>
+          <div className="text-3xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400 drop-shadow-2xs">
+            +৳{amountFormatted} <span className="text-sm font-extrabold">BDT</span>
+          </div>
+          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+            {lang === 'bn'
+              ? 'টাকাটি সরাসরি আপনার অ্যাপ ব্যালেন্সে যোগ করা হয়েছে'
+              : 'Instantly credited to your Trust Pay balance'}
+          </p>
+        </div>
+
+        {/* Sender Profile Card (Money Received By / From) */}
+        <div className={`relative z-10 p-3.5 rounded-2xl border text-left space-y-2.5 ${
+          darkMode
+            ? 'bg-gradient-to-r from-slate-800/90 via-slate-800/70 to-emerald-950/30 border-slate-700/90'
+            : 'bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-white border-emerald-200/80'
+        }`}>
+          <div className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+            <span>{lang === 'bn' ? 'যিনি টাকা পাঠিয়েছেন (Money Received From)' : 'Money Received From'}</span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[9.5px] font-black">
+              ✓ Instant P2P
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <UserAvatarBox
+                userId={transfer.senderId}
+                avatarDataUrl={transfer.senderAvatarDataUrl}
+                photoUrl={transfer.senderPhotoUrl}
+                name={senderName}
+                sizeClass="w-12 h-12 rounded-2xl text-base"
+              />
+              <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[9px] text-white font-bold">
+                ✓
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-black text-slate-900 dark:text-white truncate">
+                {senderName}
+              </div>
+              <div className="text-[11px] font-mono font-bold text-purple-600 dark:text-purple-400 truncate">
+                ID: {senderMbsId} {transfer.senderId ? `• UID: ${transfer.senderId}` : ''}
+              </div>
+            </div>
+          </div>
+
+          {/* Optional Sender Comment / Note */}
+          {commentText && (
+            <div className={`mt-2 p-2.5 rounded-xl border text-xs ${
+              darkMode
+                ? 'bg-slate-900/80 border-slate-700/80 text-slate-200'
+                : 'bg-white/90 border-emerald-200/70 text-slate-700'
+            }`}>
+              <div className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-0.5">
+                💬 {lang === 'bn' ? 'প্রেরকের মন্তব্য (Comment):' : 'Sender Comment:'}
+              </div>
+              <p className="font-bold italic break-words leading-snug">
+                "{commentText}"
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Okay Button */}
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="relative z-10 w-full h-[48px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-sm shadow-[0_8px_22px_rgba(16,185,129,0.35)] hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <CheckCircle2 size={17} />
+          <span>{lang === 'bn' ? 'ঠিক আছে (Okay)' : 'Okay'}</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
 // OFFICIAL BLOCKCHAIN NETWORK VECTOR LOGOS (CRISP SVG)
 // ============================================================================
 export function NetworkLogo({ id, networkId, size = 20, className = "w-5 h-5 shrink-0 rounded-full" }) {
@@ -2119,16 +2237,20 @@ const transformTxToNotification = (tx, lang = 'bn') => {
 // ============================================================================
 // TELEGRAM USER AVATAR BOX WITH LIVE PROXY & INITIAL FALLBACK
 // ============================================================================
-function UserAvatarBox({ userId, photoUrl, name = 'U', sizeClass = 'w-13 h-13 rounded-2xl text-xl' }) {
+function UserAvatarBox({ userId, photoUrl, avatarDataUrl, name = 'U', sizeClass = 'w-13 h-13 rounded-2xl text-xl' }) {
   const [imgIndex, setImgIndex] = useState(0);
   const proxyUrl = (userId && Number(userId) !== 123456789) ? getUserAvatarUrl(userId) : '';
-  const candidates = [proxyUrl, photoUrl].filter(Boolean);
+  const directDataUrl = avatarDataUrl || (photoUrl && String(photoUrl).startsWith('data:image/') ? photoUrl : '');
+  const externalPhotoUrl = photoUrl && !String(photoUrl).startsWith('data:image/') && !String(photoUrl).startsWith('/api/miniapp/user-avatar')
+    ? photoUrl
+    : '';
+  const candidates = Array.from(new Set([directDataUrl, proxyUrl, externalPhotoUrl].filter(Boolean)));
   const activeSrc = candidates[imgIndex] || '';
   const initial = (name || 'U').trim().charAt(0).toUpperCase() || 'U';
 
   useEffect(() => {
     setImgIndex(0);
-  }, [userId, photoUrl]);
+  }, [userId, photoUrl, avatarDataUrl]);
 
   return (
     <div className={`${sizeClass} bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 text-white font-black flex items-center justify-center shadow-md shadow-purple-600/25 shrink-0 select-none overflow-hidden relative`}>
@@ -2776,6 +2898,7 @@ function TransferMoneyPage({
   const [recipientInfo, setRecipientInfo] = useState(null);
   const [lookupError, setLookupError] = useState('');
   const [amount, setAmount] = useState('');
+  const [comment, setComment] = useState('');
   const [pastedFeedback, setPastedFeedback] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -2886,11 +3009,14 @@ function TransferMoneyPage({
     setIsSubmitting(true);
     setPinError('');
     try {
+      const cleanComment = comment.trim().slice(0, 80);
       const res = await submitTransferMoney({
         userId: user?.id || 123456789,
         senderId: user?.id || 123456789,
         recipientQuery: recipientInfo?.mbsId || recipientInfo?.userId || recipientQuery.trim(),
         amount: parseFloat(amount),
+        comment: cleanComment,
+        note: cleanComment,
         twoStepPin: enteredPin || undefined
       });
       if (res?.success) {
@@ -2900,11 +3026,13 @@ function TransferMoneyPage({
         setTransferSuccessData({
           transferId: res.transferId,
           amount: res.amount,
+          comment: res.comment || cleanComment,
           recipientName: res.recipientName || res.recipient?.name || recipientInfo?.name,
           recipientMbsId: res.recipientMbsId || res.recipient?.mbsId || recipientInfo?.mbsId,
           recipientUid: res.recipientUid || res.recipient?.userId || recipientInfo?.userId
         });
         setAmount('');
+        setComment('');
         if (reloadData) reloadData();
       }
     } catch (e) {
@@ -3021,12 +3149,20 @@ function TransferMoneyPage({
                 : 'bg-gradient-to-r from-purple-50/80 via-indigo-50/50 to-white border-purple-200'
             }`}>
               <div className="flex items-center gap-3 min-w-0">
-                <UserAvatarBox
-                  userId={recipientInfo.userId}
-                  photoUrl={recipientInfo.photoUrl}
-                  name={recipientInfo.name}
-                  sizeClass="w-11 h-11 rounded-2xl text-base"
-                />
+                <div className="relative shrink-0">
+                  <UserAvatarBox
+                    userId={recipientInfo.userId}
+                    avatarDataUrl={recipientInfo.avatarDataUrl}
+                    photoUrl={recipientInfo.photoUrl}
+                    name={recipientInfo.name}
+                    sizeClass="w-11 h-11 rounded-2xl text-base"
+                  />
+                  {recipientInfo.isVerified && (
+                    <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[9px] text-white font-bold">
+                      ✓
+                    </div>
+                  )}
+                </div>
                 <div className="min-w-0">
                   <h4 className="text-sm font-black text-slate-900 dark:text-white truncate leading-tight">
                     {recipientInfo.name}
@@ -3113,6 +3249,64 @@ function TransferMoneyPage({
           </div>
         </div>
 
+        {/* 3. Optional Comment / Note Input */}
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              {lang === 'bn' ? 'মন্তব্য / নোট (ঐচ্ছিক - Optional)' : 'Comment / Note (Optional)'}
+            </label>
+            <span className="text-[10px] font-mono font-bold text-slate-400">
+              {comment.length}/80
+            </span>
+          </div>
+          <div className={`relative flex items-center rounded-2xl border transition-all px-3 py-2.5 ${
+            darkMode ? 'bg-slate-800/50 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
+          }`}>
+            <FileText size={16} className="text-purple-500 mr-2 shrink-0" />
+            <input
+              type="text"
+              maxLength={80}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder={lang === 'bn' ? 'যেমন: গিফট 🎁 / পেমেন্ট / না লিখলেও চলবে...' : 'e.g. Gift 🎁 / Payment (Optional)...'}
+              style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+              className="w-full bg-transparent text-xs font-bold outline-none placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
+            />
+            {comment && (
+              <button
+                type="button"
+                onClick={() => setComment('')}
+                className="text-slate-400 hover:text-rose-500 ml-1.5 cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Quick Optional Comment Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mt-1.5">
+            {[
+              lang === 'bn' ? '🎁 গিফট' : '🎁 Gift',
+              lang === 'bn' ? '💸 পেমেন্ট' : '💸 Payment',
+              lang === 'bn' ? '🎉 সালামি' : '🎉 Bonus',
+              lang === 'bn' ? '🤝 ধার শোধ' : '🤝 Repayment'
+            ].map((chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => setComment(chip)}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
+                  comment === chip
+                    ? 'bg-purple-500/15 border-purple-500 text-purple-600 dark:text-purple-400 font-black'
+                    : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                }`}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Summary Row */}
         <div className={`p-3 rounded-2xl border text-xs space-y-1.5 ${
           darkMode ? 'bg-slate-800/30 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200/80 text-slate-600'
@@ -3167,6 +3361,7 @@ function TransferMoneyPage({
               <div className="flex items-center gap-3 pb-2.5 border-b border-slate-200/80 dark:border-slate-700/80">
                 <UserAvatarBox
                   userId={recipientInfo.userId}
+                  avatarDataUrl={recipientInfo.avatarDataUrl}
                   photoUrl={recipientInfo.photoUrl}
                   name={recipientInfo.name}
                   sizeClass="w-10 h-10 rounded-xl text-sm"
@@ -3186,6 +3381,12 @@ function TransferMoneyPage({
                 <span className="text-slate-500 dark:text-slate-400 font-bold">{lang === 'bn' ? 'ট্রান্সফার ফি:' : 'Transfer Fee:'}</span>
                 <span className="font-bold text-emerald-500">{lang === 'bn' ? 'ফ্রি (৳০.০০)' : 'FREE (৳0.00)'}</span>
               </div>
+              {comment.trim() && (
+                <div className="pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 flex justify-between items-start gap-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-bold shrink-0">{lang === 'bn' ? 'মন্তব্য:' : 'Comment:'}</span>
+                  <span className="font-bold text-purple-600 dark:text-purple-300 text-right break-words">"{comment.trim()}"</span>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -3270,6 +3471,12 @@ function TransferMoneyPage({
                 <span className="text-slate-400">Transfer ID:</span>
                 <span className="font-mono font-bold">{transferSuccessData.transferId}</span>
               </div>
+              {transferSuccessData.comment && (
+                <div className="flex justify-between items-start gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <span className="text-slate-400 shrink-0">{lang === 'bn' ? 'মন্তব্য:' : 'Comment:'}</span>
+                  <span className="font-bold text-purple-600 dark:text-purple-300 text-right break-words">"{transferSuccessData.comment}"</span>
+                </div>
+              )}
             </div>
             <button
               type="button"
@@ -3713,11 +3920,28 @@ export default function App() {
 
   const [fiatWallet, setFiatWallet] = useState(null);
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
+  const [pendingReceivedTransfer, setPendingReceivedTransfer] = useState(null);
   const [mbsId, setMbsId] = useState(null);
   const [twoStepEnabled, setTwoStepEnabled] = useState(false);
   const [twoStepLength, setTwoStepLength] = useState(4);
   const [user, setUser] = useState(() => resolveTelegramUser());
   const hasShownWdNoticeOnHomeRef = useRef(null);
+  const hasPlayedReceivedSoundRef = useRef(null);
+
+  const handleDismissReceivedTransfer = () => {
+    const targetTrf = pendingReceivedTransfer;
+    if (targetTrf?.transferId) {
+      try {
+        localStorage.setItem(`tp_seen_trf_${targetTrf.transferId}`, 'dismissed');
+      } catch (_) {}
+    }
+    playAppSound('confirm');
+    setPendingReceivedTransfer(null);
+    const uid = user?.id || activeUserIdRef.current;
+    if (uid && Number(uid) !== GUEST_ID) {
+      acknowledgeReceivedTransfer(uid, targetTrf?.transferId || '');
+    }
+  };
 
   const getWithdrawNoticeKey = (wd) => {
     if (!wd || (wd.status !== 'completed' && wd.status !== 'rejected')) return null;
@@ -3850,6 +4074,25 @@ export default function App() {
         }
       } else {
         setFiatWithdrawPending(incomingWd);
+      }
+      const incomingTrf = data.pendingReceivedTransfer || null;
+      if (incomingTrf && incomingTrf.transferId) {
+        let seenTrf = false;
+        try {
+          seenTrf = localStorage.getItem(`tp_seen_trf_${incomingTrf.transferId}`) === 'dismissed';
+        } catch (_) {}
+        if (seenTrf) {
+          setPendingReceivedTransfer(null);
+          acknowledgeReceivedTransfer(targetId, incomingTrf.transferId);
+        } else {
+          setPendingReceivedTransfer(incomingTrf);
+          if (hasPlayedReceivedSoundRef.current !== incomingTrf.transferId) {
+            hasPlayedReceivedSoundRef.current = incomingTrf.transferId;
+            playAppSound('success');
+          }
+        }
+      } else {
+        setPendingReceivedTransfer(null);
       }
       if (data.mbsId) setMbsId(data.mbsId);
       setTwoStepEnabled(Boolean(data.twoStepEnabled));
@@ -4502,6 +4745,14 @@ export default function App() {
             );
         })()}
         </div>
+
+        {/* ONE-TIME ANIMATED MONEY RECEIVED POPUP CARD */}
+        <MoneyReceivedPopupModal
+          transfer={pendingReceivedTransfer}
+          onDismiss={handleDismissReceivedTransfer}
+          lang={lang}
+          darkMode={darkMode}
+        />
 
         {/* CRYPTO ASSET SELECTOR BOTTOM SHEET MODAL (BUY / SELL) */}
         <CryptoAssetSelectModal
