@@ -814,201 +814,182 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
 
 const BloomingFlowerGraphic = ({ size = 145 }) => {
   const outerSize = size;
-  const innerSize = Math.round(size * (125 / 170)); // proportional inner petals (~106px)
-  const logoSize = Math.round(size * (90 / 170));   // proportional 3D logo (~76px)
-  const outerRef = useRef(null);
-  const innerRef = useRef(null);
-
-  useEffect(() => {
-    let rafId;
-    let degOuter = 0;
-    let degInner = 0;
-    let lastTime = performance.now();
-
-    const animate = (time) => {
-      let dt = (time - lastTime) / 1000;
-      lastTime = time;
-      if (dt > 0.3 || dt < 0) dt = 0.016;
-      degOuter = (degOuter + dt * 45) % 360;
-      degInner = (degInner - dt * 60) % 360;
-      if (outerRef.current) {
-        outerRef.current.style.webkitTransform = `rotate(${degOuter.toFixed(2)}deg)`;
-        outerRef.current.style.transform = `rotate(${degOuter.toFixed(2)}deg)`;
-      }
-      if (innerRef.current) {
-        innerRef.current.style.webkitTransform = `rotate(${degInner.toFixed(2)}deg)`;
-        innerRef.current.style.transform = `rotate(${degInner.toFixed(2)}deg)`;
-      }
-      rafId = requestAnimationFrame(animate);
-    };
-
-    rafId = requestAnimationFrame(animate);
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, []);
+  const ringSize = Math.round(size * 0.86);
+  const cardSize = Math.round(size * 0.62);
+  const logoSize = Math.round(size * 0.44);
 
   return (
-    <div 
+    <div
       className="relative mx-auto my-1 flex items-center justify-center select-none"
       style={{ width: `${outerSize}px`, height: `${outerSize}px` }}
     >
       <style>{`
-        @keyframes tpGlowPulse {
-          0%, 100% { transform: scale(0.92); opacity: 0.6; }
-          50% { transform: scale(1.08); opacity: 1; }
+        @keyframes tpOrbitSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
-        @keyframes tpPulseLogo {
-          0%, 100% { transform: scale(0.96); filter: drop-shadow(0 8px 24px rgba(79, 70, 229, 0.4)); }
-          50% { transform: scale(1.04); filter: drop-shadow(0 14px 34px rgba(147, 51, 234, 0.6)); }
+        @keyframes tpOrbitReverse {
+          0% { transform: rotate(360deg); }
+          100% { transform: rotate(0deg); }
+        }
+        @keyframes tpAuraBreath {
+          0%, 100% { transform: scale(0.92); opacity: 0.55; }
+          50% { transform: scale(1.08); opacity: 0.95; }
+        }
+        @keyframes tpLogoFloat {
+          0%, 100% { transform: translateY(0px) scale(0.98); }
+          50% { transform: translateY(-3px) scale(1.03); }
         }
       `}</style>
 
-      {/* Ambient Radial Glowing Aura */}
-      <div 
+      {/* Soft Luxury Ambient Aura */}
+      <div
         style={{
           position: 'absolute',
-          inset: 0,
+          inset: '6%',
           borderRadius: '9999px',
-          background: 'radial-gradient(circle, rgba(99,102,241,0.32) 0%, rgba(168,85,247,0.22) 50%, transparent 75%)',
-          filter: 'blur(16px)',
-          animation: 'tpGlowPulse 2.8s infinite ease-in-out'
-        }} 
+          background: 'radial-gradient(circle, rgba(124,58,237,0.28) 0%, rgba(79,70,229,0.16) 50%, transparent 74%)',
+          filter: 'blur(18px)',
+          animation: 'tpAuraBreath 3s infinite ease-in-out'
+        }}
       />
 
-      {/* Outer Rotating Sacred Lotus Mandala */}
-      <div
-        ref={outerRef}
+      {/* Outer Counter-Rotating Precision Dashed Halo */}
+      <svg
         style={{
           position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transformOrigin: 'center center',
-          WebkitTransformOrigin: 'center center',
-          willChange: 'transform',
+          width: `${outerSize}px`,
+          height: `${outerSize}px`,
+          animation: 'tpOrbitReverse 14s linear infinite',
           pointerEvents: 'none'
         }}
+        viewBox="0 0 160 160"
+        fill="none"
       >
-        <svg 
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'block'
-          }} 
-          viewBox="0 0 200 200" 
-          fill="none" 
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <g>
-            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
-              <g key={i} transform={`rotate(${angle} 100 100)`}>
-                <path 
-                  className="splash-outer-petal"
-                  d="M100 20 C85 45, 80 75, 100 95 C120 75, 115 45, 100 20 Z" 
-                  fill="rgba(99,102,241,0.18)" 
-                  stroke="rgba(99,102,241,0.6)" 
-                  strokeWidth="1.2"
-                />
-                <circle className="splash-outer-dot" cx="100" cy="18" r="2.5" fill="#6366f1" />
-              </g>
-            ))}
-          </g>
-        </svg>
-      </div>
-
-      {/* Middle Counter-rotating Petal Layer */}
-      <div
-        ref={innerRef}
-        style={{
-          position: 'absolute',
-          width: `${innerSize}px`,
-          height: `${innerSize}px`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transformOrigin: 'center center',
-          WebkitTransformOrigin: 'center center',
-          willChange: 'transform',
-          pointerEvents: 'none'
-        }}
-      >
-        <svg 
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'block'
-          }} 
-          viewBox="0 0 100 100" 
-          fill="none" 
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <g>
-            {[0, 60, 120, 180, 240, 300].map((angle, i) => (
-              <g key={i} transform={`rotate(${angle} 50 50)`}>
-                <path 
-                  className="splash-inner-petal"
-                  d="M50 15 C42 28, 40 40, 50 48 C60 40, 58 28, 50 15 Z" 
-                  fill="rgba(168,85,247,0.22)" 
-                  stroke="rgba(147,51,234,0.6)" 
-                  strokeWidth="1"
-                />
-              </g>
-            ))}
-          </g>
-        </svg>
-      </div>
-
-      {/* Center Heart: 3D Transparent Trust Pay Logo */}
-      <div 
-        style={{
-          position: 'relative',
-          zIndex: 10,
-          width: `${logoSize}px`,
-          height: `${logoSize}px`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          animation: 'tpPulseLogo 2.5s infinite ease-in-out'
-        }}
-      >
-        <img 
-          src={brandLogo} 
-          alt="Trust Pay" 
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain'
-          }} 
+        <circle
+          cx="80"
+          cy="80"
+          r="72"
+          stroke="rgba(139, 92, 246, 0.22)"
+          strokeWidth="1.25"
+          strokeDasharray="4 8"
         />
+        <circle cx="80" cy="8" r="3" fill="#8B5CF6" fillOpacity="0.75" />
+        <circle cx="80" cy="152" r="2.5" fill="#6366F1" fillOpacity="0.55" />
+      </svg>
+
+      {/* Main Sweeping Conic Gradient Orbital Ring */}
+      <svg
+        style={{
+          position: 'absolute',
+          width: `${ringSize}px`,
+          height: `${ringSize}px`,
+          animation: 'tpOrbitSpin 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite',
+          pointerEvents: 'none'
+        }}
+        viewBox="0 0 140 140"
+        fill="none"
+      >
+        <defs>
+          <linearGradient id="tpExecArcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#7C3AED" stopOpacity="1" />
+            <stop offset="50%" stopColor="#6366F1" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#EC4899" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <circle
+          cx="70"
+          cy="70"
+          r="62"
+          stroke="rgba(148, 163, 184, 0.14)"
+          strokeWidth="2.5"
+        />
+        <circle
+          cx="70"
+          cy="70"
+          r="62"
+          stroke="url(#tpExecArcGrad)"
+          strokeWidth="3.2"
+          strokeLinecap="round"
+          strokeDasharray="210 190"
+        />
+      </svg>
+
+      {/* Frosted Glass Squircle Pedestal Card */}
+      <div
+        className="relative z-10 flex items-center justify-center rounded-[28px] bg-white/90 dark:bg-slate-900/90 border border-white/90 dark:border-slate-700/80 shadow-[0_18px_40px_-10px_rgba(79,70,229,0.28),inset_0_1px_1px_rgba(255,255,255,0.9)] backdrop-blur-xl"
+        style={{
+          width: `${cardSize}px`,
+          height: `${cardSize}px`
+        }}
+      >
+        <div
+          style={{
+            width: `${logoSize}px`,
+            height: `${logoSize}px`,
+            animation: 'tpLogoFloat 2.6s infinite ease-in-out'
+          }}
+        >
+          <img
+            src={brandLogo}
+            alt="Trust Pay"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 8px 18px rgba(79, 70, 229, 0.35))'
+            }}
+          />
+        </div>
       </div>
     </div>
   );
 };
 
 const BloomingFlowerLoader = ({ lang = 'bn' }) => (
-  <div className="fixed inset-0 bg-[var(--color-bg-primary)] z-[99999] flex flex-col items-center justify-center font-sans select-none p-4 overflow-hidden">
-    <PageBackgroundFlowers page="home" darkMode={typeof document !== 'undefined' && document.documentElement.classList.contains('dark')} />
-    <div className="relative z-10 flex flex-col items-center justify-center">
-      <BloomingFlowerGraphic size={170} />
+  <div className="fixed inset-0 bg-gradient-to-b from-[#f8fafc] via-[#f5f3ff]/60 to-[#eef2ff] dark:from-[#060913] dark:via-[#0b1120] dark:to-[#111827] z-[99999] flex flex-col items-center justify-center font-sans select-none p-6 overflow-hidden">
+    <style>{`
+      @keyframes tpExecBarSweep {
+        0% { transform: translateX(-100%); }
+        50% { transform: translateX(15%); }
+        100% { transform: translateX(115%); }
+      }
+    `}</style>
 
-      {/* Typography */}
-      <h2 className="text-[#0f172a] font-black text-2xl mt-5 tracking-tight flex items-center gap-1.5">
+    {/* Subtle Top & Bottom Ambient Mesh Glow */}
+    <div
+      className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[340px] h-[240px] rounded-full blur-3xl opacity-60"
+      style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 70%)' }}
+    />
+
+    <div className="relative z-10 flex flex-col items-center justify-center">
+      <BloomingFlowerGraphic size={156} />
+
+      {/* Brand Title & Subtitle */}
+      <h2 className="text-slate-900 dark:text-white font-black text-[25px] mt-5 tracking-tight">
         Trust Pay
       </h2>
-      <div className="flex items-center gap-2 mt-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100/80">
-        <div className="w-2 h-2 rounded-full bg-indigo-600 animate-ping" />
-        <span className="text-[12px] font-bold text-indigo-700">
-          {lang === 'bn' ? 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Loading, please wait...'}
+      <p className="text-[10.5px] font-extrabold uppercase tracking-[0.24em] text-violet-600/80 dark:text-violet-400/80 mt-0.5">
+        Instant P2P &amp; Web3 Exchange
+      </p>
+
+      {/* Clean Status Pill */}
+      <div className="flex items-center gap-2 mt-4 px-4 py-1.5 rounded-full bg-white/90 dark:bg-slate-900/90 border border-violet-200/80 dark:border-violet-500/30 shadow-xs backdrop-blur-md">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-500 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-600 dark:bg-violet-400" />
+        </span>
+        <span className="text-[12px] font-bold text-slate-700 dark:text-slate-200">
+          {lang === 'bn' ? 'লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...' : 'Securing connection, please wait...'}
         </span>
       </div>
 
-      {/* Shimmer Progress Line */}
-      <div className="w-36 h-1 bg-slate-200/80 rounded-full mt-4 overflow-hidden relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 rounded-full animate-pulse" />
+      {/* Liquid Shimmer Progress Bar */}
+      <div className="w-40 h-[4.5px] bg-slate-200/90 dark:bg-slate-800 rounded-full mt-4 overflow-hidden relative">
+        <div
+          className="absolute inset-y-0 w-24 bg-gradient-to-r from-violet-600 via-indigo-500 to-fuchsia-500 rounded-full"
+          style={{ animation: 'tpExecBarSweep 1.35s infinite ease-in-out' }}
+        />
       </div>
     </div>
   </div>
@@ -1405,45 +1386,109 @@ const MoneyReceivedPopupModal = ({ transfer, onDismiss, lang = 'bn', darkMode = 
 };
 
 // ============================================================================
-// OFFICIAL BLOCKCHAIN NETWORK VECTOR LOGOS (CRISP SVG)
+// OFFICIAL BLOCKCHAIN NETWORK & CRYPTO ASSET VECTOR LOGOS (CRISP SVG)
 // ============================================================================
 export function NetworkLogo({ id, networkId, size = 20, className = "w-5 h-5 shrink-0 rounded-full" }) {
     const netId = String(id || networkId || 'TON').toUpperCase();
 
     if (netId === 'TON') {
         return (
-            <svg viewBox="0 0 56 56" width={size} height={size} className={className}>
+            <svg viewBox="0 0 56 56" width={size} height={size} className={className} fill="none">
                 <circle cx="28" cy="28" r="28" fill="#0098EA"/>
-                <path fill="#FFFFFF" d="M37.6,15.6H18.4c-3.5,0-5.7,3.8-4,6.9l11.8,20.5c0.8,1.3,2.7,1.3,3.5,0l11.8-20.5 C43.3,19.4,41.1,15.6,37.6,15.6L37.6,15.6z M26.3,36.8l-2.6-5l-6.2-11.1c-0.4-0.7,0.1-1.6,1-1.6h7.8L26.3,36.8L26.3,36.8z M38.5,20.7l-6.2,11.1l-2.6,5V19.1h7.8C38.4,19.1,38.9,20,38.5,20.7z"/>
+                <path fill="#FFFFFF" d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5381 22.4861C43.3045 19.4251 41.0761 15.6277 37.5627 15.6277H37.5603ZM26.2548 36.8068L23.6847 31.8327L17.4833 20.7414C17.0742 20.0315 17.5795 19.1218 18.4362 19.1218H26.2524V36.8092L26.2548 36.8068ZM38.5108 20.739L32.3118 31.8351L29.7417 36.8068V19.1194H37.5579C38.4146 19.1194 38.9199 20.0291 38.5108 20.739Z"/>
+            </svg>
+        );
+    }
+
+    if (netId === 'GRAM') {
+        return (
+            <svg viewBox="0 0 56 56" width={size} height={size} className={className} fill="none">
+                <circle cx="28" cy="28" r="28" fill="#1E2026"/>
+                <circle cx="28" cy="28" r="27.2" stroke="white" strokeOpacity="0.16" strokeWidth="1.2"/>
+                <path fill="#FFFFFF" d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5381 22.4861C43.3045 19.4251 41.0761 15.6277 37.5627 15.6277H37.5603ZM26.2548 36.8068L23.6847 31.8327L17.4833 20.7414C17.0742 20.0315 17.5795 19.1218 18.4362 19.1218H26.2524V36.8092L26.2548 36.8068ZM38.5108 20.739L32.3118 31.8351L29.7417 36.8068V19.1194H37.5579C38.4146 19.1194 38.9199 20.0291 38.5108 20.739Z"/>
+            </svg>
+        );
+    }
+
+    if (netId === 'USDT') {
+        return (
+            <svg viewBox="0 0 32 32" width={size} height={size} className={className} fill="none">
+                <circle cx="16" cy="16" r="16" fill="#26A17B" />
+                <path fill="#FFFFFF" d="M17.922 17.383v-.002c-.11.008-.677.042-1.942.042-1.01 0-1.721-.03-1.971-.042v.003c-3.888-.171-6.79-.848-6.79-1.658 0-.809 2.902-1.486 6.79-1.66v2.644c.254.018.982.061 1.988.061 1.207 0 1.812-.05 1.925-.06v-2.643c3.88.173 6.775.85 6.775 1.658 0 .81-2.895 1.485-6.775 1.657m0-3.59v-2.366h5.414V7.819H8.595v3.608h5.414v2.365c-4.4.202-7.709 1.074-7.709 2.118 0 1.044 3.309 1.915 7.709 2.118v7.582h3.913v-7.584c4.393-.202 7.694-1.073 7.694-2.116 0-1.043-3.301-1.914-7.694-2.117"/>
             </svg>
         );
     }
 
     if (netId === 'BEP20' || netId === 'BSC' || netId === 'BNB') {
         return (
-            <svg viewBox="0 0 56 56" width={size} height={size} className={className}>
+            <svg viewBox="0 0 56 56" width={size} height={size} className={className} fill="none">
                 <circle cx="28" cy="28" r="28" fill="#F0B90B"/>
                 <g fill="#FFFFFF">
-                    <polygon points="28,14.5 31.9,18.4 28,22.3 24.1,18.4"/>
-                    <polygon points="20.2,22.3 24.1,26.2 20.2,30.1 16.3,26.2"/>
-                    <polygon points="35.8,22.3 39.7,26.2 35.8,30.1 31.9,26.2"/>
-                    <polygon points="28,30.1 31.9,34 28,37.9 24.1,34"/>
-                    <polygon points="28,24.1 30.1,26.2 28,28.3 25.9,26.2"/>
-                    <polygon points="28,10.6 34.8,17.4 32.1,20.1 28,16 23.9,20.1 21.2,17.4"/>
-                    <polygon points="28,41.4 34.8,34.6 32.1,31.9 28,36 23.9,31.9 21.2,34.6"/>
-                    <polygon points="41.4,26.2 34.6,19.4 31.9,22.1 36,26.2 31.9,30.3 34.6,33"/>
-                    <polygon points="10.6,26.2 17.4,19.4 20.1,22.1 16,26.2 20.1,30.3 17.4,33"/>
+                    <path d="M21.48 24.64L28 18.12L34.52 24.64L38.32 20.84L28 10.52L17.68 20.84L21.48 24.64Z"/>
+                    <path d="M13.88 28L17.68 24.2L21.48 28L17.68 31.8L13.88 28Z"/>
+                    <path d="M21.48 31.36L28 37.88L34.52 31.36L38.32 35.16L28 45.48L17.68 35.16L21.48 31.36Z"/>
+                    <path d="M34.52 28L38.32 24.2L42.12 28L38.32 31.8L34.52 28Z"/>
+                    <path d="M31.86 28L28 24.14L24.14 28L28 31.86L31.86 28Z"/>
                 </g>
             </svg>
         );
     }
 
-    if (netId === 'ARBITRUM' || netId === 'ARB') {
+    if (netId === 'ARBITRUM' || netId === 'ARB' || netId === 'ARBITRUM ONE') {
         return (
             <svg viewBox="0 0 32 32" fill="none" width={size} height={size} className={className}>
-                <circle cx="16" cy="16" r="16" fill="#2D374B"/>
+                <circle cx="16" cy="16" r="16" fill="#213147"/>
                 <path d="M16.0039 19.7661L19.6819 25.5391L23.0799 23.5691L18.2499 15.9561L16.0039 19.7661ZM26.1739 21.2541L26.1719 19.6771L20.8929 11.4551L18.9329 14.7781L24.0289 23.0181L25.8729 21.9511C25.962 21.8785 26.0348 21.7881 26.0866 21.6856C26.1385 21.5831 26.1682 21.4708 26.1739 21.3561V21.2541Z" fill="#28A0F0"/>
                 <path d="M4.05469 22.742L6.65569 24.241L15.3137 10.356L13.8447 10.318C12.5927 10.301 11.2447 10.626 10.6247 11.637L5.70869 19.257L4.05569 21.798V22.743L4.05469 22.742ZM20.3107 10.356L16.4387 10.37L7.67669 24.83L10.7387 26.593L11.5717 25.181L20.3107 10.357V10.356Z" fill="white"/>
+                <path d="M27.8057 10.3359C27.7879 9.93631 27.6731 9.54701 27.4714 9.20156C27.2697 8.85611 26.987 8.56488 26.6477 8.35295L17.0197 2.81695C16.676 2.6481 16.2982 2.5603 15.9152 2.5603C15.5323 2.5603 15.1544 2.6481 14.8107 2.81695L5.44871 8.24095C4.98405 8.46357 4.60053 8.82577 4.35171 9.27695C4.17371 9.60195 4.07171 9.96195 4.05371 10.3319V21.7979L5.70671 19.2569L5.69371 10.4099C5.7014 10.2887 5.73589 10.1706 5.79468 10.0643C5.85347 9.95794 5.93511 9.86595 6.03371 9.79495L15.5487 4.28395C15.6617 4.22888 15.7856 4.19994 15.9113 4.19924C16.0369 4.19855 16.1611 4.22613 16.2747 4.27995L25.7777 9.74695C25.8881 9.81738 25.9801 9.91324 26.0458 10.0265C26.1116 10.1398 26.1493 10.2671 26.1557 10.3979V21.3579C26.1534 21.4715 26.1268 21.5832 26.0778 21.6856C26.0289 21.788 25.9586 21.8788 25.8717 21.9519L24.0297 23.0199L23.0797 23.5709L19.6817 25.5409L16.2357 27.5369C16.0455 27.6041 15.8373 27.6002 15.6497 27.5259L11.5727 25.1809L10.7397 26.5929L14.4037 28.7029L14.7207 28.8829C14.8587 28.9579 14.9517 29.0109 14.9847 29.0269C15.2917 29.1609 15.6227 29.2289 15.9577 29.2269C16.2647 29.2269 16.5677 29.1699 16.8547 29.0569L26.8627 23.2619C27.1449 23.0422 27.3755 22.7633 27.5384 22.4449C27.7013 22.1266 27.7926 21.7764 27.8057 21.4189V10.3359Z" fill="#96BEDC"/>
+            </svg>
+        );
+    }
+
+    if (netId === 'TRC20' || netId === 'TRON' || netId === 'TRX') {
+        return (
+            <svg viewBox="0 0 56 56" fill="none" width={size} height={size} className={className}>
+                <circle cx="28" cy="28" r="28" fill="#FF0013"/>
+                <path d="M40.7 19.3L14.2 14.5L25.6 43.2L44.2 23.6L40.7 19.3ZM38.6 21.1L40.9 23.8L30.2 25.8L38.6 21.1ZM27.9 24.8L18.4 17.6L36.5 20.8L27.9 24.8ZM27.2 26.8L17.5 19.4L25.4 38.6L27.2 26.8ZM29.1 27.7L40.2 25.7L27.2 39.3L29.1 27.7Z" fill="#FFFFFF"/>
+            </svg>
+        );
+    }
+
+    if (netId === 'POLYGON' || netId === 'MATIC' || netId === 'POS') {
+        return (
+            <svg viewBox="0 0 56 56" fill="none" width={size} height={size} className={className}>
+                <circle cx="28" cy="28" r="28" fill="#8247E5"/>
+                <path d="M36.8 22.4C36.1 22 35.2 22 34.5 22.4L29.2 25.5L25.6 27.5L20.3 30.6C19.6 31 18.7 31 18 30.6L13.9 28.2C13.2 27.8 12.8 27.1 12.8 26.2V21.5C12.8 20.7 13.2 19.9 13.9 19.5L18 17.1C18.7 16.7 19.6 16.7 20.3 17.1L24.4 19.5C25.1 19.9 25.5 20.7 25.5 21.5V24.6L29.1 22.5V19.4C29.1 18.6 28.7 17.8 28 17.4L20.4 13C19.7 12.6 18.8 12.6 18.1 13L10.3 17.5C9.6 17.9 9.2 18.7 9.2 19.5V28.4C9.2 29.2 9.6 30 10.3 30.4L18 34.8C18.7 35.2 19.6 35.2 20.3 34.8L25.6 31.8L29.2 29.7L34.5 26.7C35.2 26.3 36.1 26.3 36.8 26.7L40.9 29.1C41.6 29.5 42 30.2 42 31.1V35.8C42 36.6 41.6 37.4 40.9 37.8L36.8 40.2C36.1 40.6 35.2 40.6 34.5 40.2L30.4 37.8C29.7 37.4 29.3 36.6 29.3 35.8V32.7L25.7 34.8V37.9C25.7 38.7 26.1 39.5 26.8 39.9L34.5 44.3C35.2 44.7 36.1 44.7 36.8 44.3L44.5 39.9C45.2 39.5 45.6 38.7 45.6 37.9V28.9C45.6 28.1 45.2 27.3 44.5 26.9L36.8 22.4Z" fill="#FFFFFF"/>
+            </svg>
+        );
+    }
+
+    if (netId === 'ERC20' || netId === 'ETH' || netId === 'ETHEREUM') {
+        return (
+            <svg viewBox="0 0 56 56" fill="none" width={size} height={size} className={className}>
+                <circle cx="28" cy="28" r="28" fill="#627EEA"/>
+                <path d="M28 10L27.7 10.9V32.8L28 33.1L38.2 27.1L28 10Z" fill="#FFFFFF" fillOpacity="0.85"/>
+                <path d="M28 10L17.8 27.1L28 33.1V22.4V10Z" fill="#FFFFFF"/>
+                <path d="M28 35L27.8 35.2V43.1L28 43.6L38.2 29.1L28 35Z" fill="#FFFFFF" fillOpacity="0.85"/>
+                <path d="M28 43.6V35L17.8 29.1L28 43.6Z" fill="#FFFFFF"/>
+                <path d="M28 33.1L38.2 27.1L28 22.4V33.1Z" fill="#FFFFFF" fillOpacity="0.5"/>
+                <path d="M17.8 27.1L28 33.1V22.4L17.8 27.1Z" fill="#FFFFFF" fillOpacity="0.75"/>
+            </svg>
+        );
+    }
+
+    if (netId === 'SOL' || netId === 'SOLANA') {
+        return (
+            <svg viewBox="0 0 56 56" fill="none" width={size} height={size} className={className}>
+                <circle cx="28" cy="28" r="28" fill="#0B0E14"/>
+                <defs>
+                    <linearGradient id="solNetGrad" x1="14" y1="40" x2="42" y2="16" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#9945FF"/>
+                        <stop offset="50%" stopColor="#14F195"/>
+                        <stop offset="100%" stopColor="#00C2FF"/>
+                    </linearGradient>
+                </defs>
+                <path d="M18.3 34.8C18.6 34.5 19 34.3 19.5 34.3H41.3C42.1 34.3 42.5 35.2 41.9 35.8L37.7 40C37.4 40.3 37 40.5 36.5 40.5H14.7C13.9 40.5 13.5 39.6 14.1 39L18.3 34.8ZM18.3 16C18.6 15.7 19 15.5 19.5 15.5H41.3C42.1 15.5 42.5 16.4 41.9 17L37.7 21.2C37.4 21.5 37 21.7 36.5 21.7H14.7C13.9 21.7 13.5 20.8 14.1 20.2L18.3 16ZM37.7 25.3C37.4 25 37 24.8 36.5 24.8H14.7C13.9 24.8 13.5 25.7 14.1 26.3L18.3 30.5C18.6 30.8 19 31 19.5 31H41.3C42.1 31 42.5 30.1 41.9 29.5L37.7 25.3Z" fill="url(#solNetGrad)"/>
             </svg>
         );
     }
@@ -5451,22 +5496,16 @@ function AppHeader({ user, lang = 'bn' }) {
 // ==================== CRYPTO BRAND LOGOS ====================
 const TetherLogo = ({ size = 36, className = '' }) => (
   <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={`shrink-0 ${className}`}>
-    <circle cx="16" cy="16" r="16" fill="#009393" />
-    <path d="M17.8 12.2V9.8H23.5V6.5H8.5V9.8H14.2V12.2C10.2 12.4 7.2 13.3 7.2 14.4C7.2 15.5 10.2 16.4 14.2 16.6V25.5H17.8V16.6C21.8 16.4 24.8 15.5 24.8 14.4C24.8 13.3 21.8 12.4 17.8 12.2ZM16 15.5C12.8 15.5 10.2 14.9 10.2 14.2C10.2 13.5 12.8 12.9 16 12.9C19.2 12.9 21.8 13.5 21.8 14.2C21.8 14.9 19.2 15.5 16 15.5Z" fill="white" />
+    <circle cx="16" cy="16" r="16" fill="#26A17B" />
+    <path fill="#FFFFFF" d="M17.922 17.383v-.002c-.11.008-.677.042-1.942.042-1.01 0-1.721-.03-1.971-.042v.003c-3.888-.171-6.79-.848-6.79-1.658 0-.809 2.902-1.486 6.79-1.66v2.644c.254.018.982.061 1.988.061 1.207 0 1.812-.05 1.925-.06v-2.643c3.88.173 6.775.85 6.775 1.658 0 .81-2.895 1.485-6.775 1.657m0-3.59v-2.366h5.414V7.819H8.595v3.608h5.414v2.365c-4.4.202-7.709 1.074-7.709 2.118 0 1.044 3.309 1.915 7.709 2.118v7.582h3.913v-7.584c4.393-.202 7.694-1.073 7.694-2.116 0-1.043-3.301-1.914-7.694-2.117"/>
   </svg>
 );
 
 const GramTokenLogo = ({ size = 36, className = '' }) => (
-  <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className={`shrink-0 ${className}`}>
-    <defs>
-      <linearGradient id="gramGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#3B82F6" />
-        <stop offset="1" stopColor="#1D4ED8" />
-      </linearGradient>
-    </defs>
-    <circle cx="16" cy="16" r="16" fill="url(#gramGrad)" />
-    <path d="M16 7L24 11.6V20.4L16 25L8 20.4V11.6L16 7Z" stroke="white" strokeWidth="1.6" strokeLinejoin="round" fill="white" fillOpacity="0.12" />
-    <path d="M13.5 13.5H18.5M13.5 16H18.5M13.5 18.5H16.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+  <svg width={size} height={size} viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className={`shrink-0 ${className}`}>
+    <circle cx="28" cy="28" r="28" fill="#1E2026" />
+    <circle cx="28" cy="28" r="27.2" stroke="white" strokeOpacity="0.16" strokeWidth="1.2" />
+    <path d="M37.5603 15.6277H18.4386C14.9228 15.6277 12.6944 19.4202 14.4632 22.4861L26.2644 42.9409C27.0345 44.2765 28.9644 44.2765 29.7345 42.9409L41.5381 22.4861C43.3045 19.4251 41.0761 15.6277 37.5627 15.6277H37.5603ZM26.2548 36.8068L23.6847 31.8327L17.4833 20.7414C17.0742 20.0315 17.5795 19.1218 18.4362 19.1218H26.2524V36.8092L26.2548 36.8068ZM38.5108 20.739L32.3118 31.8351L29.7417 36.8068V19.1194H37.5579C38.4146 19.1194 38.9199 20.0291 38.5108 20.739Z" fill="white" />
   </svg>
 );
 
