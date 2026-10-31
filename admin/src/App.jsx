@@ -63,9 +63,11 @@ import {
 } from './components/DashboardCharts';
 import TreasuryDepositPage, { NetworkLogo, AssetLogo, ExchangeLogo } from './components/TreasuryDepositPage';
 import FinancialHistoryHub from './components/FinancialHistoryHub';
+import brandLogo from './assets/logo.png';
 
 export const API_BASE = (function() {
   if (typeof window === 'undefined') return 'https://maruf-teach-bot.onrender.com';
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return '';
   if (window.location.hostname.includes('onrender.com')) return window.location.origin;
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   return 'https://maruf-teach-bot.onrender.com';
@@ -6399,7 +6401,7 @@ function BroadcastCenter() {
 }
 
 // =========================================================================
-// EXECUTIVE ADMIN LOGIN SCREEN (DATABASE-BACKED GMAIL & PASSWORD + 2FA)
+// EXECUTIVE ADMIN LOGIN SCREEN (LUXURY LIGHT MODE + FLOATING CRYPTO ASSETS)
 // =========================================================================
 function AdminLoginScreen({ onLoginSuccess }) {
   // Authentication Stages: 'credentials' -> '2fa'
@@ -6516,189 +6518,377 @@ function AdminLoginScreen({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#070510] text-slate-100 flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Ambient Background Glows */}
-      <div className="absolute -top-40 -left-40 w-[480px] h-[480px] bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-[480px] h-[480px] bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans">
+      <style>{`
+        @keyframes tpFloatSlow {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-14px) rotate(1.2deg); }
+        }
+        @keyframes tpFloatMedium {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-18px) rotate(-1.5deg); }
+        }
+        @keyframes tpFloatFast {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-12px) rotate(1deg); }
+        }
+        @keyframes tpFloatDrift {
+          0%, 100% { transform: translateY(0px) translateX(0px); }
+          50% { transform: translateY(-16px) translateX(8px); }
+        }
+        @keyframes tpOrbPulse {
+          0%, 100% { opacity: 0.35; transform: scale(1); }
+          50% { opacity: 0.55; transform: scale(1.08); }
+        }
+      `}</style>
 
-      <div className="max-w-md w-full bg-[#0d0a1f]/95 border border-purple-500/30 rounded-3xl p-8 shadow-2xl shadow-purple-950/50 backdrop-blur-xl relative z-10">
-        {/* Brand Header */}
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="relative mb-3.5">
-            <img
-              src="/logo.png"
-              alt="Trust Pay Logo"
-              onError={(e) => { e.target.onerror = null; e.target.src = '/app/trustpaylogo.png'; }}
-              className="w-16 h-16 rounded-2xl object-cover shadow-xl shadow-purple-600/35 border border-purple-500/40"
-            />
-            <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-[#0d0a1f] flex items-center justify-center">
-              <ShieldCheck size={11} className="text-white" />
-            </span>
-          </div>
+      {/* Subtle Luxury Dot Mesh Background Pattern */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-60"
+        style={{
+          backgroundImage: 'radial-gradient(#cbd5e1 1.25px, transparent 1.25px)',
+          backgroundSize: '24px 24px'
+        }}
+      />
 
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black text-white tracking-tight">Trust Pay</h1>
-            <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white tracking-widest uppercase">
-              {step === 'credentials' ? 'ADMIN LOGIN' : '2FA SECURITY'}
-            </span>
+      {/* Ambient Pastel Mesh Glows */}
+      <div 
+        style={{ animation: 'tpOrbPulse 10s ease-in-out infinite' }}
+        className="absolute -top-32 -left-32 w-[520px] h-[520px] bg-gradient-to-br from-indigo-200/40 via-sky-200/35 to-transparent rounded-full blur-3xl pointer-events-none" 
+      />
+      <div 
+        style={{ animation: 'tpOrbPulse 12s ease-in-out infinite 3s' }}
+        className="absolute -bottom-32 -right-32 w-[520px] h-[520px] bg-gradient-to-tl from-purple-200/40 via-pink-200/30 to-transparent rounded-full blur-3xl pointer-events-none" 
+      />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[750px] h-[750px] bg-indigo-50/60 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Relative Canvas Stage */}
+      <div className="relative w-full max-w-md mx-auto z-10">
+
+        {/* ============================================================== */}
+        {/* DESKTOP FLOATING CRYPTO CARDS (Interactive floating tokens) */}
+        {/* ============================================================== */}
+
+        {/* 1. TON (The Open Network) Coin Card */}
+        <div
+          style={{ animation: 'tpFloatSlow 6s ease-in-out infinite' }}
+          className="hidden md:flex absolute -top-8 -left-28 lg:-left-36 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-3 shadow-[0_15px_35px_rgba(0,152,234,0.13)] items-center gap-3 z-30 select-none hover:scale-105 transition-transform"
+        >
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#0088cc] to-[#00aaff] flex items-center justify-center shadow-md shadow-sky-500/25 shrink-0">
+            <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none">
+              <path d="M12 4.5L18 8.5L12 19.5L6 8.5L12 4.5Z" fill="white" fillOpacity="0.25"/>
+              <path d="M12 4.5L18 8.5L12 10.5L6 8.5L12 4.5Z" fill="white" fillOpacity="0.6"/>
+              <path d="M6 8.5L12 10.5V19.5L6 8.5Z" fill="white" fillOpacity="0.9"/>
+              <path d="M18 8.5L12 10.5V19.5L18 8.5Z" fill="white"/>
+            </svg>
           </div>
-          <p className="text-xs text-slate-400 mt-1 font-medium">
-            {step === 'credentials'
-              ? 'Protected Treasury & System Management'
-              : 'Two-Factor Telegram Security Authorization'}
-          </p>
-          <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-[10px] font-bold text-purple-300">
-            <Lock size={11} className="text-purple-400" />
-            <span>
-              {step === 'credentials'
-                ? 'Authorized Whitelisted Access Only'
-                : 'Telegram 2-Step OTP Protocol Active'}
-            </span>
+          <div className="text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black text-slate-800">TON</span>
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">The Open Network</span>
+            </div>
+            <div className="text-[11px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Fast L1 • Active</span>
+            </div>
           </div>
         </div>
 
-        {error && (
-          <div className="mb-5 p-3.5 rounded-2xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-xs font-bold flex items-center gap-2.5">
-            <AlertTriangle size={16} className="text-rose-400 shrink-0" />
-            <span>{error}</span>
+        {/* 2. USDT (Tether) Coin Card */}
+        <div
+          style={{ animation: 'tpFloatMedium 7.5s ease-in-out infinite 0.7s' }}
+          className="hidden md:flex absolute -top-4 -right-28 lg:-right-36 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-3 shadow-[0_15px_35px_rgba(38,161,123,0.13)] items-center gap-3 z-30 select-none hover:scale-105 transition-transform"
+        >
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#009393] to-[#26a17b] flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
+            <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none">
+              <path d="M13.2 12.35c-.07.01-.73.07-1.2.07s-1.13-.06-1.2-.07c-2.42-.12-4.22-.57-4.22-1.12s1.8-1 4.22-1.12v1.73c.36.03.77.04 1.2.04s.84-.01 1.2-.04V10.1c2.42.12 4.22.57 4.22 1.12s-1.8 1-4.22 1.13zm0-2.42V8.58h3.38V6.5H7.42v2.08H10.8v1.35C7.94 10.07 5.8 10.68 5.8 11.4s2.14 1.33 5 1.47v4.63h2.4v-4.63c2.86-.14 5-.75 5-1.47s-2.14-1.33-5-1.47z" fill="white"/>
+            </svg>
           </div>
-        )}
-
-        {resendMsg && (
-          <div className="mb-4 p-3 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs font-bold flex items-center gap-2">
-            <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
-            <span>{resendMsg}</span>
+          <div className="text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black text-slate-800">USDT</span>
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">TRC20 / TON</span>
+            </div>
+            <div className="text-[11px] text-slate-600 font-bold flex items-center gap-1.5 mt-0.5">
+              <span>৳124.50</span>
+              <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700">⚡ Instant</span>
+            </div>
           </div>
-        )}
+        </div>
 
-        {/* STEP 1: EMAIL & PASSWORD */}
-        {step === 'credentials' && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5">
-                Admin Email Address
-              </label>
-              <input
-                type="email"
-                required
-                autoComplete="username"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter Admin Email..."
-                className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 transition-colors"
-              />
+        {/* 3. GRAM Token Card */}
+        <div
+          style={{ animation: 'tpFloatFast 5.5s ease-in-out infinite 1.4s' }}
+          className="hidden md:flex absolute -bottom-8 -left-24 lg:-left-32 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-3 shadow-[0_15px_35px_rgba(139,92,246,0.13)] items-center gap-3 z-30 select-none hover:scale-105 transition-transform"
+        >
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#7c3aed] to-[#a855f7] flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
+            <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none">
+              <path d="M6.5 9.5L12 5.5L17.5 9.5L12 18.5L6.5 9.5Z" fill="white" fillOpacity="0.3"/>
+              <path d="M12 5.5L17.5 9.5L12 12L6.5 9.5L12 5.5Z" fill="white" fillOpacity="0.8"/>
+              <path d="M6.5 9.5L12 12V18.5L6.5 9.5Z" fill="white" fillOpacity="0.95"/>
+              <path d="M17.5 9.5L12 12V18.5L17.5 9.5Z" fill="white"/>
+            </svg>
+          </div>
+          <div className="text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black text-slate-800">GRAM</span>
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">PoW Token</span>
+            </div>
+            <div className="text-[11px] text-purple-600 font-bold flex items-center gap-1 mt-0.5">
+              <span>৳146.00</span>
+              <span className="text-[9px] px-1 rounded bg-purple-50 text-purple-700 font-black">🔥 Trending</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Multi-Chain Treasury Shield Card */}
+        <div
+          style={{ animation: 'tpFloatDrift 6.8s ease-in-out infinite 2.1s' }}
+          className="hidden md:flex absolute -bottom-6 -right-24 lg:-right-32 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-3 shadow-[0_15px_35px_rgba(99,102,241,0.13)] items-center gap-3 z-30 select-none hover:scale-105 transition-transform"
+        >
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#4338ca] to-[#6366f1] flex items-center justify-center shadow-md shadow-indigo-500/25 shrink-0">
+            <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none">
+              <path d="M12 4L18 7V12C18 16 15 19.5 12 21C9 19.5 6 16 6 12V7L12 4Z" fill="white" fillOpacity="0.25"/>
+              <path d="M12 5.5L16.5 7.8V11.8C16.5 15 14.2 17.8 12 19C9.8 17.8 7.5 15 7.5 11.8V7.8L12 5.5Z" stroke="white" strokeWidth="1.5"/>
+              <path d="M10 12L11.5 13.5L14.5 10.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div className="text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black text-slate-800">Security Vault</span>
+              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Protected</span>
+            </div>
+            <div className="text-[11px] text-slate-500 font-bold flex items-center gap-1 mt-0.5">
+              <span className="text-emerald-600 font-black">৳ BDT & Crypto</span>
+              <span>• Auto Node</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================== */}
+        {/* MOBILE FLOATING CRYPTO CHIPS (Visible only on mobile devices)  */}
+        {/* ============================================================== */}
+        <div className="flex md:hidden items-center justify-center gap-2 mb-4 flex-wrap z-20">
+          <div
+            style={{ animation: 'tpFloatSlow 5s ease-in-out infinite' }}
+            className="bg-white/95 border border-slate-200/90 shadow-sm rounded-full px-3 py-1.5 flex items-center gap-1.5"
+          >
+            <div className="w-5 h-5 rounded-full bg-[#0088cc] flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="w-3 h-3 text-white" fill="currentColor">
+                <path d="M12 4.5L18 8.5L12 19.5L6 8.5Z" />
+              </svg>
+            </div>
+            <span className="text-[11px] font-black text-slate-800">TON</span>
+            <span className="text-[9px] font-bold text-emerald-600">Active</span>
+          </div>
+
+          <div
+            style={{ animation: 'tpFloatMedium 6s ease-in-out infinite 0.5s' }}
+            className="bg-white/95 border border-slate-200/90 shadow-sm rounded-full px-3 py-1.5 flex items-center gap-1.5"
+          >
+            <div className="w-5 h-5 rounded-full bg-[#26a17b] flex items-center justify-center text-white text-[9px] font-black">₮</div>
+            <span className="text-[11px] font-black text-slate-800">USDT</span>
+            <span className="text-[9px] font-bold text-slate-500">৳124.50</span>
+          </div>
+
+          <div
+            style={{ animation: 'tpFloatFast 4.5s ease-in-out infinite 1s' }}
+            className="bg-white/95 border border-slate-200/90 shadow-sm rounded-full px-3 py-1.5 flex items-center gap-1.5"
+          >
+            <div className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center text-white text-[9px] font-black">G</div>
+            <span className="text-[11px] font-black text-slate-800">GRAM</span>
+            <span className="text-[9px] font-bold text-purple-600">৳146</span>
+          </div>
+        </div>
+
+        {/* ============================================================== */}
+        {/* MAIN LUXURY LIGHT MODE LOGIN CARD                             */}
+        {/* ============================================================== */}
+        <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/90 rounded-3xl p-7 sm:p-9 shadow-[0_25px_70px_-15px_rgba(99,102,241,0.16),0_10px_25px_-5px_rgba(0,0,0,0.04)] relative z-20">
+          
+          {/* Brand Header & Official Logo */}
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="relative mb-3.5 group">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-b from-white to-slate-50 border border-slate-200/80 shadow-[0_10px_25px_rgba(0,0,0,0.06)] flex items-center justify-center p-2.5 transition-transform duration-300 group-hover:scale-105">
+                <img
+                  src={brandLogo}
+                  alt="Trust Pay Logo"
+                  className="w-full h-full object-contain rounded-xl"
+                />
+              </div>
+              <span className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-md">
+                <ShieldCheck size={13} className="text-white" />
+              </span>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400">
-                  Password
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Trust Pay</h1>
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white tracking-widest uppercase shadow-sm">
+                {step === 'credentials' ? 'ADMIN LOGIN' : '2FA SECURITY'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1 font-medium">
+              {step === 'credentials'
+                ? 'Protected Treasury & System Management'
+                : 'Two-Factor Telegram Security Authorization'}
+            </p>
+            <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200/70 text-[11px] font-bold text-indigo-700 shadow-2xs">
+              <Lock size={12} className="text-indigo-600" />
+              <span>
+                {step === 'credentials'
+                  ? 'Authorized Whitelisted Access Only'
+                  : 'Telegram 2-Step OTP Protocol Active'}
+              </span>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2.5 shadow-xs">
+              <AlertTriangle size={16} className="text-rose-500 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Resend 2FA Message */}
+          {resendMsg && (
+            <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold flex items-center gap-2 shadow-xs">
+              <CheckCircle2 size={15} className="text-emerald-500 shrink-0" />
+              <span>{resendMsg}</span>
+            </div>
+          )}
+
+          {/* STEP 1: EMAIL & PASSWORD */}
+          {step === 'credentials' && (
+            <form onSubmit={handleSubmit} className="space-y-4 text-left">
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5">
+                  Admin Email Address
                 </label>
+                <input
+                  type="email"
+                  required
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter Admin Email..."
+                  className="w-full px-4 py-3.5 rounded-xl text-sm font-semibold bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all shadow-2xs"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer transition-colors"
+                  >
+                    {showPass ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter Password..."
+                  className="w-full px-4 py-3.5 rounded-xl text-sm font-semibold bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all shadow-2xs"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-xl shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin" />
+                    <span>Authenticating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock size={15} />
+                    <span>Sign In</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* STEP 2: TELEGRAM 2FA OTP */}
+          {step === '2fa' && (
+            <form onSubmit={handleVerify2FA} className="space-y-4 text-left">
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700 mb-1.5 text-center">
+                  6-Digit Security Code
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  autoFocus
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="••••••"
+                  className="w-full py-4 px-4 rounded-xl text-2xl sm:text-3xl font-black font-mono tracking-[0.4em] text-center text-slate-900 bg-slate-50 border border-slate-200 placeholder-slate-300 focus:outline-none focus:bg-white focus:border-indigo-600 focus:ring-4 focus:ring-indigo-600/10 transition-all shadow-inner"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || otpCode.trim().length < 6}
+                className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-xl shadow-indigo-600/25 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw size={15} className="animate-spin" />
+                    <span>Verifying Code...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={16} />
+                    <span>Verify Code & Enter</span>
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-between pt-2 text-xs">
                 <button
                   type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  className="text-[10px] font-bold text-purple-400 hover:text-purple-300 cursor-pointer"
+                  onClick={() => { setStep('credentials'); setError(''); setResendMsg(''); }}
+                  className="text-slate-500 hover:text-slate-800 font-semibold cursor-pointer transition-colors"
                 >
-                  {showPass ? 'Hide' : 'Show'}
+                  ← Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendLoading}
+                  className="text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer transition-colors flex items-center gap-1 disabled:opacity-50"
+                >
+                  {resendLoading ? <RefreshCw size={12} className="animate-spin" /> : null}
+                  <span>Resend Code</span>
                 </button>
               </div>
-              <input
-                type={showPass ? 'text' : 'password'}
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter Password..."
-                className="w-full px-4 py-3 rounded-xl text-sm font-bold bg-[#14102c] border border-purple-800/40 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 transition-colors"
-              />
-            </div>
+            </form>
+          )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={15} className="animate-spin" />
-                  <span>Authenticating...</span>
-                </>
-              ) : (
-                <>
-                  <Lock size={15} />
-                  <span>Sign In</span>
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* STEP 2: TELEGRAM 2FA OTP */}
-        {step === '2fa' && (
-          <form onSubmit={handleVerify2FA} className="space-y-4">
-            <div>
-              <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-1.5 text-center">
-                6-Digit Security Code
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={6}
-                autoFocus
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="••••••"
-                className="w-full py-3.5 px-4 rounded-xl text-2xl font-black font-mono tracking-[0.4em] text-center text-white bg-[#14102c] border border-purple-800/40 placeholder-slate-700 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || otpCode.trim().length < 6}
-              className="w-full py-3.5 px-4 mt-2 rounded-xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw size={15} className="animate-spin" />
-                  <span>Verifying Code...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck size={16} />
-                  <span>Verify Code & Enter</span>
-                </>
-              )}
-            </button>
-
-            <div className="flex items-center justify-between pt-2 text-xs">
-              <button
-                type="button"
-                onClick={() => { setStep('credentials'); setError(''); setResendMsg(''); }}
-                className="text-slate-400 hover:text-slate-200 font-semibold cursor-pointer transition-colors"
-              >
-                ← Back
-              </button>
-              <button
-                type="button"
-                onClick={handleResendOtp}
-                disabled={resendLoading}
-                className="text-purple-400 hover:text-purple-300 font-bold cursor-pointer transition-colors flex items-center gap-1 disabled:opacity-50"
-              >
-                {resendLoading ? <RefreshCw size={12} className="animate-spin" /> : null}
-                <span>Resend Code</span>
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div className="mt-6 pt-5 border-t border-purple-900/30 flex items-center justify-between text-[11px] text-slate-500 font-semibold">
-          <span className="flex items-center gap-1.5">
-            <Shield size={12} className="text-emerald-400" /> Telegram 2FA Protected
-          </span>
-          <span>Trust Pay Security</span>
+          {/* Card Security Footer */}
+          <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500 font-semibold">
+            <span className="flex items-center gap-1.5 text-slate-600">
+              <Shield size={13} className="text-emerald-500" /> Telegram 2FA Protected
+            </span>
+            <span className="text-slate-400">Trust Pay Security</span>
+          </div>
         </div>
+
       </div>
     </div>
   );
