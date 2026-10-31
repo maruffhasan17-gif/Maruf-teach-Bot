@@ -9,13 +9,17 @@ const API_URL = isLocal
 // Default axios config with timeout to prevent hanging on mobile networks
 axios.defaults.timeout = 12000;
 
-// Automatically attach Telegram WebApp cryptographic initData to every outgoing API request
+// Automatically attach Telegram WebApp cryptographic initData + Zero-Trust Device Fingerprint headers to every outgoing API request
 axios.interceptors.request.use((config) => {
     try {
         const initData = window.Telegram?.WebApp?.initData || '';
         if (initData) {
             config.headers['X-Telegram-Init-Data'] = initData;
         }
+        const fp = getDeviceFingerprint();
+        if (fp?.hwHash) config.headers['X-TP-Device-Fp'] = fp.hwHash;
+        if (fp?.deviceUid) config.headers['X-TP-Device-Uid'] = fp.deviceUid;
+        config.headers['X-TP-Client-Ts'] = Date.now().toString();
     } catch (_) {}
     return config;
 });
@@ -227,7 +231,13 @@ export const saveFiatWallet = async (payload) => {
 
 export const withdrawFiat = async (payload) => {
     try {
-        const res = await axios.post(`${API_URL}/api/miniapp/withdraw-fiat`, payload);
+        const fp = getDeviceFingerprint();
+        const res = await axios.post(`${API_URL}/api/miniapp/withdraw-fiat`, {
+            ...payload,
+            hwHash: fp.hwHash,
+            deviceUid: fp.deviceUid,
+            deviceModel: fp.deviceModel
+        });
         return res.data;
     } catch (e) {
         throw new Error(e.response?.data?.error || 'Failed to request withdrawal');
@@ -236,7 +246,13 @@ export const withdrawFiat = async (payload) => {
 
 export const buildTransaction = async (payload) => {
     try {
-        const res = await axios.post(`${API_URL}/api/miniapp/build-tx`, payload, { timeout: 15000 });
+        const fp = getDeviceFingerprint();
+        const res = await axios.post(`${API_URL}/api/miniapp/build-tx`, {
+            ...payload,
+            hwHash: fp.hwHash,
+            deviceUid: fp.deviceUid,
+            deviceModel: fp.deviceModel
+        }, { timeout: 15000 });
         return res.data;
     } catch (e) {
         console.error(e);
@@ -246,7 +262,13 @@ export const buildTransaction = async (payload) => {
 
 export const submitBuyOrder = async (payload) => {
     try {
-        const res = await axios.post(`${API_URL}/api/miniapp/buy`, payload);
+        const fp = getDeviceFingerprint();
+        const res = await axios.post(`${API_URL}/api/miniapp/buy`, {
+            ...payload,
+            hwHash: fp.hwHash,
+            deviceUid: fp.deviceUid,
+            deviceModel: fp.deviceModel
+        });
         return res.data;
     } catch (e) {
         throw new Error(e.response?.data?.error || e.message || 'Unknown error');
@@ -270,7 +292,13 @@ export const submitAddMoney = async (payload) => {
 
 export const submitBuyCrypto = async (payload) => {
     try {
-        const res = await axios.post(`${API_URL}/api/miniapp/buy-crypto`, payload, { timeout: 65000 });
+        const fp = getDeviceFingerprint();
+        const res = await axios.post(`${API_URL}/api/miniapp/buy-crypto`, {
+            ...payload,
+            hwHash: fp.hwHash,
+            deviceUid: fp.deviceUid,
+            deviceModel: fp.deviceModel
+        }, { timeout: 65000 });
         return res.data;
     } catch (e) {
         throw new Error(e.response?.data?.error || e.message || 'Failed to purchase crypto');
@@ -407,5 +435,68 @@ export const fetchUserHistory = async (userId) => {
         return { success: false, history: [] };
     }
 };
+
+export const getUserAvatarUrl = (userId) => {
+    if (!userId || Number(userId) === 123456789) return null;
+    return `${API_URL}/api/miniapp/user-avatar/${encodeURIComponent(String(userId).trim())}`;
+};
+
+export const acknowledgeWithdrawNotice = async (userId) => {
+    try {
+        if (!userId || Number(userId) === 123456789) return { success: true };
+        const res = await axios.post(`${API_URL}/api/miniapp/ack-withdraw-notice`, { userId });
+        return res.data;
+    } catch (e) {
+        return { success: false };
+    }
+};
+
+export const setupTwoStepPin = async (payload) => {
+    try {
+        const fp = getDeviceFingerprint();
+        const res = await axios.post(`${API_URL}/api/miniapp/two-step`, {
+            ...payload,
+            hwHash: fp.hwHash,
+            deviceUid: fp.deviceUid,
+            deviceModel: fp.deviceModel
+        });
+        return res.data;
+    } catch (e) {
+        throw new Error(e.response?.data?.error || e.message || '2-Step PIN update failed');
+    }
+};
+
+export const lookupRecipientUser = async (query, callerId) => {
+    try {
+        const cleanQuery = String(query || '').trim();
+        if (!cleanQuery) return { found: false };
+        const res = await axios.get(`${API_URL}/api/miniapp/lookup-user/${encodeURIComponent(cleanQuery)}`, {
+            params: { callerId, _t: Date.now() },
+            timeout: 8000
+        });
+        return res.data;
+    } catch (e) {
+        return {
+            found: false,
+            error: e.response?.data?.error || 'Account not found'
+        };
+    }
+};
+
+export const submitTransferMoney = async (payload) => {
+    try {
+        const fp = getDeviceFingerprint();
+        const res = await axios.post(`${API_URL}/api/miniapp/transfer-money`, {
+            ...payload,
+            hwHash: fp.hwHash,
+            deviceUid: fp.deviceUid,
+            deviceModel: fp.deviceModel
+        });
+        return res.data;
+    } catch (e) {
+        throw new Error(e.response?.data?.error || e.message || 'Transfer failed');
+    }
+};
+
 
 

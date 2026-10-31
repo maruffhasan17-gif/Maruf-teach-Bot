@@ -649,13 +649,19 @@ function verifyTelegramInitData(initDataString, botToken) {
     }
 }
 
-// Helper: Verify that calling request belongs to claimed userId
+const inFlightTrxClaims = new Set();
+
+// Helper: Zero-Trust Caller Identity Verification (Telegram WebApp HMAC + Forgery Protection)
 function verifyRequestCallerIdentity(req, userId) {
+    if (!userId) return false;
     const initDataRaw = req.headers['x-telegram-init-data'];
-    if (initDataRaw && bot?.token) {
-        const verifiedUser = verifyTelegramInitData(initDataRaw, bot.token);
-        if (verifiedUser && verifiedUser.id && String(verifiedUser.id) !== String(userId)) {
-            return false;
+    if (initDataRaw && String(initDataRaw).trim().length > 0 && bot?.token) {
+        const verifiedUser = verifyTelegramInitData(String(initDataRaw).trim(), bot.token);
+        if (!verifiedUser || !verifiedUser.id) {
+            return false; // Reject forged/tampered Telegram initData signature
+        }
+        if (String(verifiedUser.id) !== String(userId)) {
+            return false; // Reject cross-user spoofing
         }
     }
     return true;
@@ -830,6 +836,8 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
         Number(uData.activeReferralsCount || 0) * 5
     );
     const adminAddedBdt = Number(uData.adminAddedBdt || 0);
+    const transferReceivedBdt = Math.max(0, Number(uData.totalTransferReceivedBdt || 0));
+    const transferSentBdt = Math.max(0, Number(uData.totalTransferSentBdt || 0));
     const hasAdminManualUpdate = Boolean(uData.lastBalanceUpdate) || adminAddedBdt > 0;
     
     // D) Withdrawals (both pending and completed)
@@ -845,9 +853,9 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
         }
     }
     
-    // Calculate provenance
-    const totalLegitimateIn = sumDeposits + sumSells + spinEarnings + referralEarnings + sumLegitRefunds + adminAddedBdt;
-    const totalLegitimateOut = sumBalanceBuys + sumWithdrawals;
+    // Calculate provenance (including P2P Transfer Inflows/Outflows)
+    const totalLegitimateIn = sumDeposits + sumSells + spinEarnings + referralEarnings + sumLegitRefunds + adminAddedBdt + transferReceivedBdt;
+    const totalLegitimateOut = sumBalanceBuys + sumWithdrawals + transferSentBdt;
     const maxPermissibleBalance = hasAdminManualUpdate
         ? Math.max(currentBalance, totalLegitimateIn - totalLegitimateOut)
         : Math.max(0, totalLegitimateIn - totalLegitimateOut);
@@ -968,7 +976,7 @@ app.use(smsWebhookPaths, (req, res, next) => {
     });
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Express syntax error fallback
 app.use((err, req, res, next) => {
@@ -3313,6 +3321,9 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             fiatWallet: data.fiatWallet || null,
             fiatWithdrawPending: pendingWithdraw,
             mbsId: mbsId,
+            photoUrl: data.photoUrl || data.photo_url || null,
+            twoStepEnabled: Boolean(data.twoStepEnabled && data.twoStepPinHash),
+            twoStepLength: Number(data.twoStepLength) === 6 ? 6 : 4,
             hasDepositWithoutTrade: Boolean(data.hasDepositWithoutTrade),
             hasSellBalance: Boolean(data.hasSellBalance || (parseFloat(data.totalCryptoSellBdt) > 0)),
             spentSinceLastDeposit: data.spentSinceLastDeposit || 0,
@@ -3331,6 +3342,530 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
     } catch(e) {
         console.error(e);
         res.status(500).json({ error: e.message });
+    }
+});
+
+// ==================== 2-STEP PIN SECURITY & P2P TRANSFER MONEY SYSTEM ====================
+const TWO_STEP_SECRET_SALT = crypto
+    .createHash('sha256')
+    .update((serviceAccount?.private_key || 'trustpay-2step-pin-secret') + '::tp_2step_v1_2026')
+    .digest('hex');
+
+function hashTwoStepPin(userId, pin) {
+    return crypto
+        .createHmac('sha256', `${TWO_STEP_SECRET_SALT}::uid_${String(userId).trim()}`)
+        .update(String(pin || '').trim())
+        .digest('hex');
+}
+
+function verifyUserTwoStepPin(userData, userId, inputPin) {
+    if (!userData || !userData.twoStepEnabled || !userData.twoStepPinHash) {
+        return { ok: true };
+    }
+    const cleanPin = String(inputPin || '').trim();
+    if (!/^\d{4}$|^\d{6}$/.test(cleanPin)) {
+        return {
+            ok: false,
+            requireTwoStep: true,
+            error: `অনুগ্রহ করে আপনার ${Number(userData.twoStepLength) === 6 ? '৬' : '৪'} ডিজিটের ২-স্টেপ সিকিউরিটি পাসওয়ার্ড (PIN) দিন।`
+        };
+    }
+    if (!checkRateLimit(`twostep_pin_${userId}`, 8, 300000)) {
+        return {
+            ok: false,
+            error: 'অতিরিক্ত ভুল পিন চেষ্টার কারণে ৫ মিনিটের জন্য পিন যাচাই লক করা হয়েছে। অনুগ্রহ করে কিছুক্ষণ পর চেষ্টা করুন।'
+        };
+    }
+    const expectedHash = hashTwoStepPin(userId, cleanPin);
+    if (expectedHash !== userData.twoStepPinHash) {
+        return {
+            ok: false,
+            requireTwoStep: true,
+            error: 'ভুল ২-স্টেপ পাসওয়ার্ড (PIN)! সঠিক পিন দিয়ে আবার চেষ্টা করুন।'
+        };
+    }
+    return { ok: true };
+}
+
+// One-Time Withdraw Notice Acknowledge: clears completed/rejected banner once user leaves HomePage
+app.post('/api/miniapp/ack-withdraw-notice', async (req, res) => {
+    try {
+        const { userId } = req.body || {};
+        if (!userId || Number(userId) === 123456789) return res.json({ success: true });
+        if (!verifyRequestCallerIdentity(req, userId)) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+        const userRef = db.collection('users').doc(String(userId));
+        const userDoc = await userRef.get();
+        if (userDoc.exists) {
+            const pend = userDoc.data()?.fiatWithdrawPending;
+            if (pend && (pend.status === 'completed' || pend.status === 'rejected')) {
+                await userRef.update({ fiatWithdrawPending: null });
+            }
+        }
+        return res.json({ success: true });
+    } catch (e) {
+        return res.json({ success: false });
+    }
+});
+
+// Public MiniApp User Avatar Proxy (works on all mobile devices without exposing BOT_TOKEN or hitting Admin IP firewall)
+const miniappAvatarBufferCache = new Map();
+app.get('/api/miniapp/user-avatar/:userId', async (req, res) => {
+    try {
+        const rawUserId = String(req.params.userId || '').trim();
+        if (!rawUserId || rawUserId === '12345' || rawUserId === '123456789' || !/^\d+$/.test(rawUserId)) {
+            return res.status(404).send('No avatar');
+        }
+
+        const now = Date.now();
+        if (miniappAvatarBufferCache.has(rawUserId)) {
+            const cached = miniappAvatarBufferCache.get(rawUserId);
+            if (cached.expireAt > now) {
+                if (cached.buffer) {
+                    res.setHeader('Content-Type', cached.contentType || 'image/jpeg');
+                    res.setHeader('Cache-Control', 'public, max-age=3600');
+                    return res.send(cached.buffer);
+                }
+                return res.status(404).send('No avatar');
+            }
+        }
+
+        let fileUrl = null;
+        if (bot) {
+            const photos = await bot.getUserProfilePhotos(rawUserId, { limit: 1 }).catch(() => null);
+            if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
+                const bestPhoto = photos.photos[0][photos.photos[0].length - 1];
+                fileUrl = await bot.getFileLink(bestPhoto.file_id).catch(() => null);
+            }
+        }
+
+        if (!fileUrl) {
+            const uDoc = await db.collection('users').doc(rawUserId).get().catch(() => null);
+            if (uDoc && uDoc.exists) {
+                const pUrl = uDoc.data()?.photoUrl || uDoc.data()?.photo_url;
+                if (pUrl && /^https?:\/\//i.test(pUrl)) {
+                    fileUrl = pUrl;
+                }
+            }
+        }
+
+        if (fileUrl) {
+            const imgRes = await axios.get(fileUrl, { responseType: 'arraybuffer', timeout: 6000 }).catch(() => null);
+            if (imgRes && imgRes.data) {
+                const buf = Buffer.from(imgRes.data);
+                const contentType = imgRes.headers?.['content-type'] || 'image/jpeg';
+                miniappAvatarBufferCache.set(rawUserId, { buffer: buf, contentType, expireAt: now + 3600000 });
+                if (miniappAvatarBufferCache.size > 300) {
+                    const firstKey = miniappAvatarBufferCache.keys().next().value;
+                    if (firstKey) miniappAvatarBufferCache.delete(firstKey);
+                }
+                res.setHeader('Content-Type', contentType);
+                res.setHeader('Cache-Control', 'public, max-age=3600');
+                return res.send(buf);
+            }
+        }
+
+        miniappAvatarBufferCache.set(rawUserId, { buffer: null, expireAt: now + 300000 });
+        return res.status(404).send('No avatar');
+    } catch (e) {
+        return res.status(404).send('No avatar');
+    }
+});
+
+// 2-Step Verification Setup / Toggle Endpoint (4-Digit or 6-Digit PIN)
+app.post('/api/miniapp/two-step', async (req, res) => {
+    try {
+        const { userId, action, pin, currentPin, pinLength } = req.body || {};
+        if (!userId || Number(userId) === 123456789) {
+            return res.status(400).json({ error: 'Valid Telegram User ID required' });
+        }
+        if (!checkRateLimit(`twostep_setup_${userId}`, 12, 60000)) {
+            return res.status(429).json({ error: 'অতিরিক্ত চেষ্টার কারণে ১ মিনিট অপেক্ষা করুন।' });
+        }
+        if (!verifyRequestCallerIdentity(req, userId)) {
+            return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)' });
+        }
+
+        const strUserId = String(userId);
+        const userRef = db.collection('users').doc(strUserId);
+        const userDoc = await userRef.get();
+        const userData = userDoc.exists ? (userDoc.data() || {}) : {};
+        const alreadyEnabled = Boolean(userData.twoStepEnabled && userData.twoStepPinHash);
+
+        if (action === 'disable') {
+            if (!alreadyEnabled) {
+                return res.json({ success: true, twoStepEnabled: false, twoStepLength: 4 });
+            }
+            const checkCurrent = verifyUserTwoStepPin(userData, strUserId, currentPin || pin);
+            if (!checkCurrent.ok) {
+                return res.status(400).json({ error: '২-স্টেপ ভেরিফিকেশন বন্ধ করতে আপনার বর্তমান সঠিক পিন (PIN) দিন।' });
+            }
+            await userRef.set({
+                twoStepEnabled: false,
+                twoStepPinHash: null,
+                twoStepUpdatedAt: Date.now()
+            }, { merge: true });
+            return res.json({
+                success: true,
+                twoStepEnabled: false,
+                twoStepLength: 4,
+                message: '২-স্টেপ ভেরিফিকেশন বন্ধ করা হয়েছে।'
+            });
+        }
+
+        if (action === 'verify') {
+            const check = verifyUserTwoStepPin(userData, strUserId, pin);
+            if (!check.ok) {
+                return res.status(400).json({ error: check.error });
+            }
+            return res.json({ success: true, verified: true });
+        }
+
+        // action === 'enable' or 'change'
+        const cleanPin = String(pin || '').trim();
+        const targetLen = Number(pinLength) === 6 ? 6 : (cleanPin.length === 6 ? 6 : 4);
+        if (!/^\d+$/.test(cleanPin) || cleanPin.length !== targetLen) {
+            return res.status(400).json({
+                error: targetLen === 6
+                    ? 'অনুগ্রহ করে সঠিক ৬ সংখ্যার (6-Digit) পিন কোড দিন।'
+                    : 'অনুগ্রহ করে সঠিক ৪ সংখ্যার (4-Digit) পিন কোড দিন।'
+            });
+        }
+
+        if (alreadyEnabled) {
+            const checkCurrent = verifyUserTwoStepPin(userData, strUserId, currentPin);
+            if (!checkCurrent.ok) {
+                return res.status(400).json({ error: 'পিন পরিবর্তন করতে আপনার বর্তমান পিনটি সঠিকভাবে দিন।' });
+            }
+        }
+
+        const pinHash = hashTwoStepPin(strUserId, cleanPin);
+        await userRef.set({
+            twoStepEnabled: true,
+            twoStepLength: targetLen,
+            twoStepPinHash: pinHash,
+            twoStepUpdatedAt: Date.now()
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            twoStepEnabled: true,
+            twoStepLength: targetLen,
+            message: `আপনার ${targetLen} ডিজিটের ২-স্টেপ সিকিউরিটি পাসওয়ার্ড সফলভাবে চালু হয়েছে!`
+        });
+    } catch (e) {
+        console.error("POST /api/miniapp/two-step error:", e);
+        return res.status(500).json({ error: e.message });
+    }
+});
+
+// Helper: Resolve a user document by MBS ID (e.g. MBS99548) or Telegram UID
+async function resolveUserByMbsOrUid(rawQuery) {
+    const clean = String(rawQuery || '').trim();
+    if (!clean) return null;
+    const upper = clean.toUpperCase();
+
+    // 1. Direct query by mbsId in Firestore
+    if (upper.startsWith('MBS')) {
+        const snap = await db.collection('users').where('mbsId', '==', upper).limit(1).get();
+        if (!snap.empty) {
+            const doc = snap.docs[0];
+            return { id: doc.id, data: doc.data() || {} };
+        }
+        // Fallback: check if any user's fallback MBS ID ('MBS' + id.slice(-5)) matches
+        const suffix = upper.replace(/^MBS/, '');
+        if (/^\d{5}$/.test(suffix)) {
+            const allUsers = await db.collection('users').get();
+            for (const d of allUsers.docs) {
+                const u = d.data() || {};
+                const derived = (u.mbsId || ('MBS' + String(d.id).slice(-5))).toUpperCase();
+                if (derived === upper) {
+                    if (!u.mbsId) {
+                        d.ref.set({ mbsId: upper }, { merge: true }).catch(() => {});
+                    }
+                    return { id: d.id, data: { ...u, mbsId: upper } };
+                }
+            }
+        }
+        return null;
+    }
+
+    // 2. Numeric Telegram UID or 5-digit MBS number
+    if (/^\d+$/.test(clean)) {
+        const directDoc = await db.collection('users').doc(clean).get();
+        if (directDoc.exists) {
+            return { id: directDoc.id, data: directDoc.data() || {} };
+        }
+        if (clean.length === 5) {
+            const mbsCandidate = 'MBS' + clean;
+            const snap = await db.collection('users').where('mbsId', '==', mbsCandidate).limit(1).get();
+            if (!snap.empty) {
+                const doc = snap.docs[0];
+                return { id: doc.id, data: doc.data() || {} };
+            }
+        }
+    }
+    return null;
+}
+
+// Live Recipient Account Lookup for Transfer Money Page
+app.get('/api/miniapp/lookup-user/:query', async (req, res) => {
+    try {
+        const rawQuery = String(req.params.query || '').trim();
+        const callerId = String(req.query.callerId || '').trim();
+        if (!rawQuery || rawQuery.length < 3) {
+            return res.json({ found: false });
+        }
+        if (callerId && !checkRateLimit(`lookup_${callerId}`, 45, 60000)) {
+            return res.status(429).json({ found: false, error: 'অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন।' });
+        }
+
+        const resolved = await resolveUserByMbsOrUid(rawQuery);
+        if (!resolved || !resolved.id) {
+            return res.json({
+                found: false,
+                error: 'এই আইডিতে কোনো অ্যাকাউন্ট পাওয়া যায়নি'
+            });
+        }
+
+        const uId = String(resolved.id);
+        const uData = resolved.data || {};
+        const mbsId = uData.mbsId || ('MBS' + uId.slice(-5));
+        const name = uData.firstName || uData.first_name || uData.name || uData.fiatWallet?.name || 'Trust Pay User';
+        const username = uData.username ? String(uData.username).replace(/^@/, '') : '';
+        const isSelf = Boolean(callerId && String(callerId) === uId);
+
+        const isVerified = Boolean(
+            uData.isVerified ||
+            uData.verified ||
+            uData.communityVerified ||
+            uData.status === 'verified' ||
+            (parseFloat(uData.totalAddMoneyBdt) > 0) ||
+            (parseFloat(uData.totalCryptoSellBdt) > 0) ||
+            (uData.fiatWallet && uData.fiatWallet.number)
+        );
+
+        return res.json({
+            success: true,
+            found: true,
+            isSelf,
+            user: {
+                userId: uId,
+                mbsId,
+                name,
+                username,
+                photoUrl: `/api/miniapp/user-avatar/${uId}`,
+                isVerified,
+                status: uData.status || 'active'
+            }
+        });
+    } catch (e) {
+        return res.status(500).json({ found: false, error: e.message });
+    }
+});
+
+// Atomic Zero-Trust P2P Money Transfer Endpoint
+app.post('/api/miniapp/transfer-money', async (req, res) => {
+    let { userId, recipientQuery, amount, twoStepPin, note } = req.body || {};
+    if (!userId || !recipientQuery || !amount) {
+        return res.status(400).json({ error: 'প্রাপকের আইডি এবং টাকার পরিমাণ সঠিকভাবে দিন।' });
+    }
+
+    const senderId = String(userId).trim();
+
+    // 1. Rate Limit Check
+    if (!checkRateLimit(`transfer_${senderId}`, 10, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি ট্রান্সফার রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    }
+
+    // 2. Caller Identity Verification (Telegram WebApp initData HMAC)
+    if (!verifyRequestCallerIdentity(req, senderId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+    }
+
+    // 3. Concurrency Mutex Lock on Sender
+    const hasSenderLock = acquireUserFinancialLock(senderId);
+    if (!hasSenderLock) {
+        return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
+    }
+
+    let receiverLockId = null;
+    try {
+        const numAmount = Number(parseFloat(String(amount).replace(/,/g, '')).toFixed(2));
+        if (!Number.isFinite(numAmount) || numAmount < 10) {
+            return res.status(400).json({ error: 'সর্বনিম্ন ট্রান্সফার ১০ টাকা (Minimum transfer is 10 BDT)' });
+        }
+        if (numAmount > 5000) {
+            return res.status(400).json({ error: 'সর্বোচ্চ ট্রান্সফার ৫,০০০ টাকা! ৫,০০০ টাকার বেশি একসাথে ট্রান্সফার করা যাবে না।' });
+        }
+
+        // 4. Deep Balance Provenance & Account Active Audit
+        const audit = await auditBalanceProvenance(senderId, numAmount, 'P2P Money Transfer');
+        if (!audit.ok) {
+            return res.status(403).json({ error: audit.error });
+        }
+        const senderData = audit.userData || {};
+
+        // 5. Mandatory 2-Step Verification Check for Transfer Money
+        if (!senderData.twoStepEnabled || !senderData.twoStepPinHash) {
+            return res.status(403).json({
+                error: 'মানি ট্রান্সফার করার জন্য প্রোফাইল থেকে ২-স্টেপ ভেরিফিকেশন (PIN) চালু থাকা বাধ্যতামূলক!',
+                requireTwoStepSetup: true
+            });
+        }
+        const pinCheck = verifyUserTwoStepPin(senderData, senderId, twoStepPin);
+        if (!pinCheck.ok) {
+            return res.status(403).json({
+                error: pinCheck.error,
+                requireTwoStep: true
+            });
+        }
+
+        // 6. Resolve Recipient Account
+        const resolvedRecipient = await resolveUserByMbsOrUid(recipientQuery);
+        if (!resolvedRecipient || !resolvedRecipient.id) {
+            return res.status(404).json({ error: 'প্রাপকের আইডি সঠিক নয়! অনুগ্রহ করে সঠিক Profile ID (MBS...) দিন।' });
+        }
+
+        const receiverId = String(resolvedRecipient.id).trim();
+        if (receiverId === senderId) {
+            return res.status(400).json({ error: 'নিজের অ্যাকাউন্টে নিজের ব্যালেন্স ট্রান্সফার করা যাবে না!' });
+        }
+
+        const receiverData = resolvedRecipient.data || {};
+        if (receiverData.status === 'banned' || receiverData.isBanned) {
+            return res.status(400).json({ error: 'প্রাপকের অ্যাকাউন্টটি নিষিদ্ধ (Banned) থাকায় টাকা পাঠানো যাবে না।' });
+        }
+
+        // Lock Receiver as well
+        if (!acquireUserFinancialLock(receiverId)) {
+            return res.status(429).json({ error: 'প্রাপকের অ্যাকাউন্টে অন্য একটি লেনদেন চলছে। কয়েক সেকেন্ড পর চেষ্টা করুন।' });
+        }
+        receiverLockId = receiverId;
+
+        const senderRef = db.collection('users').doc(senderId);
+        const receiverRef = db.collection('users').doc(receiverId);
+        const transferId = 'TRF' + Date.now().toString().slice(-8) + Math.floor(10 + Math.random() * 89);
+
+        const senderMbsId = senderData.mbsId || ('MBS' + senderId.slice(-5));
+        const receiverMbsId = receiverData.mbsId || ('MBS' + receiverId.slice(-5));
+        const senderName = senderData.firstName || senderData.first_name || 'User';
+        const receiverName = receiverData.firstName || receiverData.first_name || 'User';
+        const cleanNote = note ? escapeHtml(String(note).trim().slice(0, 100)) : '';
+
+        let updatedSenderBal = 0;
+        let updatedReceiverBal = 0;
+
+        // 7. ZERO-TRUST ATOMIC FIRESTORE TRANSACTION
+        const transferRef = db.collection('p2p_transfers').doc(transferId);
+        await db.runTransaction(async (t) => {
+            const [freshSenderSnap, freshReceiverSnap] = await Promise.all([
+                t.get(senderRef),
+                t.get(receiverRef)
+            ]);
+            if (!freshSenderSnap.exists) {
+                throw new Error('আপনার অ্যাকাউন্ট পাওয়া যায়নি।');
+            }
+            if (!freshReceiverSnap.exists) {
+                throw new Error('প্রাপকের অ্যাকাউন্ট পাওয়া যায়নি।');
+            }
+            const freshSender = freshSenderSnap.data() || {};
+            const freshReceiver = freshReceiverSnap.data() || {};
+            const sBal = parseFloat(freshSender.balance) || 0;
+            const rBal = parseFloat(freshReceiver.balance) || 0;
+
+            if (sBal < numAmount) {
+                throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${sBal.toFixed(2)} BDT`);
+            }
+
+            updatedSenderBal = Number((sBal - numAmount).toFixed(2));
+            updatedReceiverBal = Number((rBal + numAmount).toFixed(2));
+
+            t.update(senderRef, {
+                balance: updatedSenderBal,
+                totalTransferSentBdt: FieldValue.increment(numAmount),
+                updatedAt: FieldValue.serverTimestamp()
+            });
+
+            t.update(receiverRef, {
+                balance: updatedReceiverBal,
+                totalTransferReceivedBdt: FieldValue.increment(numAmount),
+                hasSellBalance: true,
+                updatedAt: FieldValue.serverTimestamp()
+            });
+
+            t.set(transferRef, {
+                transferId,
+                senderId,
+                senderIdNum: parseInt(senderId, 10) || senderId,
+                senderMbsId,
+                senderName,
+                receiverId,
+                receiverIdNum: parseInt(receiverId, 10) || receiverId,
+                receiverMbsId,
+                receiverName,
+                amount: numAmount,
+                fee: 0,
+                note: cleanNote,
+                status: 'completed',
+                timestamp: FieldValue.serverTimestamp(),
+                createdAt: Date.now()
+            });
+        });
+
+        statsCache.timestamp = 0;
+
+        // 8. Instant Telegram Notifications to Sender, Receiver & Admin Data Group
+        if (bot) {
+            const senderMsg = `<b>${PE.flyingCash} মানি ট্রান্সফার সফল! (Money Sent!)</b>\n\n` +
+                `<blockquote>${PE.user} <b>প্রাপক (To):</b> <b>${escapeHtml(receiverName)}</b> (<code>${receiverMbsId}</code>)\n` +
+                `${PE.idCard} <b>UID:</b> <code>${receiverId}</code>\n` +
+                `${PE.dollar} <b>পাঠানো পরিমাণ:</b> <b>৳${numAmount.toFixed(2)} BDT</b>\n` +
+                `${PE.moneyBag} <b>নতুন ব্যালেন্স:</b> <b>৳${updatedSenderBal.toFixed(2)} BDT</b>\n` +
+                `${PE.globe} <b>Trx Ref:</b> <code>${transferId}</code></blockquote>\n\n` +
+                `${PE.check} <i>টাকাটি সফলভাবে ও নিরাপদে প্রাপকের অ্যাকাউন্টে স্থানান্তরিত হয়েছে।</i>`;
+            bot.sendMessage(senderId, senderMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
+
+            const receiverMsg = `<b>${PE.moneyBag} ব্যালেন্স রিসিভ হয়েছে! (Money Received!)</b>\n\n` +
+                `<blockquote>${PE.user} <b>প্রেরক (From):</b> <b>${escapeHtml(senderName)}</b> (<code>${senderMbsId}</code>)\n` +
+                `${PE.dollar} <b>প্রাপ্ত পরিমাণ:</b> <b>+৳${numAmount.toFixed(2)} BDT</b>\n` +
+                `${PE.moneyBag} <b>নতুন ব্যালেন্স:</b> <b>৳${updatedReceiverBal.toFixed(2)} BDT</b>\n` +
+                `${PE.globe} <b>Trx Ref:</b> <code>${transferId}</code></blockquote>\n\n` +
+                `${PE.party} <i>আপনার Trust Pay অ্যাকাউন্ট ব্যালেন্সে টাকা জমা হয়েছে!</i>`;
+            bot.sendMessage(receiverId, receiverMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
+
+            const dataGroup = botConfig?.dataGroupId || botConfig?.adminGroupId;
+            if (dataGroup) {
+                const adminAlert = `<blockquote><b>${PE.swap} নতুন P2P মানি ট্রান্সফার সম্পন্ন!</b>\n\n` +
+                    `📤 <b>প্রেরক (Sender):</b> <a href="tg://user?id=${senderId}">${escapeHtml(senderName)}</a> (<code>${senderMbsId}</code> / <code>${senderId}</code>)\n` +
+                    `📥 <b>প্রাপক (Receiver):</b> <a href="tg://user?id=${receiverId}">${escapeHtml(receiverName)}</a> (<code>${receiverMbsId}</code> / <code>${receiverId}</code>)\n` +
+                    `💰 <b>পরিমাণ:</b> <b>৳${numAmount.toFixed(2)} BDT</b>\n` +
+                    `💼 <b>প্রেরকের নতুন ব্যালেন্স:</b> ৳${updatedSenderBal.toFixed(2)} BDT\n` +
+                    `💼 <b>প্রাপকের নতুন ব্যালেন্স:</b> ৳${updatedReceiverBal.toFixed(2)} BDT\n` +
+                    `#️⃣ <b>Ref ID:</b> <code>${transferId}</code></blockquote>`;
+                bot.sendMessage(dataGroup, adminAlert, { parse_mode: 'HTML' }).catch(() => {});
+            }
+        }
+
+        return res.json({
+            success: true,
+            transferId,
+            amount: numAmount,
+            newBalance: updatedSenderBal,
+            recipient: {
+                userId: receiverId,
+                mbsId: receiverMbsId,
+                name: receiverName
+            },
+            message: `৳${numAmount.toFixed(2)} BDT সফলভাবে ${receiverName} (${receiverMbsId})-এর অ্যাকাউন্টে ট্রান্সফার হয়েছে!`
+        });
+    } catch (e) {
+        console.error("Transfer money error:", e.message);
+        return res.status(400).json({ error: e.message });
+    } finally {
+        if (receiverLockId) releaseUserFinancialLock(receiverLockId);
+        releaseUserFinancialLock(senderId);
     }
 });
 
@@ -5180,18 +5715,37 @@ app.get('/api/transactions', async (req, res) => {
 
 app.post('/api/miniapp/save-wallet', async (req, res) => {
     try {
-        const { userId, method, number, name } = req.body;
+        const { userId, method, number, name } = req.body || {};
+        if (!userId) return res.status(400).json({ error: "User ID is required" });
+
+        if (!checkRateLimit(`save_wallet_${userId}`, 15, 60000)) {
+            return res.status(429).json({ error: "অতিরিক্ত চেষ্টার কারণে সাময়িক বিরতি। ১ মিনিট পর আবার চেষ্টা করুন।" });
+        }
+        if (!verifyRequestCallerIdentity(req, userId)) {
+            return res.status(403).json({ error: "অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)" });
+        }
+
+        const cleanMethod = String(method || 'bKash').trim() === 'Nagad' ? 'Nagad' : 'bKash';
+        let cleanNumber = String(number || '').trim().replace(/[\s\-]/g, '');
+        if (cleanNumber.startsWith('+880')) cleanNumber = '0' + cleanNumber.slice(4);
+        else if (cleanNumber.startsWith('880')) cleanNumber = '0' + cleanNumber.slice(3);
+
+        if (!/^01[3-9]\d{8}$/.test(cleanNumber)) {
+            return res.status(400).json({ error: "সঠিক ১১ ডিজিটের বিকাশ/নগদ মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)" });
+        }
+
+        const cleanName = escapeHtml(String(name || '').trim().slice(0, 60)) || 'Verified User';
         const devInfo = extractClientDevice(req, req.body);
         recordAndVerifyDeviceAntiClone(userId, devInfo).catch(() => {});
 
         await db.collection('users').doc(userId.toString()).set({
-            fiatWallet: { method, number: String(number || '').trim(), name }
+            fiatWallet: { method: cleanMethod, number: cleanNumber, name: cleanName }
         }, { merge: true });
 
         // Check if saving this wallet completes active referral requirements
         checkAndRewardReferral(userId).catch(err => console.warn("Wallet save referral check err:", err.message));
 
-        res.json({ success: true });
+        res.json({ success: true, fiatWallet: { method: cleanMethod, number: cleanNumber, name: cleanName } });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
@@ -5222,16 +5776,27 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         if (!Number.isFinite(amount) || amount <= 0) {
             throw new Error("সঠিক টাকার পরিমাণ দিন");
         }
-        if (amount > 50000) {
-            throw new Error("একবারে সর্বোচ্চ ৫০,০০০ টাকা উত্তোলন করা সম্ভব");
+        if (amount < 25) {
+            throw new Error("সর্বনিম্ন উত্তোলন ২৫ টাকা (Minimum withdraw is 25 BDT)");
+        }
+        if (amount > 5000) {
+            throw new Error("সর্বোচ্চ উত্তোলন ৫,০০০ টাকা! ৫,০০০ টাকার বেশি একসাথে উইথড্র দেওয়া যাবে না।");
         }
 
-        // 4. Mathematical Balance Provenance & Illegal Amount Audit
+        // 4. Mathematical Balance Provenance & Illegal Amount Audit (Sub-second parallel check)
         const audit = await auditBalanceProvenance(userId, amount, 'Fiat Withdrawal');
         if (!audit.ok) {
             throw new Error(audit.error);
         }
         const userData = audit.userData;
+
+        // 4.5 2-Step PIN Verification (if enabled by user)
+        if (userData.twoStepEnabled && userData.twoStepPinHash) {
+            const pinCheck = verifyUserTwoStepPin(userData, userId, req.body.twoStepPin);
+            if (!pinCheck.ok) {
+                throw new Error(pinCheck.error);
+            }
+        }
 
         // 5. Prevent stacking multiple pending withdrawals
         if (userData.fiatWithdrawPending && userData.fiatWithdrawPending.status === 'pending') {
@@ -5239,7 +5804,7 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         }
 
         if (!userData.fiatWallet || !userData.fiatWallet.number) {
-            throw new Error("Please set your withdrawal wallet number first");
+            throw new Error("অনুগ্রহ করে প্রথমে আপনার বিকাশ বা নগদ ওয়ালেট নাম্বার সেভ করুন।");
         }
 
         // Anti-Abuse Withdrawal System (Add Money vs Sell Crypto)
@@ -5248,14 +5813,6 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             (userData.hasDepositWithoutTrade === true) || 
             (userData.hasDepositWithoutTrade === undefined && (parseFloat(userData.totalAddMoneyBdt) > 0))
         );
-
-        // Minimum withdrawal: 30 TK for deposit users, 20 TK for crypto sellers
-        const minWithdrawAmount = isDepositUser ? 30 : 20;
-        if (amount < minWithdrawAmount) {
-            throw new Error(isDepositUser 
-                ? "অ্যাড মানি ব্যবহারকারীদের জন্য নূন্যতম উইথড্র ৩০ টাকা।" 
-                : "নূন্যতম উত্তোলন ২০ টাকা");
-        }
 
         // Trade requirement: Deposit users must spend at least 20 TK on buying crypto
         if (isDepositUser) {
@@ -5283,31 +5840,30 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             throw new Error(`Daily withdrawal limit (${dailyLimit}) reached. Try again tomorrow.`);
         }
 
+        // Strict Server-Side Send Money Fee Calculation (Never trust client fee/receiveAmount)
+        // 25-100 TK => 5 TK | 101-500 TK => 10 TK | 501-1000 TK => 15 TK | 1001-5000 TK => 20 TK
+        const calculateSendMoneyFee = (amt) => {
+            const a = parseFloat(amt) || 0;
+            if (a <= 0) return 0;
+            if (a <= 100) return 5;
+            if (a <= 500) return 10;
+            if (a <= 1000) return 15;
+            return 20;
+        };
+        const calcFee = calculateSendMoneyFee(amount);
+        const calcReceive = Number((amount - calcFee).toFixed(2));
+        if (calcReceive <= 0) {
+            throw new Error("সেন্ড মানি ফি বাদ দিলে প্রাপ্য টাকার পরিমাণ শূন্য বা কম হয়।");
+        }
+
         // Get serial number
         const globalRef = db.collection('settings').doc('global_stats');
         const globalDoc = await globalRef.get();
         let serialNum = (globalDoc.exists && globalDoc.data().totalWithdrawals) ? globalDoc.data().totalWithdrawals + 1 : 1;
-        await globalRef.set({ totalWithdrawals: serialNum }, { merge: true });
-        
-        // Increment daily count
-        await countRef.set({ withdrawals: todayCount + 1 }, { merge: true });
 
-        const calculateSendMoneyFee = (amt) => {
-            const a = parseFloat(amt) || 0;
-            if (a <= 0 || a <= 30) return 0; // 20 to 30 TK no fee
-            if (a >= 1500) return 30;
-            if (a > 1000) return 20;
-            if (a > 500) return 10;
-            if (a > 100) return 7;
-            return 5;
-        };
-        let calcFee = (fee !== undefined && fee !== null) ? parseFloat(fee) : calculateSendMoneyFee(amount);
-        if (parseFloat(amount) <= 30) {
-            calcFee = 0;
-        }
-        const calcReceive = parseFloat(amount) <= 30 ? parseFloat(amount) : (receiveAmount || (amount - calcFee));
+        const userRef = db.collection('users').doc(userId.toString());
+        const withdrawRef = db.collection('fiat_withdrawals').doc();
 
-        // Record withdrawal in dedicated fiat_withdrawals collection
         const withdrawDoc = {
             userId: parseInt(userId) || userId,
             serial: serialNum,
@@ -5322,18 +5878,35 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             name: userData.fiatWallet.name || userData.first_name || 'User'
         };
 
-        const withdrawRef = await db.collection('fiat_withdrawals').add(withdrawDoc);
-
-        // Deduct balance and update user fiatWithdrawPending with doc id
-        const userRef = db.collection('users').doc(userId.toString());
-        await userRef.update({
-            balance: FieldValue.increment(-amount),
-            fiatWithdrawPending: {
-                ...withdrawDoc,
-                id: withdrawRef.id,
-                timestamp: Date.now()
+        // ZERO-TRUST ATOMIC TRANSACTION: Verify fresh balance >= amount & deduct atomically
+        await db.runTransaction(async (t) => {
+            const freshUserSnap = await t.get(userRef);
+            if (!freshUserSnap.exists) {
+                throw new Error("User account not found");
             }
+            const freshUser = freshUserSnap.data() || {};
+            const freshBal = parseFloat(freshUser.balance) || 0;
+            if (freshBal < amount) {
+                throw new Error(`অপর্যাপ্ত ব্যালেন্স! আপনার বর্তমান ব্যালেন্স ৳${freshBal.toFixed(2)} BDT`);
+            }
+            if (freshUser.fiatWithdrawPending && freshUser.fiatWithdrawPending.status === 'pending') {
+                throw new Error("আপনার একটি উত্তোলন রিকোয়েস্ট ইতিমধ্যে পেন্ডিং রয়েছে।");
+            }
+            t.set(withdrawRef, withdrawDoc);
+            t.update(userRef, {
+                balance: Number((freshBal - amount).toFixed(2)),
+                fiatWithdrawPending: {
+                    ...withdrawDoc,
+                    id: withdrawRef.id,
+                    timestamp: Date.now()
+                }
+            });
         });
+
+        await Promise.all([
+            globalRef.set({ totalWithdrawals: serialNum }, { merge: true }),
+            countRef.set({ withdrawals: todayCount + 1 }, { merge: true })
+        ]);
         
         // Notify User in Telegram (Matches Shards Bot "Withdrawal Submitted!" screen)
         if (bot && userId) {
@@ -5376,7 +5949,7 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
 });
 
 // Admin Manual & Instant Treasury Swap Endpoint (USDT ⇄ GRAM/TON)
-app.post('/api/admin/swap-treasury', async (req, res) => {
+app.post('/api/admin/swap-treasury', requireAdminAuth, async (req, res) => {
     if (isAdminSwapInProgress) {
         return res.status(429).json({ error: 'একটি অন-চেইন সোয়াপ ইতিমধ্যে চলমান রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।' });
     }
@@ -5413,7 +5986,7 @@ app.post('/api/admin/swap-treasury', async (req, res) => {
     }
 });
 
-app.post('/api/withdraw', async (req, res) => {
+app.post('/api/withdraw', requireAdminAuth, async (req, res) => {
     try {
         const { amount, destination, network, asset } = req.body;
         const cleanNet = (network || 'TON').toUpperCase();
@@ -5496,7 +6069,7 @@ app.post('/api/withdraw', async (req, res) => {
     }
 });
 
-app.post('/api/approve-fraud', async (req, res) => {
+app.post('/api/approve-fraud', requireAdminAuth, async (req, res) => {
     try {
         const { docId, chatId } = req.body;
         
@@ -5533,9 +6106,19 @@ To receive your payout, please send your *TON Address* now:`;
 app.get('/api/settings', (req, res) => {
     try {
         const config = botConfig || {};
-        if (!config.adminBkash) config.adminBkash = '01752561935';
-        if (!config.adminNagad || config.adminNagad === '01878580320') config.adminNagad = '9856000927953436';
-        res.json(config);
+        const adminBkash = config.adminBkash || '01752561935';
+        const adminNagad = (!config.adminNagad || config.adminNagad === '01878580320') ? '9856000927953436' : config.adminNagad;
+        // Zero-Trust: Only return internal group IDs if caller has a valid Admin Bearer Token
+        if (verifyAdminToken(req)) {
+            return res.json({ ...config, adminBkash, adminNagad });
+        }
+        return res.json({
+            gramAmount: config.gramAmount || '0.07',
+            usdtAmount: config.usdtAmount || '0.05',
+            freeLink: config.freeLink || 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328',
+            adminBkash,
+            adminNagad
+        });
     } catch (e) {
         res.json({ gramAmount: '0.07', usdtAmount: '0.05', freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328', adminBkash: '01752561935', adminNagad: '9856000927953436' });
     }
@@ -5551,17 +6134,28 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে কয়েক সেকেন্ড অপেক্ষা করুন।' });
     }
 
+    // 1.5 Zero-Trust Caller Identity Verification
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+    }
+
     // 2. Concurrency Mutex Lock
     const hasLock = acquireUserFinancialLock(userId);
     if (!hasLock) {
         return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
     }
 
+    let claimedLockKey = null;
     try {
         trxId = normalizeTrxId(trxId);
         if (!trxId || trxId.length < 4) {
             return res.status(400).json({ error: 'সঠিক Transaction ID (TrxID) দিন' });
         }
+        if (inFlightTrxClaims.has(trxId)) {
+            return res.status(429).json({ error: 'এই Transaction ID টি বর্তমানে যাচাই করা হচ্ছে। অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।' });
+        }
+        inFlightTrxClaims.add(trxId);
+        claimedLockKey = trxId;
 
         amount = parseFloat(String(amount ?? '').replace(/,/g, '').trim());
         if (!Number.isFinite(amount) || amount <= 0) {
@@ -5706,6 +6300,7 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         console.error("Add money error:", e);
         res.status(500).json({ error: e.message });
     } finally {
+        if (claimedLockKey) inFlightTrxClaims.delete(claimedLockKey);
         releaseUserFinancialLock(userId);
     }
 });
@@ -5789,6 +6384,18 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         }
 
         const userData = userDoc.data() || {};
+
+        // 4.5 2-Step PIN Verification (if enabled by user)
+        if (userData.twoStepEnabled && userData.twoStepPinHash) {
+            const pinCheck = verifyUserTwoStepPin(userData, userId, req.body.twoStepPin);
+            if (!pinCheck.ok) {
+                return res.status(403).json({
+                    error: pinCheck.error,
+                    requireTwoStep: true
+                });
+            }
+        }
+
         const currentBalance = Number(userData.balance || 0);
         if (currentBalance < bdtAmount) {
             return res.status(400).json({ 
@@ -5861,8 +6468,18 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 });
             }
 
-            // Deduct user balance
-            await userRef.update(buyUpdates);
+            // ZERO-TRUST ATOMIC BALANCE DEDUCTION (Prevents race-condition double spending)
+            await db.runTransaction(async (t) => {
+                const freshSnap = await t.get(userRef);
+                const freshBal = parseFloat(freshSnap.data()?.balance) || 0;
+                if (freshBal < bdtAmount) {
+                    throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${freshBal.toFixed(2)} BDT`);
+                }
+                t.update(userRef, {
+                    ...buyUpdates,
+                    balance: Number((freshBal - bdtAmount).toFixed(2))
+                });
+            });
 
             // Broadcast TON on-chain transaction
             try {
@@ -5970,8 +6587,18 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 });
             }
 
-            // Deduct user balance
-            await userRef.update(buyUpdates);
+            // ZERO-TRUST ATOMIC BALANCE DEDUCTION (Prevents race-condition double spending)
+            await db.runTransaction(async (t) => {
+                const freshSnap = await t.get(userRef);
+                const freshBal = parseFloat(freshSnap.data()?.balance) || 0;
+                if (freshBal < bdtAmount) {
+                    throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${freshBal.toFixed(2)} BDT`);
+                }
+                t.update(userRef, {
+                    ...buyUpdates,
+                    balance: Number((freshBal - bdtAmount).toFixed(2))
+                });
+            });
 
             // Broadcast EVM Transfer
             try {
@@ -7503,7 +8130,7 @@ app.get('/invite/:referrerId', (req, res) => {
     res.send(html);
 });
 
-app.post('/api/admin/limits', async (req, res) => {
+app.post('/api/admin/limits', requireAdminAuth, async (req, res) => {
     try {
         const { limit } = req.body;
         await db.collection('settings').doc('limits').set({ dailyWithdrawLimit: parseInt(limit) }, { merge: true });
@@ -7513,7 +8140,7 @@ app.post('/api/admin/limits', async (req, res) => {
     }
 });
 
-app.get('/api/admin/limits', async (req, res) => {
+app.get('/api/admin/limits', requireAdminAuth, async (req, res) => {
     try {
         const doc = await db.collection('settings').doc('limits').get();
         res.json({ limit: doc.exists ? doc.data().dailyWithdrawLimit : 9999 });
@@ -7522,7 +8149,7 @@ app.get('/api/admin/limits', async (req, res) => {
     }
 });
 
-app.post('/api/admin/approve-withdraw', async (req, res) => {
+app.post('/api/admin/approve-withdraw', requireAdminAuth, async (req, res) => {
     try {
         const { userId, id, withdrawId } = req.body;
         const targetId = withdrawId || id;
@@ -7588,7 +8215,7 @@ app.post('/api/admin/approve-withdraw', async (req, res) => {
     }
 });
 
-app.post('/api/admin/reject-withdraw', async (req, res) => {
+app.post('/api/admin/reject-withdraw', requireAdminAuth, async (req, res) => {
     try {
         const { userId, id, withdrawId, reason, refundAmt: reqRefund } = req.body;
         const targetId = withdrawId || id;
@@ -7655,7 +8282,7 @@ app.post('/api/admin/reject-withdraw', async (req, res) => {
 
 
 
-app.post('/api/admin/create-mock-trx', async (req, res) => {
+app.post('/api/admin/create-mock-trx', requireAdminAuth, async (req, res) => {
     try {
         let { trxId, amount, method } = req.body;
         if (!trxId || !amount) return res.status(400).json({ error: "Missing TrxID or Amount" });
@@ -7760,7 +8387,7 @@ app.post('/api/admin/create-mock-trx', async (req, res) => {
     }
 });
 
-app.get('/api/admin/mock-trxs', async (req, res) => {
+app.get('/api/admin/mock-trxs', requireAdminAuth, async (req, res) => {
     let list = [...inMemoryMockTrxs];
     try {
         const snap = await db.collection('verified_trx').orderBy('timestamp', 'desc').limit(20).get();
@@ -8239,14 +8866,50 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
         
         const history = [];
 
-        // Parallelize all 5 Firestore queries for high-speed mobile data loading
-        const [buysRes, sellsRes, depRes, withRes, userDocRes] = await Promise.allSettled([
+        // Parallelize all Firestore queries for high-speed mobile data loading
+        const [buysRes, sellsRes, depRes, withRes, userDocRes, trfSentRes, trfRecvRes] = await Promise.allSettled([
             db.collection('miniapp_buys').where('userId', 'in', userIds).get(),
             db.collection('miniapp_sells').where('userId', 'in', userIds).get(),
             db.collection('deposits').where('userId', 'in', userIds).get(),
             db.collection('fiat_withdrawals').where('userId', 'in', userIds).get(),
-            db.collection('users').doc(strUserId).get()
+            db.collection('users').doc(strUserId).get(),
+            db.collection('p2p_transfers').where('senderId', '==', strUserId).get(),
+            db.collection('p2p_transfers').where('receiverId', '==', strUserId).get()
         ]);
+
+        // 0. P2P Money Transfers (Sent & Received)
+        if (trfSentRes.status === 'fulfilled' && trfSentRes.value) {
+            trfSentRes.value.forEach(doc => {
+                const data = doc.data();
+                history.push({
+                    id: doc.id,
+                    type: 'transfer_sent',
+                    asset: 'BDT',
+                    amount: data.amount,
+                    receiverName: data.receiverName,
+                    receiverMbsId: data.receiverMbsId,
+                    receiverId: data.receiverId,
+                    status: data.status || 'completed',
+                    timestamp: data.timestamp || data.createdAt || Date.now()
+                });
+            });
+        }
+        if (trfRecvRes.status === 'fulfilled' && trfRecvRes.value) {
+            trfRecvRes.value.forEach(doc => {
+                const data = doc.data();
+                history.push({
+                    id: doc.id,
+                    type: 'transfer_received',
+                    asset: 'BDT',
+                    amount: data.amount,
+                    senderName: data.senderName,
+                    senderMbsId: data.senderMbsId,
+                    senderId: data.senderId,
+                    status: data.status || 'completed',
+                    timestamp: data.timestamp || data.createdAt || Date.now()
+                });
+            });
+        }
 
         // 1. Miniapp Buys & Add Money
         if (buysRes.status === 'fulfilled' && buysRes.value) {
@@ -8386,17 +9049,28 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
 
 app.post('/api/miniapp/support', async (req, res) => {
     try {
-        const { userId, name, username, message } = req.body;
-        if (!message || !message.trim()) {
+        const { userId, name, username, category, subject, message, imageBase64 } = req.body || {};
+        if (!message || !String(message).trim()) {
             return res.status(400).json({ error: 'মেসেজ খালি হতে পারে না (Message cannot be empty)' });
         }
 
-        const trimmedMsg = message.trim();
+        if (userId && !checkRateLimit(`support_${userId}`, 8, 60000)) {
+            return res.status(429).json({ error: 'খুব বেশি মেসেজ পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+        }
+
+        const trimmedMsg = String(message).trim().slice(0, 1500);
+        const cleanCategory = String(category || 'Others').trim().slice(0, 50);
+        const cleanSubject = String(subject || `${cleanCategory} Support Request`).trim().slice(0, 120);
+        const hasImage = Boolean(imageBase64 && typeof imageBase64 === 'string' && imageBase64.startsWith('data:image/'));
+
         const ticketRef = await db.collection('support_tickets').add({
             userId: userId || 'Anonymous',
             name: name || 'User',
             username: username || '',
+            category: cleanCategory,
+            subject: cleanSubject,
             message: trimmedMsg,
+            hasAttachment: hasImage,
             status: 'open',
             timestamp: FieldValue.serverTimestamp()
         });
@@ -8404,19 +9078,54 @@ app.post('/api/miniapp/support', async (req, res) => {
         const config = botConfig || {};
         const supportGroup = config.supportGroupId || config.adminGroupId || 8799135330;
 
-        const safeMsg = trimmedMsg.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const safeName = escapeHtml(String(name || 'User'));
+        const safeUser = username ? '(@' + escapeHtml(String(username).replace('@', '')) + ')' : '';
+        const safeCategory = escapeHtml(cleanCategory);
+        const safeSubject = escapeHtml(cleanSubject);
+        const safeMsg = escapeHtml(trimmedMsg);
+
         const adminAlert = `<blockquote><b>🎧 নতুন কাস্টমার সাপোর্ট মেসেজ (Customer Support)</b>\n\n` +
-            `👤 <b>ইউজার:</b> <b>${name || 'User'}</b> ${username ? '(@' + username + ')' : ''}\n` +
+            `📂 <b>ক্যাটাগরি:</b> <code>${safeCategory}</code>\n` +
+            `📌 <b>বিষয় (Subject):</b> <b>${safeSubject}</b>\n` +
+            `👤 <b>ইউজার:</b> <b>${safeName}</b> ${safeUser}\n` +
             `🆔 <b>User ID:</b> <code>${userId || 'N/A'}</code>\n` +
             `🎫 <b>Ticket ID:</b> <code>${ticketRef.id}</code>\n\n` +
-            `💬 <b>মেসেজ / সমস্যা:</b>\n` +
+            `💬 <b>বিস্তারিত বিবরণ:</b>\n` +
             `${safeMsg}</blockquote>\n\n` +
             `<i>👉 ইউজারের কাছে উত্তর পাঠাতে সরাসরি এই মেসেজে রিপ্লাই (Reply) দিন।</i>`;
 
         if (bot) {
-            bot.sendMessage(supportGroup, adminAlert, { parse_mode: 'HTML' }).catch(err => {
-                console.error("Support Telegram alert error:", err.message);
-            });
+            if (hasImage) {
+                try {
+                    const b64Clean = imageBase64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
+                    const imgBuffer = Buffer.from(b64Clean, 'base64');
+                    const photoCaption = adminAlert.length <= 1020 ? adminAlert : (
+                        `<blockquote><b>🎧 নতুন কাস্টমার সাপোর্ট মেসেজ (Customer Support)</b>\n` +
+                        `📂 <b>ক্যাটাগরি:</b> <code>${safeCategory}</code>\n` +
+                        `📌 <b>Subject:</b> <b>${safeSubject}</b>\n` +
+                        `👤 <b>ইউজার:</b> <b>${safeName}</b> ${safeUser}\n` +
+                        `🆔 <b>User ID:</b> <code>${userId || 'N/A'}</code>\n` +
+                        `🎫 <b>Ticket ID:</b> <code>${ticketRef.id}</code>\n\n` +
+                        `💬 <b>বিবরণ:</b>\n${escapeHtml(trimmedMsg.slice(0, 420))}</blockquote>\n` +
+                        `<i>👉 উত্তর পাঠাতে এই মেসেজে Reply দিন।</i>`
+                    );
+                    await bot.sendPhoto(
+                        supportGroup,
+                        imgBuffer,
+                        { caption: photoCaption, parse_mode: 'HTML' },
+                        { filename: `support_${ticketRef.id}.jpg`, contentType: 'image/jpeg' }
+                    );
+                } catch (photoErr) {
+                    console.warn("Support photo send fallback to text:", photoErr.message);
+                    bot.sendMessage(supportGroup, adminAlert, { parse_mode: 'HTML' }).catch(err => {
+                        console.error("Support Telegram alert error:", err.message);
+                    });
+                }
+            } else {
+                bot.sendMessage(supportGroup, adminAlert, { parse_mode: 'HTML' }).catch(err => {
+                    console.error("Support Telegram alert error:", err.message);
+                });
+            }
         }
 
         res.json({ 
@@ -9023,15 +9732,14 @@ bot.onText(/\/wallet/, async (msg) => {
 
 const WITHDRAW_BOT_TOKEN = process.env.WITHDRAW_BOT_TOKEN || '8965853759:AAEqFkelaLFeJZVN7lwIOXUBE6YXcO-tkVk';
 
-// Fee calculator: <=30 BDT is 0 fee; >30 BDT uses tiered fee
+// Fee calculator: 25-100 TK = 5 TK | 101-500 TK = 10 TK | 501-1000 TK = 15 TK | 1001-5000 TK = 20 TK
 const calcWithdrawFee = (amt) => {
     const a = parseFloat(amt) || 0;
-    if (a <= 0 || a <= 30) return 0; // 20-30 BDT no fee (per user instruction)
-    if (a >= 1500) return 30;
-    if (a > 1000) return 20;
-    if (a > 500) return 10;
-    if (a > 100) return 7;
-    return 5;
+    if (a <= 0) return 0;
+    if (a <= 100) return 5;
+    if (a <= 500) return 10;
+    if (a <= 1000) return 15;
+    return 20;
 };
 
 // Format amount to avoid trailing .00 if integer
@@ -9102,8 +9810,8 @@ const fetchPendingWithdrawals = async () => {
             seenIds.add(id);
 
             const amount = parseFloat(d.amount) || 0;
-            const fee = amount <= 30 ? 0 : ((d.fee !== undefined && d.fee !== null) ? parseFloat(d.fee) : calcWithdrawFee(amount));
-            const receiveAmount = amount <= 30 ? amount : (d.receiveAmount ? parseFloat(d.receiveAmount) : (amount - fee));
+            const fee = (d.fee !== undefined && d.fee !== null && parseFloat(d.fee) > 0) ? parseFloat(d.fee) : calcWithdrawFee(amount);
+            const receiveAmount = (d.receiveAmount && parseFloat(d.receiveAmount) < amount) ? parseFloat(d.receiveAmount) : Math.max(0, amount - fee);
 
             results.push({
                 docId: id,
@@ -9135,8 +9843,8 @@ const fetchPendingWithdrawals = async () => {
             seenIds.add(pendId);
 
             const amount = parseFloat(p.amount) || 0;
-            const fee = amount <= 30 ? 0 : ((p.fee !== undefined && p.fee !== null) ? parseFloat(p.fee) : calcWithdrawFee(amount));
-            const receiveAmount = amount <= 30 ? amount : (p.receiveAmount ? parseFloat(p.receiveAmount) : (amount - fee));
+            const fee = (p.fee !== undefined && p.fee !== null && parseFloat(p.fee) > 0) ? parseFloat(p.fee) : calcWithdrawFee(amount);
+            const receiveAmount = (p.receiveAmount && parseFloat(p.receiveAmount) < amount) ? parseFloat(p.receiveAmount) : Math.max(0, amount - fee);
 
             results.push({
                 docId: pendId,

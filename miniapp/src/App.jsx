@@ -4,7 +4,7 @@ import { Home, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, Arrow
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchSpinStatus, executeSpin, watchSpinAd, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchSpinStatus, executeSpin, watchSpinAd, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, setupTwoStepPin, lookupRecipientUser, submitTransferMoney } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/referral-banner.jpg';
@@ -17,6 +17,121 @@ import wisteriaCascadeArt from './assets/wisteria-cascade-art.webp';
 import roseBotanicalArt from './assets/rose-botanical-art.webp';
 
 const stickerJsonCache = new Map();
+
+// ============================================================================
+// APP-WIDE FINTECH SOUND SYSTEM (Web Audio API — Zero Latency, No External MP3)
+// Plays pleasant celebratory chimes on Success and distinct alert tones on Error
+// ============================================================================
+let sharedAudioCtx = null;
+function getAppAudioContext() {
+  if (typeof window === 'undefined') return null;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return null;
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    sharedAudioCtx = new AudioCtx();
+  }
+  if (sharedAudioCtx.state === 'suspended') {
+    sharedAudioCtx.resume().catch(() => {});
+  }
+  return sharedAudioCtx;
+}
+
+function playAppSound(type = 'success') {
+  try {
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      if (type === 'success') {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+      } else if (type === 'error') {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+      } else {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+      }
+    }
+  } catch (_) {}
+
+  try {
+    const ctx = getAppAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    if (type === 'success') {
+      // Pleasant ascending Apple-Pay / Fintech major arpeggio (C5 -> E5 -> G5 -> C6)
+      const notes = [
+        { freq: 523.25, start: 0.0, dur: 0.14, gain: 0.14 },
+        { freq: 659.25, start: 0.07, dur: 0.15, gain: 0.15 },
+        { freq: 783.99, start: 0.14, dur: 0.18, gain: 0.16 },
+        { freq: 1046.50, start: 0.22, dur: 0.38, gain: 0.18 }
+      ];
+      notes.forEach(({ freq, start, dur, gain }) => {
+        const osc = ctx.createOscillator();
+        const subOsc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + start);
+
+        subOsc.type = 'triangle';
+        subOsc.frequency.setValueAtTime(freq * 1.5, now + start);
+
+        gainNode.gain.setValueAtTime(0.0001, now + start);
+        gainNode.gain.exponentialRampToValueAtTime(gain, now + start + 0.018);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+
+        osc.connect(gainNode);
+        subOsc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        osc.start(now + start);
+        subOsc.start(now + start);
+        osc.stop(now + start + dur + 0.02);
+        subOsc.stop(now + start + dur + 0.02);
+      });
+    } else if (type === 'error') {
+      // Distinct, soft descending double-tone alert (330Hz -> 220Hz)
+      const errNotes = [
+        { freq: 330.0, endFreq: 290.0, start: 0.0, dur: 0.15, gain: 0.16 },
+        { freq: 240.0, endFreq: 185.0, start: 0.16, dur: 0.26, gain: 0.18 }
+      ];
+      errNotes.forEach(({ freq, endFreq, start, dur, gain }) => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + start);
+        osc.frequency.linearRampToValueAtTime(endFreq, now + start + dur);
+
+        gainNode.gain.setValueAtTime(0.0001, now + start);
+        gainNode.gain.exponentialRampToValueAtTime(gain, now + start + 0.015);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        osc.start(now + start);
+        osc.stop(now + start + dur + 0.02);
+      });
+    } else if (type === 'confirm') {
+      // Subtle 2-note confirmation prompt chime
+      const promptNotes = [
+        { freq: 587.33, start: 0.0, dur: 0.09, gain: 0.1 },
+        { freq: 880.0, start: 0.07, dur: 0.16, gain: 0.12 }
+      ];
+      promptNotes.forEach(({ freq, start, dur, gain }) => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + start);
+        gainNode.gain.setValueAtTime(0.0001, now + start);
+        gainNode.gain.exponentialRampToValueAtTime(gain, now + start + 0.012);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.start(now + start);
+        osc.stop(now + start + dur + 0.02);
+      });
+    }
+  } catch (_) {}
+}
 
 const CrescentMoonIcon = ({ size = 18, isDark = false, className = '' }) => (
   <svg
@@ -577,19 +692,77 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
     )}
     {page === 'referral' && (
       <>
-        <div className={`absolute inset-0 ${darkMode ? 'bg-gradient-to-b from-rose-950/35 via-fuchsia-950/15 to-transparent' : 'bg-gradient-to-b from-rose-50/50 via-pink-50/20 to-transparent'}`} />
-        <div className="absolute -top-10 -right-10 w-80 h-80 text-rose-600 opacity-[0.075] tp-bg-flower-referral transform rotate-12">
-          <ReferralRosePattern className="w-full h-full opacity-100" />
+        {/* Soft rose botanical aura */}
+        <div
+          className="absolute -top-12 -right-12 w-[330px] h-[350px] pointer-events-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(closest-side, rgba(244,63,94,0.22), rgba(168,85,247,0.12) 60%, transparent)'
+              : 'radial-gradient(closest-side, rgba(254,205,211,0.75), rgba(252,231,243,0.35) 60%, transparent)'
+          }}
+        />
+        {/* User's custom botanical flower art in top-right */}
+        <div
+          className="absolute -right-3 top-2 w-[230px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+            maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
+          }}
+        >
+          <img
+            src={roseBotanicalArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.48] brightness-125' : 'opacity-[0.88]'}`}
+          />
         </div>
-        <div className="absolute top-1/3 -left-16 w-72 h-72 text-rose-500 opacity-[0.055] tp-bg-flower-referral transform -rotate-25">
-          <ReferralRosePattern className="w-full h-full opacity-100" />
-        </div>
-        <div className="absolute bottom-10 -right-12 w-80 h-80 text-rose-700 opacity-[0.065] tp-bg-flower-referral transform rotate-30">
-          <ReferralRosePattern className="w-full h-full opacity-100" />
+        {/* User's custom rose branch art in lower-left */}
+        <div
+          className="absolute -left-6 bottom-24 w-[190px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to top, black 75%, transparent 100%)',
+            maskImage: 'linear-gradient(to top, black 75%, transparent 100%)'
+          }}
+        >
+          <img
+            src={roseBranchArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto transform -scale-x-100 ${darkMode ? 'opacity-[0.32] brightness-125' : 'opacity-[0.65]'}`}
+          />
         </div>
       </>
     )}
-    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'buy' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && page !== 'notifications' && (
+    {(page === 'transfer' || page === 'two-step') && (
+      <>
+        <div
+          className="absolute -top-12 -right-12 w-[330px] h-[350px] pointer-events-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(closest-side, rgba(168,85,247,0.24), transparent)'
+              : 'radial-gradient(closest-side, rgba(233,213,255,0.78), rgba(243,232,255,0.32) 60%, transparent)'
+          }}
+        />
+        <div
+          className="absolute -right-3 top-2 w-[225px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+            maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
+          }}
+        >
+          <img
+            src={page === 'transfer' ? wisteriaCascadeArt : sakuraBranchArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.46] brightness-125' : 'opacity-[0.86]'}`}
+          />
+        </div>
+      </>
+    )}
+    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'buy' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && page !== 'notifications' && page !== 'transfer' && page !== 'two-step' && (
       <>
         <div
           className="absolute -top-12 -right-12 w-80 h-80 pointer-events-none"
@@ -882,12 +1055,11 @@ const CutCornerButton = ({
 
 const calculateSendMoneyFee = (amt) => {
   const a = parseFloat(amt) || 0;
-  if (a <= 0 || a <= 30) return 0; // 20-30 BDT no fee
-  if (a >= 1500) return 30;
-  if (a > 1000) return 20;
-  if (a > 500) return 10;
-  if (a > 100) return 7;
-  return 5;
+  if (a <= 0) return 0;
+  if (a <= 100) return 5;   // 25 - 100 TK: 5 TK fee
+  if (a <= 500) return 10;  // 101 - 500 TK: 10 TK fee
+  if (a <= 1000) return 15; // 501 - 1000 TK: 15 TK fee
+  return 20;                // 1001 - 5000 TK: 20 TK fee
 };
 
 
@@ -1754,6 +1926,24 @@ const transformTxToNotification = (tx, lang = 'bn') => {
         : `Order completed! ${cAmt} ${asset} transferred to your wallet.`;
       amount = `-৳${bdt}`;
     }
+  } else if (type === 'transfer_sent') {
+    category = 'trade';
+    variant = 'success';
+    const amt = tx.amount || 0;
+    title = lang === 'bn' ? 'মানি ট্রান্সফার সফল' : 'Money Transferred';
+    body = lang === 'bn'
+      ? `৳${amt} পাঠানো হয়েছে: ${tx.counterpartyName || 'User'} (${tx.counterpartyMbsId || ''})`
+      : `Sent ৳${amt} to ${tx.counterpartyName || 'User'} (${tx.counterpartyMbsId || ''})`;
+    amount = `-৳${amt}`;
+  } else if (type === 'transfer_received') {
+    category = 'deposit';
+    variant = 'success';
+    const amt = tx.amount || 0;
+    title = lang === 'bn' ? 'মানি ট্রান্সফার রিসিভড' : 'Money Received';
+    body = lang === 'bn'
+      ? `+৳${amt} গ্রহণ করেছেন: ${tx.counterpartyName || 'User'} (${tx.counterpartyMbsId || ''})`
+      : `Received +৳${amt} from ${tx.counterpartyName || 'User'} (${tx.counterpartyMbsId || ''})`;
+    amount = `+৳${amt}`;
   } else {
     category = 'system';
     variant = 'info';
@@ -1764,6 +1954,1114 @@ const transformTxToNotification = (tx, lang = 'bn') => {
 
   return { id, type, status, isCompleted, isRejected, ts, title, body, amount, category, variant };
 };
+
+// ============================================================================
+// TELEGRAM USER AVATAR BOX WITH LIVE PROXY & INITIAL FALLBACK
+// ============================================================================
+function UserAvatarBox({ userId, photoUrl, name = 'U', sizeClass = 'w-13 h-13 rounded-2xl text-xl' }) {
+  const [imgIndex, setImgIndex] = useState(0);
+  const proxyUrl = (userId && Number(userId) !== 123456789) ? getUserAvatarUrl(userId) : '';
+  const candidates = [proxyUrl, photoUrl].filter(Boolean);
+  const activeSrc = candidates[imgIndex] || '';
+  const initial = (name || 'U').trim().charAt(0).toUpperCase() || 'U';
+
+  useEffect(() => {
+    setImgIndex(0);
+  }, [userId, photoUrl]);
+
+  return (
+    <div className={`${sizeClass} bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 text-white font-black flex items-center justify-center shadow-md shadow-purple-600/25 shrink-0 select-none overflow-hidden relative`}>
+      {activeSrc ? (
+        <img
+          src={activeSrc}
+          alt={name || 'User'}
+          className="w-full h-full object-cover"
+          onError={() => setImgIndex(prev => prev + 1)}
+        />
+      ) : (
+        <span>{initial}</span>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// CUSTOM BOT NUMBER KEYPAD & 2-STEP PIN INPUT SYSTEM
+// ============================================================================
+function BotNumberKeypad({ pin = '', maxLength = 4, onChangePin, disabled = false, darkMode = false, lang = 'bn' }) {
+  const handlePressDigit = (digit) => {
+    if (disabled) return;
+    if (pin.length >= maxLength) return;
+    try {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+      }
+    } catch (_) {}
+    onChangePin(pin + String(digit));
+  };
+
+  const handleBackspace = () => {
+    if (disabled || !pin.length) return;
+    try {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.selectionChanged();
+      }
+    } catch (_) {}
+    onChangePin(pin.slice(0, -1));
+  };
+
+  const handleClear = () => {
+    if (disabled || !pin.length) return;
+    try {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.selectionChanged();
+      }
+    } catch (_) {}
+    onChangePin('');
+  };
+
+  const slots = Array.from({ length: maxLength });
+
+  return (
+    <div className="space-y-3.5 select-none">
+      {/* PIN Visual Dots / Digit Boxes */}
+      <div className="flex items-center justify-center gap-2 sm:gap-2.5 py-1">
+        {slots.map((_, idx) => {
+          const isFilled = idx < pin.length;
+          const isCurrent = idx === pin.length;
+          return (
+            <div
+              key={idx}
+              className={`h-12 ${maxLength === 6 ? 'w-10 sm:w-11' : 'w-12 sm:w-13'} rounded-2xl border-2 flex items-center justify-center font-mono font-black text-lg transition-all duration-150 ${
+                isFilled
+                  ? 'border-purple-600 bg-purple-500/15 text-purple-600 dark:text-purple-300 shadow-xs scale-[1.02]'
+                  : isCurrent
+                  ? 'border-indigo-500 bg-white dark:bg-slate-800 ring-3 ring-indigo-500/15'
+                  : darkMode
+                  ? 'border-slate-700 bg-slate-800/60 text-slate-500'
+                  : 'border-slate-200 bg-slate-50 text-slate-400'
+              }`}
+            >
+              {isFilled ? (
+                <span className="w-3 h-3 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-500 animate-in zoom-in-75 duration-150 block" />
+              ) : isCurrent ? (
+                <span className="w-0.5 h-5 bg-indigo-500 animate-pulse rounded-full block" />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Custom In-App Bot Number Keypad */}
+      <div className={`p-2.5 rounded-3xl border grid grid-cols-3 gap-2 ${
+        darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-100/80 border-slate-200/80'
+      }`}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+          <button
+            key={num}
+            type="button"
+            disabled={disabled}
+            onClick={() => handlePressDigit(num)}
+            className={`h-12 rounded-2xl font-mono font-black text-lg flex items-center justify-center border transition-all active:scale-95 cursor-pointer shadow-2xs ${
+              darkMode
+                ? 'bg-slate-900 border-slate-800 text-white hover:bg-slate-800 active:bg-purple-950/60'
+                : 'bg-white border-slate-200/90 text-slate-900 hover:bg-indigo-50/50 active:bg-indigo-100'
+            }`}
+          >
+            {num}
+          </button>
+        ))}
+
+        {/* Clear Button */}
+        <button
+          type="button"
+          disabled={disabled || !pin.length}
+          onClick={handleClear}
+          className={`h-12 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center justify-center border transition-all active:scale-95 cursor-pointer ${
+            darkMode
+              ? 'bg-rose-950/30 border-rose-900/40 text-rose-400 hover:bg-rose-950/50 disabled:opacity-40'
+              : 'bg-rose-50 border-rose-200/70 text-rose-600 hover:bg-rose-100 disabled:opacity-40'
+          }`}
+        >
+          {lang === 'bn' ? 'মুছুন' : 'CLR'}
+        </button>
+
+        {/* Digit 0 */}
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => handlePressDigit(0)}
+          className={`h-12 rounded-2xl font-mono font-black text-lg flex items-center justify-center border transition-all active:scale-95 cursor-pointer shadow-2xs ${
+            darkMode
+              ? 'bg-slate-900 border-slate-800 text-white hover:bg-slate-800 active:bg-purple-950/60'
+              : 'bg-white border-slate-200/90 text-slate-900 hover:bg-indigo-50/50 active:bg-indigo-100'
+          }`}
+        >
+          0
+        </button>
+
+        {/* Backspace Button */}
+        <button
+          type="button"
+          disabled={disabled || !pin.length}
+          onClick={handleBackspace}
+          className={`h-12 rounded-2xl font-black text-sm flex items-center justify-center border transition-all active:scale-95 cursor-pointer ${
+            darkMode
+              ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 disabled:opacity-40'
+              : 'bg-slate-200/80 border-slate-300/80 text-slate-700 hover:bg-slate-300/80 disabled:opacity-40'
+          }`}
+        >
+          <Delete size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// REUSABLE 2-STEP PIN VERIFICATION MODAL (FOR BUY, WITHDRAW & TRANSFER)
+// ============================================================================
+function TwoStepPinModal({
+  isOpen,
+  onClose,
+  onConfirmPin,
+  pinLength = 4,
+  isSubmitting = false,
+  errorText = '',
+  titleBn = '২-স্টেপ পিন ভেরিফিকেশন',
+  titleEn = '2-Step PIN Verification',
+  subtitleBn = 'লেনদেনটি সম্পন্ন করতে আপনার গোপন পিন কোড দিন',
+  subtitleEn = 'Enter your security PIN to authorize this transaction',
+  darkMode = false,
+  lang = 'bn'
+}) {
+  const [pin, setPin] = useState('');
+  const [activeLen, setActiveLen] = useState(pinLength === 6 ? 6 : 4);
+
+  useEffect(() => {
+    if (isOpen) {
+      setPin('');
+      setActiveLen(pinLength === 6 ? 6 : 4);
+    }
+  }, [isOpen, pinLength]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className={`relative w-full max-w-[355px] p-5 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 duration-200 overflow-hidden ${
+        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        {/* Subtle floral art in modal corner */}
+        <div className="absolute -right-3 -top-3 w-28 h-28 pointer-events-none select-none opacity-35 overflow-hidden">
+          <img src={sakuraBranchArt} alt="" className="w-full h-auto object-contain" />
+        </div>
+
+        {/* Header */}
+        <div className="relative z-10 flex items-start justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <h3 className="text-[15px] font-black leading-tight text-slate-900 dark:text-white">
+                {lang === 'bn' ? titleBn : titleEn}
+              </h3>
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5 leading-snug">
+                {lang === 'bn' ? subtitleBn : subtitleEn}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center active:scale-90 transition-all cursor-pointer shrink-0"
+          >
+            <X size={15} strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* 4 Digit / 6 Digit Selector Tabs above input */}
+        <div className="relative z-10 flex bg-slate-100 dark:bg-slate-800/90 p-1 rounded-2xl gap-1 border border-slate-200/80 dark:border-slate-700/80 mb-2">
+          {[4, 6].map((len) => (
+            <button
+              key={len}
+              type="button"
+              onClick={() => {
+                setActiveLen(len);
+                setPin('');
+              }}
+              className={`flex-1 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeLen === len
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+              }`}
+            >
+              {len} Digit ({len} সংখ্যা)
+            </button>
+          ))}
+        </div>
+
+        {/* Bot Number Keypad */}
+        <div className="relative z-10">
+          <BotNumberKeypad
+            pin={pin}
+            maxLength={activeLen}
+            onChangePin={setPin}
+            disabled={isSubmitting}
+            darkMode={darkMode}
+            lang={lang}
+          />
+        </div>
+
+        {errorText && (
+          <div className="mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 flex items-center gap-2 text-[11px] font-bold text-rose-600 dark:text-rose-300">
+            <AlertCircle size={14} className="shrink-0" />
+            <span>{errorText}</span>
+          </div>
+        )}
+
+        {/* Submit Button */}
+        <button
+          type="button"
+          disabled={isSubmitting || pin.length !== activeLen}
+          onClick={() => onConfirmPin(pin)}
+          className="mt-3.5 w-full h-[48px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_14px_rgba(124,58,237,0.35)] hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 size={17} className="animate-spin" />
+              <span>{lang === 'bn' ? 'যাচাই করা হচ্ছে...' : 'Verifying...'}</span>
+            </>
+          ) : (
+            <>
+              <ShieldCheck size={17} />
+              <span>{lang === 'bn' ? 'পিন কনফার্ম করুন' : 'Confirm PIN'}</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// DEDICATED 2-STEP SECURITY SETTINGS PAGE (OPENED FROM PROFILE)
+// ============================================================================
+function TwoStepPage({
+  user,
+  twoStepEnabled = false,
+  twoStepLength = 4,
+  onUpdateTwoStepState,
+  onBack,
+  darkMode = false,
+  lang = 'bn'
+}) {
+  const [toggleOn, setToggleOn] = useState(Boolean(twoStepEnabled));
+  const [pinLength, setPinLength] = useState(twoStepLength === 6 ? 6 : 4);
+  const [pin, setPin] = useState('');
+  const [currentPinForDisable, setCurrentPinForDisable] = useState('');
+  const [mode, setMode] = useState(twoStepEnabled ? 'IdleEnabled' : 'IdleDisabled'); // 'IdleDisabled' | 'SettingPin' | 'IdleEnabled' | 'DisablingPin'
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  useEffect(() => {
+    setToggleOn(Boolean(twoStepEnabled));
+    setPinLength(twoStepLength === 6 ? 6 : 4);
+    setMode(twoStepEnabled ? 'IdleEnabled' : 'IdleDisabled');
+    setPin('');
+    setCurrentPinForDisable('');
+  }, [twoStepEnabled, twoStepLength]);
+
+  const handleToggleClick = () => {
+    playAppSound('confirm');
+    setFeedback(null);
+    if (!twoStepEnabled) {
+      // Currently OFF -> user wants to turn ON
+      if (mode === 'SettingPin') {
+        setToggleOn(false);
+        setMode('IdleDisabled');
+        setPin('');
+      } else {
+        setToggleOn(true);
+        setMode('SettingPin');
+        setPin('');
+      }
+    } else {
+      // Currently ON -> user wants to turn OFF (requires current PIN verification)
+      if (mode === 'DisablingPin') {
+        setToggleOn(true);
+        setMode('IdleEnabled');
+        setCurrentPinForDisable('');
+      } else {
+        setToggleOn(false);
+        setMode('DisablingPin');
+        setCurrentPinForDisable('');
+      }
+    }
+  };
+
+  const handleSavePin = async () => {
+    if (pin.length !== pinLength) return;
+    setLoading(true);
+    setFeedback(null);
+    try {
+      const res = await setupTwoStepPin({
+        userId: user?.id || 123456789,
+        action: 'enable',
+        pin
+      });
+      if (res?.success) {
+        playAppSound('success');
+        if (onUpdateTwoStepState) onUpdateTwoStepState(true, pinLength);
+        setMode('IdleEnabled');
+        setPin('');
+        setFeedback({
+          type: 'success',
+          text: lang === 'bn'
+            ? `✅ আপনার ${pinLength} ডিজিটের ২-স্টেপ সিকিউরিটি পাসওয়ার্ড সফলভাবে চালু হয়েছে!`
+            : `✅ Your ${pinLength}-digit 2-Step Security PIN is now active!`
+        });
+      }
+    } catch (e) {
+      playAppSound('error');
+      setFeedback({
+        type: 'error',
+        text: e.message || (lang === 'bn' ? 'পিন সেট করতে সমস্যা হয়েছে' : 'Failed to set PIN')
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisablePin = async () => {
+    if (currentPinForDisable.length !== pinLength) return;
+    setLoading(true);
+    setFeedback(null);
+    try {
+      const res = await setupTwoStepPin({
+        userId: user?.id || 123456789,
+        action: 'disable',
+        currentPin: currentPinForDisable
+      });
+      if (res?.success) {
+        playAppSound('success');
+        if (onUpdateTwoStepState) onUpdateTwoStepState(false, 4);
+        setMode('IdleDisabled');
+        setCurrentPinForDisable('');
+        setFeedback({
+          type: 'success',
+          text: lang === 'bn'
+            ? '২-স্টেপ ভেরিফিকেশন বন্ধ করা হয়েছে।'
+            : '2-Step verification has been turned off.'
+        });
+      }
+    } catch (e) {
+      playAppSound('error');
+      setFeedback({
+        type: 'error',
+        text: e.message || (lang === 'bn' ? 'ভুল পিন কোড দিয়েছেন!' : 'Incorrect PIN!')
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-28 relative">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-9 h-9 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
+          >
+            <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
+          </button>
+          <div>
+            <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">
+              {lang === 'bn' ? '২-স্টেপ ভেরিফিকেশন' : '2-Step Verification'}
+            </h2>
+            <p className="text-[11px] text-slate-400 font-medium">
+              {lang === 'bn' ? 'অ্যাকাউন্ট ও ব্যালেন্সের সর্বোচ্চ নিরাপত্তা' : 'Maximum account & balance protection'}
+            </p>
+          </div>
+        </div>
+        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+          twoStepEnabled
+            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+        }`}>
+          {twoStepEnabled ? (lang === 'bn' ? '✓ চালু আছে' : '✓ ACTIVE') : (lang === 'bn' ? 'বন্ধ আছে' : 'OFF')}
+        </span>
+      </div>
+
+      {/* Top Explanation & Details Banner with Flower Art */}
+      <div className={`p-4 rounded-3xl border shadow-xs relative overflow-hidden ${
+        darkMode ? 'bg-slate-900/95 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        <div className="absolute -right-2 -top-2 w-28 h-28 pointer-events-none select-none opacity-45 overflow-hidden">
+          <img src={roseBotanicalArt} alt="" className="w-full h-auto object-contain" />
+        </div>
+
+        <div className="relative z-10 space-y-2.5">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase tracking-wider">
+            <ShieldCheck size={12} />
+            <span>{lang === 'bn' ? '২-স্টেপের কাজ কী?' : 'How 2-Step Protects You'}</span>
+          </div>
+
+          <h3 className="text-sm font-black leading-snug text-slate-900 dark:text-white">
+            {lang === 'bn'
+              ? 'আপনার গোপন পিন ছাড়া কেউ টাকা তুলতে বা ট্রান্সফার করতে পারবে না!'
+              : 'Nobody can withdraw, buy crypto, or transfer money without your secret PIN!'}
+          </h3>
+
+          <div className="space-y-1.5 text-[11.5px] text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+              <span>{lang === 'bn' ? '১. ক্রিপ্টো বাই (Crypto Buy) করার সময় পিন লাগবে।' : '1. Required when buying crypto (GRAM / USDT).'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+              <span>{lang === 'bn' ? '২. টাকা উত্তোলন (Withdraw Funds) করার সময় পিন লাগবে।' : '2. Required when withdrawing funds to bKash/Nagad.'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+              <span>{lang === 'bn' ? '৩. অন্য আইডিতে টাকা ট্রান্সফার (Transfer Money) করতে পিন লাগবে।' : '3. Required for Transfer Money to another user.'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Toggle Switch Card */}
+      <div className={`p-4 rounded-3xl border shadow-xs transition-all ${
+        darkMode ? 'bg-slate-900/95 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center border shrink-0 ${
+              toggleOn
+                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500'
+                : 'bg-purple-500/15 border-purple-500/30 text-purple-600 dark:text-purple-400'
+            }`}>
+              <Shield size={21} />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                {lang === 'bn' ? '২-স্টেপ পাসওয়ার্ড টগল' : 'Enable 2-Step Password'}
+              </h4>
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                {toggleOn
+                  ? (lang === 'bn' ? 'সিকিউরিটি পাসওয়ার্ড সক্রিয়' : 'Security password enabled')
+                  : (lang === 'bn' ? 'টগলটি অন করে ৪ বা ৬ ডিজিট পিন দিন' : 'Turn on toggle to set a 4 or 6 digit PIN')}
+              </p>
+            </div>
+          </div>
+
+          {/* Smooth Toggle Switch */}
+          <button
+            type="button"
+            onClick={handleToggleClick}
+            className={`w-14 h-8 rounded-full p-1 transition-all duration-300 cursor-pointer flex items-center shrink-0 ${
+              toggleOn
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 justify-end shadow-[0_0_14px_rgba(16,185,129,0.4)]'
+                : 'bg-slate-300 dark:bg-slate-700 justify-start'
+            }`}
+          >
+            <div className="w-6 h-6 rounded-full bg-white shadow-md transition-transform" />
+          </button>
+        </div>
+
+        {/* Feedback Alert */}
+        {feedback && (
+          <div className={`mt-3 p-3 rounded-2xl border flex items-center gap-2 text-xs font-bold animate-in fade-in ${
+            feedback.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300'
+              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300'
+          }`}>
+            {feedback.type === 'success' ? <CheckCircle2 size={16} className="shrink-0" /> : <AlertCircle size={16} className="shrink-0" />}
+            <span>{feedback.text}</span>
+          </div>
+        )}
+
+        {/* EXPANDABLE PIN SETUP BOX & BOT NUMBER KEYPAD BELOW TOGGLE */}
+        {mode === 'SettingPin' && (
+          <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-3.5 animate-in slide-in-from-top-3 duration-200">
+            <div className="text-center">
+              <p className="text-xs font-black text-purple-600 dark:text-purple-400">
+                {lang === 'bn'
+                  ? 'পাসওয়ার্ডের ধরন নির্বাচন করুন (4 Digit অথবা 6 Digit)'
+                  : 'Select Password Length (4 Digit or 6 Digit)'}
+              </p>
+            </div>
+
+            {/* 4 Digit & 6 Digit Tabs right above the input box */}
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl gap-1.5 border border-slate-200/80 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => {
+                  setPinLength(4);
+                  setPin('');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  pinLength === 4
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white/50'
+                }`}
+              >
+                4 Digit (৪ সংখ্যা)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPinLength(6);
+                  setPin('');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  pinLength === 6
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-white/50'
+                }`}
+              >
+                6 Digit (৬ সংখ্যা)
+              </button>
+            </div>
+
+            {/* Custom Bot Number Keypad */}
+            <BotNumberKeypad
+              pin={pin}
+              maxLength={pinLength}
+              onChangePin={setPin}
+              disabled={loading}
+              darkMode={darkMode}
+              lang={lang}
+            />
+
+            <button
+              type="button"
+              disabled={loading || pin.length !== pinLength}
+              onClick={handleSavePin}
+              className="w-full h-[50px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.35)] hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>{lang === 'bn' ? 'সেভ হচ্ছে...' : 'Saving...'}</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={18} />
+                  <span>{lang === 'bn' ? `${pinLength} ডিজিট পিন সেভ করুন` : `Save ${pinLength}-Digit PIN`}</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* DISABLING PIN VERIFICATION */}
+        {mode === 'DisablingPin' && (
+          <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-3.5 animate-in slide-in-from-top-3 duration-200">
+            <div className="text-center">
+              <p className="text-xs font-black text-rose-600 dark:text-rose-400">
+                {lang === 'bn'
+                  ? `২-স্টেপ বন্ধ করতে আপনার বর্তমান ${pinLength} ডিজিট পিন দিন`
+                  : `Enter your current ${pinLength}-digit PIN to turn off 2-Step`}
+              </p>
+            </div>
+
+            <BotNumberKeypad
+              pin={currentPinForDisable}
+              maxLength={pinLength}
+              onChangePin={setCurrentPinForDisable}
+              disabled={loading}
+              darkMode={darkMode}
+              lang={lang}
+            />
+
+            <button
+              type="button"
+              disabled={loading || currentPinForDisable.length !== pinLength}
+              onClick={handleDisablePin}
+              className="w-full h-[50px] rounded-2xl bg-gradient-to-r from-rose-600 to-pink-600 text-white font-black text-sm shadow-md hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <Shield size={18} />}
+              <span>{lang === 'bn' ? '২-স্টেপ বন্ধ নিশ্চিত করুন' : 'Confirm Turn Off'}</span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// TRANSFER MONEY PAGE (P2P INSTANT SAFE BALANCE TRANSFER WITH FLOWER ART)
+// ============================================================================
+function TransferMoneyPage({
+  user,
+  balance = 0,
+  twoStepEnabled = false,
+  twoStepLength = 4,
+  onGoToTwoStep,
+  onBack,
+  reloadData,
+  darkMode = false,
+  lang = 'bn'
+}) {
+  const [recipientQuery, setRecipientQuery] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [recipientInfo, setRecipientInfo] = useState(null);
+  const [lookupError, setLookupError] = useState('');
+  const [amount, setAmount] = useState('');
+  const [pastedFeedback, setPastedFeedback] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinError, setPinError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [transferSuccessData, setTransferSuccessData] = useState(null);
+
+  // Instant debounced lookup when user pastes or types an ID
+  useEffect(() => {
+    const clean = recipientQuery.trim();
+    if (clean.length < 3) {
+      setRecipientInfo(null);
+      setLookupError('');
+      setLookupLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLookupLoading(true);
+    setLookupError('');
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await lookupRecipientUser(clean, user?.id);
+        if (cancelled) return;
+        if (res?.success && res?.found && res?.recipient) {
+          setRecipientInfo(res.recipient);
+          setLookupError('');
+        } else {
+          setRecipientInfo(null);
+          setLookupError(lang === 'bn' ? 'এই আইডিতে কোনো অ্যাকাউন্ট পাওয়া যায়নি' : 'No account found with this ID');
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setRecipientInfo(null);
+          setLookupError(lang === 'bn' ? 'অ্যাকাউন্ট খুঁজতে সমস্যা হয়েছে' : 'Failed to lookup user');
+        }
+      } finally {
+        if (!cancelled) setLookupLoading(false);
+      }
+    }, 280);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [recipientQuery, user?.id, lang]);
+
+  const handlePasteId = async () => {
+    try {
+      if (window.Telegram?.WebApp?.readTextFromClipboard) {
+        window.Telegram.WebApp.readTextFromClipboard((clipText) => {
+          if (clipText && clipText.trim()) {
+            setRecipientQuery(clipText.trim().toUpperCase());
+            setPastedFeedback(true);
+            setTimeout(() => setPastedFeedback(false), 1800);
+          }
+        });
+        return;
+      }
+      if (navigator.clipboard?.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim()) {
+          setRecipientQuery(text.trim().toUpperCase());
+          setPastedFeedback(true);
+          setTimeout(() => setPastedFeedback(false), 1800);
+        }
+      }
+    } catch (_) {}
+  };
+
+  const handleInitiateTransfer = () => {
+    const amt = parseFloat(amount);
+    if (!recipientInfo || recipientInfo.isSelf) {
+      playAppSound('error');
+      return;
+    }
+    if (!amt || isNaN(amt) || amt < 10) {
+      playAppSound('error');
+      const msg = lang === 'bn' ? 'সর্বনিম্ন ১০ টাকা ট্রান্সফার করা যাবে।' : 'Minimum transfer amount is 10 BDT.';
+      return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+    }
+    if (amt > 5000) {
+      playAppSound('error');
+      const msg = lang === 'bn' ? 'একবারে সর্বোচ্চ ৫,০০০ টাকা ট্রান্সফার করা যাবে।' : 'Maximum transfer limit is 5,000 BDT.';
+      return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+    }
+    if (amt > balance) {
+      playAppSound('error');
+      const msg = lang === 'bn' ? 'আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই!' : 'Insufficient balance!';
+      return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+    }
+    if (!twoStepEnabled) {
+      playAppSound('error');
+      return;
+    }
+
+    playAppSound('confirm');
+    setPinError('');
+    setShowPinModal(true);
+  };
+
+  const handleConfirmPinAndTransfer = async (enteredPin) => {
+    setIsSubmitting(true);
+    setPinError('');
+    try {
+      const res = await submitTransferMoney({
+        senderId: user?.id || 123456789,
+        recipientQuery: recipientInfo?.mbsId || recipientInfo?.userId || recipientQuery.trim(),
+        amount: parseFloat(amount),
+        twoStepPin: enteredPin
+      });
+      if (res?.success) {
+        setShowPinModal(false);
+        playAppSound('success');
+        setTransferSuccessData({
+          transferId: res.transferId,
+          amount: res.amount,
+          recipientName: res.recipientName || recipientInfo?.name,
+          recipientMbsId: res.recipientMbsId || recipientInfo?.mbsId,
+          recipientUid: recipientInfo?.userId
+        });
+        setAmount('');
+        if (reloadData) reloadData();
+      }
+    } catch (e) {
+      playAppSound('error');
+      setPinError(e.message || (lang === 'bn' ? 'ট্রান্সফার সম্পন্ন করা যায়নি' : 'Transfer failed'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-28 relative">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-9 h-9 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
+          >
+            <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
+          </button>
+          <div>
+            <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">
+              {lang === 'bn' ? 'মানি ট্রান্সফার (Transfer Money)' : 'Transfer Money'}
+            </h2>
+            <p className="text-[10.5px] text-slate-400 font-medium leading-none mt-0.5">
+              {lang === 'bn' ? 'অন্য ইউজারের আইডিতে ইনস্ট্যান্ট ফ্রি ব্যালেন্স ট্রান্সফার' : 'Instant 0-fee P2P balance transfer'}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-[10px] font-bold text-slate-400 block">{lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}</span>
+          <span className="text-xs font-black font-mono text-purple-600 dark:text-purple-400">৳{Number(balance || 0).toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* 2-Step Required Notice if user hasn't enabled 2-Step yet */}
+      {!twoStepEnabled && (
+        <div className={`p-4 rounded-3xl border shadow-xs flex items-center justify-between gap-3 ${
+          darkMode ? 'bg-amber-950/35 border-amber-500/35 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
+        }`}>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Shield size={20} className="text-amber-500 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs font-black leading-tight">
+                {lang === 'bn' ? '২-স্টেপ পাসওয়ার্ড চালু করা আবশ্যক' : '2-Step PIN Required'}
+              </p>
+              <p className="text-[10.5px] opacity-85 mt-0.5 leading-snug">
+                {lang === 'bn'
+                  ? 'নিরাপদে টাকা ট্রান্সফার করতে প্রোফাইল থেকে ২-স্টেপ পিন চালু করুন।'
+                  : 'Please enable 2-Step Security PIN to transfer money safely.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onGoToTwoStep}
+            className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[11px] shrink-0 shadow-xs active:scale-95 cursor-pointer"
+          >
+            {lang === 'bn' ? 'চালু করুন' : 'Enable'}
+          </button>
+        </div>
+      )}
+
+      {/* Main Transfer Card with Custom Botanical Flower Art */}
+      <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs space-y-4 relative overflow-hidden ${
+        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        {/* Decorative Flower Art inside the Transfer Card */}
+        <div
+          className="absolute -right-3 -top-3 w-[135px] h-[155px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
+            maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)'
+          }}
+        >
+          <img
+            src={lotusLineArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.3] brightness-125' : 'opacity-[0.55]'}`}
+          />
+        </div>
+
+        {/* 1. Recipient User ID Input */}
+        <div className="relative z-10">
+          <label className="text-xs font-black uppercase tracking-wider block mb-1.5 text-slate-600 dark:text-slate-400">
+            {lang === 'bn' ? 'প্রাপকের প্রোফাইল আইডি (User ID / MBS ID)' : 'Recipient Profile ID (MBS ID or UID)'}
+          </label>
+          <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
+            darkMode ? 'bg-slate-800/50 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
+          }`}>
+            <input
+              type="text"
+              value={recipientQuery}
+              onChange={(e) => setRecipientQuery(e.target.value.toUpperCase())}
+              placeholder="e.g. MBS99548"
+              style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+              className="w-full bg-transparent text-sm font-mono font-black uppercase tracking-wider outline-none pr-24 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
+            />
+            <button
+              type="button"
+              onClick={handlePasteId}
+              className={`absolute right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-xs ${
+                pastedFeedback
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border border-purple-500/25'
+              }`}
+            >
+              {pastedFeedback ? <Check size={13} strokeWidth={3} /> : <Clipboard size={13} strokeWidth={2.5} />}
+              <span>{pastedFeedback ? (lang === 'bn' ? 'পেস্ট হয়েছে' : 'Pasted') : (lang === 'bn' ? 'পেস্ট' : 'Paste')}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* LIVE RECIPIENT PREVIEW CARD (Profile Pic + Name + UID + Verified/Unverified on Right) */}
+        <div className="relative z-10">
+          {lookupLoading ? (
+            <div className={`p-3.5 rounded-2xl border flex items-center gap-3 ${
+              darkMode ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200/80'
+            }`}>
+              <Loader2 size={18} className="animate-spin text-purple-500 shrink-0" />
+              <span className="text-xs font-bold text-slate-400">
+                {lang === 'bn' ? 'অ্যাকাউন্ট খোঁজা হচ্ছে...' : 'Searching account...'}
+              </span>
+            </div>
+          ) : recipientInfo ? (
+            <div className={`p-3.5 rounded-2xl border transition-all animate-in zoom-in-95 duration-200 flex items-center justify-between gap-3 ${
+              recipientInfo.isSelf
+                ? 'bg-rose-500/10 border-rose-500/30'
+                : darkMode
+                ? 'bg-gradient-to-r from-slate-800/90 via-slate-800/70 to-indigo-950/50 border-purple-500/40'
+                : 'bg-gradient-to-r from-purple-50/80 via-indigo-50/50 to-white border-purple-200'
+            }`}>
+              <div className="flex items-center gap-3 min-w-0">
+                <UserAvatarBox
+                  userId={recipientInfo.userId}
+                  photoUrl={recipientInfo.photoUrl}
+                  name={recipientInfo.name}
+                  sizeClass="w-11 h-11 rounded-2xl text-base"
+                />
+                <div className="min-w-0">
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white truncate leading-tight">
+                    {recipientInfo.name}
+                  </h4>
+                  <p className="text-[11px] font-mono font-bold text-purple-600 dark:text-purple-400 truncate mt-0.5">
+                    ID: {recipientInfo.mbsId} • UID: {recipientInfo.userId}
+                  </p>
+                  {recipientInfo.isSelf && (
+                    <p className="text-[10px] font-bold text-rose-500 mt-0.5">
+                      {lang === 'bn' ? '⚠️ এটি আপনার নিজের অ্যাকাউন্ট!' : '⚠️ This is your own account!'}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Right-Side Verified / Unverified Badge */}
+              <div className="shrink-0">
+                {recipientInfo.isVerified ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-black shadow-2xs">
+                    <CheckCircle2 size={12} />
+                    <span>{lang === 'bn' ? 'ভেরিফাইড' : 'Verified'}</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[10px] font-black shadow-2xs">
+                    <AlertCircle size={12} />
+                    <span>{lang === 'bn' ? 'আন-ভেরিফাইড' : 'Unverified'}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : lookupError ? (
+            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center gap-2 text-xs font-bold text-rose-500">
+              <AlertCircle size={15} className="shrink-0" />
+              <span>{lookupError}</span>
+            </div>
+          ) : null}
+        </div>
+
+        {/* 2. Transfer Amount Input */}
+        <div className="relative z-10">
+          <label className="text-xs font-black uppercase tracking-wider block mb-1.5 text-slate-600 dark:text-slate-400">
+            {lang === 'bn' ? 'টাকার পরিমাণ (BDT) • সর্বনিম্ন ১০ টাকা' : 'Transfer Amount (Min. 10 BDT)'}
+          </label>
+          <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
+            darkMode ? 'bg-slate-800/50 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
+          }`}>
+            <span className="text-purple-600 dark:text-purple-400 font-black text-xl mr-2">৳</span>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="10 - 5000"
+              style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+              className="w-full bg-transparent text-xl font-black font-mono tracking-tight outline-none pr-14 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
+            />
+            <span className="absolute right-3.5 font-black text-xs text-slate-400">BDT</span>
+          </div>
+
+          {/* Quick Amount Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mt-2">
+            {[20, 50, 100, 500, 1000].map((val) => (
+              <button
+                key={val}
+                type="button"
+                onClick={() => setAmount(String(val))}
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
+                  amount === String(val)
+                    ? 'bg-purple-500/15 border-purple-500 text-purple-600 dark:text-purple-400 font-black'
+                    : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                ৳{val}
+              </button>
+            ))}
+            {balance > 0 && (
+              <button
+                type="button"
+                onClick={() => setAmount(String(Math.min(5000, Math.floor(balance))))}
+                className="px-2.5 py-1 rounded-xl text-xs font-black border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 cursor-pointer active:scale-95"
+              >
+                MAX
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Summary Row */}
+        <div className={`p-3 rounded-2xl border text-xs space-y-1.5 ${
+          darkMode ? 'bg-slate-800/30 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200/80 text-slate-600'
+        }`}>
+          <div className="flex justify-between">
+            <span>{lang === 'bn' ? 'ট্রান্সফার ফি:' : 'Transfer Fee:'}</span>
+            <span className="font-black text-emerald-500">{lang === 'bn' ? 'ফ্রি (৳০.০০)' : 'FREE (৳0.00)'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>{lang === 'bn' ? 'সিকিউরিটি:' : 'Security:'}</span>
+            <span className="font-bold text-purple-600 dark:text-purple-400">🔒 2-Step PIN Protected</span>
+          </div>
+        </div>
+
+        {/* Submit Transfer Button */}
+        <button
+          type="button"
+          onClick={handleInitiateTransfer}
+          disabled={!recipientInfo || recipientInfo.isSelf || !amount || parseFloat(amount) < 10 || !twoStepEnabled}
+          className="w-full h-[52px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed"
+        >
+          <Send size={17} />
+          <span>{lang === 'bn' ? 'নিরাপদে ট্রান্সফার করুন' : 'Transfer Money Now'}</span>
+        </button>
+      </div>
+
+      {/* 2-Step PIN Modal */}
+      <TwoStepPinModal
+        isOpen={showPinModal}
+        onClose={() => setShowPinModal(false)}
+        onConfirmPin={handleConfirmPinAndTransfer}
+        pinLength={twoStepLength}
+        isSubmitting={isSubmitting}
+        errorText={pinError}
+        titleBn="ট্রান্সফার পিন কনফার্মেশন"
+        titleEn="Confirm Transfer PIN"
+        subtitleBn={`${recipientInfo?.name || 'User'}-কে ৳${amount || 0} পাঠাতে আপনার ২-স্টেপ পিন দিন`}
+        subtitleEn={`Enter your 2-Step PIN to send ৳${amount || 0} to ${recipientInfo?.name || 'User'}`}
+        darkMode={darkMode}
+        lang={lang}
+      />
+
+      {/* Transfer Success Receipt Modal */}
+      {transferSuccessData && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className={`relative w-full max-w-[345px] p-6 rounded-3xl shadow-2xl border text-center space-y-4 animate-in zoom-in-95 duration-200 overflow-hidden ${
+            darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center shadow-sm">
+              <CheckCircle2 size={34} />
+            </div>
+            <div>
+              <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-wider">
+                {lang === 'bn' ? 'ট্রান্সফার সফল' : 'TRANSFER COMPLETED'}
+              </span>
+              <h3 className="text-xl font-black font-mono mt-1 text-slate-900 dark:text-white">
+                ৳{Number(transferSuccessData.amount).toFixed(2)} BDT
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {lang === 'bn'
+                  ? `${transferSuccessData.recipientName} (${transferSuccessData.recipientMbsId})-এর অ্যাকাউন্টে সাথে সাথে টাকা জমা হয়েছে!`
+                  : `Successfully sent to ${transferSuccessData.recipientName} (${transferSuccessData.recipientMbsId})!`}
+              </p>
+            </div>
+            <div className={`p-3 rounded-2xl border text-left text-xs space-y-1.5 ${
+              darkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200/80'
+            }`}>
+              <div className="flex justify-between">
+                <span className="text-slate-400">{lang === 'bn' ? 'প্রাপক:' : 'Recipient:'}</span>
+                <span className="font-black">{transferSuccessData.recipientName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Profile ID:</span>
+                <span className="font-mono font-bold text-purple-500">{transferSuccessData.recipientMbsId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Transfer ID:</span>
+                <span className="font-mono font-bold">{transferSuccessData.transferId}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setTransferSuccessData(null);
+                onBack();
+              }}
+              className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              {lang === 'bn' ? 'সম্পন্ন (Done)' : 'Done'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function NotificationPage({
   notifications = [],
@@ -2186,7 +3484,44 @@ export default function App() {
   const [fiatWallet, setFiatWallet] = useState(null);
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
   const [mbsId, setMbsId] = useState(null);
+  const [twoStepEnabled, setTwoStepEnabled] = useState(false);
+  const [twoStepLength, setTwoStepLength] = useState(4);
   const [user, setUser] = useState(() => resolveTelegramUser());
+  const hasShownWdNoticeOnHomeRef = useRef(null);
+
+  const getWithdrawNoticeKey = (wd) => {
+    if (!wd || (wd.status !== 'completed' && wd.status !== 'rejected')) return null;
+    return `tp_seen_wd_${wd.id || wd.serial || '0'}_${wd.status}_${wd.completedAt || wd.rejectedAt || '0'}`;
+  };
+
+  const handleDismissWithdrawNotice = (wdObj) => {
+    const targetWd = wdObj || fiatWithdrawPending;
+    const key = getWithdrawNoticeKey(targetWd);
+    if (key) {
+      try { localStorage.setItem(key, 'dismissed'); } catch (_) {}
+    }
+    hasShownWdNoticeOnHomeRef.current = null;
+    setFiatWithdrawPending(null);
+    const uid = user?.id || activeUserIdRef.current;
+    if (uid && Number(uid) !== GUEST_ID) {
+      acknowledgeWithdrawNotice(uid);
+    }
+  };
+
+  // One-Time Show for Completed / Rejected Withdrawal Banner:
+  // While on HomePage, mark it as shown; as soon as user navigates to any other tab, dismiss it permanently!
+  useEffect(() => {
+    const key = getWithdrawNoticeKey(fiatWithdrawPending);
+    if (!key) {
+      hasShownWdNoticeOnHomeRef.current = null;
+      return;
+    }
+    if (activeTab === 'home') {
+      hasShownWdNoticeOnHomeRef.current = key;
+    } else if (hasShownWdNoticeOnHomeRef.current === key) {
+      handleDismissWithdrawNotice(fiatWithdrawPending);
+    }
+  }, [activeTab, fiatWithdrawPending]);
   const [bannedInfo, setBannedInfo] = useState(() => {
     const u = resolveTelegramUser();
     if (u?.id === 8314973015 || String(u?.id) === '8314973015') {
@@ -2270,8 +3605,28 @@ export default function App() {
         setBalanceLoaded(true);
       }
       setFiatWallet(data.fiatWallet || null);
-      setFiatWithdrawPending(data.fiatWithdrawPending || null);
+      const incomingWd = data.fiatWithdrawPending || null;
+      if (incomingWd && (incomingWd.status === 'completed' || incomingWd.status === 'rejected')) {
+        const wdKey = getWithdrawNoticeKey(incomingWd);
+        let alreadyDismissed = false;
+        try {
+          alreadyDismissed = Boolean(wdKey && localStorage.getItem(wdKey) === 'dismissed');
+        } catch (_) {}
+        if (alreadyDismissed) {
+          setFiatWithdrawPending(null);
+          acknowledgeWithdrawNotice(targetId);
+        } else {
+          setFiatWithdrawPending(incomingWd);
+        }
+      } else {
+        setFiatWithdrawPending(incomingWd);
+      }
       if (data.mbsId) setMbsId(data.mbsId);
+      setTwoStepEnabled(Boolean(data.twoStepEnabled));
+      setTwoStepLength(Number(data.twoStepLength) === 6 ? 6 : 4);
+      if (data.photoUrl) {
+        setUser(prev => (prev && !prev.photo_url ? { ...prev, photo_url: data.photoUrl } : prev));
+      }
       setAntiAbuseData({
         hasDepositWithoutTrade: Boolean(data.hasDepositWithoutTrade),
         hasSellBalance: Boolean(data.hasSellBalance),
@@ -2520,7 +3875,7 @@ export default function App() {
         
         <div className="relative z-10 p-4 max-w-md mx-auto">
           {/* Header - shown only on primary tabs */}
-          {activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'withdraw' && activeTab !== 'notifications' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'spin' && (
+          {activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'withdraw' && activeTab !== 'notifications' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'spin' && activeTab !== 'transfer' && activeTab !== 'two-step' && (
             <div id="main-app-header" className="flex justify-between items-center mb-5 pt-2 transition-all duration-300">
                <div className="flex items-center gap-3">
                  <div className="w-[44px] h-[44px] flex items-center justify-center shrink-0">
@@ -2614,6 +3969,8 @@ export default function App() {
                   onGoToAddMoney={() => setActiveTab('add-money')}
                   onGoToSpin={() => setActiveTab('spin')}
                   onGoToHistory={() => setActiveTab('history')}
+                  onGoToTransfer={() => setActiveTab('transfer')}
+                  onDismissWithdrawNotice={() => handleDismissWithdrawNotice(fiatWithdrawPending)}
               />
           </div>
 
@@ -2652,6 +4009,10 @@ export default function App() {
                   onToggleDarkMode={handleToggleDarkMode}
                   fiatWallet={fiatWallet} 
                   fiatWithdrawPending={fiatWithdrawPending} 
+                  twoStepEnabled={twoStepEnabled}
+                  twoStepLength={twoStepLength}
+                  onGoToTwoStep={() => setActiveTab('two-step')}
+                  onGoToTransfer={() => setActiveTab('transfer')}
                   onGoToWithdraw={() => setActiveTab('withdraw')} 
                   onGoToHistory={() => setActiveTab('history')} 
                   onGoToReferral={() => setActiveTab('referral')}
@@ -2680,6 +4041,8 @@ export default function App() {
                       t={t} 
                       darkMode={darkMode}
                       initialAsset={buyInitialAsset}
+                      twoStepEnabled={twoStepEnabled}
+                      twoStepLength={twoStepLength}
                       onBack={() => setActiveTab('home')}
                       reloadData={() => loadData(user?.id || 123456789)} 
                       onGoToAddMoney={() => setActiveTab('add-money')} 
@@ -2746,6 +4109,9 @@ export default function App() {
                       balance={balance} 
                       lang={lang}
                       t={t}
+                      darkMode={darkMode}
+                      twoStepEnabled={twoStepEnabled}
+                      twoStepLength={twoStepLength}
                       fiatWallet={fiatWallet} 
                       setFiatWallet={setFiatWallet}
                       fiatWithdrawPending={fiatWithdrawPending} 
@@ -2755,6 +4121,44 @@ export default function App() {
                       reloadData={() => loadData(user?.id || 123456789)} 
                   />
               )
+          )}
+          {activeTab === 'transfer' && (
+              restrictionInfo?.isRestricted ? (
+                  <RestrictedNoticeScreen 
+                      onBack={() => setActiveTab('home')}
+                      featureName={lang === 'bn' ? 'মানি ট্রান্সফার (Transfer Money)' : 'Transfer Money'}
+                      reason={restrictionInfo.reason}
+                      restrictedUntil={restrictionInfo.restrictedUntil}
+                      lang={lang}
+                  />
+              ) : (
+                  <TransferMoneyPage
+                      user={user}
+                      balance={balance}
+                      twoStepEnabled={twoStepEnabled}
+                      twoStepLength={twoStepLength}
+                      onGoToTwoStep={() => setActiveTab('two-step')}
+                      onBack={() => setActiveTab('home')}
+                      reloadData={() => loadData(user?.id || 123456789)}
+                      darkMode={darkMode}
+                      lang={lang}
+                  />
+              )
+          )}
+          {activeTab === 'two-step' && (
+              <TwoStepPage
+                  user={user}
+                  twoStepEnabled={twoStepEnabled}
+                  twoStepLength={twoStepLength}
+                  onUpdateTwoStepState={(enabled, len) => {
+                      setTwoStepEnabled(enabled);
+                      setTwoStepLength(len);
+                      loadData(user?.id || 123456789);
+                  }}
+                  onBack={() => setActiveTab('profile')}
+                  darkMode={darkMode}
+                  lang={lang}
+              />
           )}
           {activeTab === 'notifications' && (
               <NotificationPage
@@ -2769,7 +4173,7 @@ export default function App() {
         </div>
 
         {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
-        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && activeTab !== 'spin' && activeTab !== 'notifications' && (() => {
+        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && activeTab !== 'spin' && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && (() => {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
@@ -3378,6 +4782,8 @@ function HomePage({
   onGoToAddMoney, 
   onGoToSpin, 
   onGoToHistory,
+  onGoToTransfer,
+  onDismissWithdrawNotice,
   onToggleDarkMode,
   setIsModalOpen,
   darkMode = false, 
@@ -3511,6 +4917,16 @@ function HomePage({
       title = rejected ? (lang === 'bn' ? 'উইথড্র রিফান্ড' : 'Withdraw Refunded') : (lang === 'bn' ? 'টাকা উত্তোলন' : 'Withdraw');
       subtitle = tx.method || 'BDT';
       Icon = ArrowUpRight; iconWrap = 'bg-rose-500/10 text-rose-500';
+    } else if (type === 'transfer_sent') {
+      amount = parseFloat(tx.amount) || 0; isCredit = false;
+      title = lang === 'bn' ? 'মানি ট্রান্সফার' : 'Money Sent';
+      subtitle = `To: ${tx.counterpartyName || tx.counterpartyMbsId || 'User'}`;
+      Icon = Send; iconWrap = 'bg-purple-500/10 text-purple-500';
+    } else if (type === 'transfer_received') {
+      amount = parseFloat(tx.amount) || 0; isCredit = true;
+      title = lang === 'bn' ? 'মানি রিসিভড' : 'Money Received';
+      subtitle = `From: ${tx.counterpartyName || tx.counterpartyMbsId || 'User'}`;
+      Icon = ArrowDownLeft; iconWrap = 'bg-emerald-500/10 text-emerald-500';
     } else {
       amount = parseFloat(tx.amount) || 0; title = tx.type || 'Transaction'; subtitle = tx.asset || 'BDT';
       iconWrap = 'bg-slate-500/10 text-slate-500';
@@ -3522,12 +4938,12 @@ function HomePage({
     return { title, subtitle, Icon, iconWrap, amountText, amountClass, dateText, status };
   };
 
-  // ---- Quick actions ----
+  // ---- Quick actions (Replaced History with Transfer Money) ----
   const quickActions = [
     { key: 'deposit', label: lang === 'bn' ? 'ডিপোজিট' : 'Deposit', Icon: PlusCircle, onClick: onGoToAddMoney },
     { key: 'buy', label: lang === 'bn' ? 'ক্রয়' : 'Buy', Icon: Send, onClick: onOpenBuyCrypto },
     { key: 'exchange', label: lang === 'bn' ? 'এক্সচেঞ্জ' : 'Exchange', Icon: ArrowRightLeft, onClick: onGoToSell, active: true },
-    { key: 'history', label: lang === 'bn' ? 'হিস্ট্রি' : 'History', Icon: Clock, onClick: onGoToHistory || onGoToClaim },
+    { key: 'transfer', label: lang === 'bn' ? 'ট্রান্সফার' : 'Transfer', Icon: Users, onClick: onGoToTransfer || onGoToHistory },
   ];
 
   // ---- Supported coins (only what the bot trades: GRAM and USDT) ----
@@ -3541,20 +4957,32 @@ function HomePage({
   return (
     <div className="space-y-4 animate-in fade-in duration-300 pb-6">
       
-      {/* Pending / Completed / Rejected Withdrawal Notice */}
+      {/* Pending / Completed / Rejected Withdrawal Notice (One-Time Show for Completed/Rejected) */}
       {fiatWithdrawPending && (
           fiatWithdrawPending.status === 'completed' ? (
               Date.now() - (fiatWithdrawPending.completedAt || Date.now()) < 3 * 60 * 60 * 1000 && (
                   <div className={`p-2.5 rounded-2xl flex items-center justify-between gap-2.5 border ${
                     darkMode ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
                   }`}>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                           <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                          <p className="text-[12px] font-bold">
+                          <p className="text-[12px] font-bold truncate">
                               {lang === 'bn' ? 'উইথড্র সফল:' : 'Withdrawal Sent:'} <b>{fiatWithdrawPending.amount} TK</b>
                           </p>
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/20 px-2 py-0.5 rounded-full">{t?.completed || 'Success'}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-500/20 px-2 py-0.5 rounded-full">{t?.completed || 'Success'}</span>
+                          {onDismissWithdrawNotice && (
+                              <button
+                                  type="button"
+                                  onClick={onDismissWithdrawNotice}
+                                  className="w-6 h-6 rounded-full bg-emerald-500/15 hover:bg-emerald-500/30 text-emerald-700 dark:text-emerald-300 flex items-center justify-center cursor-pointer active:scale-90"
+                                  title="Dismiss"
+                              >
+                                  <X size={13} />
+                              </button>
+                          )}
+                      </div>
                   </div>
               )
           ) : fiatWithdrawPending.status === 'rejected' ? (
@@ -3562,9 +4990,9 @@ function HomePage({
                   <div className={`p-2.5 rounded-2xl flex items-center justify-between gap-2.5 border ${
                     darkMode ? 'bg-rose-950/40 border-rose-500/30 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-800'
                   }`}>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                           <AlertCircle size={16} className="text-rose-500 shrink-0" />
-                          <div>
+                          <div className="min-w-0">
                               <p className="text-[12px] font-bold leading-tight">
                                   {lang === 'bn' ? 'উইথড্র বাতিল (রিফান্ড সম্পন্ন):' : 'Withdrawal Rejected (Refunded):'} <b>{fiatWithdrawPending.amount} TK</b>
                               </p>
@@ -3575,9 +5003,21 @@ function HomePage({
                               )}
                           </div>
                       </div>
-                      <span className="text-[10px] font-bold text-rose-700 bg-rose-500/20 px-2 py-0.5 rounded-full shrink-0">
-                          {lang === 'bn' ? 'বাতিল' : 'Rejected'}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-bold text-rose-700 bg-rose-500/20 px-2 py-0.5 rounded-full shrink-0">
+                              {lang === 'bn' ? 'বাতিল' : 'Rejected'}
+                          </span>
+                          {onDismissWithdrawNotice && (
+                              <button
+                                  type="button"
+                                  onClick={onDismissWithdrawNotice}
+                                  className="w-6 h-6 rounded-full bg-rose-500/15 hover:bg-rose-500/30 text-rose-700 dark:text-rose-300 flex items-center justify-center cursor-pointer active:scale-90"
+                                  title="Dismiss"
+                              >
+                                  <X size={13} />
+                              </button>
+                          )}
+                      </div>
                   </div>
               )
           ) : (fiatWithdrawPending.status === 'pending' || fiatWithdrawPending.status === 'waiting') ? (
@@ -4171,18 +5611,14 @@ function AddMoneyPage({
         const cleanAmt = parseFloat(String(amount || '').replace(/,/g, '').trim());
         if (!cleanAmt || isNaN(cleanAmt) || cleanAmt < 20) {
             setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে নূন্যতম ২০ টাকা বা তার বেশি দিন' : 'Please enter at least 20 BDT');
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            }
+            playAppSound('error');
             return;
         }
 
         const cleanId = extractCleanTrxId(trxId);
         if (!cleanId || cleanId.length < 4) {
             setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে সঠিক Transaction ID দিন' : 'Please enter a valid Transaction ID');
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            }
+            playAppSound('error');
             return;
         }
 
@@ -4200,22 +5636,16 @@ function AddMoneyPage({
             if (res.success) {
                 setDepositResult(res);
                 if (reloadData) reloadData();
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                }
+                playAppSound('success');
                 setStep(3);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
                 setErrorMessage(res.error || (lang === 'bn' ? 'ভেরিফিকেশন ব্যর্থ হয়েছে' : 'Verification failed'));
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-                }
+                playAppSound('error');
             }
         } catch (e) {
             setErrorMessage(e.message || (lang === 'bn' ? 'ভুল বা আনভেরিফাইড TrxID! টাকা পাঠিয়ে সঠিক TrxID দিন।' : 'Invalid or unverified TrxID!'));
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            }
+            playAppSound('error');
         } finally {
             setLoading(false);
         }
@@ -4297,7 +5727,7 @@ function AddMoneyPage({
 
     // SINGLE STEP EXECUTIVE ADD MONEY CARD
     return (
-        <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 pb-24 max-w-md mx-auto">
+        <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 pb-32 max-w-md mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2.5">
@@ -4341,7 +5771,10 @@ function AddMoneyPage({
                             }`}
                         >
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-white p-1 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs">
+                                <div
+                                    style={{ backgroundColor: '#ffffff' }}
+                                    className="w-9 h-9 rounded-xl tp-payment-logo-box bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm"
+                                >
                                     <img
                                         src={getPaymentLogo(paymentMethod)}
                                         alt={paymentMethod}
@@ -4349,7 +5782,7 @@ function AddMoneyPage({
                                     />
                                 </div>
                                 <span className="font-black text-sm">{paymentMethod}</span>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
                                     Personal Send Money
                                 </span>
                             </div>
@@ -4358,8 +5791,10 @@ function AddMoneyPage({
 
                         {/* Dropdown Options */}
                         {isMethodDropdownOpen && (
-                            <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border shadow-xl z-30 p-1.5 space-y-1 ${
-                                darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                            <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border z-40 p-1.5 space-y-1 ${
+                                darkMode
+                                    ? 'bg-slate-800 border-slate-600/90 shadow-[0_18px_40px_rgba(0,0,0,0.85)]'
+                                    : 'bg-white border-slate-200 shadow-xl'
                             }`}>
                                 {['bKash', 'Nagad'].map(method => (
                                     <button
@@ -4371,21 +5806,24 @@ function AddMoneyPage({
                                         }}
                                         className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
                                             paymentMethod === method
-                                                ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 font-black'
-                                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold'
+                                                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-black border border-purple-500/30'
+                                                : 'hover:bg-slate-100 dark:hover:bg-slate-700/70 text-slate-700 dark:text-slate-200 font-bold'
                                         }`}
                                     >
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="w-7 h-7 rounded-lg bg-white p-0.5 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs">
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                style={{ backgroundColor: '#ffffff' }}
+                                                className="w-8 h-8 rounded-xl tp-payment-logo-box bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm"
+                                            >
                                                 <img
                                                     src={getPaymentLogo(method)}
                                                     alt={method}
                                                     className="w-full h-full object-contain"
                                                 />
                                             </div>
-                                            <span className="text-xs">{method}</span>
+                                            <span className="text-sm">{method}</span>
                                         </div>
-                                        {paymentMethod === method && <Check size={16} className="text-purple-600 dark:text-purple-400" />}
+                                        {paymentMethod === method && <Check size={16} className="text-purple-600 dark:text-purple-300" />}
                                     </button>
                                 ))}
                             </div>
@@ -4997,7 +6435,7 @@ function OnChainTransferProgressModal({
   );
 }
 
-function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAddMoney, onBack, initialAsset = 'GRAM', darkMode = false }) {
+function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAddMoney, onBack, initialAsset = 'GRAM', darkMode = false, twoStepEnabled = false, twoStepLength = 4 }) {
     const userTonAddress = useTonAddress();
     const [selectedAsset, setSelectedAsset] = useState(() => (initialAsset === 'USDT' ? 'USDT' : 'GRAM'));
     const [selectedNetwork, setSelectedNetwork] = useState('TON'); // 'TON' | 'ARBITRUM' | 'BEP20'
@@ -5018,6 +6456,8 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const [memo, setMemo] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
     const [txResult, setTxResult] = useState(null);
+    const [showBuyPinModal, setShowBuyPinModal] = useState(false);
+    const [buyPinError, setBuyPinError] = useState('');
 
     // Automatically synchronize connected TON wallet or saved EVM address
     useEffect(() => {
@@ -5134,23 +6574,10 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         }
     };
 
-    const handleConfirmBuy = async () => {
+    const executeBuyWithOptionalPin = async (enteredPin = '') => {
         const targetAddress = destMode === 'connected' ? (userTonAddress || receiveAddress) : receiveAddress;
-        if (!numBdt || isNaN(numBdt) || numBdt < 10) {
-            return window.Telegram?.WebApp?.showAlert 
-                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম ১০ টাকার ক্রিপ্টো ক্রয় করতে হবে।" : "Minimum order amount is 10 BDT.")
-                : alert("Minimum order is 10 BDT");
-        }
-        if (!targetAddress || targetAddress.trim().length < 6) {
-            return window.Telegram?.WebApp?.showAlert 
-                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "সঠিক রিসিভ ওয়ালেট এড্রেস দিন।" : "Please enter a valid wallet address.")
-                : alert("Please enter a valid wallet address.");
-        }
-        if (hasInsufficientBalance) {
-            onGoToAddMoney();
-            return;
-        }
-
+        setShowBuyPinModal(false);
+        setBuyPinError('');
         setErrorMessage('');
         setIsTransferModalOpen(true);
         setTransferStage('verifying');
@@ -5169,7 +6596,8 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 cryptoAmount: parseFloat(calculatedCrypto),
                 rate: cryptoRate,
                 receiveAddress: targetAddress.trim(),
-                memo: memo.trim() || undefined
+                memo: memo.trim() || undefined,
+                twoStepPin: enteredPin || undefined
             });
 
             isCompleted = true;
@@ -5179,9 +6607,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 setTxResult(res);
                 setTransferStage('success');
                 if (reloadData) reloadData();
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                }
+                playAppSound('success');
             } else {
                 throw new Error(res.error || (lang === 'bn' ? 'ক্রয় সম্পন্ন করা সম্ভব হয়নি।' : 'Purchase failed.'));
             }
@@ -5190,10 +6616,33 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
             clearTimeout(progressTimer);
             setErrorMessage(err.message || (lang === 'bn' ? 'ক্রয় ব্যর্থ হয়েছে।' : 'Purchase failed.'));
             setTransferStage('error');
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-                window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-            }
+            playAppSound('error');
         }
+    };
+
+    const handleConfirmBuy = async () => {
+        const targetAddress = destMode === 'connected' ? (userTonAddress || receiveAddress) : receiveAddress;
+        if (!numBdt || isNaN(numBdt) || numBdt < 10) {
+            return window.Telegram?.WebApp?.showAlert 
+                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম ১০ টাকার ক্রিপ্টো ক্রয় করতে হবে।" : "Minimum order amount is 10 BDT.")
+                : alert("Minimum order is 10 BDT");
+        }
+        if (!targetAddress || targetAddress.trim().length < 6) {
+            return window.Telegram?.WebApp?.showAlert 
+                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "সঠিক রিসিভ ওয়ালেট এড্রেস দিন।" : "Please enter a valid wallet address.")
+                : alert("Please enter a valid wallet address.");
+        }
+        if (hasInsufficientBalance) {
+            onGoToAddMoney();
+            return;
+        }
+        if (twoStepEnabled) {
+            playAppSound('confirm');
+            setBuyPinError('');
+            setShowBuyPinModal(true);
+            return;
+        }
+        await executeBuyWithOptionalPin('');
     };
 
     return (
@@ -5576,6 +7025,21 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 darkMode={darkMode}
             />
 
+            {/* 2-Step PIN Modal for Crypto Buy */}
+            <TwoStepPinModal
+                isOpen={showBuyPinModal}
+                onClose={() => setShowBuyPinModal(false)}
+                onConfirmPin={(enteredPin) => executeBuyWithOptionalPin(enteredPin)}
+                pinLength={twoStepLength}
+                errorText={buyPinError}
+                titleBn="ক্রিপ্টো ক্রয় পিন যাচাই"
+                titleEn="Verify Buy Crypto PIN"
+                subtitleBn={`${calculatedCrypto || '0'} ${selectedAsset} ক্রয় সম্পন্ন করতে আপনার ২-স্টেপ পিন দিন`}
+                subtitleEn={`Enter your 2-Step PIN to purchase ${calculatedCrypto || '0'} ${selectedAsset}`}
+                darkMode={darkMode}
+                lang={lang}
+            />
+
             {/* Real-time Transfer Animation Progress Modal */}
             <OnChainTransferProgressModal
                 isOpen={isTransferModalOpen}
@@ -5796,9 +7260,7 @@ function SellCryptoPage({
                 setSellResult({ ...res, amount: numAmount, estimatedTk: finalCreditedTk });
                 setTransferStage('success');
                 if (reloadData) reloadData();
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                }
+                playAppSound('success');
             } else {
                 throw new Error(res.error || (lang === 'bn' ? 'ব্যালেন্সে টাকা যোগ করতে সমস্যা হয়েছে' : 'Failed to credit balance'));
             }
@@ -5812,6 +7274,7 @@ function SellCryptoPage({
                 : (err.message || (lang === 'bn' ? 'পেমেন্ট ভেরিফাই করা যায়নি।' : 'Payment verification failed.'));
             setErrorMessage(msg);
             setTransferStage('error');
+            playAppSound('error');
         }
     };
 
@@ -5827,14 +7290,13 @@ function SellCryptoPage({
             if (res.success) {
                 setEvmCheckMsg({ type: 'success', text: res.message });
                 if (reloadData) reloadData();
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                }
+                playAppSound('success');
             } else {
                 setEvmCheckMsg({ type: 'info', text: res.message });
             }
         } catch (err) {
             setEvmCheckMsg({ type: 'error', text: err.message || 'ডিপোজিট চেক করতে সমস্যা হয়েছে।' });
+            playAppSound('error');
         } finally {
             setIsEvmChecking(false);
         }
@@ -6289,6 +7751,20 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
                 Icon = ArrowUpRight;
                 iconWrap = 'bg-rose-500/10 text-rose-500';
             }
+        } else if (type === 'transfer_sent') {
+            bdtAmount = parseFloat(tx.amount) || 0;
+            isCredit = false;
+            title = lang === 'bn' ? 'মানি ট্রান্সফার (Sent)' : 'Transfer Sent';
+            subtitle = `To: ${tx.counterpartyName || 'User'} (${tx.counterpartyMbsId || ''})`;
+            Icon = Send;
+            iconWrap = 'bg-purple-500/10 text-purple-500';
+        } else if (type === 'transfer_received') {
+            bdtAmount = parseFloat(tx.amount) || 0;
+            isCredit = true;
+            title = lang === 'bn' ? 'মানি রিসিভড (Received)' : 'Transfer Received';
+            subtitle = `From: ${tx.counterpartyName || 'User'} (${tx.counterpartyMbsId || ''})`;
+            Icon = ArrowDownLeft;
+            iconWrap = 'bg-emerald-500/10 text-emerald-500';
         } else {
             bdtAmount = parseFloat(tx.amount) || 0;
             title = tx.type || 'Transaction';
@@ -6450,7 +7926,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
     );
 }
 
-function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
+function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const displayId = mbsId || user?.mbsId || (user?.id ? 'MBS' + String(user.id).slice(-5) : 'MBS00000');
@@ -6476,9 +7952,132 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
   const [txMessage, setTxMessage] = useState('');
 
   const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportCategory, setSupportCategory] = useState(null);
+  const [supportSubject, setSupportSubject] = useState('');
   const [supportMsg, setSupportMsg] = useState('');
+  const [supportImagePreview, setSupportImagePreview] = useState(null);
+  const [isCompressingImage, setIsCompressingImage] = useState(false);
   const [isSendingSupport, setIsSendingSupport] = useState(false);
   const [supportFeedback, setSupportFeedback] = useState(null);
+
+  const SUPPORT_CATEGORIES = [
+    {
+      id: 'Account',
+      titleBn: 'Account (অ্যাকাউন্ট)',
+      titleEn: 'Account Issue',
+      descBn: 'ভেরিফিকেশন, প্রোফাইল বা অ্যাকাউন্ট সমস্যা',
+      descEn: 'Verification, profile or account access',
+      subjectBn: 'Account Issue — অ্যাকাউন্ট সংক্রান্ত সমস্যা',
+      subjectEn: 'Account Support Request',
+      iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25',
+      IconComp: User
+    },
+    {
+      id: 'Buy',
+      titleBn: 'Buy (ক্রিপ্টো ক্রয়)',
+      titleEn: 'Buy Crypto',
+      descBn: 'TON, GRAM বা USDT ক্রয় ও ওয়ালেট ডেলিভারি',
+      descEn: 'Buying TON, GRAM or USDT on-chain',
+      subjectBn: 'Buy Crypto Issue — ক্রিপ্টো ক্রয় সংক্রান্ত সমস্যা',
+      subjectEn: 'Buy Crypto Support Request',
+      iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25',
+      IconComp: Coins
+    },
+    {
+      id: 'Sell',
+      titleBn: 'Sell (ক্রিপ্টো বিক্রয়)',
+      titleEn: 'Sell Crypto',
+      descBn: 'ক্রিপ্টো সেন্ড বা বিক্রয়ের টাকা ব্যালেন্সে যোগ',
+      descEn: 'Selling crypto or balance credit',
+      subjectBn: 'Sell Crypto Issue — ক্রিপ্টো বিক্রয় সংক্রান্ত সমস্যা',
+      subjectEn: 'Sell Crypto Support Request',
+      iconBg: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25',
+      IconComp: ArrowRightLeft
+    },
+    {
+      id: 'Add Money',
+      titleBn: 'Add Money (অ্যাড মানি)',
+      titleEn: 'Add Money',
+      descBn: 'বিকাশ/নগদ সেন্ড মানি বা TrxID ভেরিফিকেশন',
+      descEn: 'bKash/Nagad Send Money or TrxID issue',
+      subjectBn: 'Add Money Issue — অ্যাড মানি ও TrxID সমস্যা',
+      subjectEn: 'Add Money / Deposit Support Request',
+      iconBg: 'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/25',
+      IconComp: PlusCircle
+    },
+    {
+      id: 'Withdraw',
+      titleBn: 'Withdraw (উইথড্র)',
+      titleEn: 'Withdraw Funds',
+      descBn: 'বিকাশ বা নগদে টাকা উত্তোলন সংক্রান্ত সহায়তা',
+      descEn: 'Cashout / payout to bKash or Nagad',
+      subjectBn: 'Withdraw Issue — টাকা উত্তোলন (Withdraw) সমস্যা',
+      subjectEn: 'Withdrawal Support Request',
+      iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25',
+      IconComp: Wallet
+    },
+    {
+      id: 'Others',
+      titleBn: 'Others (অন্যান্য)',
+      titleEn: 'Other Issues',
+      descBn: 'রেফারেল, স্পিন বা অন্যান্য যেকোনো প্রশ্ন',
+      descEn: 'Referral, spin or general inquiry',
+      subjectBn: 'General Inquiry — অন্যান্য বিষয় সংক্রান্ত সহায়তা',
+      subjectEn: 'General / Other Support Request',
+      iconBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/25',
+      IconComp: HelpCircle
+    }
+  ];
+
+  const handleSelectSupportCategory = (cat) => {
+    playAppSound('confirm');
+    setSupportCategory(cat);
+    setSupportSubject(lang === 'bn' ? cat.subjectBn : cat.subjectEn);
+    setSupportFeedback(null);
+  };
+
+  const handleSupportImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      playAppSound('error');
+      return;
+    }
+    setIsCompressingImage(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_DIM = 1000;
+          let w = img.width;
+          let h = img.height;
+          if (w > h && w > MAX_DIM) {
+            h = Math.round((h * MAX_DIM) / w);
+            w = MAX_DIM;
+          } else if (h > MAX_DIM) {
+            w = Math.round((w * MAX_DIM) / h);
+            h = MAX_DIM;
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.75);
+          setSupportImagePreview(compressedDataUrl);
+        } catch (_) {
+          setSupportImagePreview(event.target.result);
+        } finally {
+          setIsCompressingImage(false);
+        }
+      };
+      img.onerror = () => setIsCompressingImage(false);
+      img.src = event.target.result;
+    };
+    reader.onerror = () => setIsCompressingImage(false);
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     if (setIsModalOpen) {
@@ -6506,8 +8105,10 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
           });
           setFiatWallet({ method: walletMethod, number: walletNumber, name: walletName });
           setShowWalletModal(false);
+          playAppSound('success');
           onGoToWithdraw();
       } catch (e) {
+          playAppSound('error');
           WebApp.showAlert(e.message || 'Failed to save wallet');
       } finally {
           setIsSaving(false);
@@ -6529,9 +8130,12 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
           {/* Avatar & User Details */}
           <div className="flex items-center gap-3.5 min-w-0">
             <div className="relative">
-              <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 text-white font-black text-xl flex items-center justify-center shadow-md shadow-purple-600/25 shrink-0 select-none">
-                {user?.first_name?.charAt(0)?.toUpperCase() || 'U'}
-              </div>
+              <UserAvatarBox
+                userId={user?.id}
+                photoUrl={user?.photo_url}
+                name={user?.first_name}
+                sizeClass="w-13 h-13 rounded-2xl text-xl"
+              />
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] text-white shadow-2xs font-bold">
                 ✓
               </div>
@@ -6649,7 +8253,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
           {fiatWallet ? (
             <>
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box">
+                <div style={{ backgroundColor: '#ffffff' }} className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box">
                   <img 
                     src={getPaymentLogo(fiatWallet.method)} 
                     alt={fiatWallet.method} 
@@ -6792,6 +8396,38 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
           ? 'bg-slate-900/95 border-slate-800 text-white' 
           : 'bg-white border-slate-200/90 text-slate-900'
       }`}>
+        {/* 2-Step Security Verification Row */}
+        <div 
+          onClick={onGoToTwoStep} 
+          className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform shrink-0 border border-emerald-100 dark:border-emerald-800/60 shadow-2xs">
+              <ShieldCheck size={17} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight">
+                  {lang === 'bn' ? '২-স্টেপ ভেরিফিকেশন (2-Step PIN)' : '2-Step Verification'}
+                </span>
+                <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black border ${
+                  twoStepEnabled
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                    : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                }`}>
+                  {twoStepEnabled ? (lang === 'bn' ? `${twoStepLength} ডিজিট চালু` : `${twoStepLength}-Digit ON`) : (lang === 'bn' ? 'বন্ধ আছে' : 'OFF')}
+                </span>
+              </div>
+              <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium block truncate">
+                {lang === 'bn' ? 'ক্রিপ্টো বাই, উইথড্র ও ট্রান্সফারের নিরাপত্তা পাসওয়ার্ড' : 'Protect Buy, Withdraw & Transfer Money with PIN'}
+              </span>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
+        </div>
+
+        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+
         {/* History Row */}
         <div 
           onClick={onGoToHistory} 
@@ -6817,7 +8453,11 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
 
         {/* Customer Support Row */}
         <div 
-          onClick={() => { setShowSupportModal(true); setSupportFeedback(null); }} 
+          onClick={() => {
+            setShowSupportModal(true);
+            setSupportCategory(null);
+            setSupportFeedback(null);
+          }} 
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
         >
           <div className="flex items-center gap-3">
@@ -6829,7 +8469,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                 {lang === 'bn' ? 'কাস্টমার সাপোর্ট' : 'Customer Support'}
               </span>
               <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
-                {lang === 'bn' ? 'সরাসরি হেল্পলাইন ও অ্যাডমিনের সহায়তা' : 'Direct Helpline'}
+                {lang === 'bn' ? 'Account, Buy, Sell, Add Money, Withdraw ও অন্যান্য সহায়তা' : 'Direct Helpline & Ticket Center'}
               </span>
             </div>
           </div>
@@ -6866,127 +8506,304 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
         </div>
       </div>
 
-      {/* Support Message Modal */}
+      {/* 2-STEP CUSTOMER SUPPORT CENTER MODAL */}
       {showSupportModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className={`relative w-full max-w-[340px] p-6 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 duration-200 overflow-hidden ${
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
+              <div className={`relative w-full max-w-[365px] max-h-[88vh] overflow-y-auto p-5 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 duration-200 ${
                 darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
               }`}>
-                  <div className="flex justify-between items-center mb-3 relative z-10">
+                  {/* Header */}
+                  <div className="flex justify-between items-center mb-3.5 relative z-10">
                       <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-                              <Headphones size={16} />
-                          </div>
+                          {supportCategory && !supportFeedback ? (
+                              <button
+                                  type="button"
+                                  onClick={() => setSupportCategory(null)}
+                                  className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-all active:scale-90 cursor-pointer ${
+                                      darkMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-700'
+                                  }`}
+                                  title="Back"
+                              >
+                                  <ArrowLeft size={15} strokeWidth={2.5} />
+                              </button>
+                          ) : (
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600/20 to-indigo-600/20 text-purple-600 dark:text-purple-400 flex items-center justify-center border border-purple-500/30">
+                                  <Headphones size={18} />
+                              </div>
+                          )}
                           <div>
-                              <h3 className="text-[15px] font-extrabold text-gray-900 leading-tight">
-                                  {lang === 'bn' ? 'কাস্টমার সাপোর্ট' : 'Customer Support'}
+                              <h3 className="text-[15px] font-black text-slate-900 dark:text-white leading-tight">
+                                  {lang === 'bn' ? 'কাস্টমার সাপোর্ট সেন্টার' : 'Customer Support Center'}
                               </h3>
-                              <p className="text-[11px] text-gray-400 font-medium">
-                                  {lang === 'bn' ? 'সরাসরি হেল্পলাইন' : 'Direct Helpline'}
+                              <p className="text-[11px] text-slate-400 font-semibold">
+                                  {supportCategory
+                                      ? (lang === 'bn' ? 'সমস্যার বিস্তারিত লিখে সাবমিট করুন' : 'Fill out details & submit')
+                                      : (lang === 'bn' ? 'যে বিষয়ে সমস্যা সেটিতে ক্লিক করুন' : 'Select the topic you need help with')}
                               </p>
                           </div>
                       </div>
                       <button 
-                          onClick={() => setShowSupportModal(false)} 
-                          className="p-1.5 bg-gray-100 rounded-full text-gray-400 hover:text-gray-700 active:scale-90 transition-all"
+                          type="button"
+                          onClick={() => {
+                              setShowSupportModal(false);
+                              setSupportCategory(null);
+                              setSupportFeedback(null);
+                          }} 
+                          className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white flex items-center justify-center active:scale-90 transition-all cursor-pointer"
                       >
                           <X size={15} strokeWidth={2.5} />
                       </button>
                   </div>
 
+                  {/* STATE A: FEEDBACK AFTER SUBMISSION */}
                   {supportFeedback ? (
-                      <div className="py-4 text-center space-y-3">
-                          <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center ${supportFeedback.success ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-                              {supportFeedback.success ? <CheckCircle2 size={26} /> : <AlertCircle size={26} />}
+                      <div className="py-5 text-center space-y-3.5 animate-in zoom-in-95 duration-200">
+                          <div className={`w-14 h-14 mx-auto rounded-full flex items-center justify-center border ${
+                              supportFeedback.success
+                                  ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30'
+                                  : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
+                          }`}>
+                              {supportFeedback.success ? <CheckCircle2 size={30} /> : <AlertCircle size={30} />}
                           </div>
                           <div>
-                              <h4 className="text-[14px] font-bold text-gray-900">
-                                  {supportFeedback.success ? (lang === 'bn' ? 'মেসেজ পাঠানো হয়েছে!' : 'Message Sent!') : (lang === 'bn' ? 'ব্যর্থ হয়েছে' : 'Failed')}
+                              <h4 className="text-base font-black text-slate-900 dark:text-white">
+                                  {supportFeedback.success
+                                      ? (lang === 'bn' ? 'সাপোর্ট রিকোয়েস্ট পাঠানো হয়েছে!' : 'Support Ticket Sent!')
+                                      : (lang === 'bn' ? 'পাঠাতে ব্যর্থ হয়েছে' : 'Submission Failed')}
                               </h4>
-                              <p className="text-[12px] text-gray-500 mt-1 leading-snug">
+                              {supportFeedback.ticketId && (
+                                  <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 border border-purple-500/25 text-[10.5px] font-mono font-bold">
+                                      Ticket ID: #{supportFeedback.ticketId.slice(0, 8).toUpperCase()}
+                                  </span>
+                              )}
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
                                   {supportFeedback.message}
                               </p>
                           </div>
                           <button 
+                              type="button"
                               onClick={() => {
                                   setShowSupportModal(false);
+                                  setSupportCategory(null);
                                   setSupportFeedback(null);
                               }}
-                              className="w-full mt-2 h-[42px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-[13px] transition-all"
+                              className="w-full mt-2 h-[44px] bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black rounded-2xl text-xs shadow-md active:scale-95 transition-all cursor-pointer"
                           >
-                              {lang === 'bn' ? 'ঠিক আছে' : 'OK'}
+                              {lang === 'bn' ? 'ঠিক আছে (OK)' : 'Done'}
                           </button>
                       </div>
-                  ) : (
-                      <div className="space-y-3 pt-1">
-                          <div className="bg-emerald-50/60 border border-emerald-100/70 p-2.5 rounded-xl text-[11px] text-emerald-800 leading-relaxed font-medium">
-                              {lang === 'bn' 
-                                  ? 'আপনার যেকোনো সমস্যা বা প্রশ্ন থাকলে নিচে লিখুন। মেসেজটি সরাসরি আমাদের অ্যাডমিন গ্রুপে পৌঁছাবে।' 
-                                  : 'Type your message or issue below. It will be forwarded directly to our admin team in Telegram.'}
+
+                  /* STATE B: STEP 1 — SELECT 1 OF THE 6 CATEGORIES (Account, Buy, Sell, Add Money, Withdraw, Others) */
+                  ) : !supportCategory ? (
+                      <div className="space-y-2.5 pt-1 animate-in fade-in duration-200">
+                          <div className={`p-2.5 rounded-2xl border text-[11px] font-medium leading-relaxed ${
+                              darkMode ? 'bg-indigo-950/35 border-indigo-800/50 text-indigo-200' : 'bg-indigo-50/80 border-indigo-100 text-indigo-900'
+                          }`}>
+                              {lang === 'bn'
+                                  ? '👇 নিচের অপশনগুলো থেকে আপনার সমস্যার বিষয়টি নির্বাচন করুন:'
+                                  : '👇 Please choose the category that matches your issue:'}
                           </div>
 
+                          <div className="grid grid-cols-2 gap-2.5">
+                              {SUPPORT_CATEGORIES.map((cat) => {
+                                  const IconC = cat.IconComp;
+                                  return (
+                                      <button
+                                          key={cat.id}
+                                          type="button"
+                                          onClick={() => handleSelectSupportCategory(cat)}
+                                          className={`p-3 rounded-2xl border text-left transition-all active:scale-95 cursor-pointer flex flex-col justify-between gap-2 group ${
+                                              darkMode
+                                                  ? 'bg-slate-800/70 hover:bg-slate-800 border-slate-700/80 hover:border-purple-500/50'
+                                                  : 'bg-slate-50/90 hover:bg-purple-50/50 border-slate-200/90 hover:border-purple-300'
+                                          }`}
+                                      >
+                                          <div className="flex items-center justify-between w-full">
+                                              <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${cat.iconBg}`}>
+                                                  <IconC size={17} />
+                                              </div>
+                                              <ChevronRight size={14} className="text-slate-400 group-hover:text-purple-500 transition-colors" />
+                                          </div>
+                                          <div>
+                                              <div className="font-black text-xs text-slate-900 dark:text-white leading-tight">
+                                                  {lang === 'bn' ? cat.titleBn : cat.titleEn}
+                                              </div>
+                                              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 line-clamp-2 leading-snug">
+                                                  {lang === 'bn' ? cat.descBn : cat.descEn}
+                                              </div>
+                                          </div>
+                                      </button>
+                                  );
+                              })}
+                          </div>
+                      </div>
+
+                  /* STATE C: STEP 2 — AUTO-FILLED SUBJECT + DETAILS + OPTIONAL IMAGE UPLOAD + SUBMIT */
+                  ) : (
+                      <div className="space-y-3.5 pt-1 animate-in slide-in-from-right-4 duration-200">
+                          {/* Auto-Filled Subject Box */}
+                          <div className={`p-3 rounded-2xl border ${
+                              darkMode ? 'bg-slate-800/80 border-purple-500/35' : 'bg-purple-50/70 border-purple-200'
+                          }`}>
+                              <div className="flex items-center justify-between mb-1">
+                                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                                      {lang === 'bn' ? 'বিষয় (Auto Subject)' : 'Subject (Auto-Filled)'}
+                                  </span>
+                                  <button
+                                      type="button"
+                                      onClick={() => setSupportCategory(null)}
+                                      className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                                  >
+                                      {lang === 'bn' ? 'বিষয় পরিবর্তন' : 'Change Topic'}
+                                  </button>
+                              </div>
+                              <div className="text-xs font-black text-slate-900 dark:text-white leading-snug">
+                                  {supportSubject}
+                              </div>
+                          </div>
+
+                          {/* Details Input */}
                           <div>
-                              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                                  {lang === 'bn' ? 'আপনার মেসেজ লিখুন' : 'Write your message'}
+                              <label className="block text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                                  {lang === 'bn' ? 'সমস্যার বিস্তারিত বিবরণ (Details) *' : 'Issue Details *'}
                               </label>
                               <textarea
                                   rows={4}
                                   value={supportMsg}
                                   onChange={(e) => setSupportMsg(e.target.value)}
-                                  placeholder={lang === 'bn' ? 'এখানে আপনার মেসেজ বা সমস্যার বিবরণ লিখুন...' : 'Type details here...'}
-                                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-[12px] text-gray-900 focus:bg-white focus:border-violet-500 focus:ring-2 focus:ring-emerald-500/10 outline-none resize-none transition-all placeholder:text-gray-400 font-medium"
+                                  placeholder={
+                                      lang === 'bn'
+                                          ? 'আপনার সমস্যার বিস্তারিত এখানে লিখুন (যেমন: TrxID, টাকার পরিমাণ বা ওয়ালেট নাম্বার)...'
+                                          : 'Describe your issue in detail (e.g., TrxID, amount, or wallet number)...'
+                                  }
+                                  style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                                  className={`w-full rounded-2xl p-3 text-xs font-medium outline-none resize-none border transition-all ${
+                                      darkMode
+                                          ? 'bg-slate-800/70 border-slate-700 focus:border-purple-500 placeholder:text-slate-500'
+                                          : 'bg-slate-50 border-slate-200 focus:bg-white focus:border-purple-500 placeholder:text-slate-400'
+                                  }`}
                               />
                           </div>
 
-                          <div className="flex gap-2 pt-1">
+                          {/* Optional Image / Screenshot Attachment */}
+                          <div>
+                              <div className="flex items-center justify-between mb-1.5">
+                                  <label className="text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                                      {lang === 'bn' ? 'স্ক্রিনশট / ছবি (ঐচ্ছিক - Optional)' : 'Screenshot / Image (Optional)'}
+                                  </label>
+                                  {supportImagePreview && (
+                                      <button
+                                          type="button"
+                                          onClick={() => setSupportImagePreview(null)}
+                                          className="text-[10.5px] font-bold text-rose-500 hover:underline cursor-pointer"
+                                      >
+                                          {lang === 'bn' ? 'মুছে ফেলুন' : 'Remove'}
+                                      </button>
+                                  )}
+                              </div>
+
+                              {supportImagePreview ? (
+                                  <div className="relative rounded-2xl overflow-hidden border border-purple-500/40 bg-slate-950/40 p-1.5 flex items-center gap-3">
+                                      <img
+                                          src={supportImagePreview}
+                                          alt="Preview"
+                                          className="w-14 h-14 object-cover rounded-xl border border-slate-700 shrink-0"
+                                      />
+                                      <div className="min-w-0 flex-1">
+                                          <p className="text-xs font-black text-emerald-500 truncate">
+                                              {lang === 'bn' ? '✓ স্ক্রিনশট যুক্ত করা হয়েছে' : '✓ Screenshot Attached'}
+                                          </p>
+                                          <p className="text-[10px] text-slate-400">
+                                              {lang === 'bn' ? 'সাবমিট করলে সরাসরি সাপোর্ট গ্রুপে যাবে' : 'Will be sent directly to support group'}
+                                          </p>
+                                      </div>
+                                      <button
+                                          type="button"
+                                          onClick={() => setSupportImagePreview(null)}
+                                          className="w-7 h-7 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center shrink-0 cursor-pointer"
+                                      >
+                                          <X size={14} />
+                                      </button>
+                                  </div>
+                              ) : (
+                                  <label className={`w-full py-2.5 px-3 rounded-2xl border border-dashed flex items-center justify-center gap-2 text-xs font-bold cursor-pointer transition-all active:scale-[0.99] ${
+                                      darkMode
+                                          ? 'bg-slate-800/40 border-slate-700 text-slate-300 hover:border-purple-500/50'
+                                          : 'bg-slate-50 border-slate-300 text-slate-600 hover:border-purple-400'
+                                  }`}>
+                                      <Camera size={15} className="text-purple-500 shrink-0" />
+                                      <span>
+                                          {isCompressingImage
+                                              ? (lang === 'bn' ? 'ছবি প্রস্তুত হচ্ছে...' : 'Processing image...')
+                                              : (lang === 'bn' ? '+ স্ক্রিনশট আপলোড করুন (Optional)' : '+ Upload Screenshot (Optional)')}
+                                      </span>
+                                      <input
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={handleSupportImageChange}
+                                          className="hidden"
+                                      />
+                                  </label>
+                              )}
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2.5 pt-1">
                               <button
                                   type="button"
-                                  onClick={() => setShowSupportModal(false)}
-                                  className="flex-1 h-[44px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-[13px] active:scale-95 transition-all"
+                                  onClick={() => setSupportCategory(null)}
+                                  className={`flex-1 h-[44px] rounded-2xl font-black text-xs active:scale-95 transition-all cursor-pointer border ${
+                                      darkMode
+                                          ? 'bg-slate-800 border-slate-700 text-slate-300'
+                                          : 'bg-slate-100 border-slate-200 text-slate-700'
+                                  }`}
                               >
-                                  {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+                                  {lang === 'bn' ? 'পেছনে যান' : 'Back'}
                               </button>
                               <button
                                   type="button"
-                                  disabled={isSendingSupport || !supportMsg.trim()}
+                                  disabled={isSendingSupport || isCompressingImage || !supportMsg.trim()}
                                   onClick={async () => {
                                       if (!supportMsg.trim()) return;
                                       setIsSendingSupport(true);
                                       try {
-                                          await submitSupportMessage({
+                                          const res = await submitSupportMessage({
                                               userId: user?.id,
                                               name: user?.first_name,
                                               username: user?.username,
-                                              message: supportMsg.trim()
+                                              category: supportCategory?.id || 'Others',
+                                              subject: supportSubject,
+                                              message: supportMsg.trim(),
+                                              imageBase64: supportImagePreview || null
                                           });
                                           setSupportMsg('');
+                                          setSupportImagePreview(null);
+                                          playAppSound('success');
                                           setSupportFeedback({
                                               success: true,
-                                              message: lang === 'bn' ? 'আপনার মেসেজ সফলভাবে গ্রুপে পাঠানো হয়েছে। অ্যাডমিন টিম শীঘ্রই উত্তর দিবে।' : 'Your message has been sent to our support group.'
+                                              ticketId: res?.ticketId || '',
+                                              message: lang === 'bn'
+                                                  ? 'আপনার মেসেজ সফলভাবে আমাদের সাপোর্ট গ্রুপে পাঠানো হয়েছে। অ্যাডমিন টিম খুব শীঘ্রই উত্তর দিবে।'
+                                                  : 'Your support ticket has been sent to our team. We will reply shortly.'
                                           });
-                                          if (WebApp?.HapticFeedback) {
-                                              WebApp.HapticFeedback.notificationOccurred('success');
-                                          }
                                       } catch (err) {
+                                          playAppSound('error');
                                           setSupportFeedback({
                                               success: false,
                                               message: err.message || (lang === 'bn' ? 'পাঠাতে সমস্যা হয়েছে, আবার চেষ্টা করুন।' : 'Failed to send, try again.')
                                           });
-                                          if (WebApp?.HapticFeedback) {
-                                              WebApp.HapticFeedback.notificationOccurred('error');
-                                          }
                                       } finally {
                                           setIsSendingSupport(false);
                                       }
                                   }}
-                                  className="flex-1 h-[44px] bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-[13px] flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all disabled:opacity-50"
+                                  className="flex-[1.4] h-[44px] bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/25 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
                               >
                                   {isSendingSupport ? (
                                       <Loader2 size={16} className="animate-spin" />
                                   ) : (
                                       <>
                                           <Send size={14} />
-                                          <span>{lang === 'bn' ? 'পাঠান' : 'Send'}</span>
+                                          <span>{lang === 'bn' ? 'সাবমিট করুন' : 'Submit Ticket'}</span>
                                       </>
                                   )}
                               </button>
@@ -7015,7 +8832,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                           <div className="relative">
                               <div onClick={() => setShowMethodDropdown(!showMethodDropdown)} className="w-full h-[52px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 flex items-center justify-between cursor-pointer hover:border-[var(--color-brand)]/50 transition-all">
                                   <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                      <div style={{ backgroundColor: '#ffffff' }} className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                        <img src={getPaymentLogo(walletMethod)} alt={walletMethod} className="w-full h-full object-contain" />
                                    </div>
                                       <span className="font-bold text-[var(--color-text-primary)]">{walletMethod}</span>
@@ -7029,7 +8846,7 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                                       <div className="tp-wallet-dropdown absolute top-full left-0 right-0 mt-2 bg-white rounded-[14px] premium-shadow border border-[var(--color-border)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
                                           {['bKash', 'Nagad'].filter(method => method !== walletMethod).map(method => (
                                               <button key={method} onClick={() => { setWalletMethod(method); setShowMethodDropdown(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                                                  <div className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                                  <div style={{ backgroundColor: '#ffffff' }} className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                                    <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
                                                </div>
                                                   <span className="font-bold text-[14px] text-[var(--color-text-primary)]">{method}</span>
@@ -7237,7 +9054,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
       {/* 1. HERO ROSE GARDEN BANNER CARD */}
       <CutCornerCard
         className="p-0 overflow-hidden bg-gradient-to-br from-rose-600 via-rose-500 to-pink-600 text-white border border-rose-300/60 shadow-[0_14px_34px_rgba(225,29,72,0.22)]"
-        flower={<ReferralRosePattern />}
+        flower={null}
       >
         {/* Promotional Referral Banner Image Preview */}
         <div className="relative w-full h-44 overflow-hidden border-b border-white/15 bg-indigo-950">
@@ -7311,7 +9128,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
             ? 'bg-slate-900 border-rose-500/30'
             : 'bg-gradient-to-br from-white via-rose-50/40 to-pink-50/50 border-rose-200/80'
         }`}
-        flower={<ReferralRosePattern />}
+        flower={null}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -7386,7 +9203,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
             ? 'bg-slate-900 border-rose-500/30'
             : 'bg-gradient-to-br from-white via-rose-50/25 to-white border-rose-200/70'
         }`}
-        flower={<ReferralRosePattern />}
+        flower={null}
       >
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-rose-100/90 border border-rose-200/80 flex items-center justify-center shrink-0 shadow-2xs">
@@ -7464,7 +9281,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
       {/* 4. REFERRED USERS LIST CARD */}
       <CutCornerCard
         className="p-4 space-y-3 bg-white border border-rose-200/70"
-        flower={<ReferralRosePattern />}
+        flower={null}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -8615,11 +10432,15 @@ function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToRefe
 }
 
 
-function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWallet, fiatWithdrawPending, antiAbuseData = {}, setIsModalOpen, onBack, reloadData }) {
+function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, twoStepEnabled = false, twoStepLength = 4, fiatWallet, setFiatWallet, fiatWithdrawPending, antiAbuseData = {}, setIsModalOpen, onBack, reloadData }) {
     const [amount, setAmount] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState('');
     const [showEditWalletModal, setShowEditWalletModal] = useState(false);
+    const [showConfirmWithdrawModal, setShowConfirmWithdrawModal] = useState(false);
+    const [pendingConfirmData, setPendingConfirmData] = useState(null);
+    const [showWithdrawPinModal, setShowWithdrawPinModal] = useState(false);
+    const [withdrawPinError, setWithdrawPinError] = useState('');
     const [showFlowerModal, setShowFlowerModal] = useState(false);
     const [withdrawDetails, setWithdrawDetails] = useState(null);
     const [editMethod, setEditMethod] = useState('bKash');
@@ -8630,13 +10451,14 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
     const hasSell = Boolean(antiAbuseData?.hasSellBalance);
     const isDepositUser = Boolean(antiAbuseData?.hasDepositWithoutTrade) && !hasSell;
     const spentSinceLastDeposit = parseFloat(antiAbuseData?.spentSinceLastDeposit) || 0;
-    const minAmount = isDepositUser ? 30 : 20;
+    const minAmount = 25;
+    const maxAmount = 5000;
 
     useEffect(() => {
         if (setIsModalOpen) {
-            setIsModalOpen(showEditWalletModal || showFlowerModal);
+            setIsModalOpen(showEditWalletModal || showConfirmWithdrawModal || showWithdrawPinModal || showFlowerModal);
         }
-    }, [showEditWalletModal, showFlowerModal, setIsModalOpen]);
+    }, [showEditWalletModal, showConfirmWithdrawModal, showWithdrawPinModal, showFlowerModal, setIsModalOpen]);
 
     const handleSaveEditedWallet = async () => {
         if (!editNumber || !editName) return;
@@ -8651,8 +10473,10 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             if (setFiatWallet) setFiatWallet({ method: editMethod, number: editNumber, name: editName });
             setShowEditWalletModal(false);
             if (setIsModalOpen) setIsModalOpen(false);
+            playAppSound('success');
             if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(lang === 'bn' ? "ওয়ালেট সফলভাবে আপডেট করা হয়েছে!" : "Wallet updated successfully!");
         } catch (e) {
+            playAppSound('error');
             if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(e.message || "Failed to update wallet");
             else alert(e.message || "Failed to update wallet");
         } finally {
@@ -8679,17 +10503,20 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
         return () => clearInterval(interval);
     }, [fiatWithdrawPending]);
 
-    const handleMax = () => setAmount(balance.toString());
+    const handleMax = () => setAmount(Math.min(Number(balance) || 0, maxAmount).toString());
 
-    const handleSubmit = async () => {
+    // Step 1: Validate & Open Permission / Confirmation Modal
+    const handleSubmit = () => {
         const amt = parseFloat(amount);
         if (!amount || isNaN(amt) || amt <= 0) {
+            playAppSound('error');
             const msg = lang === 'bn' ? "সঠিক পরিমাণ লিখুন" : "Invalid amount";
             return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
         }
 
         // Anti-Abuse: Deposit users must spend at least 20 TK on crypto before withdrawing
         if (isDepositUser && spentSinceLastDeposit < 20) {
+            playAppSound('error');
             const remaining = (20 - spentSinceLastDeposit).toFixed(0);
             const msg = lang === 'bn' 
                 ? `অ্যাড মানি করার পর সাথে সাথে ক্যাশআউট করা যাবে না। নূন্যতম ২০ টাকার ক্রিপ্টো ক্রয়/ট্রেড করতে হবে (বাকি আছে ৳${remaining} টাকা)।` 
@@ -8698,13 +10525,19 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
         }
 
         if (amt < minAmount) {
-            const msg = isDepositUser
-                ? (lang === 'bn' ? "অ্যাড মানি ব্যবহারকারীদের জন্য নূন্যতম উইথড্র ৩০ টাকা" : "Minimum withdraw amount is 30 BDT for deposited funds")
-                : (lang === 'bn' ? "নূন্যতম উত্তোলন ২০ টাকা" : "Minimum withdraw amount is 20 BDT");
+            playAppSound('error');
+            const msg = lang === 'bn' ? "সর্বনিম্ন উত্তোলন ২৫ টাকা (Minimum withdraw is 25 BDT)" : "Minimum withdraw amount is 25 BDT";
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+        }
+
+        if (amt > maxAmount) {
+            playAppSound('error');
+            const msg = lang === 'bn' ? "সর্বোচ্চ উত্তোলন ৫,০০০ টাকা! ৫,০০০ টাকার বেশি একসাথে উইথড্র দেওয়া যাবে না।" : "Maximum withdraw limit is 5,000 BDT per request.";
             return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
         }
 
         if (amt > balance) {
+            playAppSound('error');
             const msg = lang === 'bn' ? "অপর্যাপ্ত ব্যালেন্স" : "Insufficient balance";
             return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
         }
@@ -8712,34 +10545,76 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
         const fee = calculateSendMoneyFee(amt);
         const receiveAmount = amt - fee;
         if (receiveAmount <= 0) {
+            playAppSound('error');
             const msg = lang === 'bn' ? "সেন্ড মানি ফি বাদ দিলে প্রাপ্য টাকার পরিমাণ শূন্য বা কম হয়" : "Amount after fee must be greater than zero";
             return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
         }
 
+        playAppSound('confirm');
+
+        setPendingConfirmData({
+            amount: amt,
+            fee: fee,
+            receiveAmount: receiveAmount,
+            method: fiatWallet?.method || 'bKash',
+            number: fiatWallet?.number || '',
+            name: fiatWallet?.name || user?.first_name || 'User'
+        });
+        setShowConfirmWithdrawModal(true);
+    };
+
+    // Step 2: Execute Withdrawal when User Clicks Confirm in Permission Modal (or enters 2-Step PIN)
+    const executeWithdrawalRequest = async (enteredPin = '') => {
+        if (!pendingConfirmData || isSubmitting) return;
+        const { amount: amt, fee, receiveAmount, method, number } = pendingConfirmData;
         setIsSubmitting(true);
+        setWithdrawPinError('');
         try {
             await withdrawFiat({
                 userId: user?.id || 123456789,
                 amount: amt,
                 fee: fee,
-                receiveAmount: receiveAmount
+                receiveAmount: receiveAmount,
+                twoStepPin: enteredPin || undefined
             });
+            setShowConfirmWithdrawModal(false);
+            setShowWithdrawPinModal(false);
+            setPendingConfirmData(null);
             setWithdrawDetails({
                 amount: amt,
                 fee: fee,
                 receiveAmount: receiveAmount,
-                method: fiatWallet?.method || 'bKash',
-                number: fiatWallet?.number || ''
+                method: method,
+                number: number
             });
+            playAppSound('success');
             setShowFlowerModal(true);
             setAmount('');
             reloadData();
         } catch (e) {
-            if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(e.message || "Withdrawal failed");
-            else alert(e.message || "Withdrawal failed");
+            playAppSound('error');
+            if (showWithdrawPinModal) {
+                setWithdrawPinError(e.message || (lang === 'bn' ? 'ভুল পিন কোড!' : 'Invalid PIN!'));
+            } else if (window.Telegram?.WebApp?.showAlert) {
+                window.Telegram.WebApp.showAlert(e.message || "Withdrawal failed");
+            } else {
+                alert(e.message || "Withdrawal failed");
+            }
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleConfirmWithdrawExecute = async () => {
+        if (!pendingConfirmData || isSubmitting) return;
+        if (twoStepEnabled) {
+            playAppSound('confirm');
+            setShowConfirmWithdrawModal(false);
+            setWithdrawPinError('');
+            setShowWithdrawPinModal(true);
+            return;
+        }
+        await executeWithdrawalRequest('');
     };
 
     const getLogo = () => {
@@ -8837,19 +10712,21 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             <div className="p-5 rounded-3xl bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3">
                 <div className="flex justify-between items-center">
                     <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        {lang === 'bn' ? `উত্তোলনের পরিমাণ (${isDepositUser ? 'মিনিমাম ৩০' : 'মিনিমাম ২০'} BDT)` : `Amount (Min ${minAmount} BDT)`}
+                        {lang === 'bn' ? 'উত্তোলনের পরিমাণ (২৫ – ৫,০০০ BDT)' : 'Amount (25 – 5,000 BDT)'}
                     </span>
                     <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
-                        {isDepositUser ? 'Min ৳30' : 'Min ৳20'}
+                        Min ৳25 • Max ৳5,000
                     </span>
                 </div>
                 <div className="relative flex items-center">
                     <span className="absolute left-4 text-purple-600 font-black text-2xl select-none">৳</span>
                     <input 
                         type="number" 
+                        min="25"
+                        max="5000"
                         value={amount} 
                         onChange={(e) => setAmount(e.target.value)} 
-                        placeholder={isDepositUser ? "30.00" : "20.00"} 
+                        placeholder="25.00" 
                         className="w-full h-[56px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200/90 dark:border-slate-700/80 rounded-2xl pl-10 pr-20 font-black text-2xl text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:bg-white dark:focus:bg-slate-800 focus:ring-4 focus:ring-purple-500/10 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
                     />
                     <button 
@@ -8887,7 +10764,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
             <div className="p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs">
                 <div className="flex items-center justify-between gap-3 w-full">
                     <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                        <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200/90 p-1.5 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box">
+                        <div style={{ backgroundColor: '#ffffff' }} className="w-11 h-11 rounded-2xl bg-white border border-slate-200/90 p-1.5 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box">
                             <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -8918,18 +10795,25 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                 </div>
             </div>
 
-            {/* Warning Note */}
+            {/* Send Money Fee Chart & Limit Note */}
             <div className="p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/40 flex items-start gap-2.5">
                 <Info size={16} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-blue-900 dark:text-blue-300 font-medium leading-relaxed">
-                    {lang === 'bn' 
-                        ? 'নূন্যতম উত্তোলন: ক্রিপ্টো বিক্রয় ২০ টাকা | অ্যাড মানি ৩০ টাকা। অ্যাড মানি করার পর ২০ টাকার ক্রিপ্টো ক্রয় করতে হবে।' 
-                        : 'Min Withdraw: Crypto Sell 20 BDT | Deposit 30 BDT. Must trade 20 BDT crypto after deposit.'}
-                </p>
+                <div className="text-[11px] text-blue-900 dark:text-blue-300 font-medium leading-relaxed space-y-1">
+                    <p className="font-bold">
+                        {lang === 'bn' 
+                            ? 'সর্বনিম্ন উইথড্র: ৳২৫ টাকা | সর্বোচ্চ উইথড্র: ৳৫,০০০ টাকা' 
+                            : 'Min Withdraw: 25 BDT | Max Withdraw: 5,000 BDT'}
+                    </p>
+                    <p>
+                        {lang === 'bn' 
+                            ? 'সেন্ড মানি ফি: ২৫–১০০৳ = ৫৳ | ১০১–৫০০৳ = ১০৳ | ৫০১–১০০০৳ = ১৫৳ | ১০০১–৫০০০৳ = ২০৳।' 
+                            : 'Send Money Fee: 25–100 TK = 5 TK | 101–500 TK = 10 TK | 501–1000 TK = 15 TK | 1001–5000 TK = 20 TK.'}
+                    </p>
+                </div>
             </div>
 
             {/* Submit Button (Tactile 3D Button) */}
-            <div className="pt-2">
+            <div className="pt-2 pb-6">
                 <button 
                     type="button"
                     onClick={handleSubmit} 
@@ -8944,6 +10828,138 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                     <span>{t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS')}</span>
                 </button>
             </div>
+
+            {/* Withdrawal Permission / Confirmation Modal */}
+            {showConfirmWithdrawModal && pendingConfirmData && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="relative bg-white dark:bg-slate-900 w-full max-w-[350px] p-6 rounded-3xl shadow-2xl border border-slate-200/90 dark:border-slate-800 animate-in zoom-in-95 duration-200 overflow-hidden text-slate-900 dark:text-white">
+                        {/* Top Accent Glow */}
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600/15 to-indigo-600/15 border border-purple-500/30 flex items-center justify-center mx-auto mb-3 shadow-xs">
+                            <ShieldCheck size={28} className="text-purple-600 dark:text-purple-400" />
+                        </div>
+
+                        <div className="text-center mb-4">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/20 text-[10px] font-black uppercase tracking-wider mb-1">
+                                {lang === 'bn' ? 'পারমিশন ও যাচাইকরণ' : 'CONFIRMATION REQUIRED'}
+                            </span>
+                            <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+                                {lang === 'bn' ? 'উত্তোলন নিশ্চিত করুন' : 'Confirm Withdrawal'}
+                            </h3>
+                            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                                {lang === 'bn' ? 'অনুগ্রহ করে আপনার নাম্বার এবং টাকার পরিমাণ যাচাই করুন' : 'Please review your account number and payout summary'}
+                            </p>
+                        </div>
+
+                        {/* Wallet & Amount Review Box */}
+                        <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200/90 dark:border-slate-700/80 p-3.5 space-y-2.5 text-xs mb-5">
+                            <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80 dark:border-slate-700/80">
+                                <span className="text-slate-500 dark:text-slate-400 font-bold">
+                                    {lang === 'bn' ? 'প্রাপক ওয়ালেট:' : 'Receiving Wallet:'}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        style={{ backgroundColor: '#ffffff' }}
+                                        className="w-6 h-6 rounded-lg tp-payment-logo-box bg-white p-0.5 border border-slate-200 flex items-center justify-center shrink-0"
+                                    >
+                                        <img src={getPaymentLogo(pendingConfirmData.method)} alt={pendingConfirmData.method} className="w-full h-full object-contain" />
+                                    </div>
+                                    <span className="font-black text-slate-900 dark:text-white">{pendingConfirmData.method}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <span className="text-slate-500 dark:text-slate-400 font-bold">
+                                    {lang === 'bn' ? 'অ্যাকাউন্ট নাম্বার:' : 'Account Number:'}
+                                </span>
+                                <span className="font-mono font-black text-[13px] text-purple-600 dark:text-purple-300 bg-purple-500/10 px-2 py-0.5 rounded-lg border border-purple-500/20">
+                                    {pendingConfirmData.number}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <span className="text-slate-500 dark:text-slate-400 font-bold">
+                                    {lang === 'bn' ? 'উত্তোলনের পরিমাণ:' : 'Withdraw Amount:'}
+                                </span>
+                                <span className="font-bold font-mono text-slate-900 dark:text-white">
+                                    ৳{Number(pendingConfirmData.amount).toFixed(2)} BDT
+                                </span>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <span className="text-slate-500 dark:text-slate-400 font-bold">
+                                    {lang === 'bn' ? 'সেন্ড মানি ফি:' : 'Send Money Fee:'}
+                                </span>
+                                <span className="font-bold font-mono text-rose-500">
+                                    - ৳{Number(pendingConfirmData.fee).toFixed(2)} BDT
+                                </span>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between">
+                                <span className="font-black text-slate-900 dark:text-white text-[13px]">
+                                    {lang === 'bn' ? 'আপনি পাবেন (Net):' : 'You Will Receive:'}
+                                </span>
+                                <span className="font-black font-mono text-base text-emerald-600 dark:text-emerald-400">
+                                    ৳{Number(pendingConfirmData.receiveAmount).toFixed(2)} BDT
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                            <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={() => {
+                                    setShowConfirmWithdrawModal(false);
+                                    setPendingConfirmData(null);
+                                }}
+                                className="h-[46px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-black text-xs active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                            >
+                                {lang === 'bn' ? 'বাতিল করুন' : 'Cancel'}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={handleConfirmWithdrawExecute}
+                                className="h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white font-black text-xs shadow-[0_4px_14px_rgba(16,185,129,0.35)] hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 size={15} className="animate-spin" />
+                                        <span>{lang === 'bn' ? 'পাঠানো হচ্ছে...' : 'Sending...'}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check size={16} strokeWidth={3} />
+                                        <span>{lang === 'bn' ? 'হ্যাঁ, কনফার্ম' : 'Confirm'}</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 2-Step PIN Verification Modal for Withdrawal */}
+            <TwoStepPinModal
+                isOpen={showWithdrawPinModal}
+                onClose={() => {
+                    if (!isSubmitting) {
+                        setShowWithdrawPinModal(false);
+                        setPendingConfirmData(null);
+                    }
+                }}
+                onConfirmPin={(enteredPin) => executeWithdrawalRequest(enteredPin)}
+                pinLength={twoStepLength}
+                isSubmitting={isSubmitting}
+                errorText={withdrawPinError}
+                titleBn="উইথড্র ২-স্টেপ পিন যাচাই"
+                titleEn="Verify Withdrawal PIN"
+                subtitleBn={`৳${pendingConfirmData?.amount || 0} টাকা উত্তোলন নিশ্চিত করতে আপনার গোপন পিন দিন`}
+                subtitleEn={`Enter your 2-Step PIN to confirm ৳${pendingConfirmData?.amount || 0} withdrawal`}
+                darkMode={darkMode}
+                lang={lang}
+            />
 
             {/* Blooming Flower Withdrawal Success Modal */}
             <WithdrawFlowerModal 
@@ -8985,7 +11001,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, fiatWallet, setFiatWa
                                                     : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400'
                                             }`}
                                         >
-                                            <div className="w-7 h-7 rounded-xl tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
+                                            <div style={{ backgroundColor: '#ffffff' }} className="w-7 h-7 rounded-xl tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
                                                 <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
                                             </div>
                                             {method}
