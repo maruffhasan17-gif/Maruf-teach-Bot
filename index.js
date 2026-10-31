@@ -29,32 +29,6 @@ const db = getFirestore();
 
 // In-memory caches and fallbacks to protect Firestore quota limits
 const inMemoryVerifiedTrx = new Map();
-let localUserMemoryCache = {};
-const LOCAL_USER_CACHE_FILE = path.join(__dirname, 'local_user_cache.json');
-try {
-    if (fs.existsSync(LOCAL_USER_CACHE_FILE)) {
-        localUserMemoryCache = JSON.parse(fs.readFileSync(LOCAL_USER_CACHE_FILE, 'utf8'));
-        console.log('[UserCache] ✓ Loaded ' + Object.keys(localUserMemoryCache).length + ' user profiles from local cache.');
-    }
-} catch (_) {}
-
-function saveLocalUserCache(userId, data) {
-    if (!userId) return;
-    const strId = String(userId).trim();
-    localUserMemoryCache[strId] = {
-        ...(localUserMemoryCache[strId] || {}),
-        ...data,
-        cachedAt: Date.now()
-    };
-    try {
-        fs.writeFileSync(LOCAL_USER_CACHE_FILE, JSON.stringify(localUserMemoryCache, null, 2), 'utf8');
-    } catch (_) {}
-}
-
-function getLocalUserCache(userId) {
-    if (!userId) return null;
-    return localUserMemoryCache[String(userId).trim()] || null;
-}
 const inMemoryMockTrxs = [];
 let statsCache = { data: null, timestamp: 0 };
 let ordersCache = { data: null, timestamp: 0 };
@@ -3288,43 +3262,18 @@ app.post('/api/miniapp/verify-membership', async (req, res) => {
 
 app.get('/api/miniapp/user/:id', async (req, res) => {
     try {
-        const rawId = req.params.id;
-        if (!rawId || rawId === 'undefined' || rawId === 'null' || rawId === 'NaN' || isNaN(parseInt(rawId))) {
-            return res.status(400).json({ error: 'Invalid user ID' });
-        }
-        const userId = parseInt(rawId);
-        if (userId === 123456789) {
-            return res.json({ balance: 0, isGuest: true, status: 'active' });
-        }
-
+        const userId = parseInt(req.params.id);
+        const userRef = db.collection('users').doc(userId.toString());
+        const userDoc = await userRef.get();
+        
         let data = {};
-        let userRef = null;
-
-        try {
-            userRef = db.collection('users').doc(userId.toString());
-            const userDoc = await userRef.get();
-            if (userDoc.exists) {
-                data = userDoc.data() || {};
-                saveLocalUserCache(userId, data);
-            } else {
-                const cached = getLocalUserCache(userId);
-                if (cached) {
-                    data = cached;
-                } else if (req.query.startParam && /^ref_\d+$/i.test(String(req.query.startParam).trim())) {
-                    // Brand-new user opening MiniApp directly via referral startParam
-                    const devInfo = extractClientDevice(req, req.query);
-                    const refId = String(req.query.startParam).trim().replace(/^ref_/i, '');
-                    await registerUserReferral(userId, refId, {}, devInfo).catch(() => {});
-                }
-            }
-        } catch (dbErr) {
-            console.warn(`[Firestore Fallback Cache for ${userId}] ${dbErr.message}`);
-            const cached = getLocalUserCache(userId);
-            if (cached) {
-                data = cached;
-            } else {
-                data = { balance: 0, status: 'active' };
-            }
+        if (userDoc.exists) {
+            data = userDoc.data();
+        } else if (req.query.startParam && /^ref_\d+$/i.test(String(req.query.startParam).trim())) {
+            // Brand-new user opening MiniApp directly via referral startParam
+            const devInfo = extractClientDevice(req, req.query);
+            const refId = String(req.query.startParam).trim().replace(/^ref_/i, '');
+            await registerUserReferral(userId, refId, {}, devInfo).catch(() => {});
         }
 
         // Background anti-clone device verification if fingerprint query params provided
@@ -3335,28 +3284,34 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
 
         let mbsId = data.mbsId;
         if (!mbsId) {
-            mbsId = 'MBS' + String(userId).slice(-5);
-            data.mbsId = mbsId;
-            saveLocalUserCache(userId, { mbsId });
-            if (userRef) {
-                userRef.set({ mbsId }, { merge: true }).catch(() => {});
+            let unique = false;
+            while (!unique) {
+                const randomDigits = Math.floor(10000 + Math.random() * 90000);
+                const tempId = 'MBS' + randomDigits;
+                const existing = await db.collection('users').where('mbsId', '==', tempId).get();
+                if (existing.empty) {
+                    mbsId = tempId;
+                    unique = true;
+                }
             }
+            await userRef.set({ mbsId }, { merge: true });
         }
 
         let pendingWithdraw = data.fiatWithdrawPending || null;
         if (pendingWithdraw) {
             const isFinished = pendingWithdraw.status === 'completed' || pendingWithdraw.status === 'rejected';
             const finishTime = pendingWithdraw.completedAt || pendingWithdraw.rejectedAt || 0;
+            // If completed or rejected more than 2 hours ago, clear it so it doesn't linger
             if (isFinished && finishTime && (Date.now() - finishTime > 2 * 60 * 60 * 1000)) {
                 pendingWithdraw = null;
-                if (userRef) userRef.update({ fiatWithdrawPending: null }).catch(()=>{});
+                userRef.update({ fiatWithdrawPending: null }).catch(()=>{});
             }
         }
 
         if (data.status === 'restricted' && !data.restrictedUntil && String(data.restrictReason || '').includes('অসামঞ্জস্যপূর্ণ')) {
             data.status = 'active';
             data.isRestricted = false;
-            if (userRef) userRef.set({ status: 'active', isRestricted: false, restrictReason: null }, { merge: true }).catch(() => {});
+            userRef.set({ status: 'active', isRestricted: false, restrictReason: null }, { merge: true }).catch(() => {});
         }
 
         let pendingReceivedTransfer = data.pendingReceivedTransfer || null;
@@ -3364,7 +3319,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             try {
                 const av = await Promise.race([
                     getOrFetchUserAvatar(String(pendingReceivedTransfer.senderId)),
-                    new Promise(r => setTimeout(() => r(null), 1200))
+                    new Promise(r => setTimeout(() => r(null), 1500))
                 ]);
                 if (av && av.dataUrl) {
                     pendingReceivedTransfer = {
@@ -3377,13 +3332,8 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
 
         const isBanned = data.status === 'banned' || Boolean(data.isBanned);
         const isRestricted = data.status === 'restricted' && (!data.restrictedUntil || new Date(data.restrictedUntil) > new Date());
-        
-        // Ensure numeric balance
-        const numBal = Number(data.balance);
-        const finalBalance = Number.isFinite(numBal) ? numBal : 0;
-
         res.json({ 
-            balance: finalBalance,
+            balance: data.balance || 0,
             fiatWallet: data.fiatWallet || null,
             fiatWithdrawPending: pendingWithdraw,
             pendingReceivedTransfer,
@@ -3407,19 +3357,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             restrictReason: data.restrictReason || 'আপনার অ্যাকাউন্টটি সাময়িকভাবে রেস্ট্রিক্ট করা রয়েছে।'
         });
     } catch(e) {
-        console.error('Fatal user endpoint error:', e);
-        // Fallback to local cache even on top-level catch
-        const cached = getLocalUserCache(req.params.id);
-        if (cached) {
-            return res.json({
-                balance: Number(cached.balance) || 0,
-                mbsId: cached.mbsId || ('MBS' + String(req.params.id).slice(-5)),
-                fiatWallet: cached.fiatWallet || null,
-                status: cached.status || 'active',
-                isBanned: false,
-                isRestricted: false
-            });
-        }
+        console.error(e);
         res.status(500).json({ error: e.message });
     }
 });

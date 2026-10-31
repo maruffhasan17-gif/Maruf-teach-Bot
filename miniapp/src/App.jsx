@@ -4529,30 +4529,8 @@ export default function App() {
     }
     return null;
   });
-  const [balance, setBalance] = useState(() => {
-    try {
-      const u = resolveTelegramUser();
-      const uid = (u?.id && Number(u.id) !== GUEST_ID) ? u.id : localStorage.getItem('tp_active_uid');
-      if (uid && Number(uid) !== GUEST_ID) {
-        const cached = localStorage.getItem('tp_user_balance_' + uid);
-        if (cached !== null && cached !== undefined) {
-          const num = Number(cached);
-          if (Number.isFinite(num)) return num;
-        }
-      }
-    } catch (_) {}
-    return 0;
-  });
-  const [balanceLoaded, setBalanceLoaded] = useState(() => {
-    try {
-      const u = resolveTelegramUser();
-      const uid = (u?.id && Number(u.id) !== GUEST_ID) ? u.id : localStorage.getItem('tp_active_uid');
-      if (uid && Number(uid) !== GUEST_ID) {
-        return localStorage.getItem('tp_user_balance_' + uid) !== null;
-      }
-    } catch (_) {}
-    return false;
-  });
+  const [balance, setBalance] = useState(0);
+  const [balanceLoaded, setBalanceLoaded] = useState(true);
   const [restrictionInfo, setRestrictionInfo] = useState(null);
   const [antiAbuseData, setAntiAbuseData] = useState({
     hasDepositWithoutTrade: false,
@@ -4625,11 +4603,6 @@ export default function App() {
       if (data.balance !== undefined) {
         const numericBal = Number(data.balance);
         const finalBal = Number.isFinite(numericBal) ? numericBal : 0;
-        if (targetId && Number(targetId) !== GUEST_ID) {
-          try {
-            localStorage.setItem('tp_user_balance_' + targetId, String(finalBal));
-          } catch (_) {}
-        }
         setBalance(finalBal);
         setBalanceLoaded(true);
       }
