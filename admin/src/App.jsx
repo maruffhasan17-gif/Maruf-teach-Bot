@@ -6401,7 +6401,7 @@ function BroadcastCenter() {
 }
 
 // =========================================================================
-// EXECUTIVE ADMIN LOGIN SCREEN (LUXURY LIGHT MODE + FLOATING CRYPTO ASSETS)
+// EXECUTIVE ADMIN LOGIN SCREEN (LUXURY LIGHT MODE + FULL-PAGE FLOATING CRYPTO GALAXY)
 // =========================================================================
 function AdminLoginScreen({ onLoginSuccess }) {
   // Authentication Stages: 'credentials' -> '2fa'
@@ -6518,193 +6518,211 @@ function AdminLoginScreen({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-800 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans select-none">
       <style>{`
-        @keyframes tpFloatSlow {
+        @keyframes tpOrbitFloat1 {
+          0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+          25% { transform: translateY(-16px) translateX(8px) rotate(4deg); }
+          50% { transform: translateY(-28px) translateX(-4px) rotate(8deg); }
+          75% { transform: translateY(-12px) translateX(-10px) rotate(3deg); }
+        }
+        @keyframes tpOrbitFloat2 {
+          0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+          25% { transform: translateY(-12px) translateX(-10px) rotate(-5deg); }
+          50% { transform: translateY(-26px) translateX(6px) rotate(-10deg); }
+          75% { transform: translateY(-18px) translateX(12px) rotate(-4deg); }
+        }
+        @keyframes tpOrbitFloat3 {
+          0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+          33% { transform: translateY(-22px) translateX(12px) rotate(6deg); }
+          66% { transform: translateY(-10px) translateX(-8px) rotate(-6deg); }
+        }
+        @keyframes tpOrbitFloat4 {
+          0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
+          33% { transform: translateY(-18px) translateX(-14px) rotate(-8deg); }
+          66% { transform: translateY(-30px) translateX(8px) rotate(6deg); }
+        }
+        @keyframes tpDriftSlow {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-14px) rotate(1.2deg); }
+          50% { transform: translateY(-20px) rotate(12deg); }
         }
-        @keyframes tpFloatMedium {
+        @keyframes tpDriftFast {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-18px) rotate(-1.5deg); }
+          50% { transform: translateY(-16px) rotate(-14deg); }
         }
-        @keyframes tpFloatFast {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-12px) rotate(1deg); }
-        }
-        @keyframes tpFloatDrift {
-          0%, 100% { transform: translateY(0px) translateX(0px); }
-          50% { transform: translateY(-16px) translateX(8px); }
-        }
-        @keyframes tpOrbPulse {
-          0%, 100% { opacity: 0.35; transform: scale(1); }
-          50% { opacity: 0.55; transform: scale(1.08); }
+        @keyframes tpGlowPulse {
+          0%, 100% { opacity: 0.4; transform: scale(1); }
+          50% { opacity: 0.65; transform: scale(1.08); }
         }
       `}</style>
 
-      {/* Subtle Luxury Dot Mesh Background Pattern */}
+      {/* Subtle Luxury Dot Mesh Background Texture */}
       <div 
-        className="absolute inset-0 pointer-events-none opacity-60"
+        className="absolute inset-0 pointer-events-none opacity-50"
         style={{
           backgroundImage: 'radial-gradient(#cbd5e1 1.25px, transparent 1.25px)',
           backgroundSize: '24px 24px'
         }}
       />
 
-      {/* Ambient Pastel Mesh Glows */}
+      {/* Soft Ambient Pastel Glows across Canvas */}
       <div 
-        style={{ animation: 'tpOrbPulse 10s ease-in-out infinite' }}
-        className="absolute -top-32 -left-32 w-[520px] h-[520px] bg-gradient-to-br from-indigo-200/40 via-sky-200/35 to-transparent rounded-full blur-3xl pointer-events-none" 
+        style={{ animation: 'tpGlowPulse 10s ease-in-out infinite' }}
+        className="absolute -top-32 -left-32 w-[550px] h-[550px] bg-gradient-to-br from-indigo-200/40 via-sky-200/35 to-transparent rounded-full blur-3xl pointer-events-none" 
       />
       <div 
-        style={{ animation: 'tpOrbPulse 12s ease-in-out infinite 3s' }}
-        className="absolute -bottom-32 -right-32 w-[520px] h-[520px] bg-gradient-to-tl from-purple-200/40 via-pink-200/30 to-transparent rounded-full blur-3xl pointer-events-none" 
+        style={{ animation: 'tpGlowPulse 12s ease-in-out infinite 3s' }}
+        className="absolute -bottom-32 -right-32 w-[550px] h-[550px] bg-gradient-to-tl from-purple-200/40 via-pink-200/30 to-transparent rounded-full blur-3xl pointer-events-none" 
       />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[750px] h-[750px] bg-indigo-50/60 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-50/50 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Relative Canvas Stage */}
-      <div className="relative w-full max-w-md mx-auto z-10">
+      {/* ============================================================== */}
+      {/* FULL-PAGE FLOATING CRYPTO LOGOS / 3D COINS GALAXY              */}
+      {/* (No rectangular cards - pure glossy animated crypto emblems)    */}
+      {/* ============================================================== */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-10">
 
-        {/* ============================================================== */}
-        {/* DESKTOP FLOATING CRYPTO CARDS (Interactive floating tokens) */}
-        {/* ============================================================== */}
-
-        {/* 1. TON (The Open Network) Coin Card */}
-        <div
-          style={{ animation: 'tpFloatSlow 6s ease-in-out infinite' }}
-          className="hidden md:flex absolute -top-8 -left-28 lg:-left-36 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-3 shadow-[0_15px_35px_rgba(0,152,234,0.13)] items-center gap-3 z-30 select-none hover:scale-105 transition-transform"
+        {/* 1. BITCOIN (BTC) COIN - Top Left Floating */}
+        <div 
+          style={{ animation: 'tpOrbitFloat1 9s ease-in-out infinite' }}
+          className="absolute top-10 sm:top-14 left-4 sm:left-12 lg:left-24 pointer-events-auto group cursor-pointer transition-transform duration-300 hover:scale-115"
+          title="Bitcoin (BTC)"
         >
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#0088cc] to-[#00aaff] flex items-center justify-center shadow-md shadow-sky-500/25 shrink-0">
-            <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none">
-              <path d="M12 4.5L18 8.5L12 19.5L6 8.5L12 4.5Z" fill="white" fillOpacity="0.25"/>
-              <path d="M12 4.5L18 8.5L12 10.5L6 8.5L12 4.5Z" fill="white" fillOpacity="0.6"/>
-              <path d="M6 8.5L12 10.5V19.5L6 8.5Z" fill="white" fillOpacity="0.9"/>
-              <path d="M18 8.5L12 10.5V19.5L18 8.5Z" fill="white"/>
-            </svg>
-          </div>
-          <div className="text-left">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-slate-800">TON</span>
-              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700">The Open Network</span>
-            </div>
-            <div className="text-[11px] text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Fast L1 • Active</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 2. USDT (Tether) Coin Card */}
-        <div
-          style={{ animation: 'tpFloatMedium 7.5s ease-in-out infinite 0.7s' }}
-          className="hidden md:flex absolute -top-4 -right-28 lg:-right-36 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-3 shadow-[0_15px_35px_rgba(38,161,123,0.13)] items-center gap-3 z-30 select-none hover:scale-105 transition-transform"
-        >
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#009393] to-[#26a17b] flex items-center justify-center shadow-md shadow-emerald-500/25 shrink-0">
-            <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none">
-              <path d="M13.2 12.35c-.07.01-.73.07-1.2.07s-1.13-.06-1.2-.07c-2.42-.12-4.22-.57-4.22-1.12s1.8-1 4.22-1.12v1.73c.36.03.77.04 1.2.04s.84-.01 1.2-.04V10.1c2.42.12 4.22.57 4.22 1.12s-1.8 1-4.22 1.13zm0-2.42V8.58h3.38V6.5H7.42v2.08H10.8v1.35C7.94 10.07 5.8 10.68 5.8 11.4s2.14 1.33 5 1.47v4.63h2.4v-4.63c2.86-.14 5-.75 5-1.47s-2.14-1.33-5-1.47z" fill="white"/>
-            </svg>
-          </div>
-          <div className="text-left">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-slate-800">USDT</span>
-              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">TRC20 / TON</span>
-            </div>
-            <div className="text-[11px] text-slate-600 font-bold flex items-center gap-1.5 mt-0.5">
-              <span>৳124.50</span>
-              <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700">⚡ Instant</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. GRAM Token Card */}
-        <div
-          style={{ animation: 'tpFloatFast 5.5s ease-in-out infinite 1.4s' }}
-          className="hidden md:flex absolute -bottom-8 -left-24 lg:-left-32 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-3 shadow-[0_15px_35px_rgba(139,92,246,0.13)] items-center gap-3 z-30 select-none hover:scale-105 transition-transform"
-        >
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#7c3aed] to-[#a855f7] flex items-center justify-center shadow-md shadow-purple-500/25 shrink-0">
-            <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none">
-              <path d="M6.5 9.5L12 5.5L17.5 9.5L12 18.5L6.5 9.5Z" fill="white" fillOpacity="0.3"/>
-              <path d="M12 5.5L17.5 9.5L12 12L6.5 9.5L12 5.5Z" fill="white" fillOpacity="0.8"/>
-              <path d="M6.5 9.5L12 12V18.5L6.5 9.5Z" fill="white" fillOpacity="0.95"/>
-              <path d="M17.5 9.5L12 12V18.5L17.5 9.5Z" fill="white"/>
-            </svg>
-          </div>
-          <div className="text-left">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-slate-800">GRAM</span>
-              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">PoW Token</span>
-            </div>
-            <div className="text-[11px] text-purple-600 font-bold flex items-center gap-1 mt-0.5">
-              <span>৳146.00</span>
-              <span className="text-[9px] px-1 rounded bg-purple-50 text-purple-700 font-black">🔥 Trending</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. Multi-Chain Treasury Shield Card */}
-        <div
-          style={{ animation: 'tpFloatDrift 6.8s ease-in-out infinite 2.1s' }}
-          className="hidden md:flex absolute -bottom-6 -right-24 lg:-right-32 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-2xl p-3 shadow-[0_15px_35px_rgba(99,102,241,0.13)] items-center gap-3 z-30 select-none hover:scale-105 transition-transform"
-        >
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#4338ca] to-[#6366f1] flex items-center justify-center shadow-md shadow-indigo-500/25 shrink-0">
-            <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="none">
-              <path d="M12 4L18 7V12C18 16 15 19.5 12 21C9 19.5 6 16 6 12V7L12 4Z" fill="white" fillOpacity="0.25"/>
-              <path d="M12 5.5L16.5 7.8V11.8C16.5 15 14.2 17.8 12 19C9.8 17.8 7.5 15 7.5 11.8V7.8L12 5.5Z" stroke="white" strokeWidth="1.5"/>
-              <path d="M10 12L11.5 13.5L14.5 10.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <div className="text-left">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-slate-800">Security Vault</span>
-              <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Protected</span>
-            </div>
-            <div className="text-[11px] text-slate-500 font-bold flex items-center gap-1 mt-0.5">
-              <span className="text-emerald-600 font-black">৳ BDT & Crypto</span>
-              <span>• Auto Node</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ============================================================== */}
-        {/* MOBILE FLOATING CRYPTO CHIPS (Visible only on mobile devices)  */}
-        {/* ============================================================== */}
-        <div className="flex md:hidden items-center justify-center gap-2 mb-4 flex-wrap z-20">
-          <div
-            style={{ animation: 'tpFloatSlow 5s ease-in-out infinite' }}
-            className="bg-white/95 border border-slate-200/90 shadow-sm rounded-full px-3 py-1.5 flex items-center gap-1.5"
-          >
-            <div className="w-5 h-5 rounded-full bg-[#0088cc] flex items-center justify-center">
-              <svg viewBox="0 0 24 24" className="w-3 h-3 text-white" fill="currentColor">
-                <path d="M12 4.5L18 8.5L12 19.5L6 8.5Z" />
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-[#e67e00] via-[#f7931a] to-[#ffaa33] p-0.5 shadow-[0_12px_28px_rgba(247,147,26,0.32)] border-2 border-amber-200/90 flex items-center justify-center relative">
+            <div className="w-full h-full rounded-full bg-gradient-to-b from-[#ffaa33] to-[#e67e00] flex items-center justify-center shadow-inner">
+              <svg viewBox="0 0 32 32" className="w-8 h-8 sm:w-9 sm:h-9 text-white drop-shadow-md" fill="currentColor">
+                <path d="M23.189 14.02c.314-2.096-1.283-3.223-3.465-3.975l.708-2.84-1.728-.43-.69 2.765c-.454-.114-.92-.22-1.385-.326l.695-2.783-1.728-.431-.708 2.839c-.376-.086-.746-.17-1.104-.26l.002-.009-2.384-.595-.46 1.846s1.283.294 1.256.312c.7.175.826.638.805 1.006l-.806 3.235c.048.012.11.03.18.057l-.183-.045-1.13 4.532c-.086.212-.303.531-.793.41.018.025-1.256-.313-1.256-.313l-.858 1.978 2.25.561c.418.105.828.215 1.231.318l-.715 2.872 1.727.43.708-2.84c.472.127.93.245 1.378.357l-.705 2.828 1.728.431.715-2.866c2.948.558 5.164.333 6.097-2.333.752-2.146-.037-3.385-1.588-4.192 1.13-.26 1.98-1.003 2.207-2.538zm-3.95 5.537c-.535 2.146-4.148.986-5.318.695l.949-3.805c1.17.292 4.929.872 4.369 3.11zm.535-5.567c-.488 1.954-3.495.962-4.47.719l.86-3.45c.975.243 4.118.697 3.61 2.731z"/>
               </svg>
             </div>
-            <span className="text-[11px] font-black text-slate-800">TON</span>
-            <span className="text-[9px] font-bold text-emerald-600">Active</span>
-          </div>
-
-          <div
-            style={{ animation: 'tpFloatMedium 6s ease-in-out infinite 0.5s' }}
-            className="bg-white/95 border border-slate-200/90 shadow-sm rounded-full px-3 py-1.5 flex items-center gap-1.5"
-          >
-            <div className="w-5 h-5 rounded-full bg-[#26a17b] flex items-center justify-center text-white text-[9px] font-black">₮</div>
-            <span className="text-[11px] font-black text-slate-800">USDT</span>
-            <span className="text-[9px] font-bold text-slate-500">৳124.50</span>
-          </div>
-
-          <div
-            style={{ animation: 'tpFloatFast 4.5s ease-in-out infinite 1s' }}
-            className="bg-white/95 border border-slate-200/90 shadow-sm rounded-full px-3 py-1.5 flex items-center gap-1.5"
-          >
-            <div className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center text-white text-[9px] font-black">G</div>
-            <span className="text-[11px] font-black text-slate-800">GRAM</span>
-            <span className="text-[9px] font-bold text-purple-600">৳146</span>
+            {/* Glowing brand aura */}
+            <div className="absolute inset-0 rounded-full bg-amber-400/35 blur-xl -z-10 group-hover:bg-amber-400/60 transition-all pointer-events-none" />
           </div>
         </div>
 
-        {/* ============================================================== */}
-        {/* MAIN LUXURY LIGHT MODE LOGIN CARD                             */}
-        {/* ============================================================== */}
-        <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/90 rounded-3xl p-7 sm:p-9 shadow-[0_25px_70px_-15px_rgba(99,102,241,0.16),0_10px_25px_-5px_rgba(0,0,0,0.04)] relative z-20">
+        {/* 2. TON (The Open Network) COIN - Top Right Floating */}
+        <div 
+          style={{ animation: 'tpOrbitFloat2 10s ease-in-out infinite 0.5s' }}
+          className="absolute top-12 sm:top-16 right-4 sm:right-12 lg:right-28 pointer-events-auto group cursor-pointer transition-transform duration-300 hover:scale-115"
+          title="TON (The Open Network)"
+        >
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-[#0077c2] via-[#0088cc] to-[#00aaff] p-0.5 shadow-[0_12px_28px_rgba(0,152,234,0.32)] border-2 border-sky-200/90 flex items-center justify-center relative">
+            <div className="w-full h-full rounded-full bg-gradient-to-b from-[#00aaff] to-[#0077c2] flex items-center justify-center shadow-inner">
+              <svg viewBox="0 0 24 24" className="w-8 h-8 sm:w-9 sm:h-9 text-white drop-shadow-md" fill="none">
+                <path d="M12 4.5L18.5 8.8L12 20.2L5.5 8.8L12 4.5Z" fill="white" fillOpacity="0.25"/>
+                <path d="M12 4.5L18.5 8.8L12 11L5.5 8.8L12 4.5Z" fill="white" fillOpacity="0.6"/>
+                <path d="M5.5 8.8L12 11V20.2L5.5 8.8Z" fill="white" fillOpacity="0.9"/>
+                <path d="M18.5 8.8L12 11V20.2L18.5 8.8Z" fill="white"/>
+              </svg>
+            </div>
+            <div className="absolute inset-0 rounded-full bg-sky-400/35 blur-xl -z-10 group-hover:bg-sky-400/60 transition-all pointer-events-none" />
+          </div>
+        </div>
+
+        {/* 3. TETHER (USDT) COIN - Middle Right Floating */}
+        <div 
+          style={{ animation: 'tpOrbitFloat3 8.5s ease-in-out infinite 1.2s' }}
+          className="absolute top-[45%] right-3 sm:right-8 lg:right-20 pointer-events-auto group cursor-pointer transition-transform duration-300 hover:scale-115"
+          title="Tether (USDT)"
+        >
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-[#1d8363] via-[#26a17b] to-[#2bd9a4] p-0.5 shadow-[0_12px_28px_rgba(38,161,123,0.32)] border-2 border-emerald-200/90 flex items-center justify-center relative">
+            <div className="w-full h-full rounded-full bg-gradient-to-b from-[#26a17b] to-[#1d8363] flex items-center justify-center shadow-inner">
+              <svg viewBox="0 0 24 24" className="w-8 h-8 sm:w-9 sm:h-9 text-white drop-shadow-md" fill="none">
+                <path d="M13.2 12.35c-.07.01-.73.07-1.2.07s-1.13-.06-1.2-.07c-2.42-.12-4.22-.57-4.22-1.12s1.8-1 4.22-1.12v1.73c.36.03.77.04 1.2.04s.84-.01 1.2-.04V10.1c2.42.12 4.22.57 4.22 1.12s-1.8 1-4.22 1.13zm0-2.42V8.58h3.38V6.5H7.42v2.08H10.8v1.35C7.94 10.07 5.8 10.68 5.8 11.4s2.14 1.33 5 1.47v4.63h2.4v-4.63c2.86-.14 5-.75 5-1.47s-2.14-1.33-5-1.47z" fill="white"/>
+              </svg>
+            </div>
+            <div className="absolute inset-0 rounded-full bg-emerald-400/35 blur-xl -z-10 group-hover:bg-emerald-400/60 transition-all pointer-events-none" />
+          </div>
+        </div>
+
+        {/* 4. ETHEREUM (ETH) COIN - Middle Left Floating */}
+        <div 
+          style={{ animation: 'tpOrbitFloat4 11s ease-in-out infinite 1.8s' }}
+          className="absolute top-[48%] left-3 sm:left-8 lg:left-20 pointer-events-auto group cursor-pointer transition-transform duration-300 hover:scale-115"
+          title="Ethereum (ETH)"
+        >
+          <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-gradient-to-tr from-[#4338ca] via-[#6366f1] to-[#818cf8] p-0.5 shadow-[0_12px_28px_rgba(99,102,241,0.3)] border-2 border-indigo-200/90 flex items-center justify-center relative">
+            <div className="w-full h-full rounded-full bg-gradient-to-b from-[#6366f1] to-[#4338ca] flex items-center justify-center shadow-inner">
+              <svg viewBox="0 0 24 24" className="w-7 h-7 sm:w-8 sm:h-8 text-white drop-shadow-md" fill="none">
+                <path d="M12 3.5L6.5 12.8L12 15.3L17.5 12.8L12 3.5Z" fill="white" fillOpacity="0.85"/>
+                <path d="M12 3.5V15.3L17.5 12.8L12 3.5Z" fill="white"/>
+                <path d="M12 16.5L6.5 14L12 21.5L17.5 14L12 16.5Z" fill="white" fillOpacity="0.85"/>
+                <path d="M12 16.5V21.5L17.5 14L12 16.5Z" fill="white"/>
+              </svg>
+            </div>
+            <div className="absolute inset-0 rounded-full bg-indigo-400/35 blur-xl -z-10 group-hover:bg-indigo-400/60 transition-all pointer-events-none" />
+          </div>
+        </div>
+
+        {/* 5. GRAM TOKEN COIN - Bottom Left Floating */}
+        <div 
+          style={{ animation: 'tpOrbitFloat1 8.5s ease-in-out infinite 2.2s' }}
+          className="absolute bottom-10 sm:bottom-14 left-6 sm:left-14 lg:left-28 pointer-events-auto group cursor-pointer transition-transform duration-300 hover:scale-115"
+          title="GRAM (PoW Token)"
+        >
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-[#6d28d9] via-[#8b5cf6] to-[#a855f7] p-0.5 shadow-[0_12px_28px_rgba(139,92,246,0.32)] border-2 border-purple-200/90 flex items-center justify-center relative">
+            <div className="w-full h-full rounded-full bg-gradient-to-b from-[#8b5cf6] to-[#6d28d9] flex items-center justify-center shadow-inner">
+              <svg viewBox="0 0 24 24" className="w-8 h-8 sm:w-9 sm:h-9 text-white drop-shadow-md" fill="none">
+                <path d="M6 10L12 5L18 10L12 20L6 10Z" fill="white" fillOpacity="0.3"/>
+                <path d="M12 5L18 10L12 13L6 10L12 5Z" fill="white" fillOpacity="0.8"/>
+                <path d="M6 10L12 13V20L6 10Z" fill="white" fillOpacity="0.95"/>
+                <path d="M18 10L12 13V20L18 10Z" fill="white"/>
+              </svg>
+            </div>
+            <div className="absolute inset-0 rounded-full bg-purple-400/35 blur-xl -z-10 group-hover:bg-purple-400/60 transition-all pointer-events-none" />
+          </div>
+        </div>
+
+        {/* 6. SOLANA (SOL) COIN - Bottom Right Floating */}
+        <div 
+          style={{ animation: 'tpOrbitFloat2 9.5s ease-in-out infinite 1.5s' }}
+          className="absolute bottom-12 sm:bottom-16 right-6 sm:right-14 lg:right-28 pointer-events-auto group cursor-pointer transition-transform duration-300 hover:scale-115"
+          title="Solana (SOL)"
+        >
+          <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-full bg-gradient-to-tr from-[#9945ff] via-[#14f195] to-[#00c2ff] p-0.5 shadow-[0_12px_28px_rgba(20,241,149,0.3)] border-2 border-teal-200/90 flex items-center justify-center relative">
+            <div className="w-full h-full rounded-full bg-gradient-to-b from-[#1e1b4b] to-[#0f172a] flex items-center justify-center shadow-inner">
+              <svg viewBox="0 0 24 24" className="w-7 h-7 sm:w-8 sm:h-8" fill="none">
+                <path d="M4.5 17.5H16.8L19.5 15H7.2L4.5 17.5Z" fill="#14f195"/>
+                <path d="M7.2 13.5H19.5L16.8 11H4.5L7.2 13.5Z" fill="#00c2ff"/>
+                <path d="M4.5 9.5H16.8L19.5 7H7.2L4.5 9.5Z" fill="#9945ff"/>
+              </svg>
+            </div>
+            <div className="absolute inset-0 rounded-full bg-teal-400/35 blur-xl -z-10 group-hover:bg-teal-400/60 transition-all pointer-events-none" />
+          </div>
+        </div>
+
+        {/* 7. BNB (Binance) - Distant Floating Micro-Coin */}
+        <div 
+          style={{ animation: 'tpDriftSlow 12s ease-in-out infinite 3s' }}
+          className="hidden lg:block absolute top-[22%] left-[24%] pointer-events-auto group cursor-pointer transition-transform hover:scale-125"
+          title="BNB Smart Chain"
+        >
+          <div className="w-10 h-10 rounded-full bg-[#f3ba2f] p-0.5 shadow-md border border-amber-200 flex items-center justify-center opacity-85">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-900" fill="currentColor">
+              <path d="M12 2L8.5 5.5L12 9L15.5 5.5L12 2ZM5.5 8.5L2 12L5.5 15.5L9 12L5.5 8.5ZM18.5 8.5L15 12L18.5 15.5L22 12L18.5 8.5ZM12 15L8.5 18.5L12 22L15.5 18.5L12 15ZM12 10.5L10.5 12L12 13.5L13.5 12L12 10.5Z"/>
+            </svg>
+          </div>
+        </div>
+
+        {/* 8. TRON (TRX) - Distant Floating Micro-Coin */}
+        <div 
+          style={{ animation: 'tpDriftFast 10s ease-in-out infinite 2s' }}
+          className="hidden lg:block absolute bottom-[26%] right-[22%] pointer-events-auto group cursor-pointer transition-transform hover:scale-125"
+          title="TRON (TRX)"
+        >
+          <div className="w-10 h-10 rounded-full bg-[#ef0027] p-0.5 shadow-md border border-rose-200 flex items-center justify-center opacity-85">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 text-white" fill="currentColor">
+              <path d="M2.5 4.5L21.5 8L15 20.5L2.5 4.5ZM18.5 8.5L5.5 6L14 17.5L18.5 8.5Z"/>
+            </svg>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ============================================================== */}
+      {/* MAIN CLEAN LUXURY LIGHT LOGIN CARD (Unobstructed in Center)    */}
+      {/* ============================================================== */}
+      <div className="relative w-full max-w-md mx-auto z-20">
+        <div className="bg-white/95 backdrop-blur-2xl border border-slate-200/90 rounded-3xl p-7 sm:p-9 shadow-[0_25px_70px_-15px_rgba(99,102,241,0.16),0_10px_25px_-5px_rgba(0,0,0,0.04)]">
           
           {/* Brand Header & Official Logo */}
           <div className="flex flex-col items-center text-center mb-6">
@@ -6888,7 +6906,6 @@ function AdminLoginScreen({ onLoginSuccess }) {
             <span className="text-slate-400">Trust Pay Security</span>
           </div>
         </div>
-
       </div>
     </div>
   );
