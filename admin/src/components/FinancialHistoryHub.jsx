@@ -286,9 +286,11 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
               ≈ ${(stats.depositTotalBdt / 125).toFixed(2)} USD
             </div>
           </div>
-          <div className="text-[11px] font-mono text-slate-400 pt-3 border-t border-slate-800/60 mt-3 flex items-center justify-between">
+          <div className={`text-[11px] font-mono pt-3 border-t mt-3 flex items-center justify-between ${
+            isDark ? 'border-slate-800/60 text-slate-400' : 'border-slate-200 text-slate-600'
+          }`}>
             <span>Verified Count:</span>
-            <span className="font-bold text-cyan-300">{stats.totalDepositsCount} orders</span>
+            <span className={`font-bold ${isDark ? 'text-cyan-300' : 'text-cyan-600'}`}>{stats.totalDepositsCount} orders</span>
           </div>
         </div>
 
@@ -297,20 +299,22 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
           isDark ? 'bg-[#15123d]/80 border-purple-500/30 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
         }`}>
           <div>
-            <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <div className={`flex items-center justify-between text-xs font-bold mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               <span>CRYPTO BUYS (COLLECTED)</span>
               <span className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400"><ArrowUpRight size={14} /></span>
             </div>
-            <div className="text-2xl font-black font-mono tracking-tight text-purple-400 mt-1">
+            <div className={`text-2xl font-black font-mono tracking-tight mt-1 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
               ৳{stats.buysTotalBdt.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} BDT
             </div>
-            <div className="text-xs font-bold text-slate-400 mt-0.5">
+            <div className={`text-xs font-bold mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               ≈ ${(stats.buysTotalBdt / 125).toFixed(2)} USD
             </div>
           </div>
-          <div className="text-[11px] font-mono text-slate-400 pt-3 border-t border-slate-800/60 mt-3 flex items-center justify-between">
+          <div className={`text-[11px] font-mono pt-3 border-t mt-3 flex items-center justify-between ${
+            isDark ? 'border-slate-800/60 text-slate-400' : 'border-slate-200 text-slate-600'
+          }`}>
             <span>Dispatched:</span>
-            <span className="font-bold text-purple-300">
+            <span className={`font-bold ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
               {stats.buysGram.toFixed(1)} GRAM • {stats.buysUsdt.toFixed(1)} USDT
             </span>
           </div>
@@ -321,20 +325,22 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
           isDark ? 'bg-[#0c2229]/80 border-emerald-500/30 shadow-lg' : 'bg-white border-slate-200 shadow-sm'
         }`}>
           <div>
-            <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-1">
+            <div className={`flex items-center justify-between text-xs font-bold mb-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               <span>CRYPTO SELLS (PAID OUT)</span>
               <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400"><ArrowDownLeft size={14} /></span>
             </div>
-            <div className="text-2xl font-black font-mono tracking-tight text-emerald-400 mt-1">
+            <div className={`text-2xl font-black font-mono tracking-tight mt-1 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
               ৳{stats.sellsTotalBdt.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} BDT
             </div>
-            <div className="text-xs font-bold text-slate-400 mt-0.5">
+            <div className={`text-xs font-bold mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               ≈ ${(stats.sellsTotalBdt / 125).toFixed(2)} USD
             </div>
           </div>
-          <div className="text-[11px] font-mono text-slate-400 pt-3 border-t border-slate-800/60 mt-3 flex items-center justify-between">
+          <div className={`text-[11px] font-mono pt-3 border-t mt-3 flex items-center justify-between ${
+            isDark ? 'border-slate-800/60 text-slate-400' : 'border-slate-200 text-slate-600'
+          }`}>
             <span>Acquired Vault:</span>
-            <span className="font-bold text-emerald-300">
+            <span className={`font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
               {stats.sellsGram.toFixed(1)} GRAM • {stats.sellsUsdt.toFixed(1)} USDT
             </span>
           </div>
@@ -346,23 +352,25 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
         }`}>
           <div className="absolute top-0 right-0 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
           <div>
-            <div className="flex items-center justify-between text-xs font-bold text-amber-400 mb-1">
+            <div className="flex items-center justify-between text-xs font-bold text-amber-500 mb-1">
               <span className="flex items-center gap-1"><Sparkles size={13} /> NET PLATFORM REVENUE</span>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">
                 SPREAD + FEES
               </span>
             </div>
-            <div className="text-2xl font-black font-mono tracking-tight text-amber-300 mt-1">
+            <div className={`text-2xl font-black font-mono tracking-tight mt-1 ${isDark ? 'text-amber-300' : 'text-amber-600'}`}>
               ৳{stats.estimatedSpreadProfitBdt.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} BDT
             </div>
-            <div className="text-xs font-bold text-slate-400 mt-0.5 flex items-center gap-1.5">
-              <span className="text-emerald-400 font-black">≈ ${stats.estimatedProfitUsd.toFixed(2)} USD</span>
+            <div className={`text-xs font-bold mt-0.5 flex items-center gap-1.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              <span className={`font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>≈ ${stats.estimatedProfitUsd.toFixed(2)} USD</span>
               <span>• Net Margins</span>
             </div>
           </div>
-          <div className="text-[11px] font-mono text-slate-400 pt-3 border-t border-slate-800/60 mt-3 flex items-center justify-between">
+          <div className={`text-[11px] font-mono pt-3 border-t mt-3 flex items-center justify-between ${
+            isDark ? 'border-slate-800/60 text-slate-400' : 'border-slate-200 text-slate-600'
+          }`}>
             <span>Cashout Volume:</span>
-            <span className="font-bold text-rose-400">৳{stats.withdrawalsTotalBdt.toLocaleString()} BDT</span>
+            <span className={`font-bold ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>৳{stats.withdrawalsTotalBdt.toLocaleString()} BDT</span>
           </div>
         </div>
 
@@ -453,7 +461,7 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
                 <th className="py-3 px-4 font-black uppercase text-[10px] tracking-wider">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/40">
+            <tbody className={`divide-y ${isDark ? 'divide-slate-800/40' : 'divide-slate-200'}`}>
               {filteredList.map((item, idx) => {
                 const isCopied = copiedKey === `${item.id}_${idx}`;
                 const isBuy = item.type === 'buy';
@@ -474,7 +482,7 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
                     }`}
                   >
                     {/* Timestamp */}
-                    <td className="py-3 px-4 font-mono text-slate-400 text-[11px] whitespace-nowrap">
+                    <td className={`py-3 px-4 font-mono text-[11px] whitespace-nowrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                       {formatTime(item.timestamp)}
                     </td>
 
@@ -482,12 +490,12 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
                     <td className="py-3 px-4 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${
                         isBuy 
-                          ? 'bg-purple-500/15 text-purple-300 border-purple-500/30'
+                          ? 'bg-purple-500/15 text-purple-400 dark:text-purple-300 border-purple-500/30'
                           : isSell
-                          ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
                           : isDep
-                          ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-                          : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                          ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/30'
+                          : 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30'
                       }`}>
                         {isBuy && <ArrowUpRight size={11} />}
                         {isSell && <ArrowDownLeft size={11} />}
@@ -498,41 +506,41 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
                     </td>
 
                     {/* User ID */}
-                    <td className="py-3 px-4 font-mono font-bold text-purple-300">
+                    <td className={`py-3 px-4 font-mono font-bold ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
                       {item.userId}
                     </td>
 
                     {/* Asset & Gateway */}
                     <td className="py-3 px-4 whitespace-nowrap">
                       <div className="flex items-center gap-1.5 font-bold">
-                        <span className="font-black text-white">{item.asset}</span>
-                        <span className="text-slate-400 font-mono text-[10px]">({item.paymentMethod})</span>
+                        <span className={`font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{item.asset}</span>
+                        <span className={`font-mono text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>({item.paymentMethod})</span>
                       </div>
                     </td>
 
                     {/* Crypto Amount */}
-                    <td className="py-3 px-4 font-mono font-black text-white">
+                    <td className={`py-3 px-4 font-mono font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       {item.cryptoAmount > 0 ? `${item.cryptoAmount} ${item.asset}` : '—'}
                     </td>
 
                     {/* BDT Amount */}
-                    <td className="py-3 px-4 font-mono font-black text-emerald-400 text-[13px]">
+                    <td className={`py-3 px-4 font-mono font-black text-[13px] ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                       ৳{item.bdtAmount.toLocaleString()}
                     </td>
 
                     {/* USD Estimate */}
-                    <td className="py-3 px-4 font-mono text-slate-400 text-[11px]">
+                    <td className={`py-3 px-4 font-mono text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                       ${item.usdEst}
                     </td>
 
                     {/* TrxID / Ref with Copy */}
-                    <td className="py-3 px-4 font-mono text-slate-300 text-[11px] whitespace-nowrap">
+                    <td className={`py-3 px-4 font-mono text-[11px] whitespace-nowrap ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                       <div className="flex items-center gap-1">
                         <span className="truncate max-w-[130px]">{item.trxId}</span>
                         <button
                           type="button"
                           onClick={() => copyText(item.trxId, `${item.id}_${idx}`)}
-                          className="p-1 hover:text-white cursor-pointer transition-colors"
+                          className={`p-1 cursor-pointer transition-colors ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`}
                           title="Copy TrxID"
                         >
                           {isCopied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}

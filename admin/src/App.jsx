@@ -653,7 +653,8 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
         : 'bg-white border-slate-200 shadow-md'
     }`}>
       {/* Column Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-800/20 mb-3">
+      <div className={`flex items-center justify-between pb-3 border-b mb-3 ${isDark ? 'border-slate-800/20' : 'border-slate-200'}`}>
+
         <div className="flex items-center gap-2.5">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
             isGram ? 'bg-purple-500/20 text-purple-400' : 'bg-emerald-500/20 text-emerald-400'
@@ -738,19 +739,19 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
                 <span className={`text-base font-black ${isGram ? 'text-purple-400' : 'text-emerald-400'}`}>
                   +{order.amount} {asset}
                 </span>
-                <span className="text-xs font-mono font-black text-slate-300">
-                  ৳{order.totalBdt || order.amountBdt || 0} <span className="text-[10px] text-slate-400 font-normal">BDT</span>
+                <span className={`text-xs font-mono font-black ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>
+                  ৳{order.totalBdt || order.amountBdt || 0} <span className={`text-[10px] font-normal ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>BDT</span>
                 </span>
               </div>
 
               {/* TrxID & Timestamp snippet */}
-              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-1.5 border-t border-slate-800/30">
+              <div className={`flex items-center justify-between text-[10px] font-mono pt-1.5 border-t ${isDark ? 'border-slate-800/30 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
                 <div className="flex items-center gap-1">
                   <span>Trx:</span>
-                  <span className="font-bold text-slate-300">{order.trxId || order.id || 'N/A'}</span>
+                  <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{order.trxId || order.id || 'N/A'}</span>
                   <button 
                     onClick={() => handleCopy(order.trxId || order.id, orderKey)} 
-                    className="p-0.5 hover:text-white transition-colors cursor-pointer"
+                    className={`p-0.5 transition-colors cursor-pointer ${isDark ? 'hover:text-white' : 'hover:text-slate-900'}`}
                     title="Copy TrxID"
                   >
                     {copiedId === orderKey ? <Check size={10} className="text-emerald-400" /> : <Copy size={10} />}
@@ -763,7 +764,8 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
 
               {/* Quick Actions if Pending */}
               {isPending && onApprove && (
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-800/40">
+                <div className={`flex items-center gap-2 mt-2 pt-2 border-t ${isDark ? 'border-slate-800/40' : 'border-slate-200'}`}>
+
                   <button
                     onClick={() => onApprove(order.id || order.trxId)}
                     className="flex-1 py-1 px-2 rounded-lg text-[10px] font-black bg-emerald-500 hover:bg-emerald-400 text-white shadow-sm flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
@@ -786,7 +788,8 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
 
         {items.length === 0 && (
           <div className="py-8 text-center text-slate-500">
-            <div className="w-10 h-10 rounded-xl bg-slate-800/30 flex items-center justify-center mx-auto mb-2 text-slate-600">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${isDark ? 'bg-slate-800/30 text-slate-500' : 'bg-slate-100 text-slate-400'}`}>
+
               {icon}
             </div>
             <p className="text-[11px] font-bold">No {asset} orders yet.</p>
@@ -1074,7 +1077,7 @@ function Dashboard() {
             ) : (
               <div 
                 onClick={() => navigate('/transactions')}
-                className="p-4 rounded-2xl border border-dashed border-slate-700 text-center text-xs text-slate-400 cursor-pointer hover:border-purple-400"
+                className={`p-4 rounded-2xl border border-dashed text-center text-xs cursor-pointer transition-colors ${isDark ? 'border-slate-700 text-slate-400 hover:border-purple-400' : 'border-slate-300 text-slate-600 hover:border-indigo-400'}`}
               >
                 Click to open Financial History & Revenue Hub ↗
               </div>
@@ -1271,7 +1274,8 @@ function Dashboard() {
             </div>
 
             {/* Valuation & Quick Info */}
-            <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-purple-900/30">
+            <div className={`flex flex-wrap items-center gap-3 pt-3 border-t ${isDark ? 'border-purple-900/30' : 'border-slate-200'}`}>
+
               <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold ${
                 isDark ? 'bg-purple-950/40 border-purple-800/40 text-purple-200' : 'bg-white border-purple-200 text-purple-900'
               }`}>
@@ -2013,7 +2017,8 @@ function BotWallet() {
                 <span>{gramPercent}% GRAM / {usdtPercent}% USDT</span>
               </div>
 
-              <div className="w-full h-3 rounded-full bg-slate-800/80 p-0.5 flex overflow-hidden border border-slate-700/50">
+              <div className={`w-full h-3 rounded-full p-0.5 flex overflow-hidden border ${isDark ? 'bg-slate-800/80 border-slate-700/50' : 'bg-slate-200 border-slate-300'}`}>
+
                 <div 
                   style={{ width: `${Math.max(10, Math.min(90, gramPercent))}%` }} 
                   className="h-full rounded-l-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-500" 
@@ -2246,18 +2251,22 @@ function BotWallet() {
             </div>
 
             {/* Auto-Swap Backup Capacity Pill */}
-            <div className="px-3.5 py-2 rounded-2xl bg-purple-950/50 border border-purple-500/30 flex items-center justify-between text-xs">
-              <span className="text-purple-200 font-bold flex items-center gap-1.5">
-                <Repeat size={13} className="text-emerald-400" />
+            <div className={`px-3.5 py-2 rounded-2xl border flex items-center justify-between text-xs ${
+              isDark ? 'bg-purple-950/50 border-purple-500/30' : 'bg-purple-50 border-purple-200'
+            }`}>
+              <span className={`font-bold flex items-center gap-1.5 ${isDark ? 'text-purple-200' : 'text-purple-800'}`}>
+                <Repeat size={13} className="text-emerald-500" />
                 USDT Auto-Swap Backup:
               </span>
-              <span className="font-mono font-black text-emerald-400">
+              <span className={`font-mono font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
                 +{Math.max(0, (tonUsdtVal / liveTonUsdtRate) * 0.96).toFixed(2)} GRAM Available
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-purple-900/30 text-xs">
-              <span className="font-bold text-purple-300">
+            <div className={`flex flex-wrap items-center justify-between gap-3 pt-3 border-t text-xs ${
+              isDark ? 'border-purple-900/30' : 'border-slate-200'
+            }`}>
+              <span className={`font-bold ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
                 ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
               </span>
               <div className="flex flex-wrap items-center gap-2">
@@ -2269,13 +2278,17 @@ function BotWallet() {
                 </button>
                 <button
                   onClick={() => handleOpenWithdraw('GRAM', 'TON')}
-                  className="px-3 py-1.5 rounded-xl text-xs font-black bg-purple-950/60 border border-purple-600/40 text-purple-300 hover:text-white flex items-center gap-1 transition-all cursor-pointer"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1 transition-all cursor-pointer border ${
+                    isDark ? 'bg-purple-950/60 border-purple-600/40 text-purple-300 hover:text-white' : 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200'
+                  }`}
                 >
                   <ArrowUpRight size={12} /> Withdraw
                 </button>
                 <button
                   onClick={() => setHistoryTab('gram')}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900/50 text-slate-300 hover:text-white border border-slate-700/50 transition-all cursor-pointer"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                    isDark ? 'bg-slate-900/50 text-slate-300 hover:text-white border-slate-700/50' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200'
+                  }`}
                 >
                   Orders
                 </button>
@@ -2326,17 +2339,21 @@ function BotWallet() {
             </div>
 
             {/* Network Breakdown Pill */}
-            <div className="px-3.5 py-2 rounded-2xl bg-emerald-950/50 border border-emerald-500/30 flex items-center justify-between text-xs">
-              <span className="text-emerald-200 font-bold">
-                TON Mainnet: <b className="font-mono text-white">${tonUsdtVal.toFixed(2)}</b>
+            <div className={`px-3.5 py-2 rounded-2xl border flex items-center justify-between text-xs ${
+              isDark ? 'bg-emerald-950/50 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
+            }`}>
+              <span className={`font-bold ${isDark ? 'text-emerald-200' : 'text-emerald-800'}`}>
+                TON Mainnet: <b className={`font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>${tonUsdtVal.toFixed(2)}</b>
               </span>
-              <span className="text-amber-300 font-bold">
-                EVM Networks: <b className="font-mono text-white">${evmUsdtVal.toFixed(2)}</b>
+              <span className={`font-bold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>
+                EVM Networks: <b className={`font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>${evmUsdtVal.toFixed(2)}</b>
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-emerald-900/30 text-xs">
-              <span className="font-bold text-emerald-300">
+            <div className={`flex flex-wrap items-center justify-between gap-3 pt-3 border-t text-xs ${
+              isDark ? 'border-emerald-900/30' : 'border-slate-200'
+            }`}>
+              <span className={`font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
                 ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
               </span>
               <div className="flex flex-wrap items-center gap-2">
@@ -2348,13 +2365,17 @@ function BotWallet() {
                 </button>
                 <button
                   onClick={() => handleOpenWithdraw('USDT', 'TON')}
-                  className="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-950/60 border border-emerald-600/40 text-emerald-300 hover:text-white flex items-center gap-1 transition-all cursor-pointer"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1 transition-all cursor-pointer border ${
+                    isDark ? 'bg-emerald-950/60 border-emerald-600/40 text-emerald-300 hover:text-white' : 'bg-emerald-100 border-emerald-300 text-emerald-700 hover:bg-emerald-200'
+                  }`}
                 >
                   <ArrowUpRight size={12} /> Withdraw
                 </button>
                 <button
                   onClick={() => setHistoryTab('usdt')}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900/50 text-slate-300 hover:text-white border border-slate-700/50 transition-all cursor-pointer"
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                    isDark ? 'bg-slate-900/50 text-slate-300 hover:text-white border-slate-700/50' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200'
+                  }`}
                 >
                   Orders
                 </button>
@@ -2409,21 +2430,21 @@ function BotWallet() {
                 <Sparkles size={14} className="text-amber-400" />
                 অটোমেটিক ইউজার অর্ডার প্রটেকশন (উদাহরণ: 0.25 GRAM + 10 USDT):
               </div>
-              <p className="text-[11px] text-slate-300">
+              <p className={`text-[11px] ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                 যখন কোনো ইউজার <b>GRAM</b> কিনতে চায় (যেমন <b>2 GRAM</b>) কিন্তু এডমিন ওয়ালেটে কম GRAM থাকে (যেমন <b>0.25 GRAM</b>) এবং ওয়ালেটে <b>USDT</b> থাকে, তখন সিস্টেম <b>অটোমেটিক অন-চেইনে প্রয়োজনীয় USDT সোয়াপ করে GRAM বানিয়ে নেয়</b> এবং সাথে সাথেই ইউজারের ওয়ালেটে পাঠিয়ে দেয়! আবার USDT কম থাকলে অতিরিক্ত GRAM সোয়াপ করে USDT পাঠিয়ে দেয়।
               </p>
               <div className="grid grid-cols-3 gap-2 pt-1">
-                <div className="p-2 rounded-xl bg-black/40 border border-slate-800 text-center">
-                  <div className="text-[10px] text-slate-400">Current GRAM</div>
-                  <div className="text-sm font-black font-mono text-purple-300">{gramBalanceVal.toFixed(2)}</div>
+                <div className={`p-2 rounded-xl text-center border ${isDark ? 'bg-black/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Current GRAM</div>
+                  <div className={`text-sm font-black font-mono ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>{gramBalanceVal.toFixed(2)}</div>
                 </div>
-                <div className="p-2 rounded-xl bg-black/40 border border-slate-800 text-center">
-                  <div className="text-[10px] text-slate-400">TON USDT</div>
-                  <div className="text-sm font-black font-mono text-emerald-400">${tonUsdtVal.toFixed(2)}</div>
+                <div className={`p-2 rounded-xl text-center border ${isDark ? 'bg-black/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>TON USDT</div>
+                  <div className={`text-sm font-black font-mono ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>${tonUsdtVal.toFixed(2)}</div>
                 </div>
-                <div className="p-2 rounded-xl bg-black/40 border border-slate-800 text-center">
-                  <div className="text-[10px] text-slate-400">Max Auto GRAM</div>
-                  <div className="text-sm font-black font-mono text-cyan-300">
+                <div className={`p-2 rounded-xl text-center border ${isDark ? 'bg-black/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Max Auto GRAM</div>
+                  <div className={`text-sm font-black font-mono ${isDark ? 'text-cyan-300' : 'text-indigo-600'}`}>
                     ~{Math.max(0, gramBalanceVal + (tonUsdtVal / liveTonUsdtRate) * 0.96 - 0.08).toFixed(2)}
                   </div>
                 </div>
@@ -2433,7 +2454,7 @@ function BotWallet() {
             {/* Instant Manual Swap Control */}
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-slate-300">
+                <span className={`text-xs font-black uppercase tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                   Instant Manual Treasury Swap
                 </span>
                 <span className="text-[11px] font-mono text-slate-400">
@@ -2442,14 +2463,14 @@ function BotWallet() {
               </div>
 
               {/* Swap Direction Toggle */}
-              <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-black/40 border border-slate-800">
+              <div className={`grid grid-cols-2 gap-2 p-1.5 rounded-2xl border ${isDark ? 'bg-black/40 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
                 <button
                   type="button"
                   onClick={() => { setSwapDirection('USDT_TO_GRAM'); setSwapAmount(''); }}
                   className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                     swapDirection === 'USDT_TO_GRAM'
                       ? 'bg-gradient-to-r from-emerald-600 to-purple-600 text-white shadow-lg'
-                      : 'text-slate-400 hover:text-white'
+                      : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   <span>USDT ➔ GRAM</span>
@@ -2460,7 +2481,7 @@ function BotWallet() {
                   className={`py-2.5 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                     swapDirection === 'GRAM_TO_USDT'
                       ? 'bg-gradient-to-r from-purple-600 to-emerald-600 text-white shadow-lg'
-                      : 'text-slate-400 hover:text-white'
+                      : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   <span>GRAM ➔ USDT</span>
@@ -2479,7 +2500,9 @@ function BotWallet() {
                       if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setSwapAmount(v);
                     }}
                     placeholder={swapDirection === 'USDT_TO_GRAM' ? 'Enter USDT amount (e.g. 3.5)' : 'Enter GRAM amount (e.g. 2.0)'}
-                    className="w-full bg-black/50 border border-purple-800/60 p-3.5 pr-20 rounded-2xl text-sm font-black text-white outline-none focus:border-purple-400 font-mono"
+                    className={`w-full p-3.5 pr-20 rounded-2xl text-sm font-black outline-none font-mono border ${
+                    isDark ? 'bg-black/50 border-purple-800/60 text-white focus:border-purple-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-500 shadow-sm'
+                  }`}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-purple-300">
                     {swapDirection === 'USDT_TO_GRAM' ? 'USDT' : 'GRAM'}
@@ -2514,7 +2537,9 @@ function BotWallet() {
                       key={val}
                       type="button"
                       onClick={() => setSwapAmount(val)}
-                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800/80 hover:bg-purple-500/20 text-slate-300 hover:text-purple-300 border border-slate-700/60 transition-all cursor-pointer"
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                        isDark ? 'bg-slate-800/80 hover:bg-purple-500/20 text-slate-300 hover:text-purple-300 border-slate-700/60' : 'bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 border-slate-200 shadow-sm'
+                      }`}
                     >
                       {val} {swapDirection === 'USDT_TO_GRAM' ? 'USDT' : 'GRAM'}
                     </button>
@@ -2644,7 +2669,9 @@ function BotWallet() {
                       <span className="text-emerald-400 font-mono">Arrival: {activeNet.arrivalTime}</span>
                     </div>
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                      <div className="flex-1 p-3 rounded-xl bg-black/60 border border-slate-800 font-mono text-xs text-emerald-300 break-all select-all">
+                      <div className={`flex-1 p-3 rounded-xl font-mono text-xs break-all select-all border ${
+                        isDark ? 'bg-black/60 border-slate-800 text-emerald-300' : 'bg-white border-slate-300 text-slate-800 font-bold shadow-inner'
+                      }`}>
                         {activeNet.address}
                       </div>
                       <button
@@ -2667,7 +2694,9 @@ function BotWallet() {
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-slate-400 font-bold mr-1">Exchanges:</span>
                       {activeNet.exchanges.map(ex => (
-                        <span key={ex} className="px-2 py-0.5 rounded-lg bg-slate-800/90 text-slate-200 font-bold text-[10px] border border-slate-700/70 flex items-center gap-1">
+                        <span key={ex} className={`px-2 py-0.5 rounded-lg font-bold text-[10px] border flex items-center gap-1 ${
+                          isDark ? 'bg-slate-800/90 text-slate-200 border-slate-700/70' : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}>
                           <ExchangeLogo name={ex} size={13} />
                           <span>{ex}</span>
                         </span>
@@ -2684,7 +2713,9 @@ function BotWallet() {
                     </a>
                   </div>
 
-                  <p className="text-[11px] text-slate-300 leading-relaxed border-t border-slate-800/80 pt-2">
+                  <p className={`text-[11px] leading-relaxed border-t pt-2 ${
+                    isDark ? 'text-slate-300 border-slate-800/80' : 'text-slate-600 border-slate-200'
+                  }`}>
                     💡 {activeNet.note}
                   </p>
                 </div>
@@ -2710,7 +2741,7 @@ function BotWallet() {
             </div>
             <div>
               <div className="text-xs font-black uppercase text-slate-400">LIQUIDITY VELOCITY</div>
-              <div className="text-sm font-bold text-white">Fiat Inflow vs Crypto Outflow</div>
+              <div className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Fiat Inflow vs Crypto Outflow</div>
             </div>
           </div>
 
@@ -2729,7 +2760,8 @@ function BotWallet() {
                 <span>Fulfillment Ratio</span>
                 <span className="text-cyan-400">{fulfillmentRate}%</span>
               </div>
-              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+              <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
+
                 <div 
                   style={{ width: `${fulfillmentRate}%` }} 
                   className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400"
@@ -2749,7 +2781,7 @@ function BotWallet() {
             </div>
             <div>
               <div className="text-xs font-black uppercase text-slate-400">ON-CHAIN ENGINE</div>
-              <div className="text-sm font-bold text-white">Auto-Swap & Jetton Router</div>
+              <div className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Auto-Swap & Jetton Router</div>
             </div>
           </div>
 
@@ -2779,14 +2811,14 @@ function BotWallet() {
             </div>
             <div>
               <div className="text-xs font-black uppercase text-slate-400">SETTLEMENT QUEUE</div>
-              <div className="text-sm font-bold text-white">Live Order Throughput</div>
+              <div className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Live Order Throughput</div>
             </div>
           </div>
 
           <div className="space-y-2.5 pt-2 text-xs">
             <div className="flex items-center justify-between font-bold">
               <span className="text-slate-400">Total Purchase Orders:</span>
-              <span className="text-white font-mono font-black">{totalBuys}</span>
+              <span className={`font-mono font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{totalBuys}</span>
             </div>
             <div className="flex items-center justify-between font-bold">
               <span className="text-slate-400">Dispatched On-Chain:</span>
@@ -2918,7 +2950,7 @@ function BotWallet() {
                   </div>
 
                   {/* Bottom: TrxID & Actions */}
-                  <div className="pt-2 border-t border-slate-700/30 space-y-2">
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700/30 space-y-2">
                     <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
                       <button 
                         onClick={() => copyTrxId(b.trxId || b.id)}
@@ -2967,7 +2999,9 @@ function BotWallet() {
 
             <button
               onClick={() => setWithdrawModal({ ...withdrawModal, isOpen: false })}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer transition-all"
+              className={`absolute top-5 right-5 p-2 rounded-xl cursor-pointer transition-all ${
+              isDark ? 'bg-slate-800/60 hover:bg-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800'
+            }`}
             >
               <X size={18} />
             </button>
@@ -3006,7 +3040,7 @@ function BotWallet() {
                       className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
                         active
                           ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-md'
-                          : 'bg-black/40 border-slate-800 text-slate-400 hover:text-white'
+                          : isDark ? 'bg-black/40 border-slate-800 text-slate-400 hover:text-white' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                       }`}
                     >
                       <NetworkLogo networkId={net.id} size={24} />
@@ -3022,7 +3056,7 @@ function BotWallet() {
 
             {/* Asset Selector Tabs with Live Balances */}
             {(withdrawModal.network || 'TON') === 'TON' ? (
-              <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-cyan-900/40">
+              <div className={`flex gap-2 mb-5 p-1.5 rounded-2xl border ${isDark ? 'bg-black/40 border-cyan-900/40' : 'bg-slate-100 border-slate-200'}`}>
                 {[
                   { id: 'USDT', label: `USDT ($${data.tonUsdtBalance || '0.00'})` },
                   { id: 'GRAM', label: `GRAM (${parseFloat(data.gramBalance || 0).toFixed(2)})` },
@@ -3046,7 +3080,7 @@ function BotWallet() {
               (() => {
                 const curNet = DEPOSIT_NETWORKS.find(n => n.id === withdrawModal.network) || DEPOSIT_NETWORKS[1];
                 return (
-                  <div className="flex gap-2 mb-5 bg-black/40 p-1.5 rounded-2xl border border-cyan-900/40">
+                  <div className={`flex gap-2 mb-5 p-1.5 rounded-2xl border ${isDark ? 'bg-black/40 border-cyan-900/40' : 'bg-slate-100 border-slate-200'}`}>
                     {[
                       { id: 'USDT', label: `USDT ($${curNet.usdtBalance})` },
                       { id: curNet.nativeSymbol, label: `${curNet.nativeSymbol} (${curNet.nativeBalance})` }
@@ -3058,7 +3092,7 @@ function BotWallet() {
                         className={`flex-1 py-2 px-2 rounded-xl font-black text-xs truncate transition-all cursor-pointer ${
                           withdrawModal.asset === tab.id
                             ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/30'
-                            : 'text-slate-400 hover:text-white'
+                            : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
                         }`}
                       >
                         {tab.label}
@@ -3111,7 +3145,9 @@ function BotWallet() {
                     const v = e.target.value;
                     if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setWithdrawAmount(v);
                   }}
-                  className="w-full bg-black/50 border border-cyan-900/60 p-4 pl-6 pr-20 rounded-2xl text-2xl font-black text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-all font-mono"
+                  className={`w-full p-4 pl-6 pr-20 rounded-2xl text-2xl font-black outline-none transition-all font-mono border ${
+                    isDark ? 'bg-black/50 border-cyan-900/60 text-white focus:border-cyan-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-500'
+                  }`}
                   placeholder="0.00"
                   autoFocus
                 />
@@ -3142,7 +3178,9 @@ function BotWallet() {
                 value={withdrawDestination}
                 onChange={e => setWithdrawDestination(e.target.value)}
                 placeholder={(withdrawModal.network || 'TON') === 'TON' ? 'Enter recipient TON wallet address (UQ... / EQ...)' : 'Enter recipient 0x... wallet or exchange deposit address'}
-                className="w-full bg-black/50 border border-cyan-900/60 p-3.5 rounded-2xl text-xs font-mono text-cyan-300 outline-none focus:border-cyan-400"
+                className={`w-full p-3.5 rounded-2xl text-xs font-mono outline-none border ${
+                  isDark ? 'bg-black/50 border-cyan-900/60 text-cyan-300 focus:border-cyan-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-500'
+                }`}
               />
             </div>
 
@@ -3151,7 +3189,9 @@ function BotWallet() {
               <button
                 type="button"
                 onClick={() => setWithdrawModal({ ...withdrawModal, isOpen: false })}
-                className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition-all cursor-pointer"
+                className={`flex-1 py-3.5 rounded-2xl font-bold transition-all cursor-pointer border ${
+                  isDark ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                }`}
               >
                 Cancel
               </button>
@@ -3188,7 +3228,9 @@ function BotWallet() {
           }`}>
             <button
               onClick={() => setInfoModalOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer transition-all"
+              className={`absolute top-5 right-5 p-2 rounded-xl cursor-pointer transition-all ${
+              isDark ? 'bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800'
+            }`}
             >
               <X size={18} />
             </button>
@@ -3205,12 +3247,12 @@ function BotWallet() {
 
             <div className="space-y-4">
               {/* TON Address */}
-              <div className="p-4 rounded-2xl bg-slate-900/80 border border-purple-900/40 space-y-2">
+              <div className={`p-4 rounded-2xl space-y-2 border ${isDark ? 'bg-slate-900/80 border-purple-900/40' : 'bg-purple-50/60 border-purple-200'}`}>
                 <div className="flex items-center justify-between text-[11px] font-bold text-purple-300 uppercase tracking-wider">
                   <span>1. TON Mainnet (USDT • GRAM • TON)</span>
                   <span className="text-emerald-400">No Memo Required</span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-black/40 border border-slate-800 font-mono text-xs text-purple-300 break-all select-all">
+                <div className={`p-2.5 rounded-xl font-mono text-xs break-all select-all border ${isDark ? 'bg-black/40 border-slate-800 text-purple-300' : 'bg-white border-slate-300 text-slate-900 shadow-inner'}`}>
                   {data.tonAddress}
                 </div>
                 <button
@@ -3222,12 +3264,12 @@ function BotWallet() {
               </div>
 
               {/* Multi-Chain EVM Address */}
-              <div className="p-4 rounded-2xl bg-slate-900/80 border border-emerald-900/40 space-y-2">
+              <div className={`p-4 rounded-2xl space-y-2 border ${isDark ? 'bg-slate-900/80 border-emerald-900/40' : 'bg-emerald-50/60 border-emerald-200'}`}>
                 <div className="flex items-center justify-between text-[11px] font-bold text-emerald-300 uppercase tracking-wider">
                   <span>2. BEP20 • Arbitrum One • AVAX C-Chain • Polygon • ERC20</span>
                   <span className="text-amber-300">Multi-Chain EVM</span>
                 </div>
-                <div className="p-2.5 rounded-xl bg-black/40 border border-slate-800 font-mono text-xs text-emerald-300 break-all select-all">
+                <div className={`p-2.5 rounded-xl font-mono text-xs break-all select-all border ${isDark ? 'bg-black/40 border-slate-800 text-emerald-300' : 'bg-white border-slate-300 text-slate-900 shadow-inner'}`}>
                   {data.evmAddress}
                 </div>
                 <button
@@ -3243,7 +3285,9 @@ function BotWallet() {
                   href={`https://tonviewer.com/${data.tonAddress}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5 transition-all"
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                    isDark ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                  }`}
                 >
                   <ExternalLink size={13} /> Tonviewer
                 </a>
@@ -3251,7 +3295,9 @@ function BotWallet() {
                   href={`https://bscscan.com/address/${data.evmAddress}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1.5 transition-all"
+                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                    isDark ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                  }`}
                 >
                   <ExternalLink size={13} /> BscScan
                 </a>
@@ -3458,7 +3504,7 @@ function BuyOrders() {
                 </div>
 
                 {/* Bottom: TrxID & Actions */}
-                <div className="pt-2 border-t border-slate-700/30 space-y-2">
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700/30 space-y-2">
                   <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
                     <span className="truncate max-w-[120px]">{b.trxId || b.id}</span>
                     <span>{formatTimestamp(b.timestamp)}</span>
@@ -3527,7 +3573,7 @@ function BuyOrders() {
                       </span>
                     </td>
                     <td className="p-4 font-bold">
-                      <div className="text-white">{b.amount} {b.asset}</div>
+                      <div className={isDark ? 'text-white' : 'text-slate-900'}>{b.amount} {b.asset}</div>
                       <div className="text-[10px] text-slate-400">Net: {netAmount} {b.asset} (Fee: {gasFee})</div>
                     </td>
                     <td className="p-4 font-black text-emerald-400">৳{b.totalBdt || b.amountBdt || 0}</td>
@@ -3663,7 +3709,7 @@ function SellOrders() {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-700/30 text-[10px] text-slate-400 font-mono text-center truncate">
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700/30 text-[10px] text-slate-400 font-mono text-center truncate">
                   {s.payoutNumber || s.wallet || s.id || 'N/A'}
                 </div>
               </div>
@@ -3698,7 +3744,7 @@ function SellOrders() {
                   <tr key={s.id || Math.random()} className={`transition-colors ${isDark ? 'hover:bg-purple-950/20' : 'hover:bg-slate-50'}`}>
                     <td className="p-4 font-mono font-bold text-cyan-400">{s.id || 'N/A'}</td>
                     <td className="p-4 font-bold">{s.userId || 'N/A'}</td>
-                    <td className="p-4 font-bold text-white">
+                    <td className={`p-4 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       {s.amount || 0} {s.asset || 'TON'}
                     </td>
                     <td className="p-4 font-bold text-emerald-400">৳{s.estimatedTk || 0} BDT</td>
@@ -3925,7 +3971,7 @@ function FiatWithdrawals() {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-700/30 space-y-2">
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700/30 space-y-2">
                   <div className="text-[10px] text-slate-500 font-mono text-center">
                     {formatTimestamp(w.timestamp || w.createdAt)}
                   </div>
@@ -3991,7 +4037,7 @@ function FiatWithdrawals() {
                         {method}
                       </span>
                     </td>
-                    <td className="p-4 font-mono font-bold select-all text-sm tracking-wide text-white">
+                    <td className={`p-4 font-mono font-bold select-all text-sm tracking-wide ${isDark ? 'text-white' : 'text-slate-900'}`}>
                       {formattedNumber}
                     </td>
                     <td className="p-4 font-black text-emerald-400 text-sm">৳{amount} BDT</td>
@@ -4462,7 +4508,9 @@ function UsersManagement() {
 
                     {/* Bot ID */}
                     <div className="mt-1 flex items-center justify-center gap-1 font-mono text-[10px]">
-                      <span className="px-1.5 py-0.2 rounded font-bold bg-purple-950/60 border border-purple-800/40 text-purple-300">
+                      <span className={`px-1.5 py-0.2 rounded font-bold border ${
+                        isDark ? 'bg-purple-950/60 border-purple-800/40 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
+                      }`}>
                         {u.mbsId}
                       </span>
                     </div>
@@ -4470,15 +4518,23 @@ function UsersManagement() {
                 </div>
 
                 {/* Card Bottom: Balance & Manage Button */}
-                <div className="pt-2 border-t border-slate-700/30 space-y-1.5 relative z-10">
-                  <div className="p-2 rounded-xl bg-slate-900/60 border border-purple-900/20 text-center">
-                    <div className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">WALLET BALANCE</div>
-                    <div className="text-sm font-black font-mono tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-300">
+                <div className={`pt-2 border-t space-y-1.5 relative z-10 ${isDark ? 'border-slate-700/30' : 'border-slate-200'}`}>
+                  <div className={`p-2 rounded-xl text-center border ${
+                    isDark ? 'bg-slate-900/60 border-purple-900/20' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    <div className={`text-[9px] uppercase font-bold tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>WALLET BALANCE</div>
+                    <div className={`text-sm font-black font-mono tracking-tight ${
+                      isDark ? 'bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-300' : 'text-emerald-600'
+                    }`}>
                       ৳ {u.balanceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
 
-                  <button className="w-full py-1.5 rounded-xl text-[10.5px] font-bold bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 group-hover:border-cyan-400/50 group-hover:text-cyan-300 transition-all flex items-center justify-center gap-1">
+                  <button className={`w-full py-1.5 rounded-xl text-[10.5px] font-bold transition-all flex items-center justify-center gap-1 border ${
+                    isDark 
+                      ? 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border-purple-500/30 group-hover:border-cyan-400/50 group-hover:text-cyan-300' 
+                      : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 group-hover:border-indigo-400'
+                  }`}>
                     <span>ম্যানেজ করুন</span>
                     <ArrowRight size={10} className="group-hover:translate-x-0.5 transition-transform" />
                   </button>
@@ -4501,7 +4557,9 @@ function UsersManagement() {
             {/* Close Button */}
             <button
               onClick={() => setSelectedUser(null)}
-              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-800/40 hover:bg-slate-700/60 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors"
+              className={`absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-colors ${
+                isDark ? 'bg-slate-800/40 hover:bg-slate-700/60 text-slate-400 hover:text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800'
+              }`}
             >
               <X size={18} />
             </button>
@@ -4534,7 +4592,7 @@ function UsersManagement() {
 
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-black text-lg text-white">
+                  <h3 className={`font-black text-lg ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     {selectedUser.firstName || 'Telegram User'}
                   </h3>
                   {selectedUser.isVerified ? (
@@ -4721,7 +4779,7 @@ function UsersManagement() {
                 </div>
 
                 {/* Permanent Ban / Unban Button */}
-                <div className="pt-2 border-t border-slate-800/40">
+                <div className={`pt-2 border-t ${isDark ? 'border-slate-800/40' : 'border-slate-200'}`}>
                   {selectedUser.status === 'banned' ? (
                     <button
                       type="button"
@@ -4752,7 +4810,9 @@ function UsersManagement() {
               <button
                 type="button"
                 onClick={() => setSelectedUser(null)}
-                className="px-6 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white cursor-pointer transition-all"
+                className={`px-6 py-2.5 rounded-xl text-xs font-bold cursor-pointer transition-all border ${
+                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                }`}
               >
                 বন্ধ করুন (Close)
               </button>
@@ -4927,7 +4987,7 @@ function BotSettings() {
                 <button
                   type="button"
                   onClick={() => handleCopy(settings.adminBkash, 'bkash')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
                   title="কপি করুন"
                 >
                   {copiedField === 'bkash' ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
@@ -4954,7 +5014,7 @@ function BotSettings() {
                 <button
                   type="button"
                   onClick={() => handleCopy(settings.adminNagad, 'nagad')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}
                   title="কপি করুন"
                 >
                   {copiedField === 'nagad' ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
@@ -5345,7 +5405,7 @@ function CreateTrxModal({ isOpen, onClose }) {
       <div className={`p-6 rounded-3xl border max-w-lg w-full shadow-2xl relative ${
         isDark ? 'bg-slate-900 border-purple-500/30 text-white' : 'bg-white border-slate-200 text-slate-900'
       }`}>
-        <div className="flex items-center justify-between pb-4 border-b border-slate-700/40">
+        <div className={`flex items-center justify-between pb-4 border-b ${isDark ? 'border-slate-700/40' : 'border-slate-200'}`}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
               <PlusCircle size={20} />
@@ -5355,7 +5415,7 @@ function CreateTrxModal({ isOpen, onClose }) {
               <p className="text-xs text-slate-400">Simulate incoming payment to verify orders instantly</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-slate-400 hover:text-white cursor-pointer">
+          <button onClick={onClose} className={`p-1 cursor-pointer transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}>
             <X size={18} />
           </button>
         </div>
@@ -6002,7 +6062,7 @@ function BroadcastCenter() {
         <div className={`xl:col-span-5 rounded-3xl border p-5 flex flex-col ${
           isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
         }`}>
-          <div className="flex items-center justify-between gap-2 pb-4 border-b border-purple-900/20 mb-4">
+          <div className={`flex items-center justify-between gap-2 pb-4 border-b mb-4 ${isDark ? 'border-purple-900/20' : 'border-slate-200'}`}>
             <div>
               <h2 className={`font-black text-base flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 <Sparkles size={17} className="text-purple-400" />
@@ -6113,7 +6173,7 @@ function BroadcastCenter() {
           <div className={`rounded-3xl border p-6 space-y-5 ${
             isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
           }`}>
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-purple-900/20">
+            <div className={`flex flex-wrap items-center justify-between gap-3 pb-4 border-b ${isDark ? 'border-purple-900/20' : 'border-slate-200'}`}>
               <div>
                 <div className="flex items-center gap-2">
                   <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black bg-purple-600 text-white">
@@ -6432,11 +6492,13 @@ function BroadcastCenter() {
 
             {/* Broadcast Status Banner */}
             {broadcastResult && (
-              <div className="p-4 rounded-2xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 flex items-center justify-between flex-wrap gap-3">
+              <div className={`p-4 rounded-2xl border flex items-center justify-between flex-wrap gap-3 ${
+                isDark ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-200' : 'bg-emerald-50 border-emerald-300 text-emerald-900'
+              }`}>
                 <div className="flex items-center gap-3">
-                  <CheckCircle2 size={22} className="text-emerald-400 shrink-0" />
+                  <CheckCircle2 size={22} className="text-emerald-500 shrink-0" />
                   <div>
-                    <div className="text-xs font-black text-white">{broadcastResult.message}</div>
+                    <div className={`text-xs font-black ${isDark ? 'text-white' : 'text-emerald-950'}`}>{broadcastResult.message}</div>
                     <div className="text-[11px] text-emerald-300 mt-0.5">
                       Targeted: <b>{broadcastResult.totalTargeted}</b> • Delivered: <b>{broadcastResult.sentCount}</b> • Unreachable/Blocked: <b>{broadcastResult.failedCount}</b>
                       {broadcastResult.payoutChannelSent ? ' • Posted to Payout Channel ✅' : ''}

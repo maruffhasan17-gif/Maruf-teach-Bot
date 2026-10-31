@@ -383,14 +383,13 @@ export function InfographicRadarGauge({ isDark = true }) {
 
       {/* Quick Details */}
       <div className={`grid grid-cols-2 gap-2 pt-3 border-t ${isDark ? "border-slate-700/30" : "border-slate-200"} text-center text-xs`}>
-        <div className={`p-2 rounded-xl ${isDark ? "bg-slate-900/60 border-purple-900/30" : "bg-slate-50 border-slate-200"}`}>
-
+        <div className={`p-2 rounded-xl border ${isDark ? "bg-slate-900/60 border-purple-900/30" : "bg-slate-50 border-slate-200"}`}>
           <div className={`text-[10px] ${isDark ? "text-slate-400" : "text-slate-600"} uppercase font-bold`}>Gas Limit</div>
-          <div className="font-mono font-bold text-cyan-300">0.05 TON</div>
+          <div className={`font-mono font-bold ${isDark ? "text-cyan-300" : "text-indigo-600"}`}>0.05 TON</div>
         </div>
-        <div className="p-2 rounded-xl bg-slate-900/60 border border-purple-900/30">
+        <div className={`p-2 rounded-xl border ${isDark ? "bg-slate-900/60 border-purple-900/30" : "bg-slate-50 border-slate-200"}`}>
           <div className={`text-[10px] ${isDark ? "text-slate-400" : "text-slate-600"} uppercase font-bold`}>Smart Memo</div>
-          <div className="font-mono font-bold text-pink-300">'TrustPay'</div>
+          <div className={`font-mono font-bold ${isDark ? "text-pink-300" : "text-pink-600"}`}>'TrustPay'</div>
         </div>
       </div>
     </div>

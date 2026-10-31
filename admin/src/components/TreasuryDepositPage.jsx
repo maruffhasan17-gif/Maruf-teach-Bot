@@ -610,7 +610,9 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
             <div className="flex flex-wrap items-center gap-2.5">
               <Link
                 to="/bot-wallet"
-                className="px-3 py-1 rounded-xl text-xs font-black bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5"
+                className={`px-3 py-1 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 border ${
+                  isDark ? 'bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200 shadow-sm'
+                }`}
               >
                 <span>← Back to Bot Treasury</span>
               </Link>
@@ -715,7 +717,9 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               balance: `$${totalUsdtVal.toFixed(2)} USDT`,
               bdt: `≈ ৳${(totalUsdtVal * liveUsdtBdt).toFixed(0)} BDT`,
               tag: '6 NETWORKS • AUTO-SWAP TO GRAM',
-              activeClass: 'border-emerald-400 bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-slate-950 shadow-[0_10px_35px_rgba(16,185,129,0.2)]'
+              activeClass: isDark
+                ? 'border-emerald-400 bg-gradient-to-br from-emerald-500/20 via-teal-600/10 to-slate-950 shadow-[0_10px_35px_rgba(16,185,129,0.2)]'
+                : 'border-emerald-500 bg-gradient-to-br from-emerald-50 via-teal-50/40 to-white shadow-lg text-slate-900'
             },
             {
               id: 'GRAM',
@@ -724,7 +728,9 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               balance: `${gramBalanceVal.toFixed(2)} GRAM`,
               bdt: `≈ ৳${(gramBalanceVal * liveGramBdt).toFixed(0)} BDT`,
               tag: 'TON MAINNET • INSTANT DISPATCH',
-              activeClass: 'border-purple-400 bg-gradient-to-br from-purple-500/25 via-indigo-600/10 to-slate-950 shadow-[0_10px_35px_rgba(168,85,247,0.22)]'
+              activeClass: isDark
+                ? 'border-purple-400 bg-gradient-to-br from-purple-500/25 via-indigo-600/10 to-slate-950 shadow-[0_10px_35px_rgba(168,85,247,0.22)]'
+                : 'border-purple-500 bg-gradient-to-br from-purple-50 via-indigo-50/40 to-white shadow-lg text-slate-900'
             },
             {
               id: 'TON',
@@ -733,7 +739,9 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               balance: `${gramBalanceVal.toFixed(3)} TON`,
               bdt: `~${Math.floor(gramBalanceVal / 0.008)} Transfers Ready`,
               tag: gramBalanceVal >= 0.16 ? 'AUTO-SWAP FUEL READY' : 'REFILL RECOMMENDED',
-              activeClass: 'border-sky-400 bg-gradient-to-br from-sky-500/25 via-blue-600/10 to-slate-950 shadow-[0_10px_35px_rgba(14,165,233,0.22)]'
+              activeClass: isDark
+                ? 'border-sky-400 bg-gradient-to-br from-sky-500/25 via-blue-600/10 to-slate-950 shadow-[0_10px_35px_rgba(14,165,233,0.22)]'
+                : 'border-sky-500 bg-gradient-to-br from-sky-50 via-blue-50/40 to-white shadow-lg text-slate-900'
             }
           ].map(assetCard => {
             const isSelected = selectedAsset === assetCard.id;
@@ -754,29 +762,33 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                   <div className="flex items-center gap-3">
                     <AssetLogo asset={assetCard.id} size={44} />
                     <div>
-                      <div className="text-base font-black text-white flex items-center gap-2">
+                      <div className={`text-base font-black flex items-center gap-2 ${isSelected ? (isDark ? 'text-white' : 'text-slate-900') : (isDark ? 'text-white' : 'text-slate-900')}`}>
                         <span>{assetCard.title}</span>
                       </div>
-                      <div className="text-[11px] text-slate-400 leading-snug mt-0.5">
+                      <div className={`text-[11px] leading-snug mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                         {assetCard.subtitle}
                       </div>
                     </div>
                   </div>
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border ${
                     isSelected
-                      ? 'bg-emerald-400 border-emerald-300 text-slate-950'
-                      : 'border-slate-700 bg-slate-900/60 text-transparent'
+                      ? 'bg-emerald-400 border-emerald-300 text-slate-950 shadow-sm'
+                      : isDark
+                        ? 'border-slate-700 bg-slate-900/60 text-transparent'
+                        : 'border-slate-300 bg-slate-100 text-transparent'
                   }`}>
                     <Check size={14} strokeWidth={3} />
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+                <div className={`pt-3 border-t flex items-center justify-between ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                   <div>
-                    <div className="text-sm font-black font-mono text-white">{assetCard.balance}</div>
-                    <div className="text-[10px] font-bold text-slate-400">{assetCard.bdt}</div>
+                    <div className={`text-sm font-black font-mono ${isDark ? 'text-white' : 'text-slate-900'}`}>{assetCard.balance}</div>
+                    <div className={`text-[10px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{assetCard.bdt}</div>
                   </div>
-                  <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-black/40 text-slate-200 border border-white/10">
+                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
+                    isDark ? 'bg-black/40 text-slate-200 border-white/10' : 'bg-slate-100 text-slate-700 border-slate-200'
+                  }`}>
                     {assetCard.tag}
                   </span>
                 </div>
@@ -844,12 +856,14 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-black text-white">{net.shortName}</span>
-                            <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-white/10 text-slate-200 border border-white/10">
+                            <span className={`text-sm font-black ${isSelected ? 'text-white' : isDark ? 'text-white' : 'text-slate-900'}`}>{net.shortName}</span>
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black border ${
+                              isSelected ? 'bg-white/10 text-slate-200 border-white/10' : isDark ? 'bg-white/10 text-slate-200 border-white/10' : 'bg-slate-200 text-slate-700 border-slate-300'
+                            }`}>
                               {net.standard}
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-400 font-medium mt-0.5">
+                          <div className={`text-[11px] font-medium mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                             {net.name}
                           </div>
                           <div className="mt-1.5 inline-flex items-center gap-1.5">
@@ -863,25 +877,29 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border ${
                         isSelected
                           ? 'bg-emerald-400 border-emerald-300 text-slate-950 shadow-md'
-                          : 'border-slate-800 bg-slate-900 text-transparent'
+                          : isDark
+                            ? 'border-slate-800 bg-slate-900 text-transparent'
+                            : 'border-slate-300 bg-slate-100 text-transparent'
                       }`}>
                         <Check size={13} strokeWidth={3} />
                       </div>
                     </div>
 
                     {/* Bottom Chain Balance, Speed & Fee Strip */}
-                    <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px]">
+                    <div className={`mt-4 pt-3 border-t flex items-center justify-between text-[11px] ${
+                      isSelected ? 'border-white/10' : isDark ? 'border-white/10' : 'border-slate-200'
+                    }`}>
                       <div>
-                        <span className="text-slate-400">Live Bal: </span>
-                        <b className="font-mono text-emerald-400">${net.usdtBalance} USDT</b>
+                        <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Live Bal: </span>
+                        <b className="font-mono text-emerald-500 dark:text-emerald-400">${net.usdtBalance} USDT</b>
                         {net.id === 'TON' && (
-                          <span className="text-purple-300 font-mono ml-1.5">• {net.nativeBalance} TON</span>
+                          <span className={`font-mono ml-1.5 ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>• {net.nativeBalance} TON</span>
                         )}
                       </div>
-                      <div className="text-right font-mono text-[10px] text-slate-300">
+                      <div className={`text-right font-mono text-[10px] ${isSelected ? 'text-slate-200' : isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                         <span>⚡ {net.arrivalTime}</span>
-                        <span className="mx-1 text-slate-600">|</span>
-                        <span className="text-emerald-300">Fee {net.feeEst}</span>
+                        <span className={`mx-1 ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>|</span>
+                        <span className={isDark ? 'text-emerald-300' : 'text-emerald-600'}>Fee {net.feeEst}</span>
                       </div>
                     </div>
                   </button>
@@ -890,7 +908,9 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
             </div>
 
             {(selectedAsset === 'GRAM' || selectedAsset === 'TON') && (
-              <div className="mt-4 p-3.5 rounded-2xl bg-purple-950/40 border border-purple-500/30 flex items-center justify-between gap-3 text-xs text-purple-200">
+              <div className={`mt-4 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-xs border ${
+                isDark ? 'bg-purple-950/40 border-purple-500/30 text-purple-200' : 'bg-purple-50 border-purple-200 text-purple-800'
+              }`}>
                 <span>
                   💡 <b>GRAM</b> এবং <b>TON</b> শুধুমাত্র <b>TON Mainnet</b> সাপোর্ট করে। অন্য নেটওয়ার্ক (BEP20, Arbitrum, AVAX-C, Polygon, ERC20) দিয়ে ডিপোজিট করতে চাইলে উপরে <b>USDT (Tether)</b> সিলেক্ট করুন।
                 </span>
@@ -929,11 +949,13 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               {activeNetwork.exchanges.map(exName => (
                 <div
                   key={exName}
-                  className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800/90 flex flex-col items-center justify-center gap-1.5 text-center hover:border-sky-500/40 transition-all"
+                  className={`p-3 rounded-2xl flex flex-col items-center justify-center gap-1.5 text-center transition-all border ${
+                    isDark ? 'bg-slate-950/80 border-slate-800/90 hover:border-sky-500/40' : 'bg-slate-50 border-slate-200 hover:border-sky-400'
+                  }`}
                 >
                   <ExchangeLogo name={exName} size={26} />
-                  <span className="text-xs font-black text-white">{exName}</span>
-                  <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                  <span className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>{exName}</span>
+                  <span className="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                     Supported
                   </span>
                 </div>
@@ -941,25 +963,25 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
             </div>
 
             {/* 3-Step Visual Exchange Withdraw Walkthrough */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 pt-5 border-t border-slate-800/80">
-              <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+            <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 pt-5 border-t ${isDark ? 'border-slate-800/80' : 'border-slate-200'}`}>
+              <div className={`p-3.5 rounded-2xl space-y-1 border ${isDark ? 'bg-slate-950/60 border-slate-800/80' : 'bg-slate-50 border-slate-200'}`}>
                 <div className="text-[10px] font-black uppercase text-sky-400">Step 01</div>
-                <div className="text-xs font-black text-white">Copy Receive Address</div>
-                <p className="text-[11px] text-slate-400">
+                <div className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Copy Receive Address</div>
+                <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   ডান পাশের বক্স থেকে <b>{activeNetwork.shortName}</b> রিসিভ অ্যাড্রেসটি কপি করুন বা QR স্ক্যান করুন।
                 </p>
               </div>
-              <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+              <div className={`p-3.5 rounded-2xl space-y-1 border ${isDark ? 'bg-slate-950/60 border-slate-800/80' : 'bg-slate-50 border-slate-200'}`}>
                 <div className="text-[10px] font-black uppercase text-emerald-400">Step 02</div>
-                <div className="text-xs font-black text-white">Select {activeNetwork.shortName}</div>
-                <p className="text-[11px] text-slate-400">
+                <div className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Select {activeNetwork.shortName}</div>
+                <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   Binance / Bybit / OKX-এর Withdraw পেজে নেটওয়ার্ক হিসেবে <b>{activeNetwork.shortName}</b> সিলেক্ট করুন।
                 </p>
               </div>
-              <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-1">
+              <div className={`p-3.5 rounded-2xl space-y-1 border ${isDark ? 'bg-slate-950/60 border-slate-800/80' : 'bg-slate-50 border-slate-200'}`}>
                 <div className="text-[10px] font-black uppercase text-purple-400">Step 03</div>
-                <div className="text-xs font-black text-white">Auto-Sync & Auto-Swap</div>
-                <p className="text-[11px] text-slate-400">
+                <div className={`text-xs font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Auto-Sync & Auto-Swap</div>
+                <p className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   সেন্ড করার পর <b>Refresh Balance</b> চাপুন—অটো-সোয়াপ ইঞ্জিন সাথে সাথে ইউজার অর্ডারের জন্য প্রস্তুত থাকবে।
                 </p>
               </div>
@@ -978,20 +1000,20 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                   <Repeat size={22} />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-white">
+                  <h3 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     Smart Treasury Auto-Swap (USDT ⇄ GRAM)
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                     ওয়ালেটে 0.25 GRAM + 10 USDT থাকলেও ইউজার 2 GRAM কিনলে সিস্টেম নিজে থেকেই USDT সোয়াপ করে GRAM পাঠিয়ে দেবে
                   </p>
                 </div>
               </div>
-              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 dark:text-emerald-300 border border-emerald-500/40">
                 1 GRAM ≈ ${liveTonUsdtRate.toFixed(3)} USDT
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-black/40 border border-slate-800 mb-3">
+            <div className={`grid grid-cols-2 gap-2 p-1.5 rounded-2xl mb-3 border ${isDark ? 'bg-black/40 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
               <button
                 type="button"
                 onClick={() => { setSwapDirection('USDT_TO_GRAM'); setSwapAmount(''); }}
@@ -1031,9 +1053,11 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                     if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setSwapAmount(v);
                   }}
                   placeholder={swapDirection === 'USDT_TO_GRAM' ? 'Enter USDT amount to swap (e.g. 5)' : 'Enter GRAM amount to swap (e.g. 2)'}
-                  className="w-full bg-black/50 border border-purple-700/50 p-3.5 pr-20 rounded-2xl text-sm font-black text-white outline-none focus:border-purple-400 font-mono"
+                  className={`w-full p-3.5 pr-20 rounded-2xl text-sm font-black outline-none font-mono border ${
+                    isDark ? 'bg-black/50 border-purple-700/50 text-white focus:border-purple-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-500'
+                  }`}
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-purple-300">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-purple-600 dark:text-purple-300">
                   {swapDirection === 'USDT_TO_GRAM' ? 'USDT' : 'GRAM'}
                 </span>
               </div>
@@ -1069,21 +1093,21 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                 : 'bg-white border-slate-200 shadow-2xl'
             }`}>
               {/* Top Network Brand Header */}
-              <div className="flex items-center justify-between gap-3 pb-5 border-b border-white/10">
+              <div className={`flex items-center justify-between gap-3 pb-5 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 <div className="flex items-center gap-3.5">
                   <NetworkLogo networkId={activeNetwork.id} size={48} />
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-black text-white">{activeNetwork.shortName}</h3>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-white/15 text-white">
+                      <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{activeNetwork.shortName}</h3>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${isDark ? 'bg-white/15 text-white' : 'bg-slate-200 text-slate-700'}`}>
                         {activeNetwork.standard}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-300">{activeNetwork.name}</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>{activeNetwork.name}</p>
                   </div>
                 </div>
 
-                <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0">
+                <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 dark:text-emerald-300 border border-emerald-500/40 shrink-0">
                   No Memo Needed
                 </span>
               </div>
@@ -1104,7 +1128,9 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                   </div>
                 </div>
 
-                <div className="mt-3.5 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/50 border border-white/10 text-xs font-bold text-slate-200">
+                <div className={`mt-3.5 flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-bold ${
+                  isDark ? 'bg-black/50 border-white/10 text-slate-200' : 'bg-slate-100 border-slate-200 text-slate-800'
+                }`}>
                   <AssetLogo asset={selectedAsset} size={18} />
                   <span>
                     Send <b>{selectedAsset}</b> via <b>{activeNetwork.shortName}</b> Network Only
@@ -1115,21 +1141,23 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               {/* Official Receive Address Box + 1-Click Copy */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-slate-300 uppercase tracking-wider">
+                  <span className={`uppercase tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                     Official {activeNetwork.shortName} Receive Address
                   </span>
                   <a
                     href={activeNetwork.explorerUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-sky-400 hover:underline flex items-center gap-1"
+                    className="text-sky-500 dark:text-sky-400 hover:underline flex items-center gap-1 font-bold"
                   >
                     <span>{activeNetwork.explorerName}</span>
                     <ExternalLink size={12} />
                   </a>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-black/70 border border-white/15 font-mono text-xs sm:text-sm text-emerald-300 break-all select-all leading-relaxed shadow-inner">
+                <div className={`p-4 rounded-2xl font-mono text-xs sm:text-sm break-all select-all leading-relaxed shadow-inner border ${
+                  isDark ? 'bg-black/70 border-white/15 text-emerald-300' : 'bg-slate-50 border-slate-300 text-slate-800 font-bold'
+                }`}>
                   {activeNetwork.address}
                 </div>
 
@@ -1152,26 +1180,28 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               </div>
 
               {/* Network Telemetry Details */}
-              <div className="mt-5 pt-4 border-t border-white/10 space-y-2.5 text-xs">
+              <div className={`mt-5 pt-4 border-t space-y-2.5 text-xs ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 font-semibold">Current Network Balance:</span>
-                  <span className="font-mono font-black text-white">
+                  <span className={`${isDark ? 'text-slate-400' : 'text-slate-500'} font-semibold`}>Current Network Balance:</span>
+                  <span className={`font-mono font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     ${activeNetwork.usdtBalance} USDT
                     {activeNetwork.id === 'TON' ? ` • ${activeNetwork.nativeBalance} TON` : ` • ${activeNetwork.nativeBalance} ${activeNetwork.nativeSymbol}`}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 font-semibold">Estimated Arrival Time:</span>
-                  <span className="font-mono font-bold text-emerald-400">{activeNetwork.arrivalTime}</span>
+                  <span className={`${isDark ? 'text-slate-400' : 'text-slate-500'} font-semibold`}>Estimated Arrival Time:</span>
+                  <span className="font-mono font-bold text-emerald-500 dark:text-emerald-400">{activeNetwork.arrivalTime}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 font-semibold">Exchange Withdraw Fee:</span>
-                  <span className="font-mono font-bold text-sky-300">{activeNetwork.feeEst}</span>
+                  <span className={`${isDark ? 'text-slate-400' : 'text-slate-500'} font-semibold`}>Exchange Withdraw Fee:</span>
+                  <span className="font-mono font-bold text-sky-500 dark:text-sky-300">{activeNetwork.feeEst}</span>
                 </div>
               </div>
 
               {/* Important Safety Notice */}
-              <div className="mt-4 p-3.5 rounded-2xl bg-black/50 border border-amber-500/30 text-[11px] text-amber-200/90 leading-relaxed">
+              <div className={`mt-4 p-3.5 rounded-2xl border text-[11px] leading-relaxed ${
+                isDark ? 'bg-black/50 border-amber-500/30 text-amber-200/90' : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}>
                 ⚠️ {activeNetwork.note}
               </div>
 
@@ -1182,7 +1212,9 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                   refresh();
                   showNotice('success', `${activeNetwork.shortName} সহ সকল নেটওয়ার্কের লাইভ ব্যালেন্স আপডেট করা হচ্ছে...`);
                 }}
-                className="mt-4 w-full py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-wider bg-white/10 hover:bg-white/20 text-white border border-white/15 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className={`mt-4 w-full py-3.5 px-4 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer border ${
+                  isDark ? 'bg-white/10 hover:bg-white/20 text-white border-white/15' : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                }`}
               >
                 <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
                 <span>I Sent Deposit • Refresh Live Balance</span>
@@ -1190,19 +1222,21 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
             </div>
           ) : (
             /* TONKEEPER 1-CLICK DIRECT DEPOSIT TERMINAL */
-            <div className="p-6 sm:p-7 rounded-[2.4rem] border bg-gradient-to-b from-sky-500/20 via-blue-900/20 to-slate-950 border-sky-400/50 shadow-2xl space-y-5">
-              <div className="flex items-center gap-3.5 pb-4 border-b border-white/10">
+            <div className={`p-6 sm:p-7 rounded-[2.4rem] border shadow-2xl space-y-5 ${
+              isDark ? 'bg-gradient-to-b from-sky-500/20 via-blue-900/20 to-slate-950 border-sky-400/50' : 'bg-white border-slate-200 shadow-xl'
+            }`}>
+              <div className={`flex items-center gap-3.5 pb-4 border-b ${isDark ? 'border-white/10' : 'border-slate-200'}`}>
                 <NetworkLogo networkId="TON" size={48} />
                 <div>
-                  <h3 className="text-lg font-black text-white">Tonkeeper 1-Click Deposit</h3>
-                  <p className="text-xs text-slate-300">
+                  <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>Tonkeeper 1-Click Deposit</h3>
+                  <p className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
                     পপ-আপ বা কপি-পেস্ট ছাড়াই সরাসরি আপনার কানেক্টেড Tonkeeper ওয়ালেট থেকে ডিপোজিট করুন
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-wider text-sky-300">
+                <label className="text-xs font-black uppercase tracking-wider text-sky-600 dark:text-sky-300">
                   Deposit Amount ({selectedAsset})
                 </label>
                 <div className="relative">
@@ -1215,9 +1249,11 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                       if (v === '' || /^[0-9]*\.?[0-9]*$/.test(v)) setTonkeeperAmount(v);
                     }}
                     placeholder="0.00"
-                    className="w-full bg-black/60 border border-sky-500/40 p-4 pl-5 pr-24 rounded-2xl text-2xl font-black text-white outline-none focus:border-sky-400 font-mono"
+                    className={`w-full p-4 pl-5 pr-24 rounded-2xl text-2xl font-black outline-none font-mono border ${
+                      isDark ? 'bg-black/60 border-sky-500/40 text-white focus:border-sky-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-sky-500'
+                    }`}
                   />
-                  <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-black text-sky-400">
+                  <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-black text-sky-500 dark:text-sky-400">
                     {selectedAsset}
                   </span>
                 </div>
@@ -1228,7 +1264,9 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                       key={val}
                       type="button"
                       onClick={() => setTonkeeperAmount(val)}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-sky-500/20 text-slate-200 border border-slate-700 cursor-pointer"
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
+                        isDark ? 'bg-slate-900 hover:bg-sky-500/20 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-sky-100 text-slate-700 border-slate-200'
+                      }`}
                     >
                       +{val} {selectedAsset}
                     </button>
@@ -1236,11 +1274,13 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-black/50 border border-white/10 space-y-2 text-xs">
+              <div className={`p-4 rounded-2xl border space-y-2 text-xs ${
+                isDark ? 'bg-black/50 border-white/10 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 font-bold">Connected Tonkeeper:</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-bold">Connected Tonkeeper:</span>
                   {userTonAddress ? (
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-bold">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-bold">
                       Connected
                     </span>
                   ) : (
