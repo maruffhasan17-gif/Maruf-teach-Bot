@@ -3560,7 +3560,7 @@ app.post('/api/miniapp/two-step', async (req, res) => {
     }
 });
 
-// Helper: Resolve a user document by MBS ID (e.g. MBS99548) or Telegram UID
+// Helper: Resolve a user document by MBS ID (e.g. MBS99548), Telegram UID, or @username
 async function resolveUserByMbsOrUid(rawQuery) {
     const clean = String(rawQuery || '').trim();
     if (!clean) return null;
@@ -3573,19 +3573,18 @@ async function resolveUserByMbsOrUid(rawQuery) {
             const doc = snap.docs[0];
             return { id: doc.id, data: doc.data() || {} };
         }
-        // Fallback: check if any user's fallback MBS ID ('MBS' + id.slice(-5)) matches
+        // Fallback: check if any user's mbsId (case-insensitive) or fallback MBS ID ('MBS' + id.slice(-5)) matches
         const suffix = upper.replace(/^MBS/, '');
-        if (/^\d{5}$/.test(suffix)) {
-            const allUsers = await db.collection('users').get();
-            for (const d of allUsers.docs) {
-                const u = d.data() || {};
-                const derived = (u.mbsId || ('MBS' + String(d.id).slice(-5))).toUpperCase();
-                if (derived === upper) {
-                    if (!u.mbsId) {
-                        d.ref.set({ mbsId: upper }, { merge: true }).catch(() => {});
-                    }
-                    return { id: d.id, data: { ...u, mbsId: upper } };
+        const allUsers = await db.collection('users').get();
+        for (const d of allUsers.docs) {
+            const u = d.data() || {};
+            const storedUpper = String(u.mbsId || '').trim().toUpperCase();
+            const derived = (storedUpper || ('MBS' + String(d.id).slice(-5))).toUpperCase();
+            if (storedUpper === upper || derived === upper || (suffix.length >= 4 && String(d.id).endsWith(suffix) && !storedUpper)) {
+                if (!u.mbsId) {
+                    d.ref.set({ mbsId: upper }, { merge: true }).catch(() => {});
                 }
+                return { id: d.id, data: { ...u, mbsId: u.mbsId || upper } };
             }
         }
         return null;
@@ -3604,6 +3603,26 @@ async function resolveUserByMbsOrUid(rawQuery) {
                 const doc = snap.docs[0];
                 return { id: doc.id, data: doc.data() || {} };
             }
+            const allUsers = await db.collection('users').get();
+            for (const d of allUsers.docs) {
+                if (String(d.id).endsWith(clean)) {
+                    const u = d.data() || {};
+                    return { id: d.id, data: u };
+                }
+            }
+        }
+        return null;
+    }
+
+    // 3. Username fallback (e.g. @maruf7233 or maruf7233)
+    const cleanUname = clean.replace(/^@/, '').toLowerCase();
+    if (cleanUname.length >= 3) {
+        const allUsers = await db.collection('users').get();
+        for (const d of allUsers.docs) {
+            const u = d.data() || {};
+            if (String(u.username || '').replace(/^@/, '').toLowerCase() === cleanUname) {
+                return { id: d.id, data: u };
+            }
         }
     }
     return null;
@@ -3617,7 +3636,7 @@ app.get('/api/miniapp/lookup-user/:query', async (req, res) => {
         if (!rawQuery || rawQuery.length < 3) {
             return res.json({ found: false });
         }
-        if (callerId && !checkRateLimit(`lookup_${callerId}`, 45, 60000)) {
+        if (callerId && !checkRateLimit(`lookup_${callerId}`, 60, 60000)) {
             return res.status(429).json({ found: false, error: 'অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন।' });
         }
 
@@ -3646,19 +3665,23 @@ app.get('/api/miniapp/lookup-user/:query', async (req, res) => {
             (uData.fiatWallet && uData.fiatWallet.number)
         );
 
+        const recipientPayload = {
+            userId: uId,
+            mbsId,
+            name,
+            username,
+            photoUrl: `/api/miniapp/user-avatar/${uId}`,
+            isVerified,
+            isSelf,
+            status: uData.status || 'active'
+        };
+
         return res.json({
             success: true,
             found: true,
             isSelf,
-            user: {
-                userId: uId,
-                mbsId,
-                name,
-                username,
-                photoUrl: `/api/miniapp/user-avatar/${uId}`,
-                isVerified,
-                status: uData.status || 'active'
-            }
+            recipient: recipientPayload,
+            user: recipientPayload
         });
     } catch (e) {
         return res.status(500).json({ found: false, error: e.message });
@@ -3667,12 +3690,13 @@ app.get('/api/miniapp/lookup-user/:query', async (req, res) => {
 
 // Atomic Zero-Trust P2P Money Transfer Endpoint
 app.post('/api/miniapp/transfer-money', async (req, res) => {
-    let { userId, recipientQuery, amount, twoStepPin, note } = req.body || {};
-    if (!userId || !recipientQuery || !amount) {
+    let { userId, senderId: bodySenderId, recipientQuery, amount, twoStepPin, note } = req.body || {};
+    const effectiveUserId = userId || bodySenderId;
+    if (!effectiveUserId || !recipientQuery || !amount) {
         return res.status(400).json({ error: 'প্রাপকের আইডি এবং টাকার পরিমাণ সঠিকভাবে দিন।' });
     }
 
-    const senderId = String(userId).trim();
+    const senderId = String(effectiveUserId).trim();
 
     // 1. Rate Limit Check
     if (!checkRateLimit(`transfer_${senderId}`, 10, 60000)) {
@@ -3707,13 +3731,7 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
         }
         const senderData = audit.userData || {};
 
-        // 5. Mandatory 2-Step Verification Check for Transfer Money
-        if (!senderData.twoStepEnabled || !senderData.twoStepPinHash) {
-            return res.status(403).json({
-                error: 'মানি ট্রান্সফার করার জন্য প্রোফাইল থেকে ২-স্টেপ ভেরিফিকেশন (PIN) চালু থাকা বাধ্যতামূলক!',
-                requireTwoStepSetup: true
-            });
-        }
+        // 5. Optional 2-Step Verification Check (Only enforced if user has enabled 2-Step PIN)
         const pinCheck = verifyUserTwoStepPin(senderData, senderId, twoStepPin);
         if (!pinCheck.ok) {
             return res.status(403).json({
@@ -3816,23 +3834,31 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
 
         statsCache.timestamp = 0;
 
-        // 8. Instant Telegram Notifications to Sender, Receiver & Admin Data Group
+        // 8. Instant Telegram Bot Notifications (with Custom Animated Emojis <tg-emoji>) to Receiver, Sender & Admin Group
         if (bot) {
-            const senderMsg = `<b>${PE.flyingCash} মানি ট্রান্সফার সফল! (Money Sent!)</b>\n\n` +
-                `<blockquote>${PE.user} <b>প্রাপক (To):</b> <b>${escapeHtml(receiverName)}</b> (<code>${receiverMbsId}</code>)\n` +
-                `${PE.idCard} <b>UID:</b> <code>${receiverId}</code>\n` +
-                `${PE.dollar} <b>পাঠানো পরিমাণ:</b> <b>৳${numAmount.toFixed(2)} BDT</b>\n` +
-                `${PE.moneyBag} <b>নতুন ব্যালেন্স:</b> <b>৳${updatedSenderBal.toFixed(2)} BDT</b>\n` +
-                `${PE.globe} <b>Trx Ref:</b> <code>${transferId}</code></blockquote>\n\n` +
-                `${PE.check} <i>টাকাটি সফলভাবে ও নিরাপদে প্রাপকের অ্যাকাউন্টে স্থানান্তরিত হয়েছে।</i>`;
+            const senderUnameStr = senderData.username ? ` (@${String(senderData.username).replace(/^@/, '')})` : '';
+            const receiverUnameStr = receiverData.username ? ` (@${String(receiverData.username).replace(/^@/, '')})` : '';
+
+            const senderMsg = `<b>${PE.flyingCash} মানি ট্রান্সফার সফল! (Transfer Money Confirmed!)</b>\n\n` +
+                `<blockquote>${PE.user} <b>প্রাপক (Sent To):</b> <b>${escapeHtml(receiverName)}</b>${escapeHtml(receiverUnameStr)}\n` +
+                `${PE.idCard} <b>প্রাপকের ID:</b> <code>${receiverMbsId}</code> (UID: <code>${receiverId}</code>)\n` +
+                `${PE.dollar} <b>পাঠানো পরিমাণ (Amount):</b> <b>৳${numAmount.toFixed(2)} BDT</b>\n` +
+                `${PE.sparkles} <b>ট্রান্সফার ফি (Fee):</b> <code>৳0.00 BDT (Free)</code>\n` +
+                `${PE.moneyBag} <b>বর্তমান ব্যালেন্স (New Balance):</b> <b>৳${updatedSenderBal.toFixed(2)} BDT</b>\n` +
+                `${PE.note} <b>Trx Ref:</b> <code>${transferId}</code>\n` +
+                `${PE.globe} <b>Status:</b> <code>Sent Successfully</code></blockquote>\n\n` +
+                `${PE.check} <i>আপনার পাঠানো <b>৳${numAmount.toFixed(2)} টাকা</b> সফলভাবে <b>${escapeHtml(receiverName)}</b>-এর অ্যাকাউন্টে জমা হয়েছে! TrustPay-এর সাথে থাকার জন্য ধন্যবাদ।</i>`;
             bot.sendMessage(senderId, senderMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
 
-            const receiverMsg = `<b>${PE.moneyBag} ব্যালেন্স রিসিভ হয়েছে! (Money Received!)</b>\n\n` +
-                `<blockquote>${PE.user} <b>প্রেরক (From):</b> <b>${escapeHtml(senderName)}</b> (<code>${senderMbsId}</code>)\n` +
-                `${PE.dollar} <b>প্রাপ্ত পরিমাণ:</b> <b>+৳${numAmount.toFixed(2)} BDT</b>\n` +
-                `${PE.moneyBag} <b>নতুন ব্যালেন্স:</b> <b>৳${updatedReceiverBal.toFixed(2)} BDT</b>\n` +
-                `${PE.globe} <b>Trx Ref:</b> <code>${transferId}</code></blockquote>\n\n` +
-                `${PE.party} <i>আপনার Trust Pay অ্যাকাউন্ট ব্যালেন্সে টাকা জমা হয়েছে!</i>`;
+            const receiverMsg = `<b>${PE.approvedBag} মানি ট্রান্সফার রিসিভড! (Transfer Money Received!)</b>\n\n` +
+                `<blockquote>${PE.user} <b>প্রেরক (Sent By):</b> <b>${escapeHtml(senderName)}</b>${escapeHtml(senderUnameStr)}\n` +
+                `${PE.idCard} <b>প্রেরকের ID:</b> <code>${senderMbsId}</code> (UID: <code>${senderId}</code>)\n` +
+                `${PE.flyingCash} <b>প্রাপ্ত টাকা (Received):</b> <b>+৳${numAmount.toFixed(2)} BDT</b>\n` +
+                `${PE.dollar} <b>ট্রান্সফার ফি (Fee):</b> <code>৳0.00 BDT (Free)</code>\n` +
+                `${PE.moneyBag} <b>নতুন ব্যালেন্স (New Balance):</b> <b>৳${updatedReceiverBal.toFixed(2)} BDT</b>\n` +
+                `${PE.note} <b>Trx Ref:</b> <code>${transferId}</code>\n` +
+                `${PE.globe} <b>Status:</b> <code>Completed Instantly</code></blockquote>\n\n` +
+                `${PE.party} <i>অভিনন্দন! <b>${escapeHtml(senderName)}</b> আপনার Trust Pay অ্যাকাউন্টে <b>৳${numAmount.toFixed(2)} টাকা</b> পাঠিয়েছেন। আপনার ব্যালেন্স চেক করুন!</i>`;
             bot.sendMessage(receiverId, receiverMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
 
             const dataGroup = botConfig?.dataGroupId || botConfig?.adminGroupId;
@@ -3853,6 +3879,9 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
             transferId,
             amount: numAmount,
             newBalance: updatedSenderBal,
+            recipientName: receiverName,
+            recipientMbsId: receiverMbsId,
+            recipientUid: receiverId,
             recipient: {
                 userId: receiverId,
                 mbsId: receiverMbsId,

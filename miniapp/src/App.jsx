@@ -43,6 +43,8 @@ function playAppSound(type = 'success') {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
       } else if (type === 'error') {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+      } else if (type === 'tap') {
+        window.Telegram.WebApp.HapticFeedback.selectionChanged();
       } else {
         window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
       }
@@ -54,67 +56,100 @@ function playAppSound(type = 'success') {
     if (!ctx) return;
     const now = ctx.currentTime;
 
+    // Master warm low-pass filter so all tones sound silky, warm & never harsh on mobile speakers
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(type === 'tap' ? 1400 : 2400, now);
+    filter.Q.setValueAtTime(0.7, now);
+    filter.connect(ctx.destination);
+
+    if (type === 'tap') {
+      // Whisper-soft iOS / Telegram style tactile page-transition tap (24ms warm droplet)
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(540, now);
+      osc.frequency.exponentialRampToValueAtTime(210, now + 0.024);
+
+      gainNode.gain.setValueAtTime(0.0001, now);
+      gainNode.gain.linearRampToValueAtTime(0.035, now + 0.004);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.026);
+
+      osc.connect(gainNode);
+      gainNode.connect(filter);
+
+      osc.start(now);
+      osc.stop(now + 0.03);
+      return;
+    }
+
     if (type === 'success') {
-      // Pleasant ascending Apple-Pay / Fintech major arpeggio (C5 -> E5 -> G5 -> C6)
-      const notes = [
-        { freq: 523.25, start: 0.0, dur: 0.14, gain: 0.14 },
-        { freq: 659.25, start: 0.07, dur: 0.15, gain: 0.15 },
-        { freq: 783.99, start: 0.14, dur: 0.18, gain: 0.16 },
-        { freq: 1046.50, start: 0.22, dur: 0.38, gain: 0.18 }
+      // Silky Apple-Pay / iOS Wallet style 2-note crystal bell chime (F5 -> C6 with warm fifth resonance)
+      // Pure sine waves only (no harsh triangle/square buzz)
+      const bellNotes = [
+        { freq: 698.46, shimmer: 1396.91, start: 0.0, dur: 0.22, gain: 0.075 },
+        { freq: 1046.50, shimmer: 2093.00, start: 0.095, dur: 0.52, gain: 0.095 }
       ];
-      notes.forEach(({ freq, start, dur, gain }) => {
-        const osc = ctx.createOscillator();
-        const subOsc = ctx.createOscillator();
-        const gainNode = ctx.createGain();
+      bellNotes.forEach(({ freq, shimmer, start, dur, gain }) => {
+        const mainOsc = ctx.createOscillator();
+        const overtoneOsc = ctx.createOscillator();
+        const mainGain = ctx.createGain();
+        const overtoneGain = ctx.createGain();
 
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + start);
+        mainOsc.type = 'sine';
+        mainOsc.frequency.setValueAtTime(freq, now + start);
 
-        subOsc.type = 'triangle';
-        subOsc.frequency.setValueAtTime(freq * 1.5, now + start);
+        overtoneOsc.type = 'sine';
+        overtoneOsc.frequency.setValueAtTime(shimmer, now + start);
 
-        gainNode.gain.setValueAtTime(0.0001, now + start);
-        gainNode.gain.exponentialRampToValueAtTime(gain, now + start + 0.018);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+        mainGain.gain.setValueAtTime(0.0001, now + start);
+        mainGain.gain.linearRampToValueAtTime(gain, now + start + 0.014);
+        mainGain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
 
-        osc.connect(gainNode);
-        subOsc.connect(gainNode);
-        gainNode.connect(ctx.destination);
+        overtoneGain.gain.setValueAtTime(0.0001, now + start);
+        overtoneGain.gain.linearRampToValueAtTime(gain * 0.16, now + start + 0.01);
+        overtoneGain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur * 0.55);
 
-        osc.start(now + start);
-        subOsc.start(now + start);
-        osc.stop(now + start + dur + 0.02);
-        subOsc.stop(now + start + dur + 0.02);
+        mainOsc.connect(mainGain);
+        overtoneOsc.connect(overtoneGain);
+        mainGain.connect(filter);
+        overtoneGain.connect(filter);
+
+        mainOsc.start(now + start);
+        overtoneOsc.start(now + start);
+        mainOsc.stop(now + start + dur + 0.03);
+        overtoneOsc.stop(now + start + dur + 0.03);
       });
     } else if (type === 'error') {
-      // Distinct, soft descending double-tone alert (330Hz -> 220Hz)
+      // Soft, muted warm double marimba knock (pure sine, zero buzz)
       const errNotes = [
-        { freq: 330.0, endFreq: 290.0, start: 0.0, dur: 0.15, gain: 0.16 },
-        { freq: 240.0, endFreq: 185.0, start: 0.16, dur: 0.26, gain: 0.18 }
+        { freq: 293.66, endFreq: 261.63, start: 0.0, dur: 0.13, gain: 0.075 },
+        { freq: 220.00, endFreq: 185.00, start: 0.135, dur: 0.22, gain: 0.08 }
       ];
       errNotes.forEach(({ freq, endFreq, start, dur, gain }) => {
         const osc = ctx.createOscillator();
         const gainNode = ctx.createGain();
 
-        osc.type = 'triangle';
+        osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, now + start);
-        osc.frequency.linearRampToValueAtTime(endFreq, now + start + dur);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, now + start + dur);
 
         gainNode.gain.setValueAtTime(0.0001, now + start);
-        gainNode.gain.exponentialRampToValueAtTime(gain, now + start + 0.015);
+        gainNode.gain.linearRampToValueAtTime(gain, now + start + 0.012);
         gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
 
         osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
+        gainNode.connect(filter);
 
         osc.start(now + start);
         osc.stop(now + start + dur + 0.02);
       });
     } else if (type === 'confirm') {
-      // Subtle 2-note confirmation prompt chime
+      // Gentle soft glass pop for confirmation modals
       const promptNotes = [
-        { freq: 587.33, start: 0.0, dur: 0.09, gain: 0.1 },
-        { freq: 880.0, start: 0.07, dur: 0.16, gain: 0.12 }
+        { freq: 659.25, start: 0.0, dur: 0.08, gain: 0.05 },
+        { freq: 880.00, start: 0.065, dur: 0.18, gain: 0.06 }
       ];
       promptNotes.forEach(({ freq, start, dur, gain }) => {
         const osc = ctx.createOscillator();
@@ -122,10 +157,10 @@ function playAppSound(type = 'success') {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, now + start);
         gainNode.gain.setValueAtTime(0.0001, now + start);
-        gainNode.gain.exponentialRampToValueAtTime(gain, now + start + 0.012);
+        gainNode.gain.linearRampToValueAtTime(gain, now + start + 0.01);
         gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
         osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
+        gainNode.connect(filter);
         osc.start(now + start);
         osc.stop(now + start + dur + 0.02);
       });
@@ -1063,23 +1098,149 @@ const calculateSendMoneyFee = (amt) => {
 };
 
 
+const LuxurySuccessEmblem = ({ badgeText = 'VERIFIED SUCCESS' }) => (
+  <div className="relative flex flex-col items-center justify-center pt-1 pb-2 select-none">
+    <style>{`
+      @keyframes tpSuccessPop {
+        0% { transform: scale(0.35) rotate(-12deg); opacity: 0; }
+        60% { transform: scale(1.1) rotate(3deg); opacity: 1; }
+        80% { transform: scale(0.96) rotate(-1deg); }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+      }
+      @keyframes tpSuccessWave {
+        0% { transform: scale(0.85); opacity: 0.75; }
+        100% { transform: scale(1.75); opacity: 0; }
+      }
+      @keyframes tpSuccessCheckDraw {
+        0% { stroke-dashoffset: 60; opacity: 0.2; }
+        30% { opacity: 1; }
+        100% { stroke-dashoffset: 0; opacity: 1; }
+      }
+      @keyframes tpSuccessSpinSlow {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes tpSparkleFloat {
+        0%, 100% { transform: translateY(0px) scale(1); opacity: 0.95; }
+        50% { transform: translateY(-5px) scale(1.18); opacity: 1; }
+      }
+    `}</style>
+
+    <div className="relative w-24 h-24 flex items-center justify-center">
+      {/* Expanding Emerald Sonar Waves */}
+      <div
+        className="absolute inset-1 rounded-full border-2 border-emerald-400/50 pointer-events-none"
+        style={{ animation: 'tpSuccessWave 2.1s cubic-bezier(0.16, 1, 0.3, 1) infinite' }}
+      />
+      <div
+        className="absolute inset-1 rounded-full border border-teal-400/40 pointer-events-none"
+        style={{ animation: 'tpSuccessWave 2.1s cubic-bezier(0.16, 1, 0.3, 1) 0.65s infinite' }}
+      />
+
+      {/* Ambient Backlight Glow */}
+      <div className="absolute -inset-2 rounded-full bg-gradient-to-tr from-emerald-500/30 via-teal-400/25 to-amber-300/25 blur-xl pointer-events-none" />
+
+      {/* Rotating Outer Jewel Ring */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        viewBox="0 0 100 100"
+        style={{ animation: 'tpSuccessSpinSlow 14s linear infinite' }}
+      >
+        <circle
+          cx="50"
+          cy="50"
+          r="46"
+          fill="none"
+          stroke="url(#tpSuccessGradRing)"
+          strokeWidth="1.75"
+          strokeDasharray="6 6"
+          strokeLinecap="round"
+        />
+        <defs>
+          <linearGradient id="tpSuccessGradRing" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#10B981" />
+            <stop offset="50%" stopColor="#F59E0B" />
+            <stop offset="100%" stopColor="#14B8A6" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      {/* Main 3D Emerald Core Sphere */}
+      <div
+        className="relative w-[74px] h-[74px] rounded-full p-[3px] bg-gradient-to-tr from-emerald-600 via-emerald-400 to-teal-300 shadow-[0_12px_32px_rgba(16,185,129,0.45)] flex items-center justify-center"
+        style={{ animation: 'tpSuccessPop 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards' }}
+      >
+        <div className="w-full h-full rounded-full bg-gradient-to-b from-emerald-400 via-emerald-500 to-teal-600 flex items-center justify-center relative overflow-hidden shadow-inner">
+          {/* Glossy Top Crown Highlight */}
+          <div className="absolute -top-3 left-2 right-2 h-8 rounded-full bg-white/30 blur-[2px] pointer-events-none" />
+
+          {/* Animated Precision Checkmark */}
+          <svg className="w-10 h-10 text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.22)]" viewBox="0 0 52 52" fill="none">
+            <path
+              d="M14.5 27.2L22.6 35.3L38.2 18.5"
+              stroke="white"
+              strokeWidth="5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                strokeDasharray: 60,
+                strokeDashoffset: 60,
+                animation: 'tpSuccessCheckDraw 0.55s cubic-bezier(0.65, 0, 0.35, 1) 0.2s forwards'
+              }}
+            />
+          </svg>
+        </div>
+      </div>
+
+      {/* Floating Celebration Sparkle Stars */}
+      <div
+        className="absolute -top-1 -right-1 text-amber-400 drop-shadow"
+        style={{ animation: 'tpSparkleFloat 2.2s ease-in-out infinite' }}
+      >
+        <Sparkles size={20} fill="currentColor" />
+      </div>
+      <div
+        className="absolute -bottom-0.5 -left-1 text-emerald-400 drop-shadow"
+        style={{ animation: 'tpSparkleFloat 2.5s ease-in-out 0.4s infinite' }}
+      >
+        <Sparkles size={16} fill="currentColor" />
+      </div>
+      <span className="absolute top-1 left-0 w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_#F59E0B] animate-ping" />
+      <span className="absolute bottom-2 right-0 w-1.5 h-1.5 rounded-full bg-teal-400 shadow-[0_0_8px_#14B8A6] animate-ping" />
+    </div>
+
+    {badgeText && (
+      <div className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-500/12 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/25 text-[10.5px] font-black uppercase tracking-wider shadow-xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+        <Sparkles size={11} className="text-amber-500" />
+        <span>{badgeText}</span>
+      </div>
+    )}
+  </div>
+);
+
 const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode = false }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className={`relative w-full max-w-[340px] p-6 text-center rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 duration-200 overflow-hidden ${
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-md animate-in fade-in duration-200">
+      <div className={`relative w-full max-w-[350px] p-6 text-center rounded-[30px] shadow-2xl border transition-all animate-in zoom-in-95 duration-300 overflow-hidden ${
         darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
       }`}>
-        {/* Blooming Flower Graphic */}
-        <BloomingFlowerGraphic />
+        {/* Ambient Emerald Glow + Corner Botanical Accent */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
+        <img
+          src={sakuraBranchArt}
+          alt=""
+          className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
+            darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
+          }`}
+        />
 
-        {/* Title & Badge */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-black uppercase tracking-wider mb-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-          {lang === 'bn' ? 'অনুরোধ গৃহীত হয়েছে' : 'REQUEST SUBMITTED'}
-        </div>
-        <h3 className="text-[18px] font-black leading-tight mb-1">
+        {/* Luxury Animated Checkmark Emblem */}
+        <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'অনুরোধ গৃহীত হয়েছে' : 'REQUEST SUBMITTED'} />
+
+        <h3 className="text-[19px] font-black leading-tight mt-1 mb-1">
           {lang === 'bn' ? 'উত্তোলন অনুরোধ সফল!' : 'Withdrawal Submitted!'}
         </h3>
         <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-4 leading-relaxed">
@@ -1088,8 +1249,8 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode =
 
         {/* Breakdown Card */}
         {details && (
-          <div className={`rounded-2xl p-3 border mb-4 text-left space-y-2 text-[12px] ${
-            darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50/80 border-slate-200/80'
+          <div className={`rounded-2xl p-3.5 border mb-4 text-left space-y-2 text-[12px] relative z-10 ${
+            darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50/90 border-slate-200/80'
           }`}>
             <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
               <span>{lang === 'bn' ? 'পরিমাণ:' : 'Amount:'}</span>
@@ -1116,9 +1277,9 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode =
         <button
           type="button"
           onClick={onClose}
-          className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+          className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-xs shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all cursor-pointer relative z-10"
         >
-          {lang === 'bn' ? 'ঠিক আছে' : 'OK'}
+          {lang === 'bn' ? 'ঠিক আছে (Done)' : 'Done'}
         </button>
       </div>
     </div>
@@ -2617,6 +2778,7 @@ function TransferMoneyPage({
   const [amount, setAmount] = useState('');
   const [pastedFeedback, setPastedFeedback] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pinError, setPinError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transferSuccessData, setTransferSuccessData] = useState(null);
@@ -2639,8 +2801,12 @@ function TransferMoneyPage({
       try {
         const res = await lookupRecipientUser(clean, user?.id);
         if (cancelled) return;
-        if (res?.success && res?.found && res?.recipient) {
-          setRecipientInfo(res.recipient);
+        const foundUser = res?.recipient || res?.user;
+        if (res?.success && res?.found && foundUser) {
+          setRecipientInfo({
+            ...foundUser,
+            isSelf: Boolean(res.isSelf || foundUser.isSelf)
+          });
           setLookupError('');
         } else {
           setRecipientInfo(null);
@@ -2654,7 +2820,7 @@ function TransferMoneyPage({
       } finally {
         if (!cancelled) setLookupLoading(false);
       }
-    }, 280);
+    }, 260);
 
     return () => {
       cancelled = true;
@@ -2706,42 +2872,51 @@ function TransferMoneyPage({
       const msg = lang === 'bn' ? 'আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই!' : 'Insufficient balance!';
       return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
     }
-    if (!twoStepEnabled) {
-      playAppSound('error');
-      return;
-    }
 
     playAppSound('confirm');
     setPinError('');
-    setShowPinModal(true);
+    if (twoStepEnabled) {
+      setShowPinModal(true);
+    } else {
+      setShowConfirmModal(true);
+    }
   };
 
-  const handleConfirmPinAndTransfer = async (enteredPin) => {
+  const handleConfirmPinAndTransfer = async (enteredPin = '') => {
     setIsSubmitting(true);
     setPinError('');
     try {
       const res = await submitTransferMoney({
+        userId: user?.id || 123456789,
         senderId: user?.id || 123456789,
         recipientQuery: recipientInfo?.mbsId || recipientInfo?.userId || recipientQuery.trim(),
         amount: parseFloat(amount),
-        twoStepPin: enteredPin
+        twoStepPin: enteredPin || undefined
       });
       if (res?.success) {
         setShowPinModal(false);
+        setShowConfirmModal(false);
         playAppSound('success');
         setTransferSuccessData({
           transferId: res.transferId,
           amount: res.amount,
-          recipientName: res.recipientName || recipientInfo?.name,
-          recipientMbsId: res.recipientMbsId || recipientInfo?.mbsId,
-          recipientUid: recipientInfo?.userId
+          recipientName: res.recipientName || res.recipient?.name || recipientInfo?.name,
+          recipientMbsId: res.recipientMbsId || res.recipient?.mbsId || recipientInfo?.mbsId,
+          recipientUid: res.recipientUid || res.recipient?.userId || recipientInfo?.userId
         });
         setAmount('');
         if (reloadData) reloadData();
       }
     } catch (e) {
       playAppSound('error');
-      setPinError(e.message || (lang === 'bn' ? 'ট্রান্সফার সম্পন্ন করা যায়নি' : 'Transfer failed'));
+      const errMsg = e.message || (lang === 'bn' ? 'ট্রান্সফার সম্পন্ন করা যায়নি' : 'Transfer failed');
+      if (showPinModal) {
+        setPinError(errMsg);
+      } else {
+        setShowConfirmModal(false);
+        if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(errMsg);
+        else alert(errMsg);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -2773,34 +2948,6 @@ function TransferMoneyPage({
           <span className="text-xs font-black font-mono text-purple-600 dark:text-purple-400">৳{Number(balance || 0).toFixed(2)}</span>
         </div>
       </div>
-
-      {/* 2-Step Required Notice if user hasn't enabled 2-Step yet */}
-      {!twoStepEnabled && (
-        <div className={`p-4 rounded-3xl border shadow-xs flex items-center justify-between gap-3 ${
-          darkMode ? 'bg-amber-950/35 border-amber-500/35 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-900'
-        }`}>
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Shield size={20} className="text-amber-500 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs font-black leading-tight">
-                {lang === 'bn' ? '২-স্টেপ পাসওয়ার্ড চালু করা আবশ্যক' : '2-Step PIN Required'}
-              </p>
-              <p className="text-[10.5px] opacity-85 mt-0.5 leading-snug">
-                {lang === 'bn'
-                  ? 'নিরাপদে টাকা ট্রান্সফার করতে প্রোফাইল থেকে ২-স্টেপ পিন চালু করুন।'
-                  : 'Please enable 2-Step Security PIN to transfer money safely.'}
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onGoToTwoStep}
-            className="px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[11px] shrink-0 shadow-xs active:scale-95 cursor-pointer"
-          >
-            {lang === 'bn' ? 'চালু করুন' : 'Enable'}
-          </button>
-        </div>
-      )}
 
       {/* Main Transfer Card with Custom Botanical Flower Art */}
       <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs space-y-4 relative overflow-hidden ${
@@ -2835,7 +2982,7 @@ function TransferMoneyPage({
               type="text"
               value={recipientQuery}
               onChange={(e) => setRecipientQuery(e.target.value.toUpperCase())}
-              placeholder="e.g. MBS99548"
+              placeholder="e.g. MBS54754"
               style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
               className="w-full bg-transparent text-sm font-mono font-black uppercase tracking-wider outline-none pr-24 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
             />
@@ -2974,25 +3121,97 @@ function TransferMoneyPage({
             <span>{lang === 'bn' ? 'ট্রান্সফার ফি:' : 'Transfer Fee:'}</span>
             <span className="font-black text-emerald-500">{lang === 'bn' ? 'ফ্রি (৳০.০০)' : 'FREE (৳0.00)'}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <span>{lang === 'bn' ? 'সিকিউরিটি:' : 'Security:'}</span>
-            <span className="font-bold text-purple-600 dark:text-purple-400">🔒 2-Step PIN Protected</span>
+            {twoStepEnabled ? (
+              <span className="font-bold text-purple-600 dark:text-purple-400">🔒 2-Step PIN Protected</span>
+            ) : (
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">⚡ Instant Direct Transfer</span>
+            )}
           </div>
         </div>
 
-        {/* Submit Transfer Button */}
+        {/* Submit Transfer Button (Works both with and without 2-Step!) */}
         <button
           type="button"
           onClick={handleInitiateTransfer}
-          disabled={!recipientInfo || recipientInfo.isSelf || !amount || parseFloat(amount) < 10 || !twoStepEnabled}
+          disabled={!recipientInfo || recipientInfo.isSelf || !amount || parseFloat(amount) < 10 || isSubmitting}
           className="w-full h-[52px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed"
         >
-          <Send size={17} />
+          {isSubmitting ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
           <span>{lang === 'bn' ? 'নিরাপদে ট্রান্সফার করুন' : 'Transfer Money Now'}</span>
         </button>
       </div>
 
-      {/* 2-Step PIN Modal */}
+      {/* Confirmation Modal when 2-Step is OFF */}
+      {showConfirmModal && recipientInfo && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className={`relative w-full max-w-[345px] p-5 rounded-3xl shadow-2xl border space-y-4 animate-in zoom-in-95 duration-200 overflow-hidden ${
+            darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="text-center space-y-1">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2">
+                <Send size={22} />
+              </div>
+              <span className="inline-block px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-300 text-[10px] font-black uppercase tracking-wider">
+                {lang === 'bn' ? 'ট্রান্সফার নিশ্চিতকরণ' : 'CONFIRM TRANSFER'}
+              </span>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                {lang === 'bn' ? 'মানি ট্রান্সফার কনফার্ম করুন' : 'Confirm Money Transfer'}
+              </h3>
+            </div>
+
+            <div className={`p-3.5 rounded-2xl border space-y-2.5 text-xs ${
+              darkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-slate-50 border-slate-200/80'
+            }`}>
+              <div className="flex items-center gap-3 pb-2.5 border-b border-slate-200/80 dark:border-slate-700/80">
+                <UserAvatarBox
+                  userId={recipientInfo.userId}
+                  photoUrl={recipientInfo.photoUrl}
+                  name={recipientInfo.name}
+                  sizeClass="w-10 h-10 rounded-xl text-sm"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="font-black text-slate-900 dark:text-white truncate">{recipientInfo.name}</div>
+                  <div className="text-[11px] font-mono text-purple-600 dark:text-purple-400 font-bold">
+                    {recipientInfo.mbsId} • UID: {recipientInfo.userId}
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-slate-400 font-bold">{lang === 'bn' ? 'পাঠানো টাকা:' : 'Transfer Amount:'}</span>
+                <span className="font-mono font-black text-base text-emerald-600 dark:text-emerald-400">৳{ parseFloat(amount || 0).toFixed(2) } BDT</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 dark:text-slate-400 font-bold">{lang === 'bn' ? 'ট্রান্সফার ফি:' : 'Transfer Fee:'}</span>
+                <span className="font-bold text-emerald-500">{lang === 'bn' ? 'ফ্রি (৳০.০০)' : 'FREE (৳0.00)'}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setShowConfirmModal(false)}
+                className="h-[44px] rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-xs active:scale-95 transition-all cursor-pointer"
+              >
+                {lang === 'bn' ? 'বাতিল করুন' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => handleConfirmPinAndTransfer('')}
+                className="h-[44px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+              >
+                {isSubmitting ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                <span>{lang === 'bn' ? 'কনফার্ম করুন' : 'Confirm'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2-Step PIN Modal (Only shown if user has enabled 2-Step) */}
       <TwoStepPinModal
         isOpen={showPinModal}
         onClose={() => setShowPinModal(false)}
@@ -3011,17 +3230,23 @@ function TransferMoneyPage({
       {/* Transfer Success Receipt Modal */}
       {transferSuccessData && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className={`relative w-full max-w-[345px] p-6 rounded-3xl shadow-2xl border text-center space-y-4 animate-in zoom-in-95 duration-200 overflow-hidden ${
+          <div className={`relative w-full max-w-[350px] p-6 rounded-[30px] shadow-2xl border text-center space-y-4 animate-in zoom-in-95 duration-300 overflow-hidden ${
             darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
           }`}>
-            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center shadow-sm">
-              <CheckCircle2 size={34} />
-            </div>
-            <div>
-              <span className="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-wider">
-                {lang === 'bn' ? 'ট্রান্সফার সফল' : 'TRANSFER COMPLETED'}
-              </span>
-              <h3 className="text-xl font-black font-mono mt-1 text-slate-900 dark:text-white">
+            {/* Ambient Emerald Glow + Corner Botanical Accent */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
+            <img
+              src={sakuraBranchArt}
+              alt=""
+              className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
+                darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
+              }`}
+            />
+
+            <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'ট্রান্সফার সফল' : 'TRANSFER COMPLETED'} />
+
+            <div className="relative z-10">
+              <h3 className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
                 ৳{Number(transferSuccessData.amount).toFixed(2)} BDT
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -3030,7 +3255,7 @@ function TransferMoneyPage({
                   : `Successfully sent to ${transferSuccessData.recipientName} (${transferSuccessData.recipientMbsId})!`}
               </p>
             </div>
-            <div className={`p-3 rounded-2xl border text-left text-xs space-y-1.5 ${
+            <div className={`p-3.5 rounded-2xl border text-left text-xs space-y-2 relative z-10 ${
               darkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200/80'
             }`}>
               <div className="flex justify-between">
@@ -3052,7 +3277,7 @@ function TransferMoneyPage({
                 setTransferSuccessData(null);
                 onBack();
               }}
-              className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+              className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-xs shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all cursor-pointer relative z-10"
             >
               {lang === 'bn' ? 'সম্পন্ন (Done)' : 'Done'}
             </button>
@@ -3476,9 +3701,14 @@ export default function App() {
   }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const prevTabForTapSoundRef = useRef(activeTab);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    if (prevTabForTapSoundRef.current !== activeTab) {
+      prevTabForTapSoundRef.current = activeTab;
+      playAppSound('tap');
+    }
   }, [activeTab]);
 
   const [fiatWallet, setFiatWallet] = useState(null);
@@ -5654,32 +5884,34 @@ function AddMoneyPage({
     // STEP 3: SUCCESS RECEIPT
     if (step === 3) {
         return (
-            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 p-2 text-center pb-24 max-w-sm mx-auto">
-                <div className={`p-6 text-center space-y-4 rounded-3xl border shadow-xl w-full ${
+            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-400 p-2 text-center pb-24 max-w-sm mx-auto">
+                <div className={`relative p-6 text-center space-y-4 rounded-[30px] border shadow-2xl w-full overflow-hidden ${
                     darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
                 }`}>
-                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto shadow-inner">
-                        <Check size={36} strokeWidth={3} />
-                    </div>
+                    {/* Ambient Emerald Glow + Corner Botanical Accent */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
+                    <img
+                        src={sakuraBranchArt}
+                        alt=""
+                        className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
+                            darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
+                        }`}
+                    />
 
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-black uppercase tracking-wider">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                        <Sparkles size={12} />
-                        {lang === 'bn' ? 'অটো-ভেরিফাইড সফল' : 'AUTO-VERIFIED'}
-                    </div>
+                    <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'অটো-ভেরিফাইড সফল' : 'AUTO-VERIFIED'} />
 
-                    <div>
-                        <h2 className="text-xl font-black tracking-tight mb-1">
-                            ৳{amount} BDT Added! 🎉
+                    <div className="relative z-10">
+                        <h2 className="text-2xl font-black tracking-tight mb-1 text-emerald-600 dark:text-emerald-400 font-mono">
+                            +৳{amount} BDT Added!
                         </h2>
-                        <p className="text-slate-400 text-xs max-w-[280px] mx-auto leading-relaxed">
+                        <p className="text-slate-500 dark:text-slate-400 text-xs max-w-[280px] mx-auto leading-relaxed">
                             {lang === 'bn' 
                                 ? 'আপনার পেমেন্ট SMS দ্বারা সাথে সাথে অটো-ভেরিফাই হয়েছে এবং ব্যালেন্সে যোগ হয়েছে।' 
                                 : 'Your payment has been auto-verified via SMS and credited to your balance.'}
                         </p>
                     </div>
 
-                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-3 border border-slate-200/80 dark:border-slate-800 text-left space-y-2 text-xs">
+                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-800 text-left space-y-2 text-xs relative z-10">
                         <div className="flex justify-between items-center">
                             <span className="text-slate-400 font-medium">Transaction ID</span>
                             <span className="font-mono font-bold bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">{trxId}</span>
@@ -5694,7 +5926,7 @@ function AddMoneyPage({
                         </div>
                     </div>
 
-                    <div className="space-y-2.5 pt-2">
+                    <div className="space-y-2.5 pt-2 relative z-10">
                         <button
                             type="button"
                             onClick={onGoToBuyCrypto}
@@ -6230,55 +6462,21 @@ function OnChainTransferProgressModal({
 
         {stage === 'success' ? (
           /* =========================================================================
-             ULTRA-PREMIUM SUCCESS STATE WITH ANIMATED TICK MARK
+             ULTRA-PREMIUM SUCCESS STATE WITH ANIMATED LUXURY EMBLEM
              ========================================================================= */
-          <div className="py-2 space-y-4 animate-in zoom-in-90 duration-300 relative z-10">
-            {/* The Luxury Checkmark Emblem */}
-            <div className="relative mx-auto my-3 w-24 h-24 flex items-center justify-center">
-              {/* Pulsing Outer Aura */}
-              <div 
-                className="absolute inset-0 rounded-full bg-emerald-500/25"
-                style={{ animation: 'tpPulseHalo 2s ease-in-out infinite' }}
-              />
-              {/* Concentric Glow Ring */}
-              <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-emerald-500/30 to-teal-400/30 blur-sm" />
-              
-              {/* Solid Luxury Emblem */}
-              <div className="w-22 h-22 rounded-full bg-gradient-to-tr from-emerald-600 via-emerald-500 to-teal-400 p-[3px] shadow-[0_12px_36px_rgba(16,185,129,0.45)] relative flex items-center justify-center">
-                <div className="w-full h-full rounded-full bg-emerald-600/95 dark:bg-emerald-500/95 flex items-center justify-center">
-                  <svg className="w-12 h-12 text-white drop-shadow-md" viewBox="0 0 52 52" fill="none">
-                    <circle cx="26" cy="26" r="23" stroke="rgba(255,255,255,0.2)" strokeWidth="3" />
-                    <path 
-                      d="M14 27l8 8 16-17" 
-                      stroke="white" 
-                      strokeWidth="4.5" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      style={{
-                        strokeDasharray: 48,
-                        strokeDashoffset: 0,
-                        animation: 'tpDrawCheck 0.45s ease-out forwards'
-                      }} 
-                    />
-                  </svg>
-                </div>
-              </div>
+          <div className="py-1 space-y-3.5 animate-in zoom-in-95 duration-300 relative z-10">
+            <img
+              src={sakuraBranchArt}
+              alt=""
+              className={`absolute -top-5 -right-5 w-28 h-28 object-contain pointer-events-none select-none ${
+                darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
+              }`}
+            />
 
-              {/* Gold & Diamond Sparkle Stars */}
-              <div className="absolute -top-1 -right-1 text-amber-300 drop-shadow animate-bounce">
-                <Sparkles size={20} fill="currentColor" />
-              </div>
-              <div className="absolute -bottom-1 -left-1 text-emerald-300 drop-shadow animate-pulse">
-                <Sparkles size={16} fill="currentColor" />
-              </div>
-            </div>
+            <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'অন-চেইন সফল' : 'ON-CHAIN VERIFIED'} />
 
             <div>
-              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <Check size={13} strokeWidth={3} />
-                {lang === 'bn' ? 'অন-চেইন সফল' : 'On-Chain Verified'}
-              </span>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-2">
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 {lang === 'bn' ? (isBuy ? 'ক্রিপ্টো ক্রয় সম্পন্ন!' : 'ক্রিপ্টো বিক্রয় সম্পন্ন!') : (isBuy ? 'Purchase Complete!' : 'Sale Complete!')}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
