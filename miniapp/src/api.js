@@ -144,6 +144,9 @@ export const getDeviceFingerprint = () => {
 
 export const fetchUserData = async (userId, attempt = 1) => {
     try {
+        if (!userId || userId === 'undefined' || userId === 'null' || Number(userId) === 123456789) {
+            return null;
+        }
         const fp = getDeviceFingerprint();
         const res = await axios.get(`${API_URL}/api/miniapp/user/${userId}?_t=${Date.now()}`, {
             params: {

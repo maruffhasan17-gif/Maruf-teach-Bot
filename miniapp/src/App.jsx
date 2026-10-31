@@ -1918,6 +1918,7 @@ const GUEST_ID = 123456789;
 
 function resolveTelegramUser() {
   try {
+    // 1. Direct candidates from Telegram WebApp SDK
     const candidates = [
       window.Telegram?.WebApp?.initDataUnsafe?.user,
       WebApp?.initDataUnsafe?.user
@@ -1927,34 +1928,64 @@ function resolveTelegramUser() {
         try {
           sessionStorage.setItem('tp_verified_tg_user', JSON.stringify(c));
           localStorage.setItem('tp_verified_tg_user', JSON.stringify(c));
+          localStorage.setItem('tp_active_uid', String(c.id));
         } catch (_) {}
         return c;
       }
     }
 
-    // Parse URL hash / search params for tgWebAppData if present
-    const rawParams = [window.location.hash.slice(1), window.location.search.slice(1)];
-    for (const raw of rawParams) {
-      if (!raw) continue;
-      const params = new URLSearchParams(raw);
-      const tgData = params.get('tgWebAppData');
-      if (tgData) {
-        const innerParams = new URLSearchParams(tgData);
-        const userJson = innerParams.get('user');
+    // 2. Parse raw Telegram WebApp initData string
+    const rawInit = window.Telegram?.WebApp?.initData || WebApp?.initData || '';
+    if (rawInit) {
+      try {
+        const initParams = new URLSearchParams(rawInit);
+        const userJson = initParams.get('user');
         if (userJson) {
           const parsed = JSON.parse(userJson);
           if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
-            try {
-              sessionStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
-              localStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
-            } catch (_) {}
+            sessionStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+            localStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+            localStorage.setItem('tp_active_uid', String(parsed.id));
             return parsed;
           }
         }
-      }
+      } catch (_) {}
     }
 
-    // Check Telegram's internal sessionStorage __telegram__initParams
+    // 3. Parse URL hash / search params for tgWebAppData or user
+    const rawParams = [window.location.hash.slice(1), window.location.search.slice(1)];
+    for (const raw of rawParams) {
+      if (!raw) continue;
+      try {
+        const params = new URLSearchParams(raw);
+        const tgData = params.get('tgWebAppData');
+        if (tgData) {
+          const innerParams = new URLSearchParams(tgData);
+          const userJson = innerParams.get('user');
+          if (userJson) {
+            const parsed = JSON.parse(userJson);
+            if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
+              sessionStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+              localStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+              localStorage.setItem('tp_active_uid', String(parsed.id));
+              return parsed;
+            }
+          }
+        }
+        const directUser = params.get('user');
+        if (directUser) {
+          const parsed = JSON.parse(directUser);
+          if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
+            sessionStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+            localStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+            localStorage.setItem('tp_active_uid', String(parsed.id));
+            return parsed;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 4. Check Telegram's internal sessionStorage __telegram__initParams
     try {
       const tgInit = sessionStorage.getItem('__telegram__initParams');
       if (tgInit) {
@@ -1965,7 +1996,9 @@ function resolveTelegramUser() {
           if (userJson) {
             const parsed = JSON.parse(userJson);
             if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
+              sessionStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
               localStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
+              localStorage.setItem('tp_active_uid', String(parsed.id));
               return parsed;
             }
           }
@@ -1973,13 +2006,21 @@ function resolveTelegramUser() {
       }
     } catch (_) {}
 
-    // Fallback to previously verified Telegram user across WebView refreshes
+    // 5. Fallback to previously verified Telegram user across WebView refreshes
     const cached = sessionStorage.getItem('tp_verified_tg_user') || localStorage.getItem('tp_verified_tg_user');
     if (cached) {
-      const parsed = JSON.parse(cached);
-      if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
-        return parsed;
-      }
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
+          return parsed;
+        }
+      } catch (_) {}
+    }
+
+    // 6. Fallback to active UID
+    const activeUid = localStorage.getItem('tp_active_uid');
+    if (activeUid && Number(activeUid) !== GUEST_ID && !isNaN(Number(activeUid))) {
+      return { id: Number(activeUid), first_name: 'User', last_name: '', username: '' };
     }
   } catch (_) {}
   return { id: GUEST_ID, first_name: 'Guest', last_name: 'Account', username: '' };
@@ -4488,8 +4529,30 @@ export default function App() {
     }
     return null;
   });
-  const [balance, setBalance] = useState(0);
-  const [balanceLoaded, setBalanceLoaded] = useState(true);
+  const [balance, setBalance] = useState(() => {
+    try {
+      const u = resolveTelegramUser();
+      const uid = (u?.id && Number(u.id) !== GUEST_ID) ? u.id : localStorage.getItem('tp_active_uid');
+      if (uid && Number(uid) !== GUEST_ID) {
+        const cached = localStorage.getItem('tp_user_balance_' + uid);
+        if (cached !== null && cached !== undefined) {
+          const num = Number(cached);
+          if (Number.isFinite(num)) return num;
+        }
+      }
+    } catch (_) {}
+    return 0;
+  });
+  const [balanceLoaded, setBalanceLoaded] = useState(() => {
+    try {
+      const u = resolveTelegramUser();
+      const uid = (u?.id && Number(u.id) !== GUEST_ID) ? u.id : localStorage.getItem('tp_active_uid');
+      if (uid && Number(uid) !== GUEST_ID) {
+        return localStorage.getItem('tp_user_balance_' + uid) !== null;
+      }
+    } catch (_) {}
+    return false;
+  });
   const [restrictionInfo, setRestrictionInfo] = useState(null);
   const [antiAbuseData, setAntiAbuseData] = useState({
     hasDepositWithoutTrade: false,
@@ -4511,13 +4574,18 @@ export default function App() {
 
   const loadData = async (rawUserId) => {
     const resolved = resolveTelegramUser();
-    const targetId = (rawUserId && Number(rawUserId) !== GUEST_ID)
+    let targetId = (rawUserId && Number(rawUserId) !== GUEST_ID)
       ? rawUserId
       : (resolved?.id && Number(resolved.id) !== GUEST_ID ? resolved.id : (activeUserIdRef.current || GUEST_ID));
 
-    // Never allow a guest request to overwrite a real verified user
-    if (Number(targetId) === GUEST_ID && Number(activeUserIdRef.current) !== GUEST_ID) {
-      return;
+    // Never fetch or overwrite with guest data if we have an active real user
+    if (Number(targetId) === GUEST_ID) {
+      const savedUid = localStorage.getItem('tp_active_uid');
+      if (savedUid && Number(savedUid) !== GUEST_ID) {
+        targetId = Number(savedUid);
+      } else {
+        return; // Don't wipe real balance with 0 for guest
+      }
     }
 
     activeUserIdRef.current = targetId;
@@ -4557,6 +4625,11 @@ export default function App() {
       if (data.balance !== undefined) {
         const numericBal = Number(data.balance);
         const finalBal = Number.isFinite(numericBal) ? numericBal : 0;
+        if (targetId && Number(targetId) !== GUEST_ID) {
+          try {
+            localStorage.setItem('tp_user_balance_' + targetId, String(finalBal));
+          } catch (_) {}
+        }
         setBalance(finalBal);
         setBalanceLoaded(true);
       }
@@ -4792,21 +4865,41 @@ export default function App() {
       }
     } catch (_) {}
 
-    const resolvedUser = resolveTelegramUser();
-    setUser(resolvedUser);
-    activeUserIdRef.current = resolvedUser.id;
-    loadData(resolvedUser.id);
+    const runInit = () => {
+      const resolvedUser = resolveTelegramUser();
+      setUser(resolvedUser);
+      activeUserIdRef.current = resolvedUser.id;
+      if (resolvedUser.id && Number(resolvedUser.id) !== GUEST_ID) {
+        loadData(resolvedUser.id);
+        checkCommunityJoinStatus(resolvedUser.id);
+        syncUserProfile({
+          userId: resolvedUser.id,
+          username: resolvedUser.username || '',
+          firstName: resolvedUser.first_name || '',
+          lastName: resolvedUser.last_name || '',
+          photoUrl: resolvedUser.photo_url || ''
+        });
+      }
+    };
 
-    if (resolvedUser.id && Number(resolvedUser.id) !== GUEST_ID) {
-      checkCommunityJoinStatus(resolvedUser.id);
-      syncUserProfile({
-        userId: resolvedUser.id,
-        username: resolvedUser.username || '',
-        firstName: resolvedUser.first_name || '',
-        lastName: resolvedUser.last_name || '',
-        photoUrl: resolvedUser.photo_url || ''
-      });
-    }
+    runInit();
+
+    // Re-verify when Telegram WebApp SDK finishes async bridge handshake
+    const checkDelays = [60, 180, 400, 800];
+    const timers = checkDelays.map(delay =>
+      setTimeout(() => {
+        const freshUser = resolveTelegramUser();
+        if (freshUser && Number(freshUser.id) !== GUEST_ID) {
+          if (Number(freshUser.id) !== Number(activeUserIdRef.current)) {
+            runInit();
+          }
+        }
+      }, delay)
+    );
+
+    return () => {
+      timers.forEach(clearTimeout);
+    };
   }, []);
 
   const manifestUrl = 'https://maruf-teach-bot.onrender.com/app/tonconnect-manifest.json';

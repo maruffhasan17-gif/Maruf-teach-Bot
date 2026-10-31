@@ -7,3 +7,5 @@ node_modules/
 !package-lock.json
 admin/node_modules/
 # admin/dist/
+
+!local_user_cache.json
