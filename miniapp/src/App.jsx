@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText } from 'lucide-react';
+import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -4203,6 +4203,164 @@ function NotificationPage({
   );
 }
 
+
+// ============================================================================
+// SCHEDULED SYSTEM TIMING & COUNTDOWN SCREEN (Unlocks automatically at 1:00 PM)
+// ============================================================================
+const ScheduledMaintenanceScreen = ({ targetTimestamp, isAdmin, onAdminBypass, darkMode = false, lang = 'bn' }) => {
+  const [timeLeft, setTimeLeft] = useState(() => Math.max(0, targetTimestamp - Date.now()));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const remaining = Math.max(0, targetTimestamp - Date.now());
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        window.location.reload();
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [targetTimestamp]);
+
+  const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+  const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+  const pad = (n) => String(n).padStart(2, '0');
+
+  return (
+    <div className={`fixed inset-0 z-[999999] flex flex-col items-center justify-between p-6 select-none overflow-y-auto ${
+      darkMode ? 'bg-[#090b14] text-white' : 'bg-gradient-to-b from-[#f8fafc] via-[#f5f3ff] to-[#ede9fe] text-slate-800'
+    }`}>
+      {/* Background ambient radial gradients */}
+      <div
+        className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[380px] h-[300px] rounded-full blur-3xl opacity-60"
+        style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.28) 0%, transparent 70%)' }}
+      />
+      <div
+        className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-[340px] h-[240px] rounded-full blur-3xl opacity-50"
+        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)' }}
+      />
+
+      {/* Top Header / Brand */}
+      <div className="relative z-10 w-full flex items-center justify-between pt-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-500 p-0.5 shadow-md shadow-violet-500/20 flex items-center justify-center">
+            <span className="text-[13px] font-black text-white">TP</span>
+          </div>
+          <div>
+            <span className="font-extrabold text-[15px] tracking-tight block leading-tight">Trust Pay</span>
+            <span className="text-[9.5px] font-bold text-violet-500 tracking-wider uppercase block">System Upgrade</span>
+          </div>
+        </div>
+
+        <div className="px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 bg-violet-500/10 border border-violet-500/25 text-violet-600 dark:text-violet-300">
+          <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping inline-block" />
+          <span>রুটিন মেইনটেন্যান্স</span>
+        </div>
+      </div>
+
+      {/* Center Hero Card & Live Countdown */}
+      <div className="relative z-10 w-full max-w-sm my-auto flex flex-col items-center text-center py-4">
+        {/* Animated 3D Pedestal Icon */}
+        <div className="relative mb-5">
+          <div className="w-24 h-24 rounded-3xl bg-white/80 dark:bg-slate-900/80 border border-violet-200/60 dark:border-violet-500/30 shadow-[0_16px_36px_-10px_rgba(124,58,237,0.35)] backdrop-blur-xl flex items-center justify-center relative z-10">
+            <Clock size={42} className="text-violet-600 dark:text-violet-400 animate-pulse" />
+          </div>
+          <div className="absolute inset-0 rounded-3xl bg-violet-500/25 blur-xl -z-10 animate-pulse" />
+        </div>
+
+        <h1 className="text-[22px] font-black tracking-tight leading-snug">
+          আজ দুপুর ০১:০০ টায়<br />সেবা পুনরায় চালু হবে
+        </h1>
+        <p className={`text-[12px] mt-2 font-medium leading-relaxed max-w-[290px] ${
+          darkMode ? 'text-slate-300' : 'text-slate-600'
+        }`}>
+          দৈনিক সার্ভার পারফরম্যান্স ও ডাটাবেজ অপ্টিমাইজেশন চলছে। কাউন্টডাউন শেষ হওয়ার সাথে সাথে অ্যাপ স্বয়ংক্রিয়ভাবে ওপেন হয়ে যাবে।
+        </p>
+
+        {/* 3D Flip Countdown Timer Cards */}
+        <div className="grid grid-cols-3 gap-3 w-full mt-6 px-1">
+          {/* Hours Card */}
+          <div className={`flex flex-col items-center justify-center p-3 rounded-2xl border backdrop-blur-md shadow-sm ${
+            darkMode ? 'bg-slate-900/70 border-violet-500/25' : 'bg-white/85 border-violet-200/80'
+          }`}>
+            <span className="font-mono text-[32px] font-black tracking-tight leading-none text-violet-600 dark:text-violet-400">
+              {pad(hours)}
+            </span>
+            <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${
+              darkMode ? 'text-slate-400' : 'text-slate-500'
+            }`}>
+              ঘণ্টা (Hours)
+            </span>
+          </div>
+
+          {/* Minutes Card */}
+          <div className={`flex flex-col items-center justify-center p-3 rounded-2xl border backdrop-blur-md shadow-sm ${
+            darkMode ? 'bg-slate-900/70 border-violet-500/25' : 'bg-white/85 border-violet-200/80'
+          }`}>
+            <span className="font-mono text-[32px] font-black tracking-tight leading-none text-indigo-600 dark:text-indigo-400">
+              {pad(minutes)}
+            </span>
+            <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${
+              darkMode ? 'text-slate-400' : 'text-slate-500'
+            }`}>
+              মিনিট (Mins)
+            </span>
+          </div>
+
+          {/* Seconds Card */}
+          <div className={`flex flex-col items-center justify-center p-3 rounded-2xl border backdrop-blur-md shadow-sm ${
+            darkMode ? 'bg-slate-900/70 border-violet-500/25' : 'bg-white/85 border-violet-200/80'
+          }`}>
+            <span className="font-mono text-[32px] font-black tracking-tight leading-none text-fuchsia-600 dark:text-fuchsia-400">
+              {pad(seconds)}
+            </span>
+            <span className={`text-[10px] font-bold uppercase tracking-wider mt-1.5 ${
+              darkMode ? 'text-slate-400' : 'text-slate-500'
+            }`}>
+              সেকেন্ড (Secs)
+            </span>
+          </div>
+        </div>
+
+        {/* Scheduled Info Pill */}
+        <div className={`mt-5 flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-semibold border ${
+          darkMode ? 'bg-slate-900/50 border-slate-800 text-slate-300' : 'bg-white/70 border-slate-200 text-slate-600'
+        }`}>
+          <Calendar size={13} className="text-violet-500 shrink-0" />
+          <span>নির্ধারিত সময়: ১ নভেম্বর, দুপুর ০১:০০ টা (BST)</span>
+        </div>
+      </div>
+
+      {/* Bottom Actions & Channel Link */}
+      <div className="relative z-10 w-full max-w-sm flex flex-col gap-2.5 pb-2">
+        <a
+          href="https://t.me/bd_trust_pay_payout"
+          target="_blank"
+          rel="noreferrer"
+          className="w-full h-12 rounded-2xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 text-white font-bold text-[13.5px] flex items-center justify-center gap-2 shadow-md shadow-violet-500/25 active:scale-[0.98] transition cursor-pointer"
+        >
+          <Send size={15} />
+          <span>অফিশিয়াল নোটিশ চ্যানেল (@bd_trust_pay_payout)</span>
+        </a>
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={onAdminBypass}
+            className={`w-full py-2 rounded-xl text-[11.5px] font-bold border transition ${
+              darkMode ? 'bg-slate-800/60 border-slate-700 text-amber-300 hover:bg-slate-800' : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
+            }`}
+          >
+            🛡️ অ্যাডমিন অ্যাক্সেস: অ্যাপ প্রিভিউ করুন (Bypass)
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem('app_lang') || 'bn');
   const [notificationPrevTab, setNotificationPrevTab] = useState('home');
@@ -4876,6 +5034,27 @@ export default function App() {
   }, []);
 
   const manifestUrl = 'https://maruf-teach-bot.onrender.com/app/tonconnect-manifest.json';
+
+  // Scheduled Reopening Time: Today at 1:00 PM Bangladesh Standard Time (13:00)
+  const REOPEN_TARGET_TS = 1793516400000;
+  const isMaintenanceActive = Date.now() < REOPEN_TARGET_TS;
+  const isAdminUser = user?.username === 'maruff666' || String(user?.id) === '8799135330' || String(user?.id) === '6944825022';
+  const hasBypassedMaintenance = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('tp_admin_bypass_timing') === 'true';
+
+  if (isMaintenanceActive && !(isAdminUser && hasBypassedMaintenance)) {
+    return (
+      <ScheduledMaintenanceScreen
+        targetTimestamp={REOPEN_TARGET_TS}
+        isAdmin={isAdminUser}
+        onAdminBypass={() => {
+          try { sessionStorage.setItem('tp_admin_bypass_timing', 'true'); } catch (_) {}
+          window.location.reload();
+        }}
+        darkMode={darkMode}
+        lang={lang}
+      />
+    );
+  }
 
   if (bannedInfo?.isBanned) {
     return (
