@@ -2993,7 +2993,8 @@ function SupportPage({
   const SUPPORT_CATEGORIES = [
     {
       id: 'Account',
-      titleBn: 'অ্যাকাউন্ট',
+      title: 'Account',
+      titleBn: 'Account',
       titleEn: 'Account',
       subjectBn: 'অ্যাকাউন্ট সংক্রান্ত সমস্যা',
       subjectEn: 'Account Support Request',
@@ -3002,8 +3003,9 @@ function SupportPage({
     },
     {
       id: 'Buy',
-      titleBn: 'ক্রিপ্টো বাই',
-      titleEn: 'Buy Crypto',
+      title: 'Buy',
+      titleBn: 'Buy',
+      titleEn: 'Buy',
       subjectBn: 'ক্রিপ্টো বাই সংক্রান্ত সমস্যা',
       subjectEn: 'Buy Crypto Support Request',
       iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25',
@@ -3011,8 +3013,9 @@ function SupportPage({
     },
     {
       id: 'Sell',
-      titleBn: 'ক্রিপ্টো সেল',
-      titleEn: 'Sell Crypto',
+      title: 'Sell',
+      titleBn: 'Sell',
+      titleEn: 'Sell',
       subjectBn: 'ক্রিপ্টো সেল সংক্রান্ত সমস্যা',
       subjectEn: 'Sell Crypto Support Request',
       iconBg: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25',
@@ -3020,7 +3023,8 @@ function SupportPage({
     },
     {
       id: 'Add Money',
-      titleBn: 'টাকা যোগ',
+      title: 'Add Money',
+      titleBn: 'Add Money',
       titleEn: 'Add Money',
       subjectBn: 'টাকা যোগ ও TrxID সংক্রান্ত সমস্যা',
       subjectEn: 'Add Money / Deposit Support Request',
@@ -3029,8 +3033,9 @@ function SupportPage({
     },
     {
       id: 'Withdraw',
-      titleBn: 'টাকা উত্তোলন',
-      titleEn: 'Withdrawal',
+      title: 'Withdraw',
+      titleBn: 'Withdraw',
+      titleEn: 'Withdraw',
       subjectBn: 'টাকা উত্তোলন (উইথড্র) সমস্যা',
       subjectEn: 'Withdrawal Support Request',
       iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25',
@@ -3038,8 +3043,9 @@ function SupportPage({
     },
     {
       id: 'Others',
-      titleBn: 'অন্যান্য বিষয়',
-      titleEn: 'Other Issues',
+      title: 'Others',
+      titleBn: 'Others',
+      titleEn: 'Others',
       subjectBn: 'অন্যান্য বিষয় সংক্রান্ত সহায়তা',
       subjectEn: 'General / Other Support Request',
       iconBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/25',
@@ -3196,21 +3202,18 @@ function SupportPage({
                     key={cat.id}
                     type="button"
                     onClick={() => handleSelectSupportCategory(cat)}
-                    className={`px-3 py-2.5 rounded-2xl border text-left transition-all active:scale-95 cursor-pointer flex items-center justify-between gap-2 group ${
+                    className={`px-3 py-3 rounded-2xl border text-left transition-all active:scale-95 cursor-pointer flex items-center gap-2.5 group ${
                       darkMode
                         ? 'bg-slate-800/75 hover:bg-slate-800 border-slate-700/80 hover:border-purple-500/50'
                         : 'bg-slate-50/90 hover:bg-purple-50/60 border-slate-200/90 hover:border-purple-300'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${cat.iconBg}`}>
-                        <IconC size={17} />
-                      </div>
-                      <span className="font-black text-xs text-slate-900 dark:text-white leading-tight truncate">
-                        {lang === 'bn' ? cat.titleBn : cat.titleEn}
-                      </span>
+                    <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${cat.iconBg}`}>
+                      <IconC size={16} />
                     </div>
-                    <ChevronRight size={14} className="text-slate-400 group-hover:text-purple-500 transition-colors shrink-0" />
+                    <span className="font-extrabold text-[13px] text-slate-900 dark:text-white leading-tight whitespace-nowrap">
+                      {cat.title}
+                    </span>
                   </button>
                 );
               })}
