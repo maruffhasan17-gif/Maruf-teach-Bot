@@ -3084,9 +3084,9 @@ const { ethers } = require('ethers');
 
 // ==================== HOURLY MARKET RATES TRACKER ====================
 let cachedMarketRates = {
-    realUsdtBdt: 124,
+    realUsdtBdt: 130, // Fixed Buy Rate per Admin (130 BDT)
     realGramUsdt: 1.25,
-    realGramBdt: 155,
+    realGramBdt: 170, // Fixed Buy Rate per Admin (170 BDT)
     buyRates: {
         USDT: 130, // Fixed 130 BDT
         GRAM: 170, // Fixed 170 BDT
@@ -3096,6 +3096,11 @@ let cachedMarketRates = {
         USDT: 118, // Fixed 118 BDT
         GRAM: 130, // Fixed 130 BDT
         TON: 130
+    },
+    profitMargins: {
+        GRAM: 40, // 170 - 130 = ৳40 TK Profit
+        USDT: 12, // 130 - 118 = ৳12 TK Profit
+        TON: 40
     },
     lastUpdated: Date.now()
 };
@@ -3119,8 +3124,8 @@ async function updateMarketRates() {
         } catch (_) {}
 
         const realGramUsdt = Number(tonUsdt.toFixed(4));
-        const liveUsdToBdt = 124.0;
-        const realLiveGramBdt = Number((realGramUsdt * liveUsdToBdt).toFixed(2));
+        const liveUsdToBdt = 130.0; // Valuation at Fixed Buy Rate per Admin
+        const realLiveGramBdt = 170.0; // Valuation at Fixed Buy Rate per Admin
 
         cachedMarketRates = {
             realUsdtBdt: liveUsdToBdt,
@@ -3135,6 +3140,11 @@ async function updateMarketRates() {
                 USDT: sellUsdt, // Fixed 118 TK
                 GRAM: sellGram, // Fixed 130 TK
                 TON: sellGram
+            },
+            profitMargins: {
+                GRAM: buyGram - sellGram, // 40 TK
+                USDT: buyUsdt - sellUsdt, // 12 TK
+                TON: buyGram - sellGram
             },
             lastUpdated: Date.now()
         };
@@ -5768,11 +5778,14 @@ app.get('/api/stats', async (req, res) => {
             networkBalances: networkBalances,
             evmAddress: evmAddr,
             tonAddress: tonAddr,
-            liveTonUsdtRate: cachedMarketRates?.realGramUsdt || 1.32,
-            realGramBdt: cachedMarketRates?.realGramBdt || 153.20,
-            realUsdtBdt: cachedMarketRates?.realUsdtBdt || 124.00,
-            realGramUsdt: cachedMarketRates?.realGramUsdt || 1.235,
-            marketRates: cachedMarketRates
+            liveTonUsdtRate: cachedMarketRates?.realGramUsdt || 1.25,
+            realGramBdt: Number(cachedMarketRates?.buyRates?.GRAM) || 170.00,
+            realUsdtBdt: Number(cachedMarketRates?.buyRates?.USDT) || 130.00,
+            realGramUsdt: cachedMarketRates?.realGramUsdt || 1.25,
+            marketRates: cachedMarketRates,
+            buyRates: cachedMarketRates?.buyRates || { USDT: 130, GRAM: 170, TON: 170 },
+            sellRates: cachedMarketRates?.sellRates || { USDT: 118, GRAM: 130, TON: 130 },
+            profitMargins: cachedMarketRates?.profitMargins || { GRAM: 40, USDT: 12, TON: 40 }
         };
 
         statsCache = { data: resultData, timestamp: now };

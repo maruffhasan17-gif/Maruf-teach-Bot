@@ -812,9 +812,11 @@ function Dashboard() {
   const isDark = theme === 'dark';
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  // Live real-time market rates
-  const liveGramBdt = parseFloat(data.realGramBdt || (data.marketRates?.realGramBdt) || 153.34);
-  const liveUsdtBdt = parseFloat(data.realUsdtBdt || (data.marketRates?.realUsdtBdt) || 124.01);
+  // Fixed Buy Rates & Profit Margins for Admin Dashboard
+  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 170.00);
+  const liveUsdtBdt = parseFloat(data.buyRates?.USDT || data.realUsdtBdt || (data.marketRates?.buyRates?.USDT) || 130.00);
+  const gramProfitMargin = 40.00; // Buy 170 - Sell 130 = ৳40 Profit/Unit
+  const usdtProfitMargin = 12.00; // Buy 130 - Sell 118 = ৳12 Profit/Unit
 
   // Combined real-time activities for the top-right live ticker
   const recentActivities = useMemo(() => {
@@ -1255,10 +1257,15 @@ function Dashboard() {
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5" title="Live Real-Time Market Rate">
-                <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-                Rate: ৳{liveGramBdt.toFixed(2)} / GRAM
-              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5" title="Fixed Buy Rate">
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+                  Rate: ৳{liveGramBdt.toFixed(2)} / GRAM
+                </span>
+                <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  +৳40 প্রফিট
+                </span>
+              </div>
             </div>
 
             {/* Big Prominent GRAM Amount */}
@@ -1319,10 +1326,15 @@ function Dashboard() {
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5" title="Live Real-Time Market Rate">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Rate: ৳{liveUsdtBdt.toFixed(2)} / USDT
-              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5" title="Fixed Buy Rate">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Rate: ৳{liveUsdtBdt.toFixed(2)} / USDT
+                </span>
+                <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  +৳12 প্রফিট
+                </span>
+              </div>
             </div>
 
             {/* Big Prominent USDT Amount */}
@@ -1622,13 +1634,20 @@ function BotWallet() {
   const tonGasVal = parseFloat(data.tonNativeBalance || data.tonBalance || 0);
   const liveTonUsdtRate = parseFloat(data.liveTonUsdtRate || data.realGramUsdt || 1.2365);
 
-  // Live real-time market rates for Admin Treasury valuation
-  const liveGramBdt = parseFloat(data.realGramBdt || (data.marketRates?.realGramBdt) || (liveTonUsdtRate * 124.01));
-  const liveUsdtBdt = parseFloat(data.realUsdtBdt || (data.marketRates?.realUsdtBdt) || 124.01);
+  // Live market rates for Admin Treasury valuation (Fixed Buy Rates per Admin)
+  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 170.00);
+  const liveUsdtBdt = parseFloat(data.buyRates?.USDT || data.realUsdtBdt || (data.marketRates?.buyRates?.USDT) || 130.00);
+  const gramProfitMargin = 40.00; // Buy ৳170 - Sell ৳130 = ৳40 Profit/Unit
+  const usdtProfitMargin = 12.00; // Buy ৳130 - Sell ৳118 = ৳12 Profit/Unit
 
   const gramBdtVal = gramBalanceVal * liveGramBdt;
   const usdtBdtVal = usdtBalanceVal * liveUsdtBdt;
   const totalVaultBdt = gramBdtVal + usdtBdtVal;
+
+  // Stock / Holding Net Profit Calculation
+  const gramInventoryProfit = gramBalanceVal * gramProfitMargin;
+  const usdtInventoryProfit = usdtBalanceVal * usdtProfitMargin;
+  const totalInventoryProfitBdt = gramInventoryProfit + usdtInventoryProfit;
 
   const gramPercent = totalVaultBdt > 0 ? Math.round((gramBdtVal / totalVaultBdt) * 100) : 50;
   const usdtPercent = 100 - gramPercent;
@@ -1988,8 +2007,11 @@ function BotWallet() {
 
             {/* Total Valuation */}
             <div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
-                COMBINED TREASURY LIQUIDITY (ALL NETWORKS)
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">
+                <span>COMBINED TREASURY LIQUIDITY (FIXED BUY RATES)</span>
+                <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                  FIXED: GRAM ৳170 • USDT ৳130
+                </span>
               </div>
               <div className="flex items-baseline gap-3">
                 <span className={`text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight font-mono ${
@@ -2002,11 +2024,51 @@ function BotWallet() {
                 </span>
               </div>
               <div className="text-xs font-bold text-slate-400 mt-1 flex flex-wrap items-center gap-2">
-                <span>≈ ${(totalVaultBdt / (liveUsdtBdt || 124.01)).toFixed(2)} USD</span>
+                <span>≈ ${(totalVaultBdt / (liveUsdtBdt || 130.00)).toFixed(2)} USD</span>
                 <span className="w-1 h-1 rounded-full bg-slate-500"></span>
                 <span className="text-emerald-400">
-                  Auto-Swappable Capacity: ~{(gramBalanceVal + Math.max(0, (tonUsdtVal / liveTonUsdtRate) * 0.96)).toFixed(2)} GRAM
+                  Auto-Swappable Capacity: ~{(gramBalanceVal + Math.max(0, (tonUsdtVal / (liveTonUsdtRate || 1.25)) * 0.96)).toFixed(2)} GRAM
                 </span>
+              </div>
+            </div>
+
+            {/* Profit Margin Telemetry Strip */}
+            <div className={`p-4 rounded-2xl border transition-all ${
+              isDark 
+                ? 'bg-gradient-to-r from-emerald-950/40 via-[#0e1f2b]/50 to-purple-950/40 border-emerald-500/30 shadow-lg shadow-emerald-950/20' 
+                : 'bg-gradient-to-r from-emerald-50 via-teal-50 to-purple-50 border-emerald-200 shadow-sm'
+            }`}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/40 shadow-sm shadow-emerald-500/20">
+                    <TrendingUp size={20} />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                      <Sparkles size={12} /> ট্রেজারি স্টক আনুমানিক নিট প্রফিট (Estimated Profit)
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-0.5">
+                      <span className="text-xl sm:text-2xl font-black font-mono text-emerald-300">
+                        +৳{totalInventoryProfitBdt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-xs font-bold text-emerald-400">BDT</span>
+                      <span className="text-xs font-bold text-slate-400 ml-1">
+                        (≈ ${(totalInventoryProfitBdt / (liveUsdtBdt || 130.00)).toFixed(2)} USD)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <div className="px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 font-bold flex items-center gap-1.5" title="GRAM Buy: ৳170 vs Sell: ৳130 = ৳40 Profit/Unit">
+                    <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                    <span>GRAM লাভ: <b>+৳40</b>/টি <span className="text-purple-400 font-mono">(+৳{gramInventoryProfit.toFixed(0)})</span></span>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold flex items-center gap-1.5" title="USDT Buy: ৳130 vs Sell: ৳118 = ৳12 Profit/Unit">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span>USDT লাভ: <b>+৳12</b>/টি <span className="text-emerald-400 font-mono">(+৳{usdtInventoryProfit.toFixed(0)})</span></span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -2035,15 +2097,15 @@ function BotWallet() {
               <div className="flex flex-wrap items-center gap-3 pt-1 text-xs font-bold">
                 <div className="flex items-center gap-1.5 text-purple-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                  <span>GRAM Pool: <b>{gramBalanceVal.toFixed(2)}</b> (৳{gramBdtVal.toFixed(0)})</span>
+                  <span>GRAM Pool: <b>{gramBalanceVal.toFixed(2)}</b> (৳{gramBdtVal.toFixed(0)} @ ৳170)</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-emerald-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                  <span>TON USDT: <b>${tonUsdtVal.toFixed(2)}</b></span>
+                  <span>TON USDT: <b>${tonUsdtVal.toFixed(2)}</b> (৳{(tonUsdtVal * liveUsdtBdt).toFixed(0)} @ ৳130)</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-amber-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                  <span>EVM Chains USDT: <b>${evmUsdtVal.toFixed(2)}</b></span>
+                  <span>EVM Chains USDT: <b>${evmUsdtVal.toFixed(2)}</b> (৳{(evmUsdtVal * liveUsdtBdt).toFixed(0)} @ ৳130)</span>
                 </div>
               </div>
             </div>
@@ -2233,10 +2295,15 @@ function BotWallet() {
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5" title="Live Real-Time Market Rate">
-                <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-                Rate: ৳{liveGramBdt.toFixed(2)} / GRAM
-              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5" title="Fixed Buy Rate">
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+                  Rate: ৳{liveGramBdt.toFixed(2)} / GRAM
+                </span>
+                <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  +৳40 প্রফিট
+                </span>
+              </div>
             </div>
 
             <div className="flex items-baseline gap-3 my-2">
@@ -2266,9 +2333,14 @@ function BotWallet() {
             <div className={`flex flex-wrap items-center justify-between gap-3 pt-3 border-t text-xs ${
               isDark ? 'border-purple-900/30' : 'border-slate-200'
             }`}>
-              <span className={`font-bold ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
-                ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
-              </span>
+              <div className="flex flex-col">
+                <span className={`font-bold ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
+                  ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation (বাই রেট ৳১৭০)
+                </span>
+                <span className="text-[11px] font-mono text-emerald-400 font-bold">
+                  স্টক নিট লাভ: +৳{gramInventoryProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
+                </span>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => handleOpenDeposit('GRAM', 'exchange', 'TON')}
@@ -2321,10 +2393,15 @@ function BotWallet() {
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5" title="Live Real-Time Market Rate">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                Rate: ৳{liveUsdtBdt.toFixed(2)} / USDT
-              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5" title="Fixed Buy Rate">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Rate: ৳{liveUsdtBdt.toFixed(2)} / USDT
+                </span>
+                <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  +৳12 প্রফিট
+                </span>
+              </div>
             </div>
 
             <div className="flex items-baseline gap-3 my-2">
@@ -2353,9 +2430,14 @@ function BotWallet() {
             <div className={`flex flex-wrap items-center justify-between gap-3 pt-3 border-t text-xs ${
               isDark ? 'border-emerald-900/30' : 'border-slate-200'
             }`}>
-              <span className={`font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
-                ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation
-              </span>
+              <div className="flex flex-col">
+                <span className={`font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                  ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation (বাই রেট ৳১৩০)
+                </span>
+                <span className="text-[11px] font-mono text-emerald-400 font-bold">
+                  স্টক নিট লাভ: +৳{usdtInventoryProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
+                </span>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => handleOpenDeposit('USDT', 'exchange', selectedDashNetwork)}
@@ -4934,21 +5016,21 @@ function BotSettings() {
           {/* GRAM Card */}
           <div className="p-5 rounded-2xl bg-purple-500/10 border border-purple-500/20 relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase">GRAM Live Rate</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">GRAM Buy Rate</span>
               <Gem size={18} className="text-purple-400" />
             </div>
-            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = {parseFloat(data.realGramBdt || 153.34).toFixed(2)} ৳ BDT</div>
-            <p className="text-[11px] text-slate-400 mt-1">লাইভ মার্কেট রেট (Live CoinGecko / TonAPI)</p>
+            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = {parseFloat(data.buyRates?.GRAM || data.realGramBdt || 170.00).toFixed(2)} ৳ BDT</div>
+            <p className="text-[11px] text-slate-400 mt-1">ফিক্সড বাই রেট (সেল রেট: ৳130.00 | প্রফিট: ৳40.00/টি)</p>
           </div>
 
           {/* USDT Card */}
           <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 relative overflow-hidden">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-400 uppercase">USDT Live Rate</span>
+              <span className="text-xs font-bold text-slate-400 uppercase">USDT Buy Rate</span>
               <DollarSign size={18} className="text-emerald-400" />
             </div>
-            <div className="text-2xl font-black text-emerald-400 mt-2 font-mono">1 USDT = {parseFloat(data.realUsdtBdt || 124.01).toFixed(2)} ৳ BDT</div>
-            <p className="text-[11px] text-slate-400 mt-1">লাইভ মার্কেট রেট (Live USD / BDT Rate)</p>
+            <div className="text-2xl font-black text-emerald-400 mt-2 font-mono">1 USDT = {parseFloat(data.buyRates?.USDT || data.realUsdtBdt || 130.00).toFixed(2)} ৳ BDT</div>
+            <p className="text-[11px] text-slate-400 mt-1">ফিক্সড বাই রেট (সেল রেট: ৳118.00 | প্রফিট: ৳12.00/টি)</p>
           </div>
         </div>
       </div>

@@ -77,10 +77,14 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
     const withdrawalsCompleted = withdrawalsList.filter(w => w.status === 'approved' || w.status === 'completed');
     const withdrawalsTotalBdt = withdrawalsCompleted.reduce((sum, w) => sum + (parseFloat(w.amount || 0) || 0), 0);
 
-    // Platform Net Estimated Revenue & Spread
-    // Profit approximation: 3-5% margin on retail crypto buy/sell spreads + gas optimizations
-    const estimatedSpreadProfitBdt = (buysTotalBdt * 0.04) + (sellsTotalBdt * 0.035);
-    const estimatedProfitUsd = estimatedSpreadProfitBdt / 125;
+    // Platform Net Estimated Revenue & Fixed Spread Profit
+    // Fixed Buy: GRAM ৳170, USDT ৳130 | Fixed Sell: GRAM ৳130, USDT ৳118
+    // Profit per unit: GRAM ৳40 TK, USDT ৳12 TK | Cashout fee: ৳10 TK per withdrawal
+    const buysProfitBdt = (buysGram * 40) + (buysUsdt * 12);
+    const sellsProfitBdt = (sellsGram * 40) + (sellsUsdt * 12);
+    const cashoutFeesBdt = withdrawalsCompleted.length * 10;
+    const estimatedSpreadProfitBdt = (buysProfitBdt + sellsProfitBdt + cashoutFeesBdt) || ((buysTotalBdt * 0.15) + (sellsTotalBdt * 0.10));
+    const estimatedProfitUsd = estimatedSpreadProfitBdt / 130;
 
     return {
       depositTotalBdt,
