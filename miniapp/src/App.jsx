@@ -2993,54 +2993,54 @@ function SupportPage({
   const SUPPORT_CATEGORIES = [
     {
       id: 'Account',
-      titleBn: 'Account (অ্যাকাউন্ট)',
-      titleEn: 'Account Issue',
-      subjectBn: 'Account Issue — অ্যাকাউন্ট সংক্রান্ত সমস্যা',
+      titleBn: 'অ্যাকাউন্ট',
+      titleEn: 'Account',
+      subjectBn: 'অ্যাকাউন্ট সংক্রান্ত সমস্যা',
       subjectEn: 'Account Support Request',
       iconBg: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25',
       IconComp: User
     },
     {
       id: 'Buy',
-      titleBn: 'Buy (ক্রিপ্টো ক্রয়)',
+      titleBn: 'ক্রিপ্টো বাই',
       titleEn: 'Buy Crypto',
-      subjectBn: 'Buy Crypto Issue — ক্রিপ্টো ক্রয় সংক্রান্ত সমস্যা',
+      subjectBn: 'ক্রিপ্টো বাই সংক্রান্ত সমস্যা',
       subjectEn: 'Buy Crypto Support Request',
       iconBg: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/25',
       IconComp: Coins
     },
     {
       id: 'Sell',
-      titleBn: 'Sell (ক্রিপ্টো বিক্রয়)',
+      titleBn: 'ক্রিপ্টো সেল',
       titleEn: 'Sell Crypto',
-      subjectBn: 'Sell Crypto Issue — ক্রিপ্টো বিক্রয় সংক্রান্ত সমস্যা',
+      subjectBn: 'ক্রিপ্টো সেল সংক্রান্ত সমস্যা',
       subjectEn: 'Sell Crypto Support Request',
       iconBg: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25',
       IconComp: ArrowRightLeft
     },
     {
       id: 'Add Money',
-      titleBn: 'Add Money (অ্যাড মানি)',
+      titleBn: 'টাকা যোগ',
       titleEn: 'Add Money',
-      subjectBn: 'Add Money Issue — অ্যাড মানি ও TrxID সমস্যা',
+      subjectBn: 'টাকা যোগ ও TrxID সংক্রান্ত সমস্যা',
       subjectEn: 'Add Money / Deposit Support Request',
       iconBg: 'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/25',
       IconComp: PlusCircle
     },
     {
       id: 'Withdraw',
-      titleBn: 'Withdraw (উইথড্র)',
-      titleEn: 'Withdraw Funds',
-      subjectBn: 'Withdraw Issue — টাকা উত্তোলন (Withdraw) সমস্যা',
+      titleBn: 'টাকা উত্তোলন',
+      titleEn: 'Withdrawal',
+      subjectBn: 'টাকা উত্তোলন (উইথড্র) সমস্যা',
       subjectEn: 'Withdrawal Support Request',
       iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25',
       IconComp: Wallet
     },
     {
       id: 'Others',
-      titleBn: 'Others (অন্যান্য)',
+      titleBn: 'অন্যান্য বিষয়',
       titleEn: 'Other Issues',
-      subjectBn: 'General Inquiry — অন্যান্য বিষয় সংক্রান্ত সহায়তা',
+      subjectBn: 'অন্যান্য বিষয় সংক্রান্ত সহায়তা',
       subjectEn: 'General / Other Support Request',
       iconBg: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/25',
       IconComp: HelpCircle
@@ -3127,7 +3127,7 @@ function SupportPage({
           </div>
         </div>
         <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
-          24/7 LIVE
+          {lang === 'bn' ? '২৪/৭ লাইভ' : '24/7 LIVE'}
         </span>
       </div>
 
@@ -3173,7 +3173,7 @@ function SupportPage({
               }}
               className="w-full mt-2 h-[46px] bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black rounded-2xl text-xs shadow-md active:scale-95 transition-all cursor-pointer"
             >
-              {lang === 'bn' ? 'ঠিক আছে (OK)' : 'Done'}
+              {lang === 'bn' ? 'ঠিক আছে' : 'Done'}
             </button>
           </div>
 
@@ -3226,7 +3226,7 @@ function SupportPage({
             }`}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400">
-                  {lang === 'bn' ? 'বিষয় (Auto Subject)' : 'Subject (Auto-Filled)'}
+                  {lang === 'bn' ? 'বিষয়' : 'Subject'}
                 </span>
                 <button
                   type="button"
@@ -3244,7 +3244,7 @@ function SupportPage({
             {/* Details Input */}
             <div>
               <label className="block text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                {lang === 'bn' ? 'সমস্যার বিস্তারিত বিবরণ (Details) *' : 'Issue Details *'}
+                {lang === 'bn' ? 'সমস্যার বিস্তারিত বিবরণ *' : 'Issue Details *'}
               </label>
               <textarea
                 rows={4}
@@ -3268,7 +3268,7 @@ function SupportPage({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                  {lang === 'bn' ? 'স্ক্রিনশট / ছবি (ঐচ্ছিক - Optional)' : 'Screenshot / Image (Optional)'}
+                  {lang === 'bn' ? 'স্ক্রিনশট / ছবি (ঐচ্ছিক)' : 'Screenshot / Image (Optional)'}
                 </label>
                 {supportImagePreview && (
                   <button
@@ -3327,7 +3327,7 @@ function SupportPage({
                   <span>
                     {isCompressingImage
                       ? (lang === 'bn' ? 'ছবি প্রস্তুত হচ্ছে...' : 'Processing image...')
-                      : (lang === 'bn' ? '+ স্ক্রিনশট আপলোড করুন (Optional)' : '+ Upload Screenshot (Optional)')}
+                      : (lang === 'bn' ? '+ স্ক্রিনশট আপলোড করুন' : '+ Upload Screenshot (Optional)')}
                   </span>
                   <input
                     type="file"
