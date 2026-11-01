@@ -36,6 +36,64 @@ function invalidateOrdersCache() {
     ordersCache = { data: null, timestamp: 0 };
 }
 
+// ==================== RESILIENT USER PERSISTENT CACHE (FIRESTORE QUOTA SHIELD) ====================
+const USERS_CACHE_FILE = path.join(__dirname, 'users_cache.json');
+const LOCAL_USER_CACHE_FILE = path.join(__dirname, 'local_user_cache.json');
+let localUserMemoryCache = {};
+
+function loadUsersCacheFromDisk() {
+    try {
+        if (fs.existsSync(USERS_CACHE_FILE)) {
+            const raw = fs.readFileSync(USERS_CACHE_FILE, 'utf8');
+            localUserMemoryCache = { ...localUserMemoryCache, ...JSON.parse(raw) };
+        }
+    } catch (e) {
+        console.warn('[Cache] Could not load users_cache.json:', e.message);
+    }
+    try {
+        if (fs.existsSync(LOCAL_USER_CACHE_FILE)) {
+            const raw = fs.readFileSync(LOCAL_USER_CACHE_FILE, 'utf8');
+            localUserMemoryCache = { ...localUserMemoryCache, ...JSON.parse(raw) };
+        }
+    } catch (e) {
+        console.warn('[Cache] Could not load local_user_cache.json:', e.message);
+    }
+    console.log(`[Cache] Loaded ${Object.keys(localUserMemoryCache).length} user profiles into resilient memory cache.`);
+}
+
+loadUsersCacheFromDisk();
+
+function saveLocalUserCache(userId, data) {
+    if (!userId) return;
+    const strId = String(userId).trim();
+    if (strId === '123456789' || strId === 'undefined' || strId === 'null') return;
+    
+    localUserMemoryCache[strId] = {
+        ...(localUserMemoryCache[strId] || {}),
+        ...data,
+        id: strId,
+        userId: strId,
+        cachedAt: Date.now()
+    };
+
+    try {
+        fs.writeFileSync(USERS_CACHE_FILE, JSON.stringify(localUserMemoryCache, null, 2), 'utf8');
+    } catch (_) {}
+    try {
+        fs.writeFileSync(LOCAL_USER_CACHE_FILE, JSON.stringify(localUserMemoryCache, null, 2), 'utf8');
+    } catch (_) {}
+}
+
+function getLocalUserCache(userId) {
+    if (!userId) return null;
+    const strId = String(userId).trim();
+    if (localUserMemoryCache[strId]) {
+        return localUserMemoryCache[strId];
+    }
+    loadUsersCacheFromDisk();
+    return localUserMemoryCache[strId] || null;
+}
+
 function normalizeTrxId(raw) {
     if (!raw) return '';
     const str = String(raw).trim();
@@ -3234,19 +3292,43 @@ app.post('/api/miniapp/verify-membership', async (req, res) => {
 });
 
 app.get('/api/miniapp/user/:id', async (req, res) => {
+    const rawId = req.params.id;
+    if (!rawId || rawId === 'undefined' || rawId === 'null' || rawId === 'NaN' || isNaN(parseInt(rawId))) {
+        return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    const userId = parseInt(rawId);
+    if (userId === 123456789) {
+        return res.json({ balance: 0, isGuest: true, status: 'active' });
+    }
+
     try {
-        const userId = parseInt(req.params.id);
-        const userRef = db.collection('users').doc(userId.toString());
-        const userDoc = await userRef.get();
-        
         let data = {};
-        if (userDoc.exists) {
-            data = userDoc.data();
-        } else if (req.query.startParam && /^ref_\d+$/i.test(String(req.query.startParam).trim())) {
-            // Brand-new user opening MiniApp directly via referral startParam
-            const devInfo = extractClientDevice(req, req.query);
-            const refId = String(req.query.startParam).trim().replace(/^ref_/i, '');
-            await registerUserReferral(userId, refId, {}, devInfo).catch(() => {});
+        let userRef = null;
+
+        try {
+            userRef = db.collection('users').doc(userId.toString());
+            const userDoc = await userRef.get();
+            if (userDoc.exists) {
+                data = userDoc.data() || {};
+                saveLocalUserCache(userId, data);
+            } else {
+                const cached = getLocalUserCache(userId);
+                if (cached) {
+                    data = { ...cached };
+                } else if (req.query.startParam && /^ref_\d+$/i.test(String(req.query.startParam).trim())) {
+                    const devInfo = extractClientDevice(req, req.query);
+                    const refId = String(req.query.startParam).trim().replace(/^ref_/i, '');
+                    await registerUserReferral(userId, refId, {}, devInfo).catch(() => {});
+                }
+            }
+        } catch (dbErr) {
+            console.warn(`[Firestore Quota Guard for user ${userId}] Fallback to memory cache: ${dbErr.message}`);
+            const cached = getLocalUserCache(userId);
+            if (cached) {
+                data = { ...cached };
+            } else {
+                data = { balance: 0, status: 'active', mbsId: 'MBS' + String(userId).slice(-5) };
+            }
         }
 
         // Background anti-clone device verification if fingerprint query params provided
@@ -3257,34 +3339,28 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
 
         let mbsId = data.mbsId;
         if (!mbsId) {
-            let unique = false;
-            while (!unique) {
-                const randomDigits = Math.floor(10000 + Math.random() * 90000);
-                const tempId = 'MBS' + randomDigits;
-                const existing = await db.collection('users').where('mbsId', '==', tempId).get();
-                if (existing.empty) {
-                    mbsId = tempId;
-                    unique = true;
-                }
+            mbsId = 'MBS' + String(userId).slice(-5);
+            data.mbsId = mbsId;
+            saveLocalUserCache(userId, { mbsId });
+            if (userRef) {
+                userRef.set({ mbsId }, { merge: true }).catch(() => {});
             }
-            await userRef.set({ mbsId }, { merge: true });
         }
 
         let pendingWithdraw = data.fiatWithdrawPending || null;
         if (pendingWithdraw) {
             const isFinished = pendingWithdraw.status === 'completed' || pendingWithdraw.status === 'rejected';
             const finishTime = pendingWithdraw.completedAt || pendingWithdraw.rejectedAt || 0;
-            // If completed or rejected more than 2 hours ago, clear it so it doesn't linger
             if (isFinished && finishTime && (Date.now() - finishTime > 2 * 60 * 60 * 1000)) {
                 pendingWithdraw = null;
-                userRef.update({ fiatWithdrawPending: null }).catch(()=>{});
+                if (userRef) userRef.update({ fiatWithdrawPending: null }).catch(()=>{});
             }
         }
 
         if (data.status === 'restricted' && !data.restrictedUntil && String(data.restrictReason || '').includes('অসামঞ্জস্যপূর্ণ')) {
             data.status = 'active';
             data.isRestricted = false;
-            userRef.set({ status: 'active', isRestricted: false, restrictReason: null }, { merge: true }).catch(() => {});
+            if (userRef) userRef.set({ status: 'active', isRestricted: false, restrictReason: null }, { merge: true }).catch(() => {});
         }
 
         let pendingReceivedTransfer = data.pendingReceivedTransfer || null;
@@ -3292,7 +3368,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             try {
                 const av = await Promise.race([
                     getOrFetchUserAvatar(String(pendingReceivedTransfer.senderId)),
-                    new Promise(r => setTimeout(() => r(null), 1500))
+                    new Promise(r => setTimeout(() => r(null), 1200))
                 ]);
                 if (av && av.dataUrl) {
                     pendingReceivedTransfer = {
@@ -3305,8 +3381,13 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
 
         const isBanned = data.status === 'banned' || Boolean(data.isBanned);
         const isRestricted = data.status === 'restricted' && (!data.restrictedUntil || new Date(data.restrictedUntil) > new Date());
+        
+        // Ensure numeric balance
+        const numBal = Number(data.balance);
+        const finalBalance = Number.isFinite(numBal) ? numBal : 0;
+
         res.json({ 
-            balance: data.balance || 0,
+            balance: finalBalance,
             fiatWallet: data.fiatWallet || null,
             fiatWithdrawPending: pendingWithdraw,
             pendingReceivedTransfer,
@@ -3330,7 +3411,20 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             restrictReason: data.restrictReason || 'আপনার অ্যাকাউন্টটি সাময়িকভাবে রেস্ট্রিক্ট করা রয়েছে।'
         });
     } catch(e) {
-        console.error(e);
+        console.error('Fatal user endpoint error, serving cached fallback:', e.message);
+        const cached = getLocalUserCache(userId);
+        if (cached) {
+            const numBal = Number(cached.balance);
+            return res.json({
+                balance: Number.isFinite(numBal) ? numBal : 0,
+                mbsId: cached.mbsId || ('MBS' + String(userId).slice(-5)),
+                fiatWallet: cached.fiatWallet || null,
+                status: cached.status || 'active',
+                isBanned: false,
+                isRestricted: false,
+                themeMode: cached.themeMode || 'light'
+            });
+        }
         res.status(500).json({ error: e.message });
     }
 });
@@ -5660,7 +5754,7 @@ async function fetchMultiChainEvmBalances(evmAddr) {
 app.get('/api/stats', async (req, res) => {
     const now = Date.now();
     const forceRefresh = req.query.refresh === 'true' || req.query.force === '1';
-    if (!forceRefresh && statsCache.data && (now - statsCache.timestamp < 25000)) {
+    if (!forceRefresh && statsCache.data && (now - statsCache.timestamp < 120000)) {
         return res.json(statsCache.data);
     }
 
@@ -5709,7 +5803,20 @@ app.get('/api/stats', async (req, res) => {
             });
         } catch (uErr) {
             console.warn("Firestore users fetch warning in /api/stats:", uErr.message);
-            if (statsCache.data?.users) users = statsCache.data.users;
+            if (statsCache.data?.users && statsCache.data.users.length > 0) {
+                users = statsCache.data.users;
+            } else if (localUserMemoryCache && Object.keys(localUserMemoryCache).length > 0) {
+                users = Object.values(localUserMemoryCache).map(u => ({
+                    ...u,
+                    chatId: String(u.id || u.userId),
+                    id: String(u.id || u.userId),
+                    firstName: u.firstName || u.first_name || '',
+                    username: u.username || '',
+                    mbsId: u.mbsId || ('MBS' + String(u.id || u.userId).slice(-5)),
+                    balance: parseFloat(u.balance || 0),
+                    isVerified: true
+                }));
+            }
         }
         
         console.log("Fetching failed screenshots...");
@@ -7651,7 +7758,11 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
             updates.themeMode = themeMode;
         }
 
-        await db.collection('users').doc(userId.toString()).set(updates, { merge: true });
+        saveLocalUserCache(userId, updates);
+
+        await db.collection('users').doc(userId.toString()).set(updates, { merge: true }).catch(err => {
+            console.warn('[sync-profile] Firestore quota warning:', err.message);
+        });
 
         // If TON wallet was connected, check if referral now qualifies for activation
         if (tonAddress) {

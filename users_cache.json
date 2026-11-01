@@ -1,0 +1,54 @@
+{
+  "8799135330": {
+    "id": 8799135330,
+    "userId": 8799135330,
+    "chatId": "8799135330",
+    "first_name": "Maruf",
+    "firstName": "Maruf",
+    "username": "maruff666",
+    "language": "bn",
+    "balance": 111,
+    "mbsId": "MBS35330",
+    "status": "verified",
+    "verified": true,
+    "twoStepEnabled": true,
+    "twoStepLength": 6,
+    "fiatWallet": {
+      "name": "Maruf",
+      "method": "bKash",
+      "number": "01752561935"
+    },
+    "tonAddress": "UQDaMgqOpvhdqNXHicYl_muvjEHVkDjJRn3-2iUFKhZPn4Ck",
+    "totalCryptoSellBdt": 82,
+    "totalAddMoneyBdt": 2562,
+    "hasSellBalance": true,
+    "themeMode": "light"
+  },
+  "6944825022": {
+    "id": 6944825022,
+    "userId": 6944825022,
+    "chatId": "6944825022",
+    "firstName": "Maruf",
+    "first_name": "Maruf",
+    "lastName": "",
+    "last_name": "",
+    "username": "maruf7233",
+    "language": "bn",
+    "mbsId": "MBS54754",
+    "balance": 32,
+    "status": "active",
+    "verified": true,
+    "photoUrl": "https://t.me/i/userpic/320/AmQPnucIoBgSPsG3sGqLBBByQ0ZDZNE5FE97ALFTSCAscepH5th1x-gnoZxktquv.svg",
+    "fiatWallet": {
+      "name": "Maruf",
+      "number": "01878580320",
+      "method": "Nagad"
+    },
+    "twoStepLength": 4,
+    "twoStepEnabled": false,
+    "themeMode": "light",
+    "hasSellBalance": true,
+    "hasDepositWithoutTrade": false,
+    "totalTransferReceivedBdt": 30
+  }
+}

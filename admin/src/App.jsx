@@ -203,7 +203,7 @@ function useBotData() {
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchData(false);
-    }, 25000);
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
@@ -251,7 +251,7 @@ function useOrdersData() {
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchOrders(false);
-    }, 20000);
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 

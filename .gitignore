@@ -9,3 +9,4 @@ admin/node_modules/
 # admin/dist/
 
 !local_user_cache.json
+!users_cache.json
