@@ -6779,23 +6779,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             txHash: txResult?.txHash || orderId
         }).catch(() => {});
 
-        const dataGroup = config.dataGroupId || adminGroupId;
-        if (dataGroup) {
-            const buyUserData = userDoc.data() || {};
-            const buyUserName = buyUserData.first_name || buyUserData.firstName || 'User';
-            const rawBuyUname = buyUserData.username ? buyUserData.username.replace('@', '') : '';
-            const buyUname = rawBuyUname ? `@${rawBuyUname}` : 'None';
-
-            const dataBuyMsg = `<blockquote><b>${PE.gem} নতুন ক্রিপ্টো ক্রয় সম্পন্ন (Live Instant)!</b>\n\n` +
-                `👤 <b>Name:</b> <a href="tg://user?id=${userId}">${escapeHtml(buyUserName)}</a>\n` +
-                `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
-                `🔗 <b>Username:</b> ${buyUname}\n` +
-                `${PE.gem} <b>ক্রিপ্টো:</b> <b>${cryptoAmount} ${asset} (${selectedNetwork})</b>\n` +
-                `${PE.dollar} <b>ব্যালেন্স থেকে কাটা:</b> <b>৳${bdtAmount} BDT</b>\n` +
-                `${PE.wallet} <b>Wallet:</b> <code>${receiveAddress}</code>\n` +
-                `${PE.check} <b>স্ট্যাটাস:</b> অন-চেইনে সফলভাবে সেন্ট হয়েছে</blockquote>`;
-            bot.sendMessage(dataGroup, dataBuyMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-        }
+        // Second redundant alert removed per user request: only the message with button (userBuyInstantMsg) is sent to the user.
 
         res.json({
             success: true,
