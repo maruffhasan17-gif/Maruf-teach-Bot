@@ -1,5 +1,13 @@
 {
-  "gramAmount": "0.07",
+  "gramAmount": "0.071",
   "usdtAmount": "0.05",
-  "freeLink": "https://t.me/ShardsEarnBot/app?startapp=8799135330"
+  "freeLink": "https://t.me/ShardsEarnBot/app?startapp=8799135330",
+  "adminBkash": "01752561935",
+  "adminNagad": "9856000927953436",
+  "supportGroupId": "-1003937919229",
+  "adminGroupId": "-1004355248625",
+  "dataGroupId": "-1004355248625",
+  "withdrawGroupId": "-1003912460131",
+  "payoutGroupId": "@bd_trust_pay_payout",
+  "userLogGroupId": "-1004477003451"
 }

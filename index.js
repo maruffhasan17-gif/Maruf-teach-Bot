@@ -174,14 +174,17 @@ async function markVerifiedTrxClaimed(recordInfo, trxId, userId) {
 }
 
 let botConfig = {
-    gramAmount: '0.07',
+    gramAmount: '0.071',
     usdtAmount: '0.05',
-    freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328',
-    adminGroupId: '',
-    dataGroupId: '',
-    supportGroupId: '',
-    withdrawGroupId: '',
-    payoutGroupId: '@bd_trust_pay_payout'
+    freeLink: 'https://t.me/ShardsEarnBot/app?startapp=8799135330',
+    adminBkash: '01752561935',
+    adminNagad: '9856000927953436',
+    adminGroupId: '-1004355248625',
+    dataGroupId: '-1004355248625',
+    supportGroupId: '-1003937919229',
+    withdrawGroupId: '-1003912460131',
+    payoutGroupId: '@bd_trust_pay_payout',
+    userLogGroupId: '-1004477003451'
 };
 
 // Telegram Premium Animated Custom Emojis (<tg-emoji> with standard animated fallbacks)
@@ -403,6 +406,13 @@ const notifyPayoutGroup = async (payoutData) => {
 };
 async function loadConfig() {
     try {
+        const configPath = path.join(__dirname, 'config.json');
+        if (fs.existsSync(configPath)) {
+            const localConf = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            botConfig = { ...botConfig, ...localConf };
+        }
+    } catch (_) {}
+    try {
         const doc = await db.collection('settings').doc('config').get();
         if (doc.exists) botConfig = { ...botConfig, ...doc.data() };
         if (!botConfig.adminNagad || botConfig.adminNagad === '01878580320') {
@@ -413,6 +423,9 @@ async function loadConfig() {
 loadConfig();
 async function saveConfig(newConf) {
     botConfig = { ...botConfig, ...newConf };
+    try {
+        fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(botConfig, null, 2), 'utf8');
+    } catch (_) {}
     try { await db.collection('settings').doc('config').set(botConfig, { merge: true }); } catch(e) {}
 }
 
@@ -9302,7 +9315,7 @@ app.post('/api/miniapp/support', async (req, res) => {
         });
 
         const config = botConfig || {};
-        const supportGroup = config.supportGroupId || config.adminGroupId || 8799135330;
+        const supportGroup = config.supportGroupId || '-1003937919229';
 
         const safeName = escapeHtml(String(name || 'User'));
         const safeUser = username ? '(@' + escapeHtml(String(username).replace('@', '')) + ')' : '';
