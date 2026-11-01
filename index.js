@@ -2369,29 +2369,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     const membership = await checkUserCommunities(chatId);
     const isAlreadyVerified = existingUserDoc && existingUserDoc.exists && existingUserDoc.data().status === 'verified';
 
-    if (isAlreadyVerified && membership.allJoined) {
-        if (Date.now() < REOPEN_TARGET_TS && chatId.toString() !== '8799135330' && chatId.toString() !== '6944825022') {
-            const remainingMs = Math.max(0, REOPEN_TARGET_TS - Date.now());
-            const hrs = Math.floor(remainingMs / (3600 * 1000));
-            const mins = Math.floor((remainingMs % (3600 * 1000)) / (60 * 1000));
-            const maintenanceMsg = `⏳ <b>Trust Pay — দৈনিক শিডিউল্ড অপ্টিমাইজেশন</b> 🛠️\n\n` +
-                `প্রিয় গ্রাহক <b>${firstName}</b>,\n` +
-                `সিস্টেমের গতি ও পারফরম্যান্স আরও উন্নত করার লক্ষ্যে বর্তমানে দৈনিক সার্ভার অপ্টিমাইজেশনের কাজ চলছে।\n\n` +
-                `⏰ <b>সেবা পুনরায় চালু হওয়ার সময়:</b>\n` +
-                `আজ <b>দুপুর ০১:০০ টা</b> (বাংলাদেশ সময়)\n\n` +
-                `⏳ <b>বাকি সময়:</b> <b>${hrs} ঘণ্টা ${mins} মিনিট</b>\n\n` +
-                `🚀 নির্ধারিত সময় পৌঁছানোর সাথে সাথে অ্যাপের সকল ফিচার স্বয়ংক্রিয়ভাবে সচল হয়ে যাবে। লাইভ কাউন্টডাউন টাইমার দেখতে নিচের বোতামে চাপ দিন:`;
-            return bot.sendMessage(chatId, maintenanceMsg, {
-                parse_mode: 'HTML',
-                reply_markup: {
-                    inline_keyboard: [
-                        [ { text: '⏳ লাইভ কাউন্টডাউন টাইমার (Open App)', web_app: { url: WEB_APP_URL } } ],
-                        [ { text: '📢 নোটিশ চ্যানেল', url: PAYOUT_GROUP_URL } ]
-                    ]
-                }
-            }).catch(e => console.error(e.message));
-        }
-
+        if (isAlreadyVerified && membership.allJoined) {
         const welcomeBackMsg = `${PE.gem} <b>Trust Pay — ট্রাস্ট পে</b> ${PE.sparkles}\n\n${PE.user} স্বাগতম <b>${firstName}</b>!\n${PE.check} আপনার অ্যাকাউন্ট ভেরিফাইড ও প্রস্তুত রয়েছে।\n\n${PE.zap} <i>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</i>`;
         return bot.sendMessage(chatId, welcomeBackMsg, {
             parse_mode: 'HTML',
@@ -2450,39 +2428,16 @@ bot.on('callback_query', async (query) => {
                     }
                 }).catch(()=>{});
 
-                // 3. Send clean welcome message with the Open App button (or countdown if before 1:00 PM)
-                if (Date.now() < REOPEN_TARGET_TS && chatId.toString() !== '8799135330' && chatId.toString() !== '6944825022') {
-                    const remainingMs = Math.max(0, REOPEN_TARGET_TS - Date.now());
-                    const hrs = Math.floor(remainingMs / (3600 * 1000));
-                    const mins = Math.floor((remainingMs % (3600 * 1000)) / (60 * 1000));
-                    const maintenanceMsg = `✅ <b>ভেরিফিকেশন সফল হয়েছে!</b>\n\n` +
-                        `⏳ <b>Trust Pay — দৈনিক শিডিউল্ড অপ্টিমাইজেশন</b> 🛠️\n\n` +
-                        `প্রিয় গ্রাহক <b>${query.from.first_name || ''}</b>,\n` +
-                        `সিস্টেমের গতি ও পারফরম্যান্স আরও উন্নত করার লক্ষ্যে বর্তমানে দৈনিক সার্ভার অপ্টিমাইজেশনের কাজ চলছে।\n\n` +
-                        `⏰ <b>সেবা পুনরায় চালু হওয়ার সময়:</b>\n` +
-                        `আজ <b>দুপুর ০১:০০ টা</b> (বাংলাদেশ সময়)\n\n` +
-                        `⏳ <b>বাকি সময়:</b> <b>${hrs} ঘণ্টা ${mins} মিনিট</b>\n\n` +
-                        `🚀 নির্ধারিত সময় পৌঁছানোর সাথে সাথে অ্যাপের সকল ফিচার স্বয়ংক্রিয়ভাবে সচল হয়ে যাবে। লাইভ কাউন্টডাউন টাইমার দেখতে নিচের বোতামে চাপ দিন:`;
-                    bot.sendMessage(chatId, maintenanceMsg, {
-                        parse_mode: 'HTML',
-                        reply_markup: {
-                            inline_keyboard: [
-                                [ { text: '⏳ লাইভ কাউন্টডাউন টাইমার (Open App)', web_app: { url: WEB_APP_URL } } ],
-                                [ { text: '📢 নোটিশ চ্যানেল', url: PAYOUT_GROUP_URL } ]
-                            ]
-                        }
-                    }).catch(e => console.error(e.message));
-                } else {
-                    const msgText = `${PE.party} <b>ভেরিফিকেশন সফল! (Verified!)</b>\n\n${PE.gem} Trust Pay-তে স্বাগতম <b>${query.from.first_name || ''}</b>। আপনার অ্যাকাউন্ট সম্পূর্ণ প্রস্তুত।\n\n${PE.zap} <i>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</i>`;
-                    bot.sendMessage(chatId, msgText, {
-                        parse_mode: 'HTML',
-                        reply_markup: {
-                            inline_keyboard: [
-                                [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } } ]
-                            ]
-                        }
-                    }).catch(e => console.error(e.message));
-                }
+                // 3. Send clean welcome message with the Open App button
+                const msgText = `${PE.party} <b>ভেরিফিকেশন সফল! (Verified!)</b>\n\n${PE.gem} Trust Pay-তে স্বাগতম <b>${query.from.first_name || ''}</b>। আপনার অ্যাকাউন্ট সম্পূর্ণ প্রস্তুত।\n\n${PE.zap} <i>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</i>`;
+                bot.sendMessage(chatId, msgText, {
+                    parse_mode: 'HTML',
+                    reply_markup: {
+                        inline_keyboard: [
+                            [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } } ]
+                        ]
+                    }
+                }).catch(e => console.error(e.message));
                 
             } else {
                 let alertMsg = '❌ আপনি এখনও দুটিতেই জয়েন করেননি!';
@@ -3131,78 +3086,42 @@ const { ethers } = require('ethers');
 
 // ==================== HOURLY MARKET RATES TRACKER ====================
 let cachedMarketRates = {
-    realUsdtBdt: 118,
-    realGramUsdt: 1.32,
-    realGramBdt: 155.76,
+    realUsdtBdt: 124,
+    realGramUsdt: 1.25,
+    realGramBdt: 155,
     buyRates: {
-        USDT: 130, // Fixed 130 BDT (when buying USDT directly)
-        GRAM: 175, // (liveGramUsdt * 125) + 10 TK
-        TON: 175
+        USDT: 130, // Fixed 130 BDT
+        GRAM: 170, // Fixed 170 BDT
+        TON: 170
     },
     sellRates: {
-        USDT: 118, // Fixed 118 BDT (sell to platform)
-        GRAM: 146, // (liveGramUsdt * 118) - 10 TK
-        TON: 146
+        USDT: 118, // Fixed 118 BDT
+        GRAM: 130, // Fixed 130 BDT
+        TON: 130
     },
-    lastUpdated: 0
+    lastUpdated: Date.now()
 };
 
 async function updateMarketRates() {
     try {
-        let tonUsdt = 1.32;
+        // PERMANENTLY FIXED RATES PER ADMIN SPECIFICATION (NO FLUCTUATION):
+        // Sell Rates: GRAM = 130 TK, USDT = 118 TK, TON = 130 TK
+        // Buy Rates:  GRAM = 170 TK, USDT = 130 TK, TON = 170 TK
+        const sellUsdt = 118;
+        const sellGram = 130;
+        const buyUsdt = 130;
+        const buyGram = 170;
 
-        // 1. Fetch live TON/GRAM in USD: TonAPI -> CoinGecko -> Binance
+        let tonUsdt = 1.25;
         try {
-            const tonApiRes = await axios.get('https://tonapi.io/v2/rates?tokens=ton&currencies=usd', { timeout: 4000 });
+            const tonApiRes = await axios.get('https://tonapi.io/v2/rates?tokens=ton&currencies=usd', { timeout: 3500 });
             if (tonApiRes.data?.rates?.TON?.prices?.USD) {
                 tonUsdt = parseFloat(tonApiRes.data.rates.TON.prices.USD);
             }
-        } catch (e1) {
-            try {
-                const cgRes = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd', { timeout: 4000 });
-                if (cgRes.data && cgRes.data['the-open-network']?.usd) {
-                    tonUsdt = parseFloat(cgRes.data['the-open-network'].usd);
-                }
-            } catch (e2) {
-                try {
-                    const binanceRes = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=TONUSDT', { timeout: 4000 });
-                    if (binanceRes.data && binanceRes.data.price) {
-                        tonUsdt = parseFloat(binanceRes.data.price);
-                    }
-                } catch (e3) {
-                    console.warn("Rate fetch fallback, keeping current tonUsdt:", tonUsdt);
-                }
-            }
-        }
+        } catch (_) {}
 
         const realGramUsdt = Number(tonUsdt.toFixed(4));
-
-        // Real-time Live USD/BDT Forex Market Rate
-        let liveUsdToBdt = 124.0;
-        try {
-            const fxRes = await axios.get('https://open.er-api.com/v6/latest/USD', { timeout: 3500 });
-            if (fxRes.data?.rates?.BDT) {
-                liveUsdToBdt = Number(parseFloat(fxRes.data.rates.BDT).toFixed(2));
-            }
-        } catch (eFx) {}
-
-        // Base USDT Rates in BDT for Platform Trading:
-        // Sell USDT = 118 TK, Direct Buy USDT = 130 TK
-        const sellUsdt = 118;
-        const buyUsdt = 130;
-
-        // Dynamic GRAM / TON Pricing Rule:
-        // Platform maintains a guaranteed 10 TK margin:
-        // - Sell GRAM (User sells to platform): (liveGramUsdt * 118) - 10 TK
-        // - Buy GRAM (User buys from platform): (liveGramUsdt * 125) + 10 TK (GRAM calculated using 125 BDT/USD)
-        const baseSellGramBdt = realGramUsdt * sellUsdt;
-        const sellGram = Math.max(1, Math.round(baseSellGramBdt - 10));
-
-        const gramBuyUsdBase = 125;
-        const baseBuyGramBdt = realGramUsdt * gramBuyUsdBase;
-        const buyGram = Math.round(baseBuyGramBdt + 10);
-
-        // True Live Market Valuation Price for 1 GRAM in BDT:
+        const liveUsdToBdt = 124.0;
         const realLiveGramBdt = Number((realGramUsdt * liveUsdToBdt).toFixed(2));
 
         cachedMarketRates = {
@@ -3210,18 +3129,18 @@ async function updateMarketRates() {
             realGramUsdt,
             realGramBdt: realLiveGramBdt,
             buyRates: {
-                USDT: buyUsdt, // 130 TK
-                GRAM: buyGram, // (liveGramUsdt * 125) + 10 TK
+                USDT: buyUsdt, // Fixed 130 TK
+                GRAM: buyGram, // Fixed 170 TK
                 TON: buyGram
             },
             sellRates: {
-                USDT: sellUsdt, // 118 TK
-                GRAM: sellGram, // (liveGramUsdt * 118) - 10 TK
+                USDT: sellUsdt, // Fixed 118 TK
+                GRAM: sellGram, // Fixed 130 TK
                 TON: sellGram
             },
             lastUpdated: Date.now()
         };
-        console.log(`[RATES UPDATED] Live TON/GRAM: $${realGramUsdt} | Sell: USDT ৳${sellUsdt}, GRAM ৳${sellGram} | Buy: USDT ৳${buyUsdt}, GRAM ৳${buyGram}`);
+        console.log(`[RATES UPDATED - FIXED] Sell: USDT ৳${sellUsdt}, GRAM ৳${sellGram} | Buy: USDT ৳${buyUsdt}, GRAM ৳${buyGram}`);
     } catch(err) {
         console.error("Rates update error:", err.message);
     }
@@ -4466,7 +4385,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
         // Never trust client-supplied estimatedTk!
         const serverSellRate = normAsset === 'USDT'
             ? (Number(cachedMarketRates?.sellRates?.USDT) || 118)
-            : (Number(cachedMarketRates?.sellRates?.GRAM) || 146);
+            : (Number(cachedMarketRates?.sellRates?.GRAM) || 130);
         const serverExpectedTk = Math.floor(numAmount * serverSellRate);
         
         if (!Number.isFinite(numAmount) || numAmount <= 0 || !Number.isFinite(serverExpectedTk) || serverExpectedTk < 1) {
@@ -6552,7 +6471,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         // Calculate cryptoAmount with ±3% rate lock protection for instant clicks
         const serverBuyRate = asset === 'USDT'
             ? (Number(cachedMarketRates?.buyRates?.USDT) || 130)
-            : (Number(cachedMarketRates?.buyRates?.GRAM) || 175);
+            : (Number(cachedMarketRates?.buyRates?.GRAM) || 170);
 
         let effectiveRate = serverBuyRate;
         const clientExpectedRate = parseFloat(req.body.expectedRate);

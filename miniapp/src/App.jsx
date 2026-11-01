@@ -4563,11 +4563,11 @@ export default function App() {
       const cachedBuy = localStorage.getItem('maruf_buyer_rates');
       const cachedSell = localStorage.getItem('maruf_seller_rates');
       return {
-        buyRates: cachedBuy ? JSON.parse(cachedBuy).rates : { GRAM: 164, USDT: 130 },
-        sellRates: cachedSell ? JSON.parse(cachedSell).rates : { GRAM: 135, USDT: 118 }
+        buyRates: cachedBuy ? JSON.parse(cachedBuy).rates : { GRAM: 170, USDT: 130 },
+        sellRates: cachedSell ? JSON.parse(cachedSell).rates : { GRAM: 130, USDT: 118 }
       };
     } catch(e) {
-      return { buyRates: { GRAM: 164, USDT: 130 }, sellRates: { GRAM: 135, USDT: 118 } };
+      return { buyRates: { GRAM: 170, USDT: 130 }, sellRates: { GRAM: 130, USDT: 118 } };
     }
   });
 
@@ -4578,11 +4578,11 @@ export default function App() {
         if (!isMounted || !data) return;
         setAppMarketRates({
           buyRates: {
-            GRAM: Number(data.buyRates?.GRAM) || 164,
+            GRAM: Number(data.buyRates?.GRAM) || 170,
             USDT: Number(data.buyRates?.USDT) || 130
           },
           sellRates: {
-            GRAM: Number(data.sellRates?.GRAM) || 135,
+            GRAM: Number(data.sellRates?.GRAM) || 130,
             USDT: Number(data.sellRates?.USDT) || 118
           }
         });
@@ -5035,26 +5035,7 @@ export default function App() {
 
   const manifestUrl = 'https://maruf-teach-bot.onrender.com/app/tonconnect-manifest.json';
 
-  // Scheduled Reopening Time: Today at 1:00 PM Bangladesh Standard Time (13:00)
-  const REOPEN_TARGET_TS = 1793516400000;
-  const isMaintenanceActive = Date.now() < REOPEN_TARGET_TS;
-  const isAdminUser = user?.username === 'maruff666' || String(user?.id) === '8799135330' || String(user?.id) === '6944825022';
-  const hasBypassedMaintenance = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('tp_admin_bypass_timing') === 'true';
 
-  if (isMaintenanceActive && !(isAdminUser && hasBypassedMaintenance)) {
-    return (
-      <ScheduledMaintenanceScreen
-        targetTimestamp={REOPEN_TARGET_TS}
-        isAdmin={isAdminUser}
-        onAdminBypass={() => {
-          try { sessionStorage.setItem('tp_admin_bypass_timing', 'true'); } catch (_) {}
-          window.location.reload();
-        }}
-        darkMode={darkMode}
-        lang={lang}
-      />
-    );
-  }
 
   if (bannedInfo?.isBanned) {
     return (
@@ -5829,7 +5810,7 @@ function CryptoAssetSelectModal({
   if (!isOpen) return null;
 
   const isBuy = mode === 'buy';
-  const gramRate = isBuy ? (liveRates?.GRAM || 164) : (sellRates?.GRAM || 135);
+  const gramRate = isBuy ? (liveRates?.GRAM || 170) : (sellRates?.GRAM || 130);
   const usdtRate = isBuy ? (liveRates?.USDT || 130) : (sellRates?.USDT || 118);
   const flowerImg = isBuy ? sakuraBranchArt : wisteriaCascadeArt;
 
@@ -6057,7 +6038,7 @@ function HomePage({
         if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates?.USDT) return parsed.rates;
       }
     } catch (_) {}
-    return { USDT: 130, GRAM: 164, sellRates: { USDT: 118, GRAM: 135 } };
+    return { USDT: 130, GRAM: 170, sellRates: { USDT: 118, GRAM: 130 } };
   });
 
   useEffect(() => {
@@ -6067,11 +6048,11 @@ function HomePage({
         if (!isMounted || !data?.buyRates) return;
         setMarketRates({
           USDT: Number(data.buyRates.USDT) || 130,
-          GRAM: Number(data.buyRates.GRAM) || 164,
+          GRAM: Number(data.buyRates.GRAM) || 170,
           realGramUsdt: Number(data.realGramUsdt) || 1.23,
           sellRates: {
             USDT: Number(data.sellRates?.USDT) || 118,
-            GRAM: Number(data.sellRates?.GRAM) || 135
+            GRAM: Number(data.sellRates?.GRAM) || 130
           }
         });
       }).catch(() => {});
@@ -6192,7 +6173,7 @@ function HomePage({
   // ---- Supported coins (only what the bot trades: GRAM and USDT) ----
   const coins = [
     { symbol: 'USDT', name: 'Tether USD • TRC20 / TON', Logo: TetherLogo, buy: marketRates.USDT || 130, sell: marketRates.sellRates?.USDT || 118 },
-    { symbol: 'GRAM', name: 'Gram • The Open Network', Logo: GramTokenLogo, buy: marketRates.GRAM || 164, sell: marketRates.sellRates?.GRAM || 135 },
+    { symbol: 'GRAM', name: 'Gram • The Open Network', Logo: GramTokenLogo, buy: marketRates.GRAM || 170, sell: marketRates.sellRates?.GRAM || 130 },
   ];
   const q = searchQuery.trim().toLowerCase();
   const visibleCoins = q ? coins.filter(c => c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : coins;
@@ -8326,11 +8307,11 @@ function SellCryptoPage({
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates?.USDT) {
-                    return { GRAM: parsed.rates.GRAM || 135, USDT: parsed.rates.USDT || 118 };
+                    return { GRAM: parsed.rates.GRAM || 130, USDT: parsed.rates.USDT || 118 };
                 }
             }
         } catch (_) {}
-        return { GRAM: 135, USDT: 118 };
+        return { GRAM: 130, USDT: 118 };
     });
 
     useEffect(() => {
@@ -8339,7 +8320,7 @@ function SellCryptoPage({
             fetchMarketRates().then(data => {
                 if (!isMounted || !data?.sellRates) return;
                 const newRates = {
-                    GRAM: Number(data.sellRates.GRAM) || 135,
+                    GRAM: Number(data.sellRates.GRAM) || 130,
                     USDT: Number(data.sellRates.USDT) || 118
                 };
                 setLiveRates(newRates);
@@ -8355,7 +8336,7 @@ function SellCryptoPage({
 
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
     const depositTargetAddress = selectedNetwork === 'TON' ? (userTonAddress || botWalletAddress) : (userEvmAddress || '');
-    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 118) : (liveRates?.GRAM || 135);
+    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 118) : (liveRates?.GRAM || 130);
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
     const quickAmounts = asset === 'GRAM' ? [0.1, 0.5, 1, 5, 10] : [5, 10, 25, 50, 100];
