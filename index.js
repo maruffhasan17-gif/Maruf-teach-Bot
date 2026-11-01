@@ -1732,11 +1732,9 @@ async function sendJettonUsdtOnChain(destination, amount, options = {}) {
 }
 
 function getMenu(lang) {
-    const m = t[lang].menu;
     return {
         reply_markup: {
-            keyboard: [ [ { text: m.free }, { text: m.profile } ] ],
-            resize_keyboard: true
+            remove_keyboard: true
         }
     };
 }
@@ -9219,22 +9217,46 @@ app.post('/api/miniapp/support', async (req, res) => {
                 try {
                     const b64Clean = imageBase64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
                     const imgBuffer = Buffer.from(b64Clean, 'base64');
-                    const photoCaption = adminAlert.length <= 1020 ? adminAlert : (
-                        `<blockquote><b>🎧 নতুন কাস্টমার সাপোর্ট মেসেজ (Customer Support)</b>\n` +
-                        `📂 <b>ক্যাটাগরি:</b> <code>${safeCategory}</code>\n` +
-                        `📌 <b>Subject:</b> <b>${safeSubject}</b>\n` +
-                        `👤 <b>ইউজার:</b> <b>${safeName}</b> ${safeUser}\n` +
-                        `🆔 <b>User ID:</b> <code>${userId || 'N/A'}</code>\n` +
-                        `🎫 <b>Ticket ID:</b> <code>${ticketRef.id}</code>\n\n` +
-                        `💬 <b>বিবরণ:</b>\n${escapeHtml(trimmedMsg.slice(0, 420))}</blockquote>\n` +
-                        `<i>👉 উত্তর পাঠাতে এই মেসেজে Reply দিন।</i>`
-                    );
-                    await bot.sendPhoto(
-                        supportGroup,
-                        imgBuffer,
-                        { caption: photoCaption, parse_mode: 'HTML' },
-                        { filename: `support_${ticketRef.id}.jpg`, contentType: 'image/jpeg' }
-                    );
+                    const blob = new Blob([imgBuffer], { type: 'image/jpeg' });
+                    
+                    const fd = new FormData();
+                    fd.append('chat_id', String(supportGroup));
+                    fd.append('photo', blob, `support_${ticketRef.id}.jpg`);
+                    fd.append('parse_mode', 'HTML');
+
+                    let followUpMsg = null;
+                    if (adminAlert.length <= 1020) {
+                        fd.append('caption', adminAlert);
+                    } else {
+                        const shortCaption = `<blockquote><b>🎧 নতুন কাস্টমার সাপোর্ট মেসেজ (Customer Support)</b>\n\n` +
+                            `📂 <b>ক্যাটাগরি:</b> <code>${safeCategory}</code>\n` +
+                            `📌 <b>বিষয় (Subject):</b> <b>${safeSubject}</b>\n` +
+                            `👤 <b>ইউজার:</b> <b>${safeName}</b> ${safeUser}\n` +
+                            `🆔 <b>User ID:</b> <code>${userId || 'N/A'}</code>\n` +
+                            `🎫 <b>Ticket ID:</b> <code>${ticketRef.id}</code></blockquote>\n` +
+                            `<i>👉 বিবরণ দেখতে নিচের মেসেজটি পড়ুন:</i>`;
+                        fd.append('caption', shortCaption);
+                        followUpMsg = `<blockquote>💬 <b>বিস্তারিত বিবরণ:</b>\n${safeMsg}</blockquote>\n\n` +
+                            `<i>👉 ইউজারের কাছে উত্তর পাঠাতে সরাসরি এই মেসেজে রিপ্লাই (Reply) দিন।</i>`;
+                    }
+
+                    const tgRes = await fetch(`https://api.telegram.org/bot${token || process.env.BOT_TOKEN}/sendPhoto`, {
+                        method: 'POST',
+                        body: fd
+                    });
+                    const tgJson = await tgRes.json();
+
+                    if (!tgJson.ok) {
+                        console.warn("Support sendPhoto failed, fallback to text:", tgJson.description);
+                        bot.sendMessage(supportGroup, adminAlert, { parse_mode: 'HTML' }).catch(err => {
+                            console.error("Support Telegram alert error:", err.message);
+                        });
+                    } else if (followUpMsg) {
+                        bot.sendMessage(supportGroup, followUpMsg, {
+                            parse_mode: 'HTML',
+                            reply_to_message_id: tgJson.result.message_id
+                        }).catch(() => {});
+                    }
                 } catch (photoErr) {
                     console.warn("Support photo send fallback to text:", photoErr.message);
                     bot.sendMessage(supportGroup, adminAlert, { parse_mode: 'HTML' }).catch(err => {
