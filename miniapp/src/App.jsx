@@ -2993,8 +2993,7 @@ function SupportPage({
   const SUPPORT_CATEGORIES = [
     {
       id: 'Account',
-      title: 'Account',
-      titleBn: 'Account',
+      titleBn: 'অ্যাকাউন্ট',
       titleEn: 'Account',
       subjectBn: 'অ্যাকাউন্ট সংক্রান্ত সমস্যা',
       subjectEn: 'Account Support Request',
@@ -3003,8 +3002,7 @@ function SupportPage({
     },
     {
       id: 'Buy',
-      title: 'Buy',
-      titleBn: 'Buy',
+      titleBn: 'ক্রিপ্টো বাই',
       titleEn: 'Buy',
       subjectBn: 'ক্রিপ্টো বাই সংক্রান্ত সমস্যা',
       subjectEn: 'Buy Crypto Support Request',
@@ -3013,8 +3011,7 @@ function SupportPage({
     },
     {
       id: 'Sell',
-      title: 'Sell',
-      titleBn: 'Sell',
+      titleBn: 'ক্রিপ্টো সেল',
       titleEn: 'Sell',
       subjectBn: 'ক্রিপ্টো সেল সংক্রান্ত সমস্যা',
       subjectEn: 'Sell Crypto Support Request',
@@ -3023,28 +3020,25 @@ function SupportPage({
     },
     {
       id: 'Add Money',
-      title: 'Add Money',
-      titleBn: 'Add Money',
+      titleBn: 'অ্যাড মানি',
       titleEn: 'Add Money',
-      subjectBn: 'টাকা যোগ ও TrxID সংক্রান্ত সমস্যা',
+      subjectBn: 'অ্যাড মানি ও TrxID সংক্রান্ত সমস্যা',
       subjectEn: 'Add Money / Deposit Support Request',
       iconBg: 'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/25',
       IconComp: PlusCircle
     },
     {
       id: 'Withdraw',
-      title: 'Withdraw',
-      titleBn: 'Withdraw',
+      titleBn: 'উইথড্র',
       titleEn: 'Withdraw',
-      subjectBn: 'টাকা উত্তোলন (উইথড্র) সমস্যা',
+      subjectBn: 'উইথড্র সংক্রান্ত সমস্যা',
       subjectEn: 'Withdrawal Support Request',
       iconBg: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25',
       IconComp: Wallet
     },
     {
       id: 'Others',
-      title: 'Others',
-      titleBn: 'Others',
+      titleBn: 'অন্যান্য',
       titleEn: 'Others',
       subjectBn: 'অন্যান্য বিষয় সংক্রান্ত সহায়তা',
       subjectEn: 'General / Other Support Request',
@@ -3211,8 +3205,8 @@ function SupportPage({
                     <div className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${cat.iconBg}`}>
                       <IconC size={16} />
                     </div>
-                    <span className="font-extrabold text-[13px] text-slate-900 dark:text-white leading-tight whitespace-nowrap">
-                      {cat.title}
+                    <span className="font-extrabold text-[12.5px] text-slate-900 dark:text-white leading-tight whitespace-nowrap">
+                      {lang === 'bn' ? cat.titleBn : cat.titleEn}
                     </span>
                   </button>
                 );
