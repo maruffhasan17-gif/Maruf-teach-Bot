@@ -4238,19 +4238,19 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
     const targetAmt = parseFloat(amount) || 0;
     if (targetAmt <= 0) return { verified: false, error: 'অবৈধ অ্যামাউন্ট।' };
 
-    // Retry loop: Tonkeeper / blockchain indexing can take 3-18 seconds to appear in TonAPI events
-    const maxRetries = 8;
-    const retryDelayMs = 2500;
+    // Retry loop: Tonkeeper / blockchain indexing can take 2-10 seconds to appear in TonAPI events
+    const maxRetries = 6;
+    const retryDelayMs = 1500;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            const tonApiRes = await axios.get(`https://tonapi.io/v2/accounts/${adminRaw}/events?limit=30`, { timeout: 8000 });
+            const tonApiRes = await axios.get(`https://tonapi.io/v2/accounts/${adminRaw}/events?limit=30`, { timeout: 7000 });
             const events = tonApiRes.data?.events || [];
             const nowSec = Math.floor(Date.now() / 1000);
 
             for (const ev of events) {
-                // Ignore events older than 15 minutes
-                if (ev.timestamp && (nowSec - ev.timestamp > 900)) continue;
+                // Ignore events older than 30 minutes
+                if (ev.timestamp && (nowSec - ev.timestamp > 1800)) continue;
                 if (ev.in_progress) continue;
 
                 for (const act of (ev.actions || [])) {

@@ -8348,6 +8348,78 @@ function SellCryptoPage({
 
     const activeNetworkObj = SELL_NETWORKS.find(n => n.id === selectedNetwork) || SELL_NETWORKS[0];
 
+    const [lastActiveSellCode, setLastActiveSellCode] = useState(() => {
+        try {
+            return sessionStorage.getItem('tp_pending_sell_code') || '';
+        } catch (_) { return ''; }
+    });
+    const [lastSellAmount, setLastSellAmount] = useState(() => {
+        try {
+            return parseFloat(sessionStorage.getItem('tp_pending_sell_amt') || '0') || 0;
+        } catch (_) { return 0; }
+    });
+
+    const verifyTonSellOnChain = async (codeToVerify, amtToVerify) => {
+        const code = codeToVerify || lastActiveSellCode;
+        const targetAmt = amtToVerify || numAmount || lastSellAmount;
+        if (!code) return false;
+        try {
+            setTransferStage('verifying');
+            const res = await submitSellOrder({
+                userId: user?.id || 123456789,
+                asset,
+                amount: targetAmt,
+                estimatedTk,
+                sellCode: code,
+                wallet: userTonAddress || 'Direct',
+                status: 'completed'
+            });
+
+            if (res && res.success) {
+                const finalCreditedTk = res.creditedTk || estimatedTk;
+                setSellResult({ ...res, amount: targetAmt, estimatedTk: finalCreditedTk });
+                setTransferStage('success');
+                try {
+                    sessionStorage.removeItem('tp_pending_sell_code');
+                    sessionStorage.removeItem('tp_pending_sell_amt');
+                } catch (_) {}
+                if (reloadData) reloadData();
+                playAppSound('success');
+                return true;
+            }
+        } catch (e) {
+            console.warn("verifyTonSellOnChain check attempt:", e.message || e);
+        }
+        return false;
+    };
+
+    const handleCheckTonDeposit = async () => {
+        const code = lastActiveSellCode || sessionStorage.getItem('tp_pending_sell_code');
+        const amt = numAmount || lastSellAmount || parseFloat(sessionStorage.getItem('tp_pending_sell_amt') || '0');
+        if (!code) {
+            return handleDirectSell();
+        }
+
+        setIsTransferModalOpen(true);
+        setTransferStage('verifying');
+        setErrorMessage(lang === 'bn' ? 'ব্লকচেইনে লেনদেন যাচাই করা হচ্ছে...' : 'Verifying transaction on blockchain...');
+
+        let ok = false;
+        for (let i = 0; i < 4; i++) {
+            ok = await verifyTonSellOnChain(code, amt);
+            if (ok) break;
+            if (i < 3) await new Promise(r => setTimeout(r, 2000));
+        }
+
+        if (!ok) {
+            setTransferStage('error');
+            setErrorMessage(lang === 'bn' 
+                ? 'ব্লকচেইনে এখনও আপনার ডিপোজিট পাওয়া যায়নি। টংকিপারে লেনদেন সম্পন্ন হয়ে থাকলে অনুগ্রহ করে কয়েক সেকেন্ড পর আবার "ডিপোজিট চেক করুন" এ চাপ দিন।' 
+                : 'Deposit not yet found on blockchain. If confirmed in Keeper, please wait a few seconds and tap Check Deposit again.');
+            playAppSound('error');
+        }
+    };
+
     // TON direct sell via Tonkeeper
     const handleDirectSell = async () => {
         if (!userTonAddress) {
@@ -8375,6 +8447,13 @@ function SellCryptoPage({
         }, 700);
 
         let activeSellCode = '';
+        let pollInterval = null;
+        let pollTimer = null;
+
+        const stopPolling = () => {
+            if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+            if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+        };
 
         try {
             const txRes = await buildTransaction({
@@ -8390,6 +8469,33 @@ function SellCryptoPage({
             }
 
             activeSellCode = txRes.sellCode;
+            setLastActiveSellCode(activeSellCode);
+            setLastSellAmount(numAmount);
+            try {
+                sessionStorage.setItem('tp_pending_sell_code', activeSellCode);
+                sessionStorage.setItem('tp_pending_sell_amt', numAmount.toString());
+            } catch (_) {}
+
+            // Background polling:
+            // When user confirms in Tonkeeper, the transaction hits the blockchain within 3-8 seconds!
+            // Poll in background so user doesn't get stuck waiting on TonConnect's modal!
+            const triggerBackgroundPoll = async () => {
+                if (isCompleted) { stopPolling(); return; }
+                const verified = await verifyTonSellOnChain(activeSellCode, numAmount);
+                if (verified) {
+                    isCompleted = true;
+                    stopPolling();
+                    clearTimeout(progressTimer);
+                    try { tonConnectUI.closeModal(); } catch (_) {}
+                }
+            };
+
+            pollTimer = setTimeout(() => {
+                if (!isCompleted) {
+                    triggerBackgroundPoll();
+                    pollInterval = setInterval(triggerBackgroundPoll, 2500);
+                }
+            }, 3500);
 
             // Trigger Tonkeeper / TonConnect transaction
             let txResult = null;
@@ -8397,7 +8503,26 @@ function SellCryptoPage({
                 txResult = await tonConnectUI.sendTransaction(txRes.tx);
             } catch (err) {
                 console.warn("tonConnectUI sendTransaction error or cancel:", err);
+
+                // CRITICAL RESILIENCE FIX:
+                // User may have confirmed in Tonkeeper, but tapped outside or bridge disconnected on app resume.
+                // Give on-chain verification multiple attempts before showing any error!
+                setTransferStage('verifying');
+                setErrorMessage(lang === 'bn' ? 'ব্লকচেইনে লেনদেন যাচাই করা হচ্ছে...' : 'Verifying on-chain confirmation...');
+
+                for (let i = 0; i < 4; i++) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    const ok = await verifyTonSellOnChain(activeSellCode, numAmount);
+                    if (ok) {
+                        isCompleted = true;
+                        stopPolling();
+                        clearTimeout(progressTimer);
+                        return;
+                    }
+                }
+
                 isCompleted = true;
+                stopPolling();
                 clearTimeout(progressTimer);
 
                 const errStr = String(err?.message || err || '').toLowerCase();
@@ -8409,61 +8534,63 @@ function SellCryptoPage({
                                      err?.name === 'UserRejectsError';
 
                 const cancelMsg = isUserCancel
-                    ? (lang === 'bn' ? 'ওয়ালেটে লেনদেন বাতিল করা হয়েছে।' : 'Transaction was cancelled in wallet.')
-                    : (lang === 'bn' ? 'ওয়ালেট থেকে কোনো রেসপন্স পাওয়া যায়নি বা লেনদেন বাতিল হয়েছে।' : (err?.message || 'Transaction was cancelled.'));
+                    ? (lang === 'bn' ? 'টংকিপারে লেনদেন বাতিল করা হয়েছে বা এখনও কনফার্ম হয়নি।' : 'Transaction was cancelled or not yet confirmed.')
+                    : (lang === 'bn' ? 'ওয়ালেট থেকে রেসপন্স পাওয়া যায়নি। টংকিপারে কনফার্ম করে থাকলে নিচের বাটনে ডিপোজিট চেক করুন।' : (err?.message || 'Transaction was not confirmed.'));
 
                 setErrorMessage(cancelMsg);
                 setTransferStage('error');
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
                 }
-                return; // STOP! NEVER call submitSellOrder when transaction was cancelled or rejected!
-            }
-
-            if (!txResult || !txResult.boc) {
-                isCompleted = true;
-                clearTimeout(progressTimer);
-                setErrorMessage(lang === 'bn' ? 'ওয়ালেটে লেনদেন অনুমোদিত হয়নি।' : 'Transaction was not signed.');
-                setTransferStage('error');
                 return;
             }
 
-            // Immediately verify on-chain strictly after valid Tonkeeper signed transaction!
-            setTransferStage('verifying');
-            const res = await submitSellOrder({
-                userId: user?.id || 123456789,
-                asset,
-                amount: numAmount,
-                estimatedTk,
-                sellCode: activeSellCode,
-                wallet: userTonAddress,
-                boc: txResult.boc,
-                status: 'completed'
-            });
+            if (!isCompleted) {
+                stopPolling();
+                clearTimeout(progressTimer);
 
-            isCompleted = true;
-            clearTimeout(progressTimer);
+                setTransferStage('verifying');
+                const res = await submitSellOrder({
+                    userId: user?.id || 123456789,
+                    asset,
+                    amount: numAmount,
+                    estimatedTk,
+                    sellCode: activeSellCode,
+                    wallet: userTonAddress,
+                    boc: txResult?.boc || null,
+                    status: 'completed'
+                });
 
-            if (res.success) {
-                const finalCreditedTk = res.creditedTk || estimatedTk;
-                setSellResult({ ...res, amount: numAmount, estimatedTk: finalCreditedTk });
-                setTransferStage('success');
-                if (reloadData) reloadData();
-                playAppSound('success');
-            } else {
-                throw new Error(res.error || (lang === 'bn' ? 'ব্যালেন্সে টাকা যোগ করতে সমস্যা হয়েছে' : 'Failed to credit balance'));
+                isCompleted = true;
+
+                if (res.success) {
+                    const finalCreditedTk = res.creditedTk || estimatedTk;
+                    setSellResult({ ...res, amount: numAmount, estimatedTk: finalCreditedTk });
+                    setTransferStage('success');
+                    try {
+                        sessionStorage.removeItem('tp_pending_sell_code');
+                        sessionStorage.removeItem('tp_pending_sell_amt');
+                    } catch (_) {}
+                    if (reloadData) reloadData();
+                    playAppSound('success');
+                } else {
+                    throw new Error(res.error || (lang === 'bn' ? 'ব্যালেন্সে টাকা যোগ করতে সমস্যা হয়েছে' : 'Failed to credit balance'));
+                }
             }
         } catch (err) {
-            isCompleted = true;
-            clearTimeout(progressTimer);
-            const errStr = String(err?.message || err || '').toLowerCase();
-            const isUserCancel = errStr.includes('reject') || errStr.includes('cancel') || errStr.includes('decline') || errStr.includes('abort');
-            const msg = isUserCancel 
-                ? (lang === 'bn' ? 'ওয়ালেটে লেনদেন বাতিল করা হয়েছে।' : 'Payment rejected in wallet.')
-                : (err.message || (lang === 'bn' ? 'পেমেন্ট ভেরিফাই করা যায়নি।' : 'Payment verification failed.'));
-            setErrorMessage(msg);
-            setTransferStage('error');
-            playAppSound('error');
+            stopPolling();
+            if (!isCompleted) {
+                isCompleted = true;
+                clearTimeout(progressTimer);
+                const errStr = String(err?.message || err || '').toLowerCase();
+                const isUserCancel = errStr.includes('reject') || errStr.includes('cancel') || errStr.includes('decline') || errStr.includes('abort');
+                const msg = isUserCancel 
+                    ? (lang === 'bn' ? 'টংকিপারে লেনদেন বাতিল করা হয়েছে।' : 'Payment rejected in wallet.')
+                    : (err.message || (lang === 'bn' ? 'পেমেন্ট ভেরিফাই করা যায়নি।' : 'Payment verification failed.'));
+                setErrorMessage(msg);
+                setTransferStage('error');
+                playAppSound('error');
+            }
         }
     };
 
@@ -8819,12 +8946,12 @@ function SellCryptoPage({
                 isOpen={isTransferModalOpen}
                 stage={transferStage}
                 asset={asset}
-                amount={numAmount}
+                amount={numAmount || lastSellAmount}
                 targetAddress={botWalletAddress}
                 network={activeNetworkObj.shortName}
                 isBuy={false}
                 errorMessage={errorMessage}
-                onRetryCheck={selectedNetwork === 'TON' ? handleDirectSell : handleCheckEvmDeposit}
+                onRetryCheck={selectedNetwork === 'TON' ? handleCheckTonDeposit : handleCheckEvmDeposit}
                 onClose={() => {
                     setIsTransferModalOpen(false);
                     onBack();
