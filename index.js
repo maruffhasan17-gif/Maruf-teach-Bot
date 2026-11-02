@@ -836,23 +836,12 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
         return { docs: [] };
     });
 
-    const [depSnap1, depSnap2, buySnap1, buySnap2, sellSnap1, sellSnap2, withSnap1, withSnap2] = await Promise.all([
-        safeAuditGet(db.collection('deposits').where('userId', '==', strUserId).get()),
-        (numUserId && !isNaN(numUserId))
-            ? safeAuditGet(db.collection('deposits').where('userId', '==', numUserId).get())
-            : Promise.resolve({ docs: [] }),
-        safeAuditGet(db.collection('miniapp_buys').where('userId', '==', strUserId).get()),
-        (numUserId && !isNaN(numUserId))
-            ? safeAuditGet(db.collection('miniapp_buys').where('userId', '==', numUserId).get())
-            : Promise.resolve({ docs: [] }),
-        safeAuditGet(db.collection('miniapp_sells').where('userId', '==', strUserId).get()),
-        (numUserId && !isNaN(numUserId))
-            ? safeAuditGet(db.collection('miniapp_sells').where('userId', '==', numUserId).get())
-            : Promise.resolve({ docs: [] }),
-        safeAuditGet(db.collection('fiat_withdrawals').where('userId', '==', strUserId).get()),
-        (numUserId && !isNaN(numUserId))
-            ? safeAuditGet(db.collection('fiat_withdrawals').where('userId', '==', numUserId).get())
-            : Promise.resolve({ docs: [] })
+    const auditUserIds = Array.from(new Set([strUserId, numUserId].filter(Boolean)));
+    const [depSnap, buySnap, sellSnap, withSnap] = await Promise.all([
+        safeAuditGet(db.collection('deposits').where('userId', 'in', auditUserIds).limit(50).get()),
+        safeAuditGet(db.collection('miniapp_buys').where('userId', 'in', auditUserIds).limit(50).get()),
+        safeAuditGet(db.collection('miniapp_sells').where('userId', 'in', auditUserIds).limit(50).get()),
+        safeAuditGet(db.collection('fiat_withdrawals').where('userId', 'in', auditUserIds).limit(50).get())
     ]);
 
     if (auditDbError) {
@@ -864,7 +853,7 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     
     const seenDepIds = new Set();
     let sumDepositsCollection = 0;
-    for (const doc of [...(depSnap1?.docs || []), ...(depSnap2?.docs || [])]) {
+    for (const doc of (depSnap?.docs || [])) {
         const dData = doc.data() || {};
         if (!seenDepIds.has(doc.id) && (!dData.status || dData.status === 'completed' || dData.status === 'verified')) {
             seenDepIds.add(doc.id);
@@ -878,7 +867,7 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     let sumLegitRefunds = 0;
     let illegalRefundBdt = 0;
     
-    for (const doc of [...(buySnap1?.docs || []), ...(buySnap2?.docs || [])]) {
+    for (const doc of (buySnap?.docs || [])) {
         if (!seenBuyIds.has(doc.id)) {
             seenBuyIds.add(doc.id);
             const bData = doc.data() || {};
@@ -909,7 +898,7 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     // B) Crypto Sells credited to BDT
     const seenSellIds = new Set();
     let sumSellsCollection = 0;
-    for (const doc of [...(sellSnap1?.docs || []), ...(sellSnap2?.docs || [])]) {
+    for (const doc of (sellSnap?.docs || [])) {
         const sData = doc.data() || {};
         if (!seenSellIds.has(doc.id) && sData.status === 'completed') {
             seenSellIds.add(doc.id);
@@ -936,7 +925,7 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     // D) Withdrawals (both pending and completed)
     const seenWithIds = new Set();
     let sumWithdrawals = 0;
-    for (const doc of [...(withSnap1?.docs || []), ...(withSnap2?.docs || [])]) {
+    for (const doc of (withSnap?.docs || [])) {
         if (!seenWithIds.has(doc.id)) {
             seenWithIds.add(doc.id);
             const wData = doc.data() || {};
@@ -1980,16 +1969,27 @@ function extractClientDevice(req, bodyOrQuery = {}) {
     };
 }
 
+// In-memory cache for verified device fingerprints to avoid re-reading Firestore on every request
+const deviceAntiCloneMemoryCache = new Map();
+
 // Records device fingerprint and detects if this physical mobile already has another Trust Pay account (Clone App / Multi-Account)
 async function recordAndVerifyDeviceAntiClone(userId, deviceInfo = {}) {
     if (!userId || Number(userId) === 123456789) return { isClone: false, reason: null };
     const strUserId = String(userId);
+    const { hwHash, deviceUid, clientIp, phoneModel, ipModelSig } = deviceInfo;
+
+    // Fast memory cache check (2-hour TTL) to eliminate repeated Firestore reads/writes
+    const cacheKey = `${strUserId}_${hwHash || ''}_${deviceUid || ''}`;
+    const cachedRecord = deviceAntiCloneMemoryCache.get(cacheKey);
+    if (cachedRecord && (Date.now() - cachedRecord.ts < 2 * 60 * 60 * 1000)) {
+        return cachedRecord.result;
+    }
+
     let isClone = false;
     let cloneReason = null;
     let matchedUserId = null;
 
     try {
-        const { hwHash, deviceUid, clientIp, phoneModel, ipModelSig } = deviceInfo;
 
         // 1. Check persistent browser Device UID registry
         if (deviceUid && deviceUid.length > 5) {
@@ -2063,7 +2063,9 @@ async function recordAndVerifyDeviceAntiClone(userId, deviceInfo = {}) {
         console.warn("recordAndVerifyDeviceAntiClone warning:", e.message);
     }
 
-    return { isClone, reason: cloneReason, matchedUserId };
+    const finalResult = { isClone, reason: cloneReason, matchedUserId };
+    deviceAntiCloneMemoryCache.set(cacheKey, { result: finalResult, ts: Date.now() });
+    return finalResult;
 }
 
 const inFlightReferralRegistrations = new Set();
@@ -2255,28 +2257,25 @@ async function checkAndRewardReferral(userId) {
         }
 
         // Also check if this user's fiat wallet or TON address is already registered to ANY other user
+        // Uses allUsersMasterData in-memory to save Firestore reads
         if (!isCloneOrFraud && userData.fiatWallet?.number) {
             const cleanNum = String(userData.fiatWallet.number).trim();
-            const sameWalletSnap = await db.collection('users').where('fiatWallet.number', '==', cleanNum).limit(3).get().catch(() => null);
-            if (sameWalletSnap && !sameWalletSnap.empty) {
-                sameWalletSnap.forEach(d => {
-                    if (String(d.id) !== strUserId) {
-                        isCloneOrFraud = true;
-                        fraudReason = 'duplicate_fiat_wallet_across_accounts';
-                    }
-                });
+            for (const [uId, u] of Object.entries(allUsersMasterData || {})) {
+                if (String(uId) !== strUserId && u?.fiatWallet?.number && String(u.fiatWallet.number).trim() === cleanNum) {
+                    isCloneOrFraud = true;
+                    fraudReason = 'duplicate_fiat_wallet_across_accounts';
+                    break;
+                }
             }
         }
         if (!isCloneOrFraud && userData.tonAddress) {
             const cleanTon = String(userData.tonAddress).trim();
-            const sameTonSnap = await db.collection('users').where('tonAddress', '==', cleanTon).limit(3).get().catch(() => null);
-            if (sameTonSnap && !sameTonSnap.empty) {
-                sameTonSnap.forEach(d => {
-                    if (String(d.id) !== strUserId) {
-                        isCloneOrFraud = true;
-                        fraudReason = 'duplicate_ton_wallet_across_accounts';
-                    }
-                });
+            for (const [uId, u] of Object.entries(allUsersMasterData || {})) {
+                if (String(uId) !== strUserId && u?.tonAddress && String(u.tonAddress).trim() === cleanTon) {
+                    isCloneOrFraud = true;
+                    fraudReason = 'duplicate_ton_wallet_across_accounts';
+                    break;
+                }
             }
         }
 
@@ -4659,19 +4658,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
         });
 
         if (!onChain.verified) {
-            // Record failed attempt in database for security audit
-            await db.collection('miniapp_sells').add({
-                userId,
-                asset: normAsset,
-                amount: numAmount,
-                estimatedTk: serverExpectedTk,
-                sellCode: cleanSellCode || null,
-                wallet: wallet || 'Manual',
-                status: 'failed',
-                failureReason: onChain.error || 'On-chain verification failed',
-                timestamp: FieldValue.serverTimestamp()
-            }).catch(() => {});
-
+            // Do NOT insert junk failed documents on transient blockchain poll attempts!
             return res.status(400).json({ 
                 success: false, 
                 error: onChain.error || 'ব্লকচেইনে ডিপোজিট কনফার্ম হয়নি। ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা চেক করুন।' 
@@ -5904,30 +5891,10 @@ app.get('/api/stats', async (req, res) => {
         console.log("Fetching users from Master Data (0 Firestore reads)...");
         let users = [];
         try {
-            const [buysSnap, sellsSnap, withSnap] = await Promise.all([
-                db.collection('miniapp_buys').limit(15).get().catch(() => ({ forEach: () => {} })),
-                db.collection('miniapp_sells').limit(15).get().catch(() => ({ forEach: () => {} })),
-                db.collection('fiat_withdrawals').limit(15).get().catch(() => ({ forEach: () => {} }))
-            ]);
-
-            const transactingUserIds = new Set();
-            buysSnap.forEach(d => {
-                const od = d.data();
-                if (od.userId) transactingUserIds.add(od.userId.toString());
-            });
-            sellsSnap.forEach(d => {
-                const od = d.data();
-                if (od.userId) transactingUserIds.add(od.userId.toString());
-            });
-            withSnap.forEach(d => {
-                const od = d.data();
-                if (od.userId) transactingUserIds.add(od.userId.toString());
-            });
-
             for (const [docId, u] of Object.entries(allUsersMasterData)) {
                 if (!u || docId === '12345' || docId === '123456789') continue;
                 const uId = String(u.chatId || u.userId || docId);
-                const hasTx = transactingUserIds.has(uId) || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0);
+                const hasTx = (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0) || (parseFloat(u.balance || 0) > 0);
                 users.push({
                     ...u,
                     id: docId,
@@ -7943,9 +7910,16 @@ app.get('/referral-banner.jpg', (req, res) => {
     return res.redirect('/app/referral-banner.jpg');
 });
 
+const userReferralsMemoryCache = new Map();
+
 app.get('/api/miniapp/referrals/:userId', async (req, res) => {
     try {
         const cleanUserId = parseInt(req.params.userId);
+        const strCleanId = String(cleanUserId);
+        const cachedRef = userReferralsMemoryCache.get(strCleanId);
+        if (cachedRef && (Date.now() - cachedRef.ts < 30000)) {
+            return res.json(cachedRef.data);
+        }
         if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
             return res.json({
                 referralLink: `https://t.me/${BOT_USERNAME}?start=ref_0`,
@@ -8008,7 +7982,7 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
 
         const totalEarned = Math.max(activeCount * REFERRAL_BONUS_BDT, parseFloat(userData.referralEarnings) || 0);
 
-        res.json({
+        const refResult = {
             referralLink: `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`,
             botReferralLink: `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`,
             miniAppReferralLink: `https://t.me/${BOT_USERNAME}/app?startapp=ref_${cleanUserId}`,
@@ -8028,7 +8002,9 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
                 bonusPerReferral: REFERRAL_BONUS_BDT
             },
             referrals: referralsList
-        });
+        };
+        userReferralsMemoryCache.set(strCleanId, { data: refResult, ts: Date.now() });
+        res.json(refResult);
     } catch (e) {
         console.error("GET /api/miniapp/referrals error:", e.message);
         res.status(500).json({ error: e.message });
@@ -8130,7 +8106,14 @@ const SPIN_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours for daily free spin
 const SPIN_EVENT_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 Days Event
 const SPIN_MILESTONE_TARGET = 50000; // 50,000 Global Spins target (server-only hidden counter)
 
-async function getOrInitSpinEventConfig() {
+let cachedSpinEventConfig = null;
+let cachedSpinEventConfigTs = 0;
+
+async function getOrInitSpinEventConfig(forceFresh = false) {
+    const nowTs = Date.now();
+    if (!forceFresh && cachedSpinEventConfig && (nowTs - cachedSpinEventConfigTs < 120000)) {
+        return cachedSpinEventConfig;
+    }
     const configRef = db.collection('config').doc('spin_event');
     const doc = await configRef.get();
     const now = Date.now();
@@ -8154,7 +8137,7 @@ async function getOrInitSpinEventConfig() {
         eventEndAt = now + SPIN_EVENT_DURATION_MS;
         await configRef.set({ eventStartAt: now, eventEndAt }, { merge: true });
     }
-    return {
+    const resolvedSpinConfig = {
         eventStartAt: d.eventStartAt || now,
         eventEndAt,
         totalGlobalSpins: d.totalGlobalSpins || 0,
@@ -8163,6 +8146,9 @@ async function getOrInitSpinEventConfig() {
         monetagZoneId: d.monetagZoneId || process.env.MONETAG_ZONE_ID || '12077323',
         adsgramBlockId: d.adsgramBlockId || process.env.ADSGRAM_BLOCK_ID || ''
     };
+    cachedSpinEventConfig = resolvedSpinConfig;
+    cachedSpinEventConfigTs = Date.now();
+    return resolvedSpinConfig;
 }
 
 app.get('/api/miniapp/spin-status/:userId', async (req, res) => {
@@ -9120,15 +9106,26 @@ app.post('/api/admin/broadcast/send', requireAdminAuth, async (req, res) => {
         } else {
             const uniqueSet = new Set();
             try {
-                const snapshot = await db.collection('users').get();
-                snapshot.forEach(doc => {
-                    const d = doc.data() || {};
-                    const uid = String(d.chatId || doc.id || '').trim();
-                    if (!uid || !/^\d+$/.test(uid) || uid === '12345' || uid === '123456789') return;
-                    if (d.status === 'banned') return;
-                    if (target === 'with_balance' && (parseFloat(d.balance) || 0) <= 0) return;
-                    uniqueSet.add(uid);
-                });
+                const masterUsers = Object.entries(allUsersMasterData || {});
+                if (masterUsers.length > 0) {
+                    for (const [docId, d] of masterUsers) {
+                        const uid = String(d.chatId || d.userId || docId || '').trim();
+                        if (!uid || !/^\d+$/.test(uid) || uid === '12345' || uid === '123456789') continue;
+                        if (d.status === 'banned') continue;
+                        if (target === 'with_balance' && (parseFloat(d.balance) || 0) <= 0) continue;
+                        uniqueSet.add(uid);
+                    }
+                } else {
+                    const snapshot = await db.collection('users').limit(200).get();
+                    snapshot.forEach(doc => {
+                        const d = doc.data() || {};
+                        const uid = String(d.chatId || doc.id || '').trim();
+                        if (!uid || !/^\d+$/.test(uid) || uid === '12345' || uid === '123456789') return;
+                        if (d.status === 'banned') return;
+                        if (target === 'with_balance' && (parseFloat(d.balance) || 0) <= 0) return;
+                        uniqueSet.add(uid);
+                    });
+                }
             } catch (e) {
                 console.warn('Broadcast users fetch error:', e.message);
             }
@@ -9261,15 +9258,19 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
 
         const history = [];
 
-        // Parallelize all Firestore queries for high-speed mobile data loading
-        const [buysRes, sellsRes, depRes, withRes, userDocRes, trfSentRes, trfRecvRes] = await Promise.allSettled([
-            db.collection('miniapp_buys').where('userId', 'in', userIds).get(),
-            db.collection('miniapp_sells').where('userId', 'in', userIds).get(),
-            db.collection('deposits').where('userId', 'in', userIds).get(),
-            db.collection('fiat_withdrawals').where('userId', 'in', userIds).get(),
-            db.collection('users').doc(strUserId).get(),
-            db.collection('p2p_transfers').where('senderId', '==', strUserId).get(),
-            db.collection('p2p_transfers').where('receiverId', '==', strUserId).get()
+        // Parallelize all Firestore queries with .limit(25) to prevent unbounded read charges
+        const userDocPromise = allUsersMasterData[strUserId]
+            ? Promise.resolve({ status: 'fulfilled', value: { exists: true, data: () => allUsersMasterData[strUserId] } })
+            : db.collection('users').doc(strUserId).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e }));
+
+        const [buysRes, sellsRes, depRes, withRes, userDocRes, trfSentRes, trfRecvRes] = await Promise.all([
+            db.collection('miniapp_buys').where('userId', 'in', userIds).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            db.collection('miniapp_sells').where('userId', 'in', userIds).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            db.collection('deposits').where('userId', 'in', userIds).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            db.collection('fiat_withdrawals').where('userId', 'in', userIds).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            userDocPromise,
+            db.collection('p2p_transfers').where('senderId', '==', strUserId).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            db.collection('p2p_transfers').where('receiverId', '==', strUserId).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e }))
         ]);
 
         // 0. P2P Money Transfers (Sent & Received)
@@ -10222,9 +10223,10 @@ const fetchPendingWithdrawals = async () => {
     const seenIds = new Set();
 
     try {
-        // Query without composite orderBy to avoid Firestore index requirement error
+        // Query with .limit(50) to protect database quota
         const fwSnap = await db.collection('fiat_withdrawals')
             .where('status', '==', 'pending')
+            .limit(50)
             .get();
 
         fwSnap.forEach(doc => {
@@ -10256,43 +10258,35 @@ const fetchPendingWithdrawals = async () => {
     }
 
     try {
-        const usersSnap = await db.collection('users')
-            .where('fiatWithdrawPending.status', '==', 'pending')
-            .limit(50)
-            .get()
-            .catch(() => null);
+        // Use allUsersMasterData in memory (0 Firestore reads)
+        for (const [uId, data] of Object.entries(allUsersMasterData || {})) {
+            if (!data || !data.fiatWithdrawPending) continue;
+            const p = data.fiatWithdrawPending;
+            if (p.status && p.status !== 'pending') continue;
+            const pendId = p.id || uId;
+            if (seenIds.has(pendId)) continue;
+            seenIds.add(pendId);
 
-        if (usersSnap && !usersSnap.empty) {
-            usersSnap.forEach(doc => {
-                const data = doc.data();
-                if (!data.fiatWithdrawPending) return;
-                const p = data.fiatWithdrawPending;
-                if (p.status && p.status !== 'pending') return;
-                const pendId = p.id || doc.id;
-                if (seenIds.has(pendId)) return;
-                seenIds.add(pendId);
+            const amount = parseFloat(p.amount) || 0;
+            const fee = (p.fee !== undefined && p.fee !== null && parseFloat(p.fee) > 0) ? parseFloat(p.fee) : calcWithdrawFee(amount);
+            const receiveAmount = (p.receiveAmount && parseFloat(p.receiveAmount) < amount) ? parseFloat(p.receiveAmount) : Math.max(0, amount - fee);
 
-                const amount = parseFloat(p.amount) || 0;
-                const fee = (p.fee !== undefined && p.fee !== null && parseFloat(p.fee) > 0) ? parseFloat(p.fee) : calcWithdrawFee(amount);
-                const receiveAmount = (p.receiveAmount && parseFloat(p.receiveAmount) < amount) ? parseFloat(p.receiveAmount) : Math.max(0, amount - fee);
-
-                results.push({
-                    docId: pendId,
-                    userId: doc.id,
-                    method: p.method || 'bKash',
-                    number: p.number || 'N/A',
-                    amount,
-                    fee,
-                    receiveAmount,
-                    name: p.name || data.first_name || 'User',
-                    serial: p.serial || '?',
-                    createdAt: p.createdAt || (p.timestamp ? (typeof p.timestamp === 'number' ? p.timestamp : new Date(p.timestamp).getTime()) : 0) || 0,
-                    source: 'users'
-                });
+            results.push({
+                docId: pendId,
+                userId: String(uId),
+                method: p.method || 'bKash',
+                number: p.number || 'N/A',
+                amount,
+                fee,
+                receiveAmount,
+                name: p.name || data.firstName || data.name || 'User',
+                serial: p.serial || '?',
+                createdAt: p.createdAt || p.timestamp || 0,
+                source: 'master_data'
             });
         }
     } catch(e) {
-        console.error('[WithdrawBot] users pending fetch error:', e.message);
+        console.error('[WithdrawBot] master data pending scan error:', e.message);
     }
 
     // Sort chronologically (earliest first - FIFO)
