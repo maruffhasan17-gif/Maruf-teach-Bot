@@ -401,6 +401,95 @@ const notifyPayoutGroup = async (payoutData) => {
         console.error("Failed in notifyPayoutGroup:", err.message);
     }
 };
+// Helper: Post full order details (Buy, Sell, Add Money) to Telegram Data Group & Admin Group
+const notifyDataGroup = async (payload) => {
+    try {
+        if (!bot) return;
+        const config = botConfig || {};
+        const targetGroups = [config.dataGroupId, config.adminGroupId, '-1004355248625'].filter(Boolean);
+        const uniqueGroups = [...new Set(targetGroups)];
+        if (uniqueGroups.length === 0) return;
+
+        const {
+            type, // 'buy' | 'sell' | 'deposit'
+            userId,
+            name,
+            username,
+            asset,
+            amount,
+            totalBdt,
+            newBalance,
+            paymentMethod,
+            wallet,
+            trxId,
+            orderId,
+            txHash,
+            explorer,
+            commentCode,
+            status
+        } = payload;
+
+        const cleanName = escapeHtml(String(name || 'User'));
+        const cleanUsername = username ? ('@' + String(username).replace('@', '')) : 'None';
+        const cleanUserId = String(userId || '');
+        const userLink = cleanUserId ? ('<a href="tg://user?id=' + cleanUserId + '">' + cleanName + '</a>') : cleanName;
+
+        let msg = '';
+        if (type === 'buy') {
+            msg = '<blockquote><b>' + PE.gem + ' নতুন ক্রিপ্টো ক্রয় সম্পন্ন! (Crypto Bought & Sent)</b>\n\n' +
+                '👤 <b>Name:</b> ' + userLink + '\n' +
+                '🆔 <b>User ID:</b> <code>' + cleanUserId + '</code>\n' +
+                '🔗 <b>Username:</b> ' + cleanUsername + '\n' +
+                '💎 <b>ক্রয়কৃত ক্রিপ্টো:</b> <b>' + amount + ' ' + (asset || 'USDT') + '</b>\n' +
+                '💵 <b>পরিশোধিত টাকা:</b> <b>৳' + (totalBdt !== undefined ? totalBdt : 'N/A') + ' BDT</b>\n' +
+                '💰 <b>নতুন ব্যালেন্স:</b> <b>৳' + (newBalance !== undefined ? newBalance : 'N/A') + ' BDT</b>\n' +
+                '🏦 <b>পেমেন্ট মাধ্যম:</b> <code>' + escapeHtml(paymentMethod || 'In-App Balance') + '</code>\n' +
+                '📩 <b>রিসিভ এড্রেস:</b> <code>' + escapeHtml(wallet || 'N/A') + '</code>\n' +
+                '🆔 <b>Order ID:</b> <code>' + (orderId || trxId || 'N/A') + '</code>\n' +
+                (txHash ? ('🔗 <b>Tx Hash:</b> <code>' + escapeHtml(txHash) + '</code>\n') : '') +
+                (explorer ? ('🌐 <b>Explorer:</b> <a href="' + explorer + '">View on Explorer</a>\n') : '') +
+                '⚡ <b>স্ট্যাটাস:</b> <code>' + escapeHtml(status || 'Completed & Sent') + '</code></blockquote>';
+        } else if (type === 'sell') {
+            msg = '<blockquote><b>' + PE.dollar + ' নতুন ক্রিপ্টো বিক্রয় সম্পন্ন! (Crypto Sold & Credited)</b>\n\n' +
+                '👤 <b>Name:</b> ' + userLink + '\n' +
+                '🆔 <b>User ID:</b> <code>' + cleanUserId + '</code>\n' +
+                '🔗 <b>Username:</b> ' + cleanUsername + '\n' +
+                '💎 <b>বিক্রিত ক্রিপ্টো:</b> <b>' + amount + ' ' + (asset || 'GRAM') + '</b>\n' +
+                '💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳' + (totalBdt !== undefined ? totalBdt : 'N/A') + ' BDT</b>\n' +
+                '💰 <b>নতুন ব্যালেন্স:</b> <b>৳' + (newBalance !== undefined ? newBalance : 'N/A') + ' BDT</b>\n' +
+                (commentCode ? ('🔢 <b>Comment Code:</b> <code>' + escapeHtml(commentCode) + '</code>\n') : '') +
+                '🏦 <b>সেন্ডার ওয়ালেট:</b> <code>' + escapeHtml(wallet || 'Direct') + '</code>\n' +
+                '🆔 <b>Order ID:</b> <code>' + (orderId || trxId || 'N/A') + '</code>\n' +
+                '⚡ <b>স্ট্যাটাস:</b> <code>' + escapeHtml(status || 'Completed & Verified') + '</code></blockquote>';
+        } else if (type === 'deposit') {
+            msg = '<blockquote><b>' + PE.moneyBag + ' নতুন ব্যালেন্স ডিপোজিট সম্পন্ন! (Add Money)</b>\n\n' +
+                '👤 <b>Name:</b> ' + userLink + '\n' +
+                '🆔 <b>User ID:</b> <code>' + cleanUserId + '</code>\n' +
+                '🔗 <b>Username:</b> ' + cleanUsername + '\n' +
+                '💵 <b>ডিপোজিট পরিমাণ:</b> <b>৳' + (totalBdt || amount) + ' BDT</b>\n' +
+                '💰 <b>নতুন ব্যালেন্স:</b> <b>৳' + (newBalance !== undefined ? newBalance : 'N/A') + ' BDT</b>\n' +
+                '🏦 <b>মাধ্যম:</b> <code>' + escapeHtml(paymentMethod || 'bKash/Nagad') + '</code>\n' +
+                '#️⃣ <b>TrxID:</b> <code>' + escapeHtml(trxId || 'N/A') + '</code>\n' +
+                '⚡ <b>স্ট্যাটাস:</b> <code>' + escapeHtml(status || 'Auto-Verified') + '</code></blockquote>';
+        }
+
+        if (msg) {
+            for (const grp of uniqueGroups) {
+                try {
+                    await bot.sendMessage(grp, msg, { parse_mode: 'HTML' });
+                    console.log('[notifyDataGroup] Sent', type, 'alert to group', grp);
+                } catch (htmlErr) {
+                    console.warn('[notifyDataGroup] HTML send failed for', grp, htmlErr.message);
+                    const plainMsg = msg.replace(/<[^>]+>/g, '');
+                    await bot.sendMessage(grp, plainMsg).catch(e => console.error('[notifyDataGroup] Plain fallback failed:', e.message));
+                }
+            }
+        }
+    } catch (e) {
+        console.error('[notifyDataGroup] unexpected error:', e.message);
+    }
+};
+
 async function loadConfig() {
     try {
         const configPath = path.join(__dirname, 'config.json');
@@ -7688,6 +7777,22 @@ app.post('/api/admin/approve-buy', async (req, res) => {
             totalBdt: order.totalBdt || 0,
             wallet: order.receiveAddress,
             txHash: txResult?.txHash || order.trxId
+        }).catch(() => {});
+
+        // Notify Data Group
+        notifyDataGroup({
+            type: 'buy',
+            userId: order.userId,
+            name: allUsersMasterData[order.userId?.toString()]?.firstName || 'User',
+            username: allUsersMasterData[order.userId?.toString()]?.username || '',
+            asset: order.asset,
+            amount: order.amount,
+            totalBdt: order.totalBdt || 0,
+            paymentMethod: order.paymentMethod || 'Manual/Admin',
+            wallet: order.receiveAddress,
+            orderId: id,
+            txHash: txResult?.txHash || order.trxId,
+            status: 'Approved & Sent by Admin'
         }).catch(() => {});
 
         const config = botConfig || {};
