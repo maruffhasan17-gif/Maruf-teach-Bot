@@ -61,7 +61,21 @@ function loadUsersCacheFromDisk() {
     console.log(`[Cache] Loaded ${Object.keys(localUserMemoryCache).length} user profiles into resilient memory cache.`);
 }
 
+let global_user_counter = 101;
+
+function recalculateGlobalUserCounter() {
+    let max = 101;
+    for (const u of Object.values(localUserMemoryCache)) {
+        if (u && typeof u.userNumber === 'number' && u.userNumber > max) {
+            max = u.userNumber;
+        }
+    }
+    global_user_counter = Math.max(101, Object.keys(localUserMemoryCache).length, max);
+    console.log(`[Users] Initialized global_user_counter = ${global_user_counter}`);
+}
+
 loadUsersCacheFromDisk();
+recalculateGlobalUserCounter();
 
 function saveLocalUserCache(userId, data) {
     if (!userId) return;
@@ -75,6 +89,10 @@ function saveLocalUserCache(userId, data) {
         userId: strId,
         cachedAt: Date.now()
     };
+
+    if (data && typeof data.userNumber === 'number' && data.userNumber > global_user_counter) {
+        global_user_counter = data.userNumber;
+    }
 
     try {
         fs.writeFileSync(USERS_CACHE_FILE, JSON.stringify(localUserMemoryCache, null, 2), 'utf8');
@@ -1815,16 +1833,29 @@ const notifiedNewUserIds = new Set();
 
 async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = false) {
     try {
-        if (!userId || userId === 123456789 || isNaN(userId)) return;
+        if (!userId || userId === 123456789 || userId === 12345 || isNaN(userId)) return;
         const strUserId = userId.toString();
         if (notifiedNewUserIds.has(strUserId)) return;
 
+        // 1. FAST IN-MEMORY CHECK (Zero Firestore Read):
+        const cachedUser = localUserMemoryCache[strUserId] || getLocalUserCache(strUserId);
+        if (cachedUser) {
+            if (cachedUser.userNumber || cachedUser.notifiedNewUser || (!isConfirmedBrandNew && (cachedUser.joinedAt || cachedUser.chatId || cachedUser.status))) {
+                notifiedNewUserIds.add(strUserId);
+                if (!cachedUser.notifiedNewUser) {
+                    saveLocalUserCache(strUserId, { notifiedNewUser: true });
+                    db.collection('users').doc(strUserId).set({ notifiedNewUser: true }, { merge: true }).catch(() => {});
+                }
+                return;
+            }
+        }
+
+        // 2. Fallback check from Firestore ONLY if not found in memory cache
         const userRef = db.collection('users').doc(strUserId);
         const userDoc = await userRef.get().catch(() => null);
 
         if (userDoc && userDoc.exists) {
             const d = userDoc.data() || {};
-            // If user was already counted/notified OR was already an existing bot member before this call
             if (
                 d.userNumber ||
                 d.notifiedNewUser ||
@@ -1841,6 +1872,7 @@ async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = 
                 ))
             ) {
                 notifiedNewUserIds.add(strUserId);
+                saveLocalUserCache(strUserId, { ...d, notifiedNewUser: true });
                 if (!d.notifiedNewUser) {
                     userRef.set({ notifiedNewUser: true }, { merge: true }).catch(() => {});
                 }
@@ -1848,23 +1880,11 @@ async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = 
             }
         }
 
+        // 3. Truly brand-new user: assign next sequential userNumber without full collection scan (Zero Quota Burn)
         notifiedNewUserIds.add(strUserId);
+        const userNumber = ++global_user_counter;
 
-        let userNumber = 1;
-        try {
-            const countSnap = await db.collection('users').count().get();
-            const currentCount = countSnap.data().count || 0;
-            userNumber = (userDoc && userDoc.exists) ? Math.max(1, currentCount) : (currentCount + 1);
-        } catch (cErr) {
-            try {
-                const snap = await db.collection('users').select().get();
-                userNumber = (userDoc && userDoc.exists) ? Math.max(1, snap.size) : (snap.size + 1);
-            } catch (e) {
-                userNumber = 1;
-            }
-        }
-
-        await userRef.set({
+        const newProfile = {
             id: Number(userId),
             chatId: strUserId,
             userId: Number(userId),
@@ -1877,7 +1897,13 @@ async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = 
             status: (userDoc && userDoc.exists && userDoc.data()?.status) ? userDoc.data().status : 'pending_verification',
             userNumber: userNumber,
             notifiedNewUser: true
-        }, { merge: true });
+        };
+
+        saveLocalUserCache(strUserId, newProfile);
+
+        await userRef.set(newProfile, { merge: true }).catch(err => {
+            console.warn('[Users] Firestore set error for new user:', err.message);
+        });
 
         const targetGroup = botConfig?.userLogGroupId || botConfig?.newUserGroupId;
         if (targetGroup && bot) {
@@ -2382,19 +2408,30 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     // 2. Multi-instance lock in Firestore to prevent double messages between Render and local PM2
     try {
         const lockRef = db.collection('bot_start_locks').doc(lockKey);
-        const lockDoc = await lockRef.get();
-        if (lockDoc.exists) return; // Handled by another instance
-        await lockRef.set({ timestamp: FieldValue.serverTimestamp(), chatId });
+        const lockDoc = await lockRef.get().catch(() => null);
+        if (lockDoc && lockDoc.exists) return; // Handled by another instance
+        await lockRef.set({ timestamp: FieldValue.serverTimestamp(), chatId }).catch(() => {});
     } catch(e) {}
 
     const username = msg.from.username || "";
     const firstName = msg.from.first_name || "User";
     const lastName = msg.from.last_name || "";
     
-    // Check if this user ALREADY exists in Firebase BEFORE writing any fields
-    const userRef = db.collection('users').doc(chatId.toString());
-    const existingUserDoc = await userRef.get().catch(() => null);
-    const existingData = (existingUserDoc && existingUserDoc.exists) ? (existingUserDoc.data() || {}) : null;
+    // Check if this user ALREADY exists in memory cache (Zero Read) or Firestore
+    const strChatId = chatId.toString();
+    const cachedProfile = localUserMemoryCache[strChatId] || getLocalUserCache(strChatId);
+    let existingData = cachedProfile || null;
+    let existingUserDoc = null;
+
+    if (!existingData) {
+        const userRef = db.collection('users').doc(strChatId);
+        existingUserDoc = await userRef.get().catch(() => null);
+        if (existingUserDoc && existingUserDoc.exists) {
+            existingData = existingUserDoc.data() || {};
+            saveLocalUserCache(strChatId, existingData);
+        }
+    }
+
     const isExistingUser = Boolean(
         existingData && (
             existingData.userNumber ||
@@ -2421,10 +2458,23 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         await notifyNewUserJoined(chatId, { username, firstName, lastName }, true);
     }
 
-    await userRef.set({
+    saveLocalUserCache(strChatId, {
+        id: strChatId,
+        userId: chatId,
+        chatId: strChatId,
+        username: username,
+        firstName: firstName,
+        first_name: firstName,
+        lastName: lastName,
+        last_name: lastName,
+        notifiedNewUser: true
+    });
+
+    const userRef = db.collection('users').doc(strChatId);
+    userRef.set({
         id: chatId,
         userId: chatId,
-        chatId: chatId.toString(),
+        chatId: strChatId,
         username: username,
         firstName: firstName,
         first_name: firstName,
@@ -2436,7 +2486,10 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     userStates[chatId] = { step: 'start', failedAttempts: 0, lang: 'bn' };
     
     const membership = await checkUserCommunities(chatId);
-    const isAlreadyVerified = existingUserDoc && existingUserDoc.exists && existingUserDoc.data().status === 'verified';
+    const isAlreadyVerified = Boolean(
+        (existingData && existingData.status === 'verified') ||
+        (existingUserDoc && existingUserDoc.exists && existingUserDoc.data().status === 'verified')
+    );
 
         if (isAlreadyVerified && membership.allJoined) {
         const welcomeBackMsg = `${PE.gem} <b>Trust Pay — ট্রাস্ট পে</b> ${PE.sparkles}\n\n${PE.user} স্বাগতম <b>${firstName}</b>!\n${PE.check} আপনার অ্যাকাউন্ট ভেরিফাইড ও প্রস্তুত রয়েছে।\n\n${PE.zap} <i>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</i>`;
@@ -3318,29 +3371,32 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
         let data = {};
         let userRef = null;
 
-        try {
-            userRef = db.collection('users').doc(userId.toString());
-            const userDoc = await userRef.get();
-            if (userDoc.exists) {
-                data = userDoc.data() || {};
-                saveLocalUserCache(userId, data);
-            } else {
-                const cached = getLocalUserCache(userId);
-                if (cached) {
+        const cached = getLocalUserCache(userId);
+        const isFreshCache = cached && cached.cachedAt && (Date.now() - cached.cachedAt < 20000);
+
+        if (isFreshCache) {
+            data = { ...cached };
+        } else {
+            try {
+                userRef = db.collection('users').doc(userId.toString());
+                const userDoc = await userRef.get();
+                if (userDoc.exists) {
+                    data = userDoc.data() || {};
+                    saveLocalUserCache(userId, data);
+                } else if (cached) {
                     data = { ...cached };
                 } else if (req.query.startParam && /^ref_\d+$/i.test(String(req.query.startParam).trim())) {
                     const devInfo = extractClientDevice(req, req.query);
                     const refId = String(req.query.startParam).trim().replace(/^ref_/i, '');
                     await registerUserReferral(userId, refId, {}, devInfo).catch(() => {});
                 }
-            }
-        } catch (dbErr) {
-            console.warn(`[Firestore Quota Guard for user ${userId}] Fallback to memory cache: ${dbErr.message}`);
-            const cached = getLocalUserCache(userId);
-            if (cached) {
-                data = { ...cached };
-            } else {
-                data = { balance: 0, status: 'active', mbsId: 'MBS' + String(userId).slice(-5) };
+            } catch (dbErr) {
+                console.warn(`[Firestore Quota Guard for user ${userId}] Fallback to memory cache: ${dbErr.message}`);
+                if (cached) {
+                    data = { ...cached };
+                } else {
+                    data = { balance: 0, status: 'active', mbsId: 'MBS' + String(userId).slice(-5) };
+                }
             }
         }
 
@@ -3718,66 +3774,86 @@ async function resolveUserByMbsOrUid(rawQuery) {
     const clean = String(rawQuery || '').trim();
     if (!clean) return null;
     const upper = clean.toUpperCase();
+    const cleanUname = clean.replace(/^@/, '').toLowerCase();
 
-    // 1. Direct query by mbsId in Firestore
-    if (upper.startsWith('MBS')) {
-        const snap = await db.collection('users').where('mbsId', '==', upper).limit(1).get();
-        if (!snap.empty) {
-            const doc = snap.docs[0];
-            return { id: doc.id, data: doc.data() || {} };
-        }
-        // Fallback: check if any user's mbsId (case-insensitive) or fallback MBS ID ('MBS' + id.slice(-5)) matches
-        const suffix = upper.replace(/^MBS/, '');
-        const allUsers = await db.collection('users').get();
-        for (const d of allUsers.docs) {
-            const u = d.data() || {};
-            const storedUpper = String(u.mbsId || '').trim().toUpperCase();
-            const derived = (storedUpper || ('MBS' + String(d.id).slice(-5))).toUpperCase();
-            if (storedUpper === upper || derived === upper || (suffix.length >= 4 && String(d.id).endsWith(suffix) && !storedUpper)) {
-                if (!u.mbsId) {
-                    d.ref.set({ mbsId: upper }, { merge: true }).catch(() => {});
-                }
-                return { id: d.id, data: { ...u, mbsId: u.mbsId || upper } };
+    // 1. FAST IN-MEMORY RESOLUTION (Zero Firestore Read):
+    // Search localUserMemoryCache first
+    for (const [uid, u] of Object.entries(localUserMemoryCache)) {
+        if (!u) continue;
+        const storedUpper = String(u.mbsId || '').trim().toUpperCase();
+        const derived = (storedUpper || ('MBS' + String(uid).slice(-5))).toUpperCase();
+        const storedUname = String(u.username || '').replace(/^@/, '').toLowerCase();
+
+        // A. Match MBS ID or 4+ digit suffix
+        if (upper.startsWith('MBS')) {
+            const suffix = upper.replace(/^MBS/, '');
+            if (storedUpper === upper || derived === upper || (suffix.length >= 4 && String(uid).endsWith(suffix))) {
+                return { id: uid, data: { ...u, mbsId: u.mbsId || upper } };
+            }
+        } else if (/^\d+$/.test(clean)) {
+            // B. Match exact Telegram UID or 5-digit ending
+            if (uid === clean) {
+                return { id: uid, data: u };
+            }
+            if (clean.length === 5 && (String(uid).endsWith(clean) || derived === ('MBS' + clean))) {
+                return { id: uid, data: u };
+            }
+        } else if (cleanUname.length >= 3) {
+            // C. Match username
+            if (storedUname === cleanUname) {
+                return { id: uid, data: u };
             }
         }
-        return null;
     }
 
-    // 2. Numeric Telegram UID or 5-digit MBS number
-    if (/^\d+$/.test(clean)) {
-        const directDoc = await db.collection('users').doc(clean).get();
-        if (directDoc.exists) {
-            return { id: directDoc.id, data: directDoc.data() || {} };
-        }
-        if (clean.length === 5) {
-            const mbsCandidate = 'MBS' + clean;
-            const snap = await db.collection('users').where('mbsId', '==', mbsCandidate).limit(1).get();
+    // 2. Targeted Firestore lookups ONLY (Limit 1, never full collection scan):
+    if (upper.startsWith('MBS')) {
+        try {
+            const snap = await db.collection('users').where('mbsId', '==', upper).limit(1).get();
             if (!snap.empty) {
                 const doc = snap.docs[0];
-                return { id: doc.id, data: doc.data() || {} };
+                const d = doc.data() || {};
+                saveLocalUserCache(doc.id, d);
+                return { id: doc.id, data: d };
             }
-            const allUsers = await db.collection('users').get();
-            for (const d of allUsers.docs) {
-                if (String(d.id).endsWith(clean)) {
-                    const u = d.data() || {};
-                    return { id: d.id, data: u };
-                }
-            }
-        }
+        } catch (_) {}
         return null;
     }
 
-    // 3. Username fallback (e.g. @maruf7233 or maruf7233)
-    const cleanUname = clean.replace(/^@/, '').toLowerCase();
-    if (cleanUname.length >= 3) {
-        const allUsers = await db.collection('users').get();
-        for (const d of allUsers.docs) {
-            const u = d.data() || {};
-            if (String(u.username || '').replace(/^@/, '').toLowerCase() === cleanUname) {
-                return { id: d.id, data: u };
+    if (/^\d+$/.test(clean)) {
+        try {
+            const directDoc = await db.collection('users').doc(clean).get();
+            if (directDoc.exists) {
+                const d = directDoc.data() || {};
+                saveLocalUserCache(directDoc.id, d);
+                return { id: directDoc.id, data: d };
             }
-        }
+            if (clean.length === 5) {
+                const mbsCandidate = 'MBS' + clean;
+                const snap = await db.collection('users').where('mbsId', '==', mbsCandidate).limit(1).get();
+                if (!snap.empty) {
+                    const doc = snap.docs[0];
+                    const d = doc.data() || {};
+                    saveLocalUserCache(doc.id, d);
+                    return { id: doc.id, data: d };
+                }
+            }
+        } catch (_) {}
+        return null;
     }
+
+    if (cleanUname.length >= 3) {
+        try {
+            const snapshot = await db.collection('users').where('username', '==', cleanUname).limit(1).get();
+            if (!snapshot.empty) {
+                const doc = snapshot.docs[0];
+                const d = doc.data() || {};
+                saveLocalUserCache(doc.id, d);
+                return { id: doc.id, data: d };
+            }
+        } catch (_) {}
+    }
+
     return null;
 }
 
@@ -5774,14 +5850,13 @@ app.get('/api/stats', async (req, res) => {
     try {
         console.log("/api/stats called");
         
-        console.log("Fetching users...");
+        console.log("Fetching users (Zero Firestore Read from memory cache)...");
         let users = [];
         try {
-            const [usersSnapshot, buysSnap, sellsSnap, withSnap] = await Promise.all([
-                db.collection('users').get(),
-                db.collection('miniapp_buys').limit(200).get().catch(() => ({ forEach: () => {} })),
-                db.collection('miniapp_sells').limit(200).get().catch(() => ({ forEach: () => {} })),
-                db.collection('fiat_withdrawals').limit(200).get().catch(() => ({ forEach: () => {} }))
+            const [buysSnap, sellsSnap, withSnap] = await Promise.all([
+                db.collection('miniapp_buys').limit(100).get().catch(() => ({ forEach: () => {} })),
+                db.collection('miniapp_sells').limit(100).get().catch(() => ({ forEach: () => {} })),
+                db.collection('fiat_withdrawals').limit(100).get().catch(() => ({ forEach: () => {} }))
             ]);
 
             const transactingUserIds = new Set();
@@ -5798,37 +5873,28 @@ app.get('/api/stats', async (req, res) => {
                 if (od.userId) transactingUserIds.add(od.userId.toString());
             });
 
-            usersSnapshot.forEach(doc => {
-                const u = doc.data();
-                const uId = (u.chatId || doc.id).toString();
-                u.chatId = uId;
-                u.id = doc.id;
-                u.firstName = u.firstName || u.first_name || u.name || u.fiatWallet?.name || '';
-                u.username = u.username || '';
-                u.photoUrl = u.photoUrl || u.photo_url || null;
-                if (!u.mbsId) {
-                    u.mbsId = 'MBS' + uId.slice(-5);
-                }
+            for (const [docId, u] of Object.entries(localUserMemoryCache)) {
+                if (!u || docId === '12345' || docId === '123456789') continue;
+                const uId = String(u.chatId || u.userId || docId);
                 const hasTx = transactingUserIds.has(uId) || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0);
-                u.isVerified = Boolean(hasTx || u.isVerified || u.status === 'verified');
-                u.balance = parseFloat(u.balance || 0);
-                users.push(u);
-            });
+                users.push({
+                    ...u,
+                    id: uId,
+                    chatId: uId,
+                    userId: uId,
+                    firstName: u.firstName || u.first_name || u.name || u.fiatWallet?.name || 'User',
+                    username: u.username || '',
+                    photoUrl: u.photoUrl || u.photo_url || null,
+                    mbsId: u.mbsId || ('MBS' + uId.slice(-5)),
+                    isVerified: Boolean(hasTx || u.isVerified || u.status === 'verified'),
+                    balance: parseFloat(u.balance || 0),
+                    userNumber: u.userNumber || 1
+                });
+            }
         } catch (uErr) {
-            console.warn("Firestore users fetch warning in /api/stats:", uErr.message);
+            console.warn("User stats processing warning in /api/stats:", uErr.message);
             if (statsCache.data?.users && statsCache.data.users.length > 0) {
                 users = statsCache.data.users;
-            } else if (localUserMemoryCache && Object.keys(localUserMemoryCache).length > 0) {
-                users = Object.values(localUserMemoryCache).map(u => ({
-                    ...u,
-                    chatId: String(u.id || u.userId),
-                    id: String(u.id || u.userId),
-                    firstName: u.firstName || u.first_name || '',
-                    username: u.username || '',
-                    mbsId: u.mbsId || ('MBS' + String(u.id || u.userId).slice(-5)),
-                    balance: parseFloat(u.balance || 0),
-                    isVerified: true
-                }));
             }
         }
         
@@ -8974,17 +9040,16 @@ app.post('/api/admin/broadcast/send', requireAdminAuth, async (req, res) => {
             }
             recipientIds = [cleanTarget];
         } else {
-            const snapshot = await db.collection('users').get();
             const uniqueSet = new Set();
-            snapshot.forEach(doc => {
-                const d = doc.data() || {};
-                const uid = String(d.chatId || doc.id || '').trim();
+            for (const [docId, d] of Object.entries(localUserMemoryCache)) {
+                if (!d) continue;
+                const uid = String(d.chatId || d.userId || docId || '').trim();
                 // Skip dummy/test IDs or non-numeric IDs
-                if (!uid || !/^\d+$/.test(uid) || uid === '12345' || uid === '123456789') return;
-                if (d.status === 'banned') return;
-                if (target === 'with_balance' && (parseFloat(d.balance) || 0) <= 0) return;
+                if (!uid || !/^\d+$/.test(uid) || uid === '12345' || uid === '123456789') continue;
+                if (d.status === 'banned') continue;
+                if (target === 'with_balance' && (parseFloat(d.balance) || 0) <= 0) continue;
                 uniqueSet.add(uid);
-            });
+            }
             recipientIds = Array.from(uniqueSet);
         }
 
@@ -10095,14 +10160,12 @@ const fetchPendingWithdrawals = async () => {
     }
 
     try {
-        const usersSnap = await db.collection('users').get();
-        usersSnap.forEach(doc => {
-            const data = doc.data();
-            if (!data.fiatWithdrawPending) return;
+        for (const [docId, data] of Object.entries(localUserMemoryCache)) {
+            if (!data || !data.fiatWithdrawPending) continue;
             const p = data.fiatWithdrawPending;
-            if (p.status && p.status !== 'pending') return;
-            const pendId = p.id || doc.id;
-            if (seenIds.has(pendId)) return;
+            if (p.status && p.status !== 'pending') continue;
+            const pendId = p.id || docId;
+            if (seenIds.has(pendId)) continue;
             seenIds.add(pendId);
 
             const amount = parseFloat(p.amount) || 0;
@@ -10111,7 +10174,7 @@ const fetchPendingWithdrawals = async () => {
 
             results.push({
                 docId: pendId,
-                userId: doc.id,
+                userId: docId,
                 method: p.method || 'bKash',
                 number: p.number || 'N/A',
                 amount,
@@ -10122,9 +10185,9 @@ const fetchPendingWithdrawals = async () => {
                 createdAt: p.createdAt || (p.timestamp ? (typeof p.timestamp === 'number' ? p.timestamp : new Date(p.timestamp).getTime()) : 0) || 0,
                 source: 'users'
             });
-        });
+        }
     } catch(e) {
-        console.error('[WithdrawBot] users fetch error:', e.message);
+        console.error('[WithdrawBot] users cache pending error:', e.message);
     }
 
     // Sort chronologically (earliest first - FIFO)
