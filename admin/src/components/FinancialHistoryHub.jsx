@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Coins, 
   ArrowUpRight, 
@@ -33,6 +33,24 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
   const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'completed' | 'pending' | 'rejected'
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(25);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollTop + windowHeight >= docHeight - 350) {
+        setVisibleCount(prev => (prev < filteredList.length ? prev + 25 : prev));
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [filteredList.length]);
+
+  useEffect(() => {
+    setVisibleCount(25);
+  }, [activeTab, statusFilter, search]);
 
   const copyText = (text, key) => {
     if (!text) return;
@@ -466,7 +484,7 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
               </tr>
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-slate-800/40' : 'divide-slate-200'}`}>
-              {filteredList.map((item, idx) => {
+              {filteredList.slice(0, visibleCount).map((item, idx) => {
                 const isCopied = copiedKey === `${item.id}_${idx}`;
                 const isBuy = item.type === 'buy';
                 const isSell = item.type === 'sell';
@@ -585,11 +603,25 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
           </table>
         </div>
 
+        {visibleCount < filteredList.length && (
+          <div className="p-3 text-center border-t border-slate-800/40 bg-slate-900/30">
+            <button
+              type="button"
+              onClick={() => setVisibleCount(c => c + 25)}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold border transition-all ${
+                isDark ? 'bg-purple-950/40 border-purple-800/40 text-purple-300 hover:bg-purple-900/50' : 'bg-white border-slate-200 text-slate-700 shadow-sm hover:bg-slate-50'
+              }`}
+            >
+              Load more transactions (Showing {visibleCount} of {filteredList.length}) ↓
+            </button>
+          </div>
+        )}
+
         {/* Footer Count */}
         <div className={`p-4 border-t flex items-center justify-between text-xs font-mono text-slate-400 ${
           isDark ? 'border-slate-800 bg-[#0c1024]' : 'border-slate-200 bg-slate-50'
         }`}>
-          <span>Showing {filteredList.length} of {unifiedStream.length} total activity records</span>
+          <span>Showing {Math.min(visibleCount, filteredList.length)} of {filteredList.length} matching ({unifiedStream.length} total)</span>
           <span>Auto-Refreshed every 20 seconds</span>
         </div>
       </div>

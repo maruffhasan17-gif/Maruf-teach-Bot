@@ -4734,28 +4734,21 @@ app.post('/api/miniapp/sell', async (req, res) => {
             ? (updatedDoc.data()?.balance || verifiedTk)
             : ((allUsersMasterData[userId.toString()]?.balance) || verifiedTk);
 
-        // Notify Data Group (Admin sees the 10-Char Comment Code)
-        const config = botConfig || {};
-        const dataGroup = config.dataGroupId || config.adminGroupId;
-        if (dataGroup && bot) {
-            const userData = updatedDoc.data() || userDoc.data() || {};
-            const userName = userData.first_name || userData.firstName || 'User';
-            const rawUname = userData.username ? userData.username.replace('@', '') : '';
-            const userUname = rawUname ? `@${rawUname}` : 'None';
-
-            const msg = `<blockquote><b>⚡ নতুন ক্রিপ্টো বিক্রয় (Crypto Sold - Verified)!</b>\n\n` +
-                `👤 <b>Name:</b> <a href="tg://user?id=${userId}">${escapeHtml(userName)}</a>\n` +
-                `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
-                `🔗 <b>Username:</b> ${userUname}\n` +
-                `💎 <b>বিক্রয়:</b> <b>${numAmount} ${normAsset}</b>\n` +
-                `💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳${verifiedTk} BDT</b>\n` +
-                `💰 <b>নতুন ব্যালেন্স:</b> <b>৳${newBalance} BDT</b>\n` +
-                `🔢 <b>Comment Code:</b> <code>${cleanSellCode}</code>\n` +
-                `🏦 <b>Wallet:</b> <code>${wallet || 'Direct'}</code>\n` +
-                `🔗 <b>Tx Event:</b> <code>${onChain.eventId}</code>\n` +
-                `🆔 <b>Order ID:</b> <code>${savedOrderId}</code></blockquote>`;
-            bot.sendMessage(dataGroup, msg, { parse_mode: 'HTML' }).catch(e=>console.error(e.message));
-        }
+        // Notify Telegram Data Group with comprehensive details
+        notifyDataGroup({
+            type: 'sell',
+            userId,
+            name: (updatedDoc && typeof updatedDoc.data === 'function' ? (updatedDoc.data()?.firstName || updatedDoc.data()?.first_name) : '') || allUsersMasterData[userId.toString()]?.firstName || 'User',
+            username: (updatedDoc && typeof updatedDoc.data === 'function' ? updatedDoc.data()?.username : '') || allUsersMasterData[userId.toString()]?.username || '',
+            asset: normAsset,
+            amount: numAmount,
+            totalBdt: verifiedTk,
+            newBalance,
+            commentCode: cleanSellCode,
+            wallet: wallet || 'Direct',
+            orderId: savedOrderId,
+            status: 'Completed & Verified'
+        }).catch(() => {});
 
         // Send confirmation to User in Telegram (without showing internal comment code)
         if (bot && userId) {
@@ -7023,6 +7016,24 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             txHash: txResult?.txHash || orderId
         }).catch(() => {});
 
+        // Notify Telegram Data Group with comprehensive details
+        notifyDataGroup({
+            type: 'buy',
+            userId,
+            name: (userDoc && typeof userDoc.data === 'function' ? (userDoc.data()?.firstName || userDoc.data()?.first_name) : '') || allUsersMasterData[userId.toString()]?.firstName || 'User',
+            username: (userDoc && typeof userDoc.data === 'function' ? userDoc.data()?.username : '') || allUsersMasterData[userId.toString()]?.username || '',
+            asset,
+            amount: cryptoAmount,
+            totalBdt: bdtAmount,
+            newBalance,
+            paymentMethod: 'In-App Balance',
+            wallet: receiveAddress,
+            orderId,
+            txHash: txResult?.txHash || null,
+            explorer: txResult?.explorer || null,
+            status: 'Completed (Sent On-Chain)'
+        }).catch(() => {});
+
         // Second redundant alert removed per user request: only the message with button (userBuyInstantMsg) is sent to the user.
 
         invalidateUserHistoryCache(userId);
@@ -7170,6 +7181,20 @@ app.post('/api/miniapp/buy', async (req, res) => {
             `${PE.check} <b>Status:</b> <code>Auto-Verified &amp; Credited</code></blockquote>\n\n` +
             `${PE.rocket} <i>টাকাটি স্বয়ংক্রিয়ভাবে ব্যালেন্সে জমা হয়েছে।</i>`;
         bot.sendMessage(userId, addOkMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
+
+        // Notify Telegram Data Group with comprehensive details
+        notifyDataGroup({
+            type: 'deposit',
+            userId,
+            name: (updatedDoc && typeof updatedDoc.data === 'function' ? (updatedDoc.data()?.firstName || updatedDoc.data()?.first_name) : '') || allUsersMasterData[userId.toString()]?.firstName || 'User',
+            username: (updatedDoc && typeof updatedDoc.data === 'function' ? updatedDoc.data()?.username : '') || allUsersMasterData[userId.toString()]?.username || '',
+            amount: totalBdt,
+            totalBdt,
+            newBalance,
+            paymentMethod: paymentMethod || verifiedData.sender || 'bKash/Nagad',
+            trxId,
+            status: 'Auto-Verified'
+        }).catch(() => {});
 
         return res.json({ 
             success: true, 
@@ -7447,9 +7472,71 @@ app.get('/api/sms', handleIncomingSmsWebhook);
 
 
 
+// Lightweight pending counts for Admin sidebar badges (0 Firestore reads from memory/cache)
+app.get('/api/admin/pending-counts', async (req, res) => {
+    try {
+        let pendingBuys = 0;
+        let pendingWithdrawals = 0;
+
+        if (ordersCache.data) {
+            pendingBuys = (ordersCache.data.buys || []).filter(b => b.status === 'pending' || b.status === 'verified').length;
+            pendingWithdrawals = (ordersCache.data.withdrawals || []).filter(w => w.status === 'pending' || !w.status).length;
+            return res.json({ pendingBuys, pendingWithdrawals });
+        }
+
+        // Count pending withdrawals from in-memory master data (0 reads)
+        for (const u of Object.values(allUsersMasterData || {})) {
+            if (u && u.fiatWithdrawPending && (!u.fiatWithdrawPending.status || u.fiatWithdrawPending.status === 'pending')) {
+                pendingWithdrawals++;
+            }
+        }
+
+        try {
+            const pbSnap = await db.collection('miniapp_buys').where('status', 'in', ['pending', 'verified']).limit(20).get();
+            pendingBuys = pbSnap.size;
+        } catch(e) {}
+
+        res.json({ pendingBuys, pendingWithdrawals });
+    } catch(e) {
+        res.json({ pendingBuys: 0, pendingWithdrawals: 0 });
+    }
+});
+
+// Dedicated User Database endpoint for Admin Panel (0 Firestore reads, loads only when on /users menu)
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        const users = [];
+        for (const [docId, u] of Object.entries(allUsersMasterData || {})) {
+            if (!u || docId === '12345' || docId === '123456789') continue;
+            const uId = String(u.chatId || u.userId || docId);
+            users.push({
+                ...u,
+                id: docId,
+                chatId: uId,
+                userId: uId,
+                firstName: u.firstName || u.first_name || u.name || u.fiatWallet?.name || '',
+                username: u.username || '',
+                photoUrl: u.photoUrl || u.photo_url || null,
+                mbsId: u.mbsId || ('MBS' + uId.slice(-5)),
+                isVerified: Boolean((u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0) || (parseFloat(u.balance || 0) > 0) || u.isVerified || u.status === 'verified'),
+                balance: parseFloat(u.balance || 0),
+                userNumber: u.userNumber || 1
+            });
+        }
+        res.json({ success: true, users, total: users.length });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Route-aware Lazy Orders Endpoint (supports ?type=buys, ?type=sells, ?type=withdrawals to fetch only the active tab)
 app.get('/api/admin/orders', async (req, res) => {
+    const reqType = req.query.type; // 'buys' | 'sells' | 'withdrawals' | 'deposits'
     const now = Date.now();
     if (ordersCache.data && (now - ordersCache.timestamp < 60000)) {
+        if (reqType && ordersCache.data[reqType]) {
+            return res.json({ [reqType]: ordersCache.data[reqType] });
+        }
         return res.json(ordersCache.data);
     }
 
@@ -7460,60 +7547,80 @@ app.get('/api/admin/orders', async (req, res) => {
         let deposits = [];
         const seenWithdrawIds = new Set();
 
-        try {
-            const buysSnapshot = await db.collection('miniapp_buys').orderBy('timestamp', 'desc').limit(20).get();
-            buys = buysSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        } catch(e) {
-            console.warn("Warning fetching miniapp_buys:", e.message);
-            if (ordersCache.data?.buys) buys = ordersCache.data.buys;
+        const shouldFetchBuys = !reqType || reqType === 'buys';
+        const shouldFetchSells = !reqType || reqType === 'sells';
+        const shouldFetchDeposits = !reqType || reqType === 'deposits';
+        const shouldFetchWithdrawals = !reqType || reqType === 'withdrawals';
+
+        if (shouldFetchBuys) {
+            try {
+                const buysSnapshot = await db.collection('miniapp_buys').orderBy('timestamp', 'desc').limit(30).get();
+                buys = buysSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            } catch(e) {
+                console.warn("Warning fetching miniapp_buys:", e.message);
+                if (ordersCache.data?.buys) buys = ordersCache.data.buys;
+            }
         }
 
-        try {
-            const sellsSnapshot = await db.collection('miniapp_sells').orderBy('timestamp', 'desc').limit(20).get();
-            sells = sellsSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        } catch(e) {
-            console.warn("Warning fetching miniapp_sells:", e.message);
-            if (ordersCache.data?.sells) sells = ordersCache.data.sells;
+        if (shouldFetchSells) {
+            try {
+                const sellsSnapshot = await db.collection('miniapp_sells').orderBy('timestamp', 'desc').limit(30).get();
+                sells = sellsSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            } catch(e) {
+                console.warn("Warning fetching miniapp_sells:", e.message);
+                if (ordersCache.data?.sells) sells = ordersCache.data.sells;
+            }
         }
 
-        try {
-            const depSnapshot = await db.collection('deposits').orderBy('timestamp', 'desc').limit(20).get();
-            deposits = depSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        } catch(e) {
-            console.warn("Warning fetching deposits:", e.message);
-            if (ordersCache.data?.deposits) deposits = ordersCache.data.deposits;
+        if (shouldFetchDeposits) {
+            try {
+                const depSnapshot = await db.collection('deposits').orderBy('timestamp', 'desc').limit(30).get();
+                deposits = depSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            } catch(e) {
+                console.warn("Warning fetching deposits:", e.message);
+                if (ordersCache.data?.deposits) deposits = ordersCache.data.deposits;
+            }
         }
 
-        // 1. Get from fiat_withdrawals collection
-        try {
-            const fwSnap = await db.collection('fiat_withdrawals').orderBy('timestamp', 'desc').limit(20).get();
-            fwSnap.forEach(doc => {
-                const data = doc.data();
-                seenWithdrawIds.add(doc.id);
-                withdrawals.push({
-                    id: doc.id,
-                    withdrawId: doc.id,
-                    userId: data.userId,
-                    firstName: data.name || 'User',
-                    status: data.status || 'pending',
-                    ...data,
-                    fiatWithdrawPending: data
+        if (shouldFetchWithdrawals) {
+            try {
+                const fwSnap = await db.collection('fiat_withdrawals').orderBy('timestamp', 'desc').limit(30).get();
+                fwSnap.forEach(doc => {
+                    const data = doc.data();
+                    seenWithdrawIds.add(doc.id);
+                    withdrawals.push({
+                        id: doc.id,
+                        withdrawId: doc.id,
+                        userId: data.userId,
+                        firstName: data.name || 'User',
+                        status: data.status || 'pending',
+                        ...data,
+                        fiatWithdrawPending: data
+                    });
                 });
+            } catch(e) {
+                console.warn("Warning fetching fiat_withdrawals:", e.message);
+                if (ordersCache.data?.withdrawals) withdrawals = ordersCache.data.withdrawals;
+            }
+
+            withdrawals.sort((a, b) => {
+                const timeA = a.timestamp?._seconds ? a.timestamp._seconds * 1000 : (typeof a.timestamp === 'number' ? a.timestamp : (a.timestamp ? new Date(a.timestamp).getTime() : 0));
+                const timeB = b.timestamp?._seconds ? b.timestamp._seconds * 1000 : (typeof b.timestamp === 'number' ? b.timestamp : (b.timestamp ? new Date(b.timestamp).getTime() : 0));
+                return timeB - timeA;
             });
-        } catch(e) {
-            console.warn("Warning fetching fiat_withdrawals:", e.message);
-            if (ordersCache.data?.withdrawals) withdrawals = ordersCache.data.withdrawals;
         }
 
-        // sort withdrawals safely by timestamp descending
-        withdrawals.sort((a, b) => {
-            const timeA = a.timestamp?._seconds ? a.timestamp._seconds * 1000 : (typeof a.timestamp === 'number' ? a.timestamp : (a.timestamp ? new Date(a.timestamp).getTime() : 0));
-            const timeB = b.timestamp?._seconds ? b.timestamp._seconds * 1000 : (typeof b.timestamp === 'number' ? b.timestamp : (b.timestamp ? new Date(b.timestamp).getTime() : 0));
-            return timeB - timeA;
-        });
-
-        const ordersResult = { buys, sells, withdrawals, deposits };
+        const ordersResult = {
+            buys: shouldFetchBuys ? buys : (ordersCache.data?.buys || []),
+            sells: shouldFetchSells ? sells : (ordersCache.data?.sells || []),
+            withdrawals: shouldFetchWithdrawals ? withdrawals : (ordersCache.data?.withdrawals || []),
+            deposits: shouldFetchDeposits ? deposits : (ordersCache.data?.deposits || [])
+        };
         ordersCache = { data: ordersResult, timestamp: now };
+
+        if (reqType && ordersResult[reqType]) {
+            return res.json({ [reqType]: ordersResult[reqType] });
+        }
         res.json(ordersResult);
     } catch(e) {
         console.error("Admin orders error:", e.message);
@@ -9264,13 +9371,13 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
             : db.collection('users').doc(strUserId).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e }));
 
         const [buysRes, sellsRes, depRes, withRes, userDocRes, trfSentRes, trfRecvRes] = await Promise.all([
-            db.collection('miniapp_buys').where('userId', 'in', userIds).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
-            db.collection('miniapp_sells').where('userId', 'in', userIds).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
-            db.collection('deposits').where('userId', 'in', userIds).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
-            db.collection('fiat_withdrawals').where('userId', 'in', userIds).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            db.collection('miniapp_buys').where('userId', 'in', userIds).limit(70).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            db.collection('miniapp_sells').where('userId', 'in', userIds).limit(70).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            db.collection('deposits').where('userId', 'in', userIds).limit(40).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            db.collection('fiat_withdrawals').where('userId', 'in', userIds).limit(40).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
             userDocPromise,
-            db.collection('p2p_transfers').where('senderId', '==', strUserId).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
-            db.collection('p2p_transfers').where('receiverId', '==', strUserId).limit(25).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e }))
+            db.collection('p2p_transfers').where('senderId', '==', strUserId).limit(30).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e })),
+            db.collection('p2p_transfers').where('receiverId', '==', strUserId).limit(30).get().then(v => ({ status: 'fulfilled', value: v })).catch(e => ({ status: 'rejected', reason: e }))
         ]);
 
         // 0. P2P Money Transfers (Sent & Received)

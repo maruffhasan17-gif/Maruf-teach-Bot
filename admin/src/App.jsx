@@ -153,7 +153,80 @@ export function formatTimestamp(ts) {
   return 'Recent';
 }
 
-// Global data hook
+// Lightweight pending counts hook for sidebar notification badges (0 heavy Firestore reads)
+function usePendingCounts() {
+  const [counts, setCounts] = useState({ pendingBuys: 0, pendingWithdrawals: 0 });
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCounts = async () => {
+      try {
+        let res = await fetch(`${API_BASE}/api/admin/pending-counts?_t=${Date.now()}`);
+        if (!res.ok && API_BASE !== 'https://maruf-teach-bot.onrender.com') {
+          res = await fetch(`https://maruf-teach-bot.onrender.com/api/admin/pending-counts?_t=${Date.now()}`);
+        }
+        if (res.ok) {
+          const d = await res.json();
+          if (isMounted && d) {
+            setCounts({
+              pendingBuys: d.pendingBuys || 0,
+              pendingWithdrawals: d.pendingWithdrawals || 0
+            });
+          }
+        }
+      } catch (_) {}
+    };
+
+    fetchCounts();
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchCounts();
+    }, 180000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  return counts;
+}
+
+// Dedicated User Database Hook (loads ONLY when viewing /users menu, 0 Firestore reads)
+function useUsersData() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchUsers = async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    try {
+      let res;
+      try {
+        res = await fetch(`${API_BASE}/api/admin/users?_t=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        res = await fetch(`${API_BASE}/api/stats?_t=${Date.now()}`);
+      }
+      const json = await res.json();
+      if (json && Array.isArray(json.users)) {
+        setUsers(json.users);
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    } finally {
+      setLoading(false);
+      if (isManual) setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  return { users, loading, refreshing, refresh: () => fetchUsers(true) };
+}
+
+// Global data hook (loads platform overview, balances & rates)
 function useBotData() {
   const [data, setData] = useState({ 
     users: [], 
@@ -210,8 +283,8 @@ function useBotData() {
   return { data, loading, refreshing, refresh: () => fetchData(true) };
 }
 
-// Global Orders Hook
-function useOrdersData() {
+// Route-aware Lazy Orders Hook (loads ONLY requested tab: 'buys', 'sells', 'withdrawals', or full)
+function useOrdersData(filterType = null) {
   const [orders, setOrders] = useState({ buys: [], sells: [], withdrawals: [], deposits: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -219,24 +292,26 @@ function useOrdersData() {
   const fetchOrders = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
+      const typeParam = filterType ? `?type=${filterType}&_t=${Date.now()}` : `?_t=${Date.now()}`;
       let res;
       try {
-        res = await fetch(`${API_BASE}/api/admin/orders?_t=${Date.now()}`);
+        res = await fetch(`${API_BASE}/api/admin/orders${typeParam}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       } catch (err) {
         if (API_BASE !== 'https://maruf-teach-bot.onrender.com') {
-          res = await fetch(`https://maruf-teach-bot.onrender.com/api/admin/orders?_t=${Date.now()}`);
+          res = await fetch(`https://maruf-teach-bot.onrender.com/api/admin/orders${typeParam}`);
         } else {
           throw err;
         }
       }
       const json = await res.json();
       if (json) {
-        setOrders({
-          buys: Array.isArray(json.buys) ? json.buys : [],
-          sells: Array.isArray(json.sells) ? json.sells : [],
-          withdrawals: Array.isArray(json.withdrawals) ? json.withdrawals : []
-        });
+        setOrders(prev => ({
+          buys: Array.isArray(json.buys) ? json.buys : (filterType && filterType !== 'buys' ? prev.buys : []),
+          sells: Array.isArray(json.sells) ? json.sells : (filterType && filterType !== 'sells' ? prev.sells : []),
+          withdrawals: Array.isArray(json.withdrawals) ? json.withdrawals : (filterType && filterType !== 'withdrawals' ? prev.withdrawals : []),
+          deposits: Array.isArray(json.deposits) ? json.deposits : (filterType && filterType !== 'deposits' ? prev.deposits : [])
+        }));
       }
     } catch (err) {
       console.error("Error fetching orders:", err);
@@ -253,7 +328,7 @@ function useOrdersData() {
       fetchOrders(false);
     }, 180000);
     return () => clearInterval(interval);
-  }, []);
+  }, [filterType]);
 
   return { orders, loading, refreshing, refresh: () => fetchOrders(true) };
 }
@@ -611,10 +686,10 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
 function Layout({ children, onOpenCreateTrx, onLogout }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const { orders } = useOrdersData();
+  const { pendingBuys, pendingWithdrawals } = usePendingCounts();
 
-  const pendingBuysCount = orders.buys.filter(b => b.status === 'pending' || b.status === 'verified').length;
-  const pendingWithdrawCount = orders.withdrawals.filter(w => w.status === 'pending' || !w.status).length;
+  const pendingBuysCount = pendingBuys;
+  const pendingWithdrawCount = pendingWithdrawals;
 
   return (
     <div className={`min-h-screen flex ${isDark ? 'bg-[#090d24] text-slate-100' : 'bg-[#f8fafc] text-slate-900'}`}>
@@ -3403,13 +3478,21 @@ function BotWallet() {
 // 3. BUY ORDERS COMPONENT
 // =========================================================================
 function BuyOrders() {
-  const { orders, refresh, refreshing } = useOrdersData();
+  const { orders, refresh, refreshing } = useOrdersData('buys');
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  // Progressive scroll loading (infinite scroll chunking)
+  const CHUNK_SIZE = 12;
+  const [visibleCount, setVisibleCount] = useState(CHUNK_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(CHUNK_SIZE);
+  }, [filter, search]);
 
   const filteredBuys = useMemo(() => {
     return orders.buys.filter(b => {
@@ -3424,6 +3507,20 @@ function BuyOrders() {
       return matchFilter && matchSearch;
     });
   }, [orders.buys, filter, search]);
+
+  // Window scroll listener for progressive chunk loading
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollTop + windowHeight >= docHeight - 350) {
+        setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, filteredBuys.length));
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [filteredBuys.length]);
 
   const handleApprove = async (id) => {
     if (!window.confirm("Approve this crypto order? Net crypto after gas fee will be sent automatically on-chain with memo 'TrustPay'.")) return;
@@ -3534,7 +3631,7 @@ function BuyOrders() {
       {/* 6-Card Responsive Grid for Buy Orders */}
       {filteredBuys.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3.5 mb-6">
-          {filteredBuys.map((b) => {
+          {filteredBuys.slice(0, visibleCount).map((b) => {
             const isPending = b.status === 'pending' || b.status === 'verified';
             const isCompleted = b.status === 'completed';
             const isRejected = b.status === 'rejected';
@@ -3635,7 +3732,7 @@ function BuyOrders() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/20">
-              {filteredBuys.map((b) => {
+              {filteredBuys.slice(0, visibleCount).map((b) => {
                 const isPending = b.status === 'pending' || b.status === 'verified';
                 const isCompleted = b.status === 'completed';
                 const isRejected = b.status === 'rejected';
@@ -3720,6 +3817,26 @@ function BuyOrders() {
           </table>
         </div>
       </div>
+
+      {/* Progressive Scroll Footer */}
+      {filteredBuys.length > CHUNK_SIZE && (
+        <div className="py-6 flex flex-col items-center justify-center gap-2">
+          {visibleCount < filteredBuys.length ? (
+            <button
+              onClick={() => setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, filteredBuys.length))}
+              className="px-5 py-2.5 rounded-2xl bg-purple-600/20 border border-purple-500/40 text-purple-300 font-bold text-xs flex items-center gap-2 hover:bg-purple-600/30 transition-all cursor-pointer shadow-lg active:scale-95"
+            >
+              <RefreshCw size={14} className="animate-spin text-purple-400" />
+              নিচে স্ক্রল করুন অথবা আরও অর্ডার দেখতে চাপুন (${visibleCount} / ${filteredBuys.length})
+            </button>
+          ) : (
+            <div className="text-xs text-slate-500 font-bold flex items-center gap-1.5">
+              <CheckCircle2 size={14} className="text-emerald-500" />
+              সকল ${filteredBuys.length}টি বাই অর্ডার লোড হয়েছে
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -3728,9 +3845,26 @@ function BuyOrders() {
 // 4. SELL ORDERS COMPONENT
 // =========================================================================
 function SellOrders() {
-  const { orders, refresh, refreshing } = useOrdersData();
+  const { orders, refresh, refreshing } = useOrdersData('sells');
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+
+  // Progressive scroll loading (infinite scroll chunking)
+  const CHUNK_SIZE = 12;
+  const [visibleCount, setVisibleCount] = useState(CHUNK_SIZE);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollTop + windowHeight >= docHeight - 350) {
+        setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, orders.sells.length));
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [orders.sells.length]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -3757,7 +3891,7 @@ function SellOrders() {
       {/* 6-Card Responsive Grid for Crypto Sales */}
       {orders.sells.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3.5 mb-6">
-          {orders.sells.map(s => {
+          {orders.sells.slice(0, visibleCount).map(s => {
             const sTs = s?.timestamp;
             const formattedTime = (sTs && sTs._seconds)
               ? new Date(sTs._seconds * 1000).toLocaleString()
@@ -3816,7 +3950,7 @@ function SellOrders() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/20">
-              {orders.sells.map(s => {
+              {orders.sells.slice(0, visibleCount).map(s => {
                 const sTs = s?.timestamp;
                 const formattedTime = (sTs && sTs._seconds)
                   ? new Date(sTs._seconds * 1000).toLocaleString()
@@ -3848,6 +3982,26 @@ function SellOrders() {
           </table>
         </div>
       </div>
+
+      {/* Progressive Scroll Footer */}
+      {orders.sells.length > CHUNK_SIZE && (
+        <div className="py-6 flex flex-col items-center justify-center gap-2">
+          {visibleCount < orders.sells.length ? (
+            <button
+              onClick={() => setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, orders.sells.length))}
+              className="px-5 py-2.5 rounded-2xl bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 font-bold text-xs flex items-center gap-2 hover:bg-cyan-600/30 transition-all cursor-pointer shadow-lg active:scale-95"
+            >
+              <RefreshCw size={14} className="animate-spin text-cyan-400" />
+              নিচে স্ক্রল করুন অথবা আরও সেল দেখতে চাপুন (${visibleCount} / ${orders.sells.length})
+            </button>
+          ) : (
+            <div className="text-xs text-slate-500 font-bold flex items-center gap-1.5">
+              <CheckCircle2 size={14} className="text-emerald-500" />
+              সকল ${orders.sells.length}টি সেল অর্ডার লোড হয়েছে
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -3856,12 +4010,33 @@ function SellOrders() {
 // 5. FIAT CASHOUTS (WITHDRAWALS) - STRICT PENDING BUTTONS & 0-PREFIX PHONES
 // =========================================================================
 function FiatWithdrawals() {
-  const { orders, refresh, refreshing } = useOrdersData();
+  const { orders, refresh, refreshing } = useOrdersData('withdrawals');
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [tab, setTab] = useState('pending'); // 'pending' | 'all'
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  // Progressive scroll loading (infinite scroll chunking)
+  const CHUNK_SIZE = 12;
+  const [visibleCount, setVisibleCount] = useState(CHUNK_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(CHUNK_SIZE);
+  }, [tab, search]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollTop + windowHeight >= docHeight - 350) {
+        setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, displayedList.length));
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [displayedList.length]);
 
   const pendingWithdrawals = useMemo(() => {
     return orders.withdrawals.filter(w => w.status === 'pending' || !w.status);
@@ -3993,7 +4168,7 @@ function FiatWithdrawals() {
       {/* 6-Card Responsive Grid for Fiat Cashouts */}
       {displayedList.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3.5 mb-6">
-          {displayedList.map(w => {
+          {displayedList.slice(0, visibleCount).map(w => {
             const info = w?.fiatWithdrawPending || w || {};
             const amount = info.amount || w.amount || 0;
             const rawNumber = info.number || w.number || 'N/A';
@@ -4099,7 +4274,7 @@ function FiatWithdrawals() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/20">
-              {displayedList.map(w => {
+              {displayedList.slice(0, visibleCount).map(w => {
                 const info = w?.fiatWithdrawPending || w || {};
                 const amount = info.amount || w.amount || 0;
                 const rawNumber = info.number || w.number || 'N/A';
@@ -4180,6 +4355,26 @@ function FiatWithdrawals() {
           </table>
         </div>
       </div>
+
+      {/* Progressive Scroll Footer */}
+      {displayedList.length > CHUNK_SIZE && (
+        <div className="py-6 flex flex-col items-center justify-center gap-2">
+          {visibleCount < displayedList.length ? (
+            <button
+              onClick={() => setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, displayedList.length))}
+              className="px-5 py-2.5 rounded-2xl bg-rose-600/20 border border-rose-500/40 text-rose-300 font-bold text-xs flex items-center gap-2 hover:bg-rose-600/30 transition-all cursor-pointer shadow-lg active:scale-95"
+            >
+              <RefreshCw size={14} className="animate-spin text-rose-400" />
+              নিচে স্ক্রল করুন অথবা আরও উইথড্র দেখতে চাপুন (${visibleCount} / ${displayedList.length})
+            </button>
+          ) : (
+            <div className="text-xs text-slate-500 font-bold flex items-center gap-1.5">
+              <CheckCircle2 size={14} className="text-emerald-500" />
+              সকল ${displayedList.length}টি ক্যাশআউট লোড হয়েছে
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -4188,13 +4383,38 @@ function FiatWithdrawals() {
 // 6. USER MANAGEMENT COMPONENT (PREMIUM REDESIGNED)
 // =========================================================================
 function UsersManagement() {
-  const { data, refresh, refreshing } = useBotData();
+  const { users, refresh: refreshUsers, refreshing: usersRefreshing } = useUsersData();
+  const { data: botData, refresh: refreshBotData, refreshing: botRefreshing } = useBotData();
+  const refresh = () => { refreshUsers(); refreshBotData(); };
+  const refreshing = usersRefreshing || botRefreshing;
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all'); // 'all' | 'verified' | 'unverified'
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' (high balance first) | 'asc' (low balance first)
+
+  // Progressive scroll loading (infinite scroll chunking)
+  const CHUNK_SIZE = 18;
+  const [visibleCount, setVisibleCount] = useState(CHUNK_SIZE);
+
+  useEffect(() => {
+    setVisibleCount(CHUNK_SIZE);
+  }, [search, filter, sortOrder]);
+
+  // Window scroll listener for progressive chunk loading
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollTop + windowHeight >= docHeight - 350) {
+        setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, processedUsers.length));
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [processedUsers.length]);
 
   // Selected User Modal State
   const [selectedUser, setSelectedUser] = useState(null);
@@ -4214,7 +4434,8 @@ function UsersManagement() {
 
   // Compute sorted & filtered users
   const { processedUsers, statsCounts } = useMemo(() => {
-    const rawList = (data.users || []).map(u => {
+    const sourceUsers = (users && users.length > 0) ? users : (botData.users || []);
+    const rawList = sourceUsers.map(u => {
       const uId = (u.chatId || u.id || '').toString();
       const bal = parseFloat(u.balance || 0);
       return {
@@ -4483,7 +4704,7 @@ function UsersManagement() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6 gap-3.5">
-          {processedUsers.map((u, idx) => {
+          {processedUsers.slice(0, visibleCount).map((u, idx) => {
             const rank = idx + 1;
             const isRank1 = sortOrder === 'desc' && rank === 1;
             const isRank2 = sortOrder === 'desc' && rank === 2;
@@ -4624,6 +4845,26 @@ function UsersManagement() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Progressive Scroll Footer for Users */}
+      {processedUsers.length > CHUNK_SIZE && (
+        <div className="py-6 flex flex-col items-center justify-center gap-2">
+          {visibleCount < processedUsers.length ? (
+            <button
+              onClick={() => setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, processedUsers.length))}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600/20 to-indigo-600/20 border border-purple-500/40 text-purple-300 font-bold text-xs flex items-center gap-2 hover:from-purple-600/30 hover:to-indigo-600/30 transition-all cursor-pointer shadow-lg active:scale-95"
+            >
+              <RefreshCw size={14} className="animate-spin text-purple-400" />
+              নিচে স্ক্রল করুন অথবা আরও ইউজার দেখতে চাপুন (${visibleCount} / ${processedUsers.length})
+            </button>
+          ) : (
+            <div className="text-xs text-slate-500 font-bold flex items-center gap-1.5">
+              <CheckCircle2 size={14} className="text-emerald-500" />
+              সকল ${processedUsers.length} জন ইউজার লোড সম্পন্ন হয়েছে
+            </div>
+          )}
         </div>
       )}
 

@@ -6125,7 +6125,7 @@ function HomePage({
 
   useEffect(() => {
     window.__reloadHomeHistory = (force = true) => fetchRecent(force);
-    fetchRecent();
+    fetchRecent(true);
     return () => {
       if (window.__reloadHomeHistory) {
         window.__reloadHomeHistory = null;
@@ -7700,12 +7700,30 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const [transferStageRaw, setTransferStageRaw] = useState('verifying');
     const isSuccessRef = useRef(false);
 
+    const closeTonConnectModals = () => {
+        try {
+            if (tonConnectUI) {
+                tonConnectUI.closeModal();
+                if (tonConnectUI.modal) tonConnectUI.modal.close();
+            }
+        } catch (_) {}
+        try {
+            const tcModals = document.querySelectorAll('[data-tc-actions-modal-container], [data-tc-confirm-modal], [data-tc-modal][data-tc-actions-modal-container]');
+            tcModals.forEach(m => {
+                const btn = m.querySelector('button');
+                if (btn) btn.click();
+                m.remove();
+            });
+        } catch (_) {}
+    };
+
     const setTransferStage = (stg) => {
         if (isSuccessRef.current && stg !== 'success') {
             return;
         }
         if (stg === 'success') {
             isSuccessRef.current = true;
+            closeTonConnectModals();
         }
         setTransferStageRaw(stg);
     };
@@ -7865,6 +7883,9 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 isSuccessRef.current = true;
                 setTxResult(res);
                 setTransferStage('success');
+                try {
+                    localStorage.removeItem(`miniapp_history_cache_${user?.id || 123456789}`);
+                } catch (_) {}
                 if (reloadData) reloadData();
                 playAppSound('success');
             } else {
@@ -8471,6 +8492,7 @@ function SellCryptoPage({
                 try {
                     sessionStorage.removeItem('tp_pending_sell_code');
                     sessionStorage.removeItem('tp_pending_sell_amt');
+                    localStorage.removeItem(`miniapp_history_cache_${user?.id || 123456789}`);
                 } catch (_) {}
                 if (reloadData) reloadData();
                 playAppSound('success');
