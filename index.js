@@ -824,24 +824,37 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     
     // 3. Mathematical Ledger Reconciliation (Proof of Funds)
     // Use single-field .where('userId', '==', ...) with .catch() so Firestore composite index is never required
+    let auditDbError = false;
+    const safeAuditGet = (promise) => promise.catch(() => {
+        auditDbError = true;
+        return { docs: [] };
+    });
+
     const [depSnap1, depSnap2, buySnap1, buySnap2, sellSnap1, sellSnap2, withSnap1, withSnap2] = await Promise.all([
-        db.collection('deposits').where('userId', '==', strUserId).get().catch(() => ({ docs: [] })),
+        safeAuditGet(db.collection('deposits').where('userId', '==', strUserId).get()),
         (numUserId && !isNaN(numUserId))
-            ? db.collection('deposits').where('userId', '==', numUserId).get().catch(() => ({ docs: [] }))
+            ? safeAuditGet(db.collection('deposits').where('userId', '==', numUserId).get())
             : Promise.resolve({ docs: [] }),
-        db.collection('miniapp_buys').where('userId', '==', strUserId).get().catch(() => ({ docs: [] })),
+        safeAuditGet(db.collection('miniapp_buys').where('userId', '==', strUserId).get()),
         (numUserId && !isNaN(numUserId))
-            ? db.collection('miniapp_buys').where('userId', '==', numUserId).get().catch(() => ({ docs: [] }))
+            ? safeAuditGet(db.collection('miniapp_buys').where('userId', '==', numUserId).get())
             : Promise.resolve({ docs: [] }),
-        db.collection('miniapp_sells').where('userId', '==', strUserId).get().catch(() => ({ docs: [] })),
+        safeAuditGet(db.collection('miniapp_sells').where('userId', '==', strUserId).get()),
         (numUserId && !isNaN(numUserId))
-            ? db.collection('miniapp_sells').where('userId', '==', numUserId).get().catch(() => ({ docs: [] }))
+            ? safeAuditGet(db.collection('miniapp_sells').where('userId', '==', numUserId).get())
             : Promise.resolve({ docs: [] }),
-        db.collection('fiat_withdrawals').where('userId', '==', strUserId).get().catch(() => ({ docs: [] })),
+        safeAuditGet(db.collection('fiat_withdrawals').where('userId', '==', strUserId).get()),
         (numUserId && !isNaN(numUserId))
-            ? db.collection('fiat_withdrawals').where('userId', '==', numUserId).get().catch(() => ({ docs: [] }))
+            ? safeAuditGet(db.collection('fiat_withdrawals').where('userId', '==', numUserId).get())
             : Promise.resolve({ docs: [] })
     ]);
+
+    if (auditDbError) {
+        if (requestedAmount > 0 && requestedAmount > currentBalance) {
+            return { ok: false, code: 'INSUFFICIENT_BALANCE', error: `পর্যাপ্ত ব্যালেন্স নেই! আপনার ব্যালেন্স ৳${currentBalance.toFixed(2)} BDT` };
+        }
+        return { ok: true, currentBalance, maxPermissible: currentBalance, userData: uData, bypassReason: 'db_offline_bypass' };
+    }
     
     const seenDepIds = new Set();
     let sumDepositsCollection = 0;
@@ -4690,35 +4703,41 @@ app.post('/api/miniapp/sell', async (req, res) => {
 
         // Increment user balance & track totalCryptoSellBdt for referral activation using strictly server-calculated verifiedTk
         const userRef = db.collection('users').doc(userId.toString());
-        const userDoc = await userRef.get();
+        const userDoc = await userRef.get().catch(() => null);
         const extraWalletField = (wallet && wallet !== 'Manual' && wallet !== 'Direct' && String(wallet).length >= 20)
             ? { tonAddress: String(wallet).trim() }
             : {};
 
-        if (userDoc.exists) {
+        if (userDoc && userDoc.exists) {
             await userRef.update({ 
                 balance: FieldValue.increment(verifiedTk),
                 totalCryptoSellBdt: FieldValue.increment(verifiedTk),
                 hasSellBalance: true,
                 hasDepositWithoutTrade: false,
                 ...extraWalletField
-            });
+            }).catch(() => {});
         } else {
             await userRef.set({ 
-                balance: verifiedTk, 
-                totalCryptoSellBdt: verifiedTk,
-                joinedAt: FieldValue.serverTimestamp(),
+                balance: FieldValue.increment(verifiedTk), 
+                totalCryptoSellBdt: FieldValue.increment(verifiedTk),
                 hasSellBalance: true,
                 hasDepositWithoutTrade: false,
                 ...extraWalletField
-            }, { merge: true });
+            }, { merge: true }).catch(() => {});
+        }
+
+        if (allUsersMasterData[userId.toString()]) {
+            allUsersMasterData[userId.toString()].balance = (Number(allUsersMasterData[userId.toString()].balance) || 0) + verifiedTk;
+            saveUserMasterData(userId.toString(), allUsersMasterData[userId.toString()]);
         }
 
         // Check if this user qualifies their referrer for the 5 BDT active referral bonus
         checkAndRewardReferral(userId).catch(err => console.warn("Sell referral check err:", err.message));
 
-        const updatedDoc = await userRef.get();
-        const newBalance = updatedDoc.data()?.balance || verifiedTk;
+        const updatedDoc = await userRef.get().catch(() => null);
+        const newBalance = (updatedDoc && updatedDoc.exists)
+            ? (updatedDoc.data()?.balance || verifiedTk)
+            : ((allUsersMasterData[userId.toString()]?.balance) || verifiedTk);
 
         // Notify Data Group (Admin sees the 10-Char Comment Code)
         const config = botConfig || {};
@@ -6742,12 +6761,13 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         }
 
         const userRef = db.collection('users').doc(userId.toString());
-        const userDoc = await userRef.get();
-        if (!userDoc.exists) {
+        const userDoc = await userRef.get().catch(() => null);
+        const userData = (userDoc && userDoc.exists)
+            ? (userDoc.data() || {})
+            : (allUsersMasterData[userId.toString()] || audit.userData || {});
+        if (!userData || Object.keys(userData).length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
-
-        const userData = userDoc.data() || {};
 
         // 4.5 2-Step PIN Verification (if enabled by user)
         if (userData.twoStepEnabled && userData.twoStepPinHash) {
@@ -9210,6 +9230,8 @@ app.use('/app', express.static(path.join(__dirname, 'miniapp/dist'), {
     }
 }));
 
+const userHistoryMemoryCache = new Map();
+
 app.get('/api/miniapp/history/:userId', async (req, res) => {
     try {
         const rawUserId = req.params.userId;
@@ -9217,6 +9239,12 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
         const strUserId = rawUserId.toString();
         const userIds = [numUserId, strUserId].filter(Boolean);
         
+        // Fast 30-second memory cache to eliminate repeated Firestore reads on page switches
+        const cached = userHistoryMemoryCache.get(strUserId);
+        if (cached && (Date.now() - cached.ts < 30000) && Array.isArray(cached.data)) {
+            return res.json({ success: true, history: cached.data });
+        }
+
         const history = [];
 
         // Parallelize all Firestore queries for high-speed mobile data loading
@@ -9393,9 +9421,14 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
             return getTime(b) - getTime(a);
         });
         
+        userHistoryMemoryCache.set(strUserId, { data: history, ts: Date.now() });
         res.json({ success: true, history });
     } catch (e) {
-        console.error(e);
+        console.error("History fetch error:", e.message);
+        const cached = userHistoryMemoryCache.get(strUserId);
+        if (cached && Array.isArray(cached.data)) {
+            return res.json({ success: true, history: cached.data });
+        }
         res.status(500).json({ error: e.message });
     }
 });

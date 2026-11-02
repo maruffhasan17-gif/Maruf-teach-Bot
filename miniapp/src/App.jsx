@@ -4872,8 +4872,7 @@ export default function App() {
     };
 
     syncNotifications();
-    const pollInterval = setInterval(syncNotifications, 20000);
-    return () => { alive = false; clearInterval(pollInterval); };
+    return () => { alive = false; };
   }, [user?.id, lang]);
 
   const performCommunityCheck = async (silent = false) => {
