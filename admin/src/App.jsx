@@ -4025,19 +4025,6 @@ function FiatWithdrawals() {
     setVisibleCount(CHUNK_SIZE);
   }, [tab, search]);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      const docHeight = document.documentElement.scrollHeight;
-      if (scrollTop + windowHeight >= docHeight - 350) {
-        setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, displayedList.length));
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [displayedList.length]);
-
   const pendingWithdrawals = useMemo(() => {
     return orders.withdrawals.filter(w => w.status === 'pending' || !w.status);
   }, [orders.withdrawals]);
@@ -4051,6 +4038,19 @@ function FiatWithdrawals() {
       return uStr.includes(search) || numStr.includes(search);
     });
   }, [tab, pendingWithdrawals, orders.withdrawals, search]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollTop + windowHeight >= docHeight - 350) {
+        setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, displayedList.length));
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [displayedList.length]);
 
   const handleApprove = async (withdrawId, userId) => {
     if (!window.confirm(`Approve cashout payout for User ${userId}? Receipt will be automatically posted to payout channel.`)) return;
@@ -4402,20 +4402,6 @@ function UsersManagement() {
     setVisibleCount(CHUNK_SIZE);
   }, [search, filter, sortOrder]);
 
-  // Window scroll listener for progressive chunk loading
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      const docHeight = document.documentElement.scrollHeight;
-      if (scrollTop + windowHeight >= docHeight - 350) {
-        setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, processedUsers.length));
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [processedUsers.length]);
-
   // Selected User Modal State
   const [selectedUser, setSelectedUser] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
@@ -4480,6 +4466,20 @@ function UsersManagement() {
       statsCounts: { total, verifiedCount, unverifiedCount }
     };
   }, [data.users, search, filter, sortOrder]);
+
+  // Window scroll listener for progressive chunk loading
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollTop + windowHeight >= docHeight - 350) {
+        setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, processedUsers.length));
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [processedUsers.length]);
 
   // Open User Modal & Load Real Photo
   const handleOpenUser = async (user) => {

@@ -36,19 +36,6 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
   const [visibleCount, setVisibleCount] = useState(25);
 
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY || document.documentElement.scrollTop;
-      const windowHeight = window.innerHeight;
-      const docHeight = document.documentElement.scrollHeight;
-      if (scrollTop + windowHeight >= docHeight - 350) {
-        setVisibleCount(prev => (prev < filteredList.length ? prev + 25 : prev));
-      }
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [filteredList.length]);
-
-  useEffect(() => {
     setVisibleCount(25);
   }, [activeTab, statusFilter, search]);
 
@@ -241,6 +228,19 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
       return true;
     });
   }, [unifiedStream, activeTab, statusFilter, search]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollTop + windowHeight >= docHeight - 350) {
+        setVisibleCount(prev => (prev < filteredList.length ? prev + 25 : prev));
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [filteredList.length]);
 
   const formatTime = (ts) => {
     if (!ts) return 'Recent';
