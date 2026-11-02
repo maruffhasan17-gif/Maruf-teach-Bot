@@ -36,12 +36,50 @@ function invalidateOrdersCache() {
     ordersCache = { data: null, timestamp: 0 };
 }
 
+const ALL_USERS_BACKUP_FILE = path.join(__dirname, 'all_users_backup.json');
+let allUsersMasterData = {};
+
+function loadAllUsersMasterData() {
+    try {
+        if (fs.existsSync(ALL_USERS_BACKUP_FILE)) {
+            const raw = fs.readFileSync(ALL_USERS_BACKUP_FILE, 'utf8');
+            allUsersMasterData = JSON.parse(raw);
+            console.log(`[MasterData] Loaded ${Object.keys(allUsersMasterData).length} users from backup.`);
+        }
+    } catch (e) {
+        console.warn('[MasterData] Error loading backup:', e.message);
+    }
+}
+loadAllUsersMasterData();
+
+function saveUserMasterData(userId, data) {
+    if (!userId) return;
+    const strId = String(userId).trim();
+    allUsersMasterData[strId] = {
+        ...(allUsersMasterData[strId] || {}),
+        ...data,
+        id: strId,
+        userId: strId
+    };
+    try {
+        fs.writeFileSync(ALL_USERS_BACKUP_FILE, JSON.stringify(allUsersMasterData, null, 2), 'utf8');
+    } catch (_) {}
+}
+
 let global_user_counter = 101;
 async function initGlobalUserCounter() {
     try {
         const counterDoc = await db.collection('settings').doc('user_counter').get().catch(() => null);
         if (counterDoc && counterDoc.exists && typeof counterDoc.data().count === 'number') {
             global_user_counter = counterDoc.data().count;
+        } else {
+            let max = 101;
+            for (const u of Object.values(allUsersMasterData)) {
+                if (u && typeof u.userNumber === 'number' && u.userNumber > max) {
+                    max = u.userNumber;
+                }
+            }
+            global_user_counter = Math.max(101, Object.keys(allUsersMasterData).length, max);
         }
     } catch (_) {}
 }
@@ -727,14 +765,25 @@ async function checkUserAccountActive(userId) {
 async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 'Transaction') {
     const strUserId = String(userId);
     const numUserId = parseInt(userId, 10);
-    const userRef = db.collection('users').doc(strUserId);
-    const userDoc = await userRef.get();
-    
-    if (!userDoc.exists) {
-        return { ok: false, code: 'USER_NOT_FOUND', error: 'User not found' };
+    let uData = {};
+    try {
+        const userRef = db.collection('users').doc(strUserId);
+        const userDoc = await userRef.get();
+        if (userDoc.exists) {
+            uData = userDoc.data() || {};
+            saveUserMasterData(strUserId, uData);
+        } else if (allUsersMasterData[strUserId]) {
+            uData = { ...allUsersMasterData[strUserId] };
+        } else {
+            return { ok: false, code: 'USER_NOT_FOUND', error: 'User not found' };
+        }
+    } catch (e) {
+        if (allUsersMasterData[strUserId]) {
+            uData = { ...allUsersMasterData[strUserId] };
+        } else {
+            return { ok: false, code: 'DB_ERROR', error: 'ডাটাবেজ সাময়িকভাবে ব্যস্ত। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' };
+        }
     }
-    
-    const uData = userDoc.data() || {};
 
     // Auto-clear any legacy false-positive automated balance restriction before evaluating fresh ledger
     if (uData.status === 'restricted' && !uData.restrictedUntil && String(uData.restrictReason || '').includes('অসামঞ্জস্যপূর্ণ')) {
@@ -1772,12 +1821,12 @@ async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = 
         const strUserId = userId.toString();
         if (notifiedNewUserIds.has(strUserId)) return;
 
-        // Check user directly from Firestore
+        // Check user directly from Firestore or master backup
         const userRef = db.collection('users').doc(strUserId);
         const userDoc = await userRef.get().catch(() => null);
+        const d = (userDoc && userDoc.exists) ? (userDoc.data() || {}) : (allUsersMasterData[strUserId] || null);
 
-        if (userDoc && userDoc.exists) {
-            const d = userDoc.data() || {};
+        if (d) {
             if (
                 d.userNumber ||
                 d.notifiedNewUser ||
@@ -1811,6 +1860,8 @@ async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = 
             let current = 101;
             if (counterDoc && counterDoc.exists && typeof counterDoc.data().count === 'number') {
                 current = counterDoc.data().count;
+            } else {
+                current = Math.max(101, Object.keys(allUsersMasterData).length);
             }
             userNumber = Math.max(102, current + 1);
             global_user_counter = userNumber;
@@ -1833,6 +1884,8 @@ async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = 
             userNumber: userNumber,
             notifiedNewUser: true
         };
+
+        saveUserMasterData(strUserId, newProfile);
 
         await userRef.set(newProfile, { merge: true }).catch(err => {
             console.warn('[Users] Firestore set error for new user:', err.message);
@@ -2354,7 +2407,9 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     const strChatId = chatId.toString();
     const userRef = db.collection('users').doc(strChatId);
     const existingUserDoc = await userRef.get().catch(() => null);
-    const existingData = (existingUserDoc && existingUserDoc.exists) ? (existingUserDoc.data() || {}) : null;
+    const existingData = (existingUserDoc && existingUserDoc.exists)
+        ? (existingUserDoc.data() || {})
+        : (allUsersMasterData[strChatId] || null);
 
     const isExistingUser = Boolean(
         existingData && (
@@ -3280,13 +3335,17 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
 
     try {
         let data = {};
+        const strId = String(userId);
         let userRef = null;
 
         try {
-            userRef = db.collection('users').doc(userId.toString());
+            userRef = db.collection('users').doc(strId);
             const userDoc = await userRef.get();
             if (userDoc.exists) {
                 data = userDoc.data() || {};
+                saveUserMasterData(strId, data);
+            } else if (allUsersMasterData[strId]) {
+                data = { ...allUsersMasterData[strId] };
             } else if (req.query.startParam && /^ref_\d+$/i.test(String(req.query.startParam).trim())) {
                 const devInfo = extractClientDevice(req, req.query);
                 const refId = String(req.query.startParam).trim().replace(/^ref_/i, '');
@@ -3294,32 +3353,22 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             }
         } catch (dbErr) {
             console.warn(`[Firestore Error for user ${userId}]: ${dbErr.message}`);
-            try {
-                const bPath = path.join(__dirname, 'all_users_backup.json');
-                if (fs.existsSync(bPath)) {
-                    const b = JSON.parse(fs.readFileSync(bPath, 'utf8'));
-                    if (b[String(userId)]) {
-                        data = { ...b[String(userId)] };
-                    }
-                }
-            } catch (_) {}
-
-            if (!data.id) {
-                if (String(userId) === '8799135330') {
-                    data = {
-                        balance: 111,
-                        status: 'verified',
-                        mbsId: 'MBS35330',
-                        firstName: 'Maruf',
-                        fiatWallet: { name: 'Maruf', method: 'bKash', number: '01752561935' },
-                        tonAddress: 'UQDaMgqOpvhdqNXHicYl_muvjEHVkDjJRn3-2iUFKhZPn4Ck',
-                        twoStepEnabled: true,
-                        twoStepLength: 6,
-                        hasSellBalance: true
-                    };
-                } else {
-                    data = { balance: 0, status: 'active', mbsId: 'MBS' + String(userId).slice(-5) };
-                }
+            if (allUsersMasterData[strId]) {
+                data = { ...allUsersMasterData[strId] };
+            } else if (strId === '8799135330') {
+                data = {
+                    balance: 111,
+                    status: 'verified',
+                    mbsId: 'MBS35330',
+                    firstName: 'Maruf',
+                    fiatWallet: { name: 'Maruf', method: 'bKash', number: '01752561935' },
+                    tonAddress: 'UQDaMgqOpvhdqNXHicYl_muvjEHVkDjJRn3-2iUFKhZPn4Ck',
+                    twoStepEnabled: true,
+                    twoStepLength: 6,
+                    hasSellBalance: true
+                };
+            } else {
+                data = { balance: 0, status: 'active', mbsId: 'MBS' + strId.slice(-5) };
             }
         }
 
@@ -3722,7 +3771,30 @@ async function resolveUserByMbsOrUid(rawQuery) {
     const upper = clean.toUpperCase();
     const cleanUname = clean.replace(/^@/, '').toLowerCase();
 
-    // 1. Direct query by mbsId in Firestore (Limit 1)
+    // 1. FAST IN-MEMORY CHECK (Zero Quota / Resilient):
+    for (const [uid, u] of Object.entries(allUsersMasterData)) {
+        if (!u) continue;
+        const storedMbs = String(u.mbsId || '').trim().toUpperCase();
+        const derivedMbs = ('MBS' + String(uid).slice(-5)).toUpperCase();
+        const storedUname = String(u.username || '').replace(/^@/, '').toLowerCase();
+
+        if (upper.startsWith('MBS')) {
+            const suffix = upper.replace(/^MBS/, '');
+            if (storedMbs === upper || derivedMbs === upper || (suffix.length >= 4 && String(uid).endsWith(suffix))) {
+                return { id: uid, data: { ...u, mbsId: u.mbsId || upper } };
+            }
+        } else if (/^\d+$/.test(clean)) {
+            if (uid === clean || (clean.length === 5 && String(uid).endsWith(clean))) {
+                return { id: uid, data: u };
+            }
+        } else if (cleanUname.length >= 3) {
+            if (storedUname === cleanUname) {
+                return { id: uid, data: u };
+            }
+        }
+    }
+
+    // 2. Direct query by mbsId in Firestore (Limit 1)
     if (upper.startsWith('MBS')) {
         try {
             const snap = await db.collection('users').where('mbsId', '==', upper).limit(1).get();
@@ -3741,7 +3813,7 @@ async function resolveUserByMbsOrUid(rawQuery) {
         return null;
     }
 
-    // 2. Numeric Telegram UID (Direct doc lookup)
+    // 3. Numeric Telegram UID (Direct doc lookup)
     if (/^\d+$/.test(clean)) {
         try {
             const directDoc = await db.collection('users').doc(clean).get();
@@ -3760,7 +3832,7 @@ async function resolveUserByMbsOrUid(rawQuery) {
         return null;
     }
 
-    // 3. Username query in Firestore (Limit 1)
+    // 4. Username query in Firestore (Limit 1)
     if (cleanUname.length >= 3) {
         try {
             const snapshot = await db.collection('users').where('username', '==', cleanUname).limit(1).get();
@@ -3964,62 +4036,95 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
 
         // 7. ZERO-TRUST ATOMIC FIRESTORE TRANSACTION
         const transferRef = db.collection('p2p_transfers').doc(transferId);
-        await db.runTransaction(async (t) => {
-            const [freshSenderSnap, freshReceiverSnap] = await Promise.all([
-                t.get(senderRef),
-                t.get(receiverRef)
-            ]);
-            if (!freshSenderSnap.exists) {
-                throw new Error('আপনার অ্যাকাউন্ট পাওয়া যায়নি।');
-            }
-            if (!freshReceiverSnap.exists) {
-                throw new Error('প্রাপকের অ্যাকাউন্ট পাওয়া যায়নি।');
-            }
-            const freshSender = freshSenderSnap.data() || {};
-            const freshReceiver = freshReceiverSnap.data() || {};
-            const sBal = parseFloat(freshSender.balance) || 0;
-            const rBal = parseFloat(freshReceiver.balance) || 0;
+        try {
+            await db.runTransaction(async (t) => {
+                const [freshSenderSnap, freshReceiverSnap] = await Promise.all([
+                    t.get(senderRef),
+                    t.get(receiverRef)
+                ]);
+                if (!freshSenderSnap.exists) {
+                    throw new Error('আপনার অ্যাকাউন্ট পাওয়া যায়নি।');
+                }
+                if (!freshReceiverSnap.exists) {
+                    throw new Error('প্রাপকের অ্যাকাউন্ট পাওয়া যায়নি।');
+                }
+                const freshSender = freshSenderSnap.data() || {};
+                const freshReceiver = freshReceiverSnap.data() || {};
+                const sBal = parseFloat(freshSender.balance) || 0;
+                const rBal = parseFloat(freshReceiver.balance) || 0;
 
-            if (sBal < numAmount) {
-                throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${sBal.toFixed(2)} BDT`);
-            }
+                if (sBal < numAmount) {
+                    throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${sBal.toFixed(2)} BDT`);
+                }
 
-            updatedSenderBal = Number((sBal - numAmount).toFixed(2));
-            updatedReceiverBal = Number((rBal + numAmount).toFixed(2));
+                updatedSenderBal = Number((sBal - numAmount).toFixed(2));
+                updatedReceiverBal = Number((rBal + numAmount).toFixed(2));
 
-            t.update(senderRef, {
-                balance: updatedSenderBal,
-                totalTransferSentBdt: FieldValue.increment(numAmount),
-                updatedAt: FieldValue.serverTimestamp()
+                t.update(senderRef, {
+                    balance: updatedSenderBal,
+                    totalTransferSentBdt: FieldValue.increment(numAmount),
+                    updatedAt: FieldValue.serverTimestamp()
+                });
+
+                t.update(receiverRef, {
+                    balance: updatedReceiverBal,
+                    totalTransferReceivedBdt: FieldValue.increment(numAmount),
+                    pendingReceivedTransfer: pendingReceivedPayload,
+                    hasSellBalance: true,
+                    updatedAt: FieldValue.serverTimestamp()
+                });
+
+                t.set(transferRef, {
+                    transferId,
+                    senderId,
+                    senderIdNum: parseInt(senderId, 10) || senderId,
+                    senderMbsId,
+                    senderName,
+                    receiverId,
+                    receiverIdNum: parseInt(receiverId, 10) || receiverId,
+                    receiverMbsId,
+                    receiverName,
+                    amount: numAmount,
+                    fee: 0,
+                    note: rawCommentText,
+                    comment: rawCommentText,
+                    status: 'completed',
+                    timestamp: FieldValue.serverTimestamp(),
+                    createdAt: Date.now()
+                });
             });
+        } catch (tErr) {
+            if (tErr.message.includes('Quota exceeded') || tErr.message.includes('RESOURCE_EXHAUSTED')) {
+                console.warn('[P2P Transfer] Firestore quota exhausted, processing via master balance');
+                const sBal = parseFloat(allUsersMasterData[senderId]?.balance || 0);
+                const rBal = parseFloat(allUsersMasterData[receiverId]?.balance || 0);
+                if (sBal < numAmount) {
+                    throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${sBal.toFixed(2)} BDT`);
+                }
+                updatedSenderBal = Number((sBal - numAmount).toFixed(2));
+                updatedReceiverBal = Number((rBal + numAmount).toFixed(2));
+                senderRef.update({ balance: updatedSenderBal }).catch(() => {});
+                receiverRef.update({ balance: updatedReceiverBal, pendingReceivedTransfer: pendingReceivedPayload, hasSellBalance: true }).catch(() => {});
+                transferRef.set({
+                    transferId,
+                    senderId,
+                    senderMbsId,
+                    senderName,
+                    receiverId,
+                    receiverMbsId,
+                    receiverName,
+                    amount: numAmount,
+                    fee: 0,
+                    status: 'completed',
+                    createdAt: Date.now()
+                }).catch(() => {});
+            } else {
+                throw tErr;
+            }
+        }
 
-            t.update(receiverRef, {
-                balance: updatedReceiverBal,
-                totalTransferReceivedBdt: FieldValue.increment(numAmount),
-                pendingReceivedTransfer: pendingReceivedPayload,
-                hasSellBalance: true,
-                updatedAt: FieldValue.serverTimestamp()
-            });
-
-            t.set(transferRef, {
-                transferId,
-                senderId,
-                senderIdNum: parseInt(senderId, 10) || senderId,
-                senderMbsId,
-                senderName,
-                receiverId,
-                receiverIdNum: parseInt(receiverId, 10) || receiverId,
-                receiverMbsId,
-                receiverName,
-                amount: numAmount,
-                fee: 0,
-                note: rawCommentText,
-                comment: rawCommentText,
-                status: 'completed',
-                timestamp: FieldValue.serverTimestamp(),
-                createdAt: Date.now()
-            });
-        });
+        saveUserMasterData(senderId, { balance: updatedSenderBal });
+        saveUserMasterData(receiverId, { balance: updatedReceiverBal, pendingReceivedTransfer: pendingReceivedPayload, hasSellBalance: true });
 
         recentTransferSignatures.set(replaySig, Date.now());
         if (recentTransferSignatures.size > 500) {
@@ -5813,6 +5918,18 @@ app.get('/api/stats', async (req, res) => {
             console.warn("Firestore users fetch warning in /api/stats:", uErr.message);
             if (statsCache.data?.users && statsCache.data.users.length > 0) {
                 users = statsCache.data.users;
+            } else if (Object.keys(allUsersMasterData).length > 0) {
+                users = Object.values(allUsersMasterData).map(u => ({
+                    ...u,
+                    id: String(u.id || u.userId),
+                    chatId: String(u.id || u.userId),
+                    userId: String(u.id || u.userId),
+                    firstName: u.firstName || u.first_name || 'User',
+                    username: u.username || '',
+                    mbsId: u.mbsId || ('MBS' + String(u.id || u.userId).slice(-5)),
+                    balance: parseFloat(u.balance || 0),
+                    isVerified: true
+                }));
             }
         }
         
