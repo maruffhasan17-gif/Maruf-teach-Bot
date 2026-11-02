@@ -5891,14 +5891,13 @@ app.get('/api/stats', async (req, res) => {
     try {
         console.log("/api/stats called");
         
-        console.log("Fetching users from Firestore...");
+        console.log("Fetching users from Master Data (0 Firestore reads)...");
         let users = [];
         try {
-            const [usersSnapshot, buysSnap, sellsSnap, withSnap] = await Promise.all([
-                db.collection('users').get(),
-                db.collection('miniapp_buys').limit(100).get().catch(() => ({ forEach: () => {} })),
-                db.collection('miniapp_sells').limit(100).get().catch(() => ({ forEach: () => {} })),
-                db.collection('fiat_withdrawals').limit(100).get().catch(() => ({ forEach: () => {} }))
+            const [buysSnap, sellsSnap, withSnap] = await Promise.all([
+                db.collection('miniapp_buys').limit(15).get().catch(() => ({ forEach: () => {} })),
+                db.collection('miniapp_sells').limit(15).get().catch(() => ({ forEach: () => {} })),
+                db.collection('fiat_withdrawals').limit(15).get().catch(() => ({ forEach: () => {} }))
             ]);
 
             const transactingUserIds = new Set();
@@ -5915,13 +5914,13 @@ app.get('/api/stats', async (req, res) => {
                 if (od.userId) transactingUserIds.add(od.userId.toString());
             });
 
-            usersSnapshot.forEach(doc => {
-                const u = doc.data() || {};
-                const uId = (u.chatId || doc.id).toString();
+            for (const [docId, u] of Object.entries(allUsersMasterData)) {
+                if (!u || docId === '12345' || docId === '123456789') continue;
+                const uId = String(u.chatId || u.userId || docId);
                 const hasTx = transactingUserIds.has(uId) || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0);
                 users.push({
                     ...u,
-                    id: doc.id,
+                    id: docId,
                     chatId: uId,
                     userId: uId,
                     firstName: u.firstName || u.first_name || u.name || u.fiatWallet?.name || '',
@@ -5932,9 +5931,9 @@ app.get('/api/stats', async (req, res) => {
                     balance: parseFloat(u.balance || 0),
                     userNumber: u.userNumber || 1
                 });
-            });
+            }
         } catch (uErr) {
-            console.warn("Firestore users fetch warning in /api/stats:", uErr.message);
+            console.warn("Master users fetch warning in /api/stats:", uErr.message);
             if (statsCache.data?.users && statsCache.data.users.length > 0) {
                 users = statsCache.data.users;
             } else if (Object.keys(allUsersMasterData).length > 0) {
@@ -7469,7 +7468,7 @@ app.get('/api/sms', handleIncomingSmsWebhook);
 
 app.get('/api/admin/orders', async (req, res) => {
     const now = Date.now();
-    if (ordersCache.data && (now - ordersCache.timestamp < 20000)) {
+    if (ordersCache.data && (now - ordersCache.timestamp < 60000)) {
         return res.json(ordersCache.data);
     }
 
@@ -7481,7 +7480,7 @@ app.get('/api/admin/orders', async (req, res) => {
         const seenWithdrawIds = new Set();
 
         try {
-            const buysSnapshot = await db.collection('miniapp_buys').orderBy('timestamp', 'desc').limit(60).get();
+            const buysSnapshot = await db.collection('miniapp_buys').orderBy('timestamp', 'desc').limit(20).get();
             buys = buysSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         } catch(e) {
             console.warn("Warning fetching miniapp_buys:", e.message);
@@ -7489,7 +7488,7 @@ app.get('/api/admin/orders', async (req, res) => {
         }
 
         try {
-            const sellsSnapshot = await db.collection('miniapp_sells').orderBy('timestamp', 'desc').limit(60).get();
+            const sellsSnapshot = await db.collection('miniapp_sells').orderBy('timestamp', 'desc').limit(20).get();
             sells = sellsSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         } catch(e) {
             console.warn("Warning fetching miniapp_sells:", e.message);
@@ -7497,7 +7496,7 @@ app.get('/api/admin/orders', async (req, res) => {
         }
 
         try {
-            const depSnapshot = await db.collection('deposits').orderBy('timestamp', 'desc').limit(60).get();
+            const depSnapshot = await db.collection('deposits').orderBy('timestamp', 'desc').limit(20).get();
             deposits = depSnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         } catch(e) {
             console.warn("Warning fetching deposits:", e.message);
@@ -7506,7 +7505,7 @@ app.get('/api/admin/orders', async (req, res) => {
 
         // 1. Get from fiat_withdrawals collection
         try {
-            const fwSnap = await db.collection('fiat_withdrawals').orderBy('timestamp', 'desc').limit(60).get();
+            const fwSnap = await db.collection('fiat_withdrawals').orderBy('timestamp', 'desc').limit(20).get();
             fwSnap.forEach(doc => {
                 const data = doc.data();
                 seenWithdrawIds.add(doc.id);

@@ -4837,7 +4837,12 @@ export default function App() {
     }
   };
 
-  window.reloadGlobalData = () => loadData(activeUserIdRef.current);
+  window.reloadGlobalData = () => {
+    loadData(activeUserIdRef.current);
+    if (typeof window !== 'undefined' && typeof window.__reloadHomeHistory === 'function') {
+      window.__reloadHomeHistory();
+    }
+  };
 
   // Real-time Notification listener and updater
   useEffect(() => {
@@ -5265,8 +5270,8 @@ export default function App() {
                       initialAsset={buyInitialAsset}
                       twoStepEnabled={twoStepEnabled}
                       twoStepLength={twoStepLength}
-                      onBack={() => setActiveTab('home')}
-                      reloadData={() => loadData(user?.id || 123456789)} 
+                      onBack={() => { setActiveTab('home'); window.__reloadHomeHistory?.(); }}
+                      reloadData={() => { loadData(user?.id || 123456789); window.__reloadHomeHistory?.(); }} 
                       onGoToAddMoney={() => setActiveTab('add-money')} 
                   />
               )
@@ -5288,10 +5293,10 @@ export default function App() {
                       t={t} 
                       darkMode={darkMode}
                       initialAsset={sellInitialAsset}
-                      onBack={() => setActiveTab('home')}
-                      onDone={() => setActiveTab('home')} 
+                      onBack={() => { setActiveTab('home'); window.__reloadHomeHistory?.(); }}
+                      onDone={() => { setActiveTab('home'); window.__reloadHomeHistory?.(); }} 
                       onGoToWithdraw={() => setActiveTab('withdraw')} 
-                      reloadData={() => loadData(user?.id || 123456789)} 
+                      reloadData={() => { loadData(user?.id || 123456789); window.__reloadHomeHistory?.(); }} 
                   />
               )
           )}
@@ -6102,19 +6107,27 @@ function HomePage({
     return [];
   });
 
-  useEffect(() => {
-    let alive = true;
+  const fetchRecent = () => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('192.168');
     const API_URL = isLocal ? 'http://localhost:3000' : 'https://maruf-teach-bot.onrender.com';
-    fetch(`${API_URL}/api/miniapp/history/${historyUserId}`)
+    fetch(`${API_URL}/api/miniapp/history/${historyUserId}?_t=${Date.now()}`)
       .then(r => r.json())
       .then(data => {
-        if (!alive || !data?.success || !Array.isArray(data.history)) return;
+        if (!data?.success || !Array.isArray(data.history)) return;
         setRecentHistory(data.history);
         try { localStorage.setItem(historyCacheKey, JSON.stringify(data.history)); } catch (_) {}
       })
       .catch(() => {});
-    return () => { alive = false; };
+  };
+
+  useEffect(() => {
+    window.__reloadHomeHistory = fetchRecent;
+    fetchRecent();
+    return () => {
+      if (window.__reloadHomeHistory === fetchRecent) {
+        window.__reloadHomeHistory = null;
+      }
+    };
   }, [historyUserId]);
 
   const getTxTs = (tx) => tx?.timestamp?._seconds ? tx.timestamp._seconds * 1000
@@ -7463,6 +7476,16 @@ function OnChainTransferProgressModal({
       <div className={`w-full max-w-sm rounded-[32px] p-6 sm:p-7 border shadow-2xl relative text-center overflow-hidden animate-in zoom-in-95 duration-300 ${
         darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
       }`}>
+        {/* Top-Right Dismiss Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center text-sm font-bold z-30 cursor-pointer active:scale-90"
+        >
+          ✕
+        </button>
+
         {/* Soft luxury ambient glow */}
         <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 rounded-full blur-3xl pointer-events-none ${
           stage === 'success' ? 'bg-emerald-500/20' : stage === 'error' ? 'bg-rose-500/20' : 'bg-purple-500/20'
@@ -7634,6 +7657,14 @@ function OnChainTransferProgressModal({
                 </span>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full mt-3 h-[42px] rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100/90 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs cursor-pointer active:scale-95 transition-all shadow-sm"
+            >
+              {lang === 'bn' ? 'মডেল বন্ধ করুন (ব্যাকগ্রাউন্ডে চলবে)' : 'Close Modal (Runs in Background)'}
+            </button>
           </div>
         )}
       </div>
