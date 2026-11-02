@@ -2991,6 +2991,10 @@ bot.on('message', async (msg) => {
                     let pend = null;
                     if (uDoc.exists && uDoc.data().fiatWithdrawPending) {
                         pend = uDoc.data().fiatWithdrawPending;
+                        if (pend.status === 'completed' || pend.status === 'rejected') {
+                            await bot.sendMessage(chatId, `⚠️ ইউজার <code>${targetUserId}</code> এর এই উইথড্র রিকোয়েস্টটি ইতিমধ্যে <b>${pend.status === 'completed' ? 'PAID / সম্পন্ন' : 'বাতিল'}</b> করা হয়েছে!`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(()=>{});
+                            return;
+                        }
                         if (pend.id) {
                             await db.collection('fiat_withdrawals').doc(pend.id).update({
                                 status: 'completed',
@@ -3015,6 +3019,15 @@ bot.on('message', async (msg) => {
                         'fiatWithdrawPending.status': 'completed',
                         'fiatWithdrawPending.completedAt': Date.now()
                     }).catch(()=>{});
+
+                    if (allUsersMasterData[targetUserId]) {
+                        if (allUsersMasterData[targetUserId].fiatWithdrawPending) {
+                            allUsersMasterData[targetUserId].fiatWithdrawPending.status = 'completed';
+                            allUsersMasterData[targetUserId].fiatWithdrawPending.completedAt = Date.now();
+                        }
+                        saveUserMasterData(targetUserId, allUsersMasterData[targetUserId]);
+                    }
+                    invalidateOrdersCache();
 
                     const amtVal = pend?.amount || 0;
                     const feeVal = pend?.fee !== undefined ? pend.fee : 0;
@@ -3061,6 +3074,11 @@ bot.on('message', async (msg) => {
                     const userRef = db.collection('users').doc(targetUserId);
                     const userDoc = await userRef.get();
                     let pend = userDoc.exists ? userDoc.data().fiatWithdrawPending : null;
+
+                    if (pend && (pend.status === 'completed' || pend.status === 'rejected')) {
+                        await bot.sendMessage(chatId, `⚠️ ইউজার <code>${targetUserId}</code> এর এই উইথড্র রিকোয়েস্টটি ইতিমধ্যে <b>${pend.status === 'completed' ? 'PAID / সম্পন্ন' : 'বাতিল'}</b> করা হয়েছে!`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(()=>{});
+                        return;
+                    }
                     
                     if (!pend) {
                         try {
@@ -3103,6 +3121,19 @@ bot.on('message', async (msg) => {
                             'fiatWithdrawPending.rejectedAt': Date.now()
                         }).catch(()=>{});
                     }
+
+                    if (allUsersMasterData[targetUserId]) {
+                        if (allUsersMasterData[targetUserId].fiatWithdrawPending) {
+                            allUsersMasterData[targetUserId].fiatWithdrawPending.status = 'rejected';
+                            allUsersMasterData[targetUserId].fiatWithdrawPending.rejectReason = reason;
+                            allUsersMasterData[targetUserId].fiatWithdrawPending.rejectedAt = Date.now();
+                        }
+                        if (amountToRefund > 0) {
+                            allUsersMasterData[targetUserId].balance = (parseFloat(allUsersMasterData[targetUserId].balance) || 0) + amountToRefund;
+                        }
+                        saveUserMasterData(targetUserId, allUsersMasterData[targetUserId]);
+                    }
+                    invalidateOrdersCache();
 
                     await bot.sendMessage(chatId, `${PE.cross} উইথড্র বাতিল করা হয়েছে! ইউজার <code>${targetUserId}</code> এর একাউন্টে <b>৳${amountToRefund} BDT</b> রিফান্ড করা হয়েছে।\n${PE.note} <b>কারণ:</b> <i>${reason}</i>`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
 
@@ -3657,6 +3688,10 @@ app.post('/api/miniapp/ack-withdraw-notice', async (req, res) => {
             if (pend && (pend.status === 'completed' || pend.status === 'rejected')) {
                 await userRef.update({ fiatWithdrawPending: null });
             }
+        }
+        if (allUsersMasterData[String(userId)]) {
+            allUsersMasterData[String(userId)].fiatWithdrawPending = null;
+            saveUserMasterData(String(userId), allUsersMasterData[String(userId)]);
         }
         return res.json({ success: true });
     } catch (e) {
@@ -6348,6 +6383,18 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             globalRef.set({ totalWithdrawals: serialNum }, { merge: true }),
             countRef.set({ withdrawals: todayCount + 1 }, { merge: true })
         ]);
+
+        const strUid = userId.toString();
+        const freshUserBal = Math.max(0, (parseFloat(userData.balance) || 0) - amount);
+        saveUserMasterData(strUid, {
+            balance: freshUserBal,
+            fiatWithdrawPending: {
+                ...withdrawDoc,
+                id: withdrawRef.id,
+                timestamp: Date.now()
+            }
+        });
+        invalidateOrdersCache();
         
         // Notify User in Telegram (Matches Shards Bot "Withdrawal Submitted!" screen)
         if (bot && userId) {
@@ -8789,6 +8836,15 @@ app.post('/api/admin/approve-withdraw', requireAdminAuth, async (req, res) => {
                     await d.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
                 }
             } catch(e) {}
+
+            if (allUsersMasterData[targetUser.toString()]) {
+                if (allUsersMasterData[targetUser.toString()].fiatWithdrawPending) {
+                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.status = 'completed';
+                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.completedAt = Date.now();
+                }
+                saveUserMasterData(targetUser.toString(), allUsersMasterData[targetUser.toString()]);
+            }
+            invalidateOrdersCache();
         }
         res.json({ success: true });
     } catch(e) {
@@ -8851,6 +8907,18 @@ app.post('/api/admin/reject-withdraw', requireAdminAuth, async (req, res) => {
                     await d.ref.update({ status: 'rejected', rejectReason: reason || 'Rejected by admin', rejectedAt: Date.now() }).catch(()=>{});
                 }
             } catch(e) {}
+
+            if (allUsersMasterData[targetUser.toString()]) {
+                if (allUsersMasterData[targetUser.toString()].fiatWithdrawPending) {
+                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.status = 'rejected';
+                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.rejectReason = reason || 'Rejected by admin';
+                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.rejectedAt = Date.now();
+                }
+                if (refundAmt > 0) {
+                    allUsersMasterData[targetUser.toString()].balance = (parseFloat(allUsersMasterData[targetUser.toString()].balance) || 0) + refundAmt;
+                }
+                saveUserMasterData(targetUser.toString(), allUsersMasterData[targetUser.toString()]);
+            }
         }
         
         invalidateOrdersCache();
@@ -10429,13 +10497,17 @@ const adminReplyKeyboard = {
     persistent: true
 };
 
+// In-flight mutex set to prevent rapid double-processing of the same withdrawal
+const processingWithdraws = new Set();
+
 // Fetch pending withdrawals from Firestore
 const fetchPendingWithdrawals = async () => {
     const results = [];
     const seenIds = new Set();
+    const seenUsers = new Set();
 
     try {
-        // Query with .limit(50) to protect database quota
+        // Query canonical fiat_withdrawals with status == 'pending'
         const fwSnap = await db.collection('fiat_withdrawals')
             .where('status', '==', 'pending')
             .limit(50)
@@ -10446,6 +10518,7 @@ const fetchPendingWithdrawals = async () => {
             const id = doc.id;
             if (seenIds.has(id)) return;
             seenIds.add(id);
+            if (d.userId) seenUsers.add(String(d.userId));
 
             const amount = parseFloat(d.amount) || 0;
             const fee = (d.fee !== undefined && d.fee !== null && parseFloat(d.fee) > 0) ? parseFloat(d.fee) : calcWithdrawFee(amount);
@@ -10470,32 +10543,53 @@ const fetchPendingWithdrawals = async () => {
     }
 
     try {
-        // Use allUsersMasterData in memory (0 Firestore reads)
+        // Self-heal and verify in-memory master data (0 Firestore reads)
         for (const [uId, data] of Object.entries(allUsersMasterData || {})) {
             if (!data || !data.fiatWithdrawPending) continue;
             const p = data.fiatWithdrawPending;
-            if (p.status && p.status !== 'pending') continue;
-            const pendId = p.id || uId;
-            if (seenIds.has(pendId)) continue;
-            seenIds.add(pendId);
+            if (!p) continue;
 
-            const amount = parseFloat(p.amount) || 0;
-            const fee = (p.fee !== undefined && p.fee !== null && parseFloat(p.fee) > 0) ? parseFloat(p.fee) : calcWithdrawFee(amount);
-            const receiveAmount = (p.receiveAmount && parseFloat(p.receiveAmount) < amount) ? parseFloat(p.receiveAmount) : Math.max(0, amount - fee);
+            // If already marked completed or rejected, skip
+            if (p.status === 'completed' || p.status === 'rejected') continue;
 
-            results.push({
-                docId: pendId,
-                userId: String(uId),
-                method: p.method || 'bKash',
-                number: p.number || 'N/A',
-                amount,
-                fee,
-                receiveAmount,
-                name: p.name || data.firstName || data.name || 'User',
-                serial: p.serial || '?',
-                createdAt: p.createdAt || p.timestamp || 0,
-                source: 'master_data'
-            });
+            // If it has a fiat_withdrawals document ID:
+            if (p.id) {
+                if (seenIds.has(p.id)) {
+                    // Already captured from fiat_withdrawals
+                    continue;
+                } else {
+                    // Not pending in fiat_withdrawals; it was already completed/rejected in Firestore!
+                    // Heal stale cache so it never resurfaces:
+                    p.status = 'completed';
+                    continue;
+                }
+            }
+
+            // Only pure legacy entries (without p.id) where status is strictly 'pending':
+            if (p.status === 'pending' && !seenUsers.has(String(uId))) {
+                const pendId = uId;
+                if (seenIds.has(pendId)) continue;
+                seenIds.add(pendId);
+                seenUsers.add(String(uId));
+
+                const amount = parseFloat(p.amount) || 0;
+                const fee = (p.fee !== undefined && p.fee !== null && parseFloat(p.fee) > 0) ? parseFloat(p.fee) : calcWithdrawFee(amount);
+                const receiveAmount = (p.receiveAmount && parseFloat(p.receiveAmount) < amount) ? parseFloat(p.receiveAmount) : Math.max(0, amount - fee);
+
+                results.push({
+                    docId: pendId,
+                    userId: String(uId),
+                    method: p.method || 'bKash',
+                    number: p.number || 'N/A',
+                    amount,
+                    fee,
+                    receiveAmount,
+                    name: p.name || data.firstName || data.name || 'User',
+                    serial: p.serial || '?',
+                    createdAt: p.createdAt || p.timestamp || 0,
+                    source: 'master_data'
+                });
+            }
         }
     } catch(e) {
         console.error('[WithdrawBot] master data pending scan error:', e.message);
@@ -10561,6 +10655,15 @@ const doApproveWithdraw = async (docId, userId) => {
         const fwDoc = await fwRef.get();
         if (fwDoc.exists) {
             withdrawItem = fwDoc.data();
+            // Critical duplicate check
+            if (withdrawItem.status === 'completed' || withdrawItem.status === 'rejected') {
+                console.log(`[WithdrawBot] doc ${docId} is already ${withdrawItem.status}, skipping duplicate approval`);
+                if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
+                    allUsersMasterData[targetUser].fiatWithdrawPending.status = withdrawItem.status;
+                    saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
+                }
+                return false;
+            }
             await fwRef.update({ status: 'completed', completedAt: Date.now() });
         }
     } catch(e) {
@@ -10572,8 +10675,17 @@ const doApproveWithdraw = async (docId, userId) => {
         const doc = await userRef.get();
         if (doc.exists) {
             const userData = doc.data();
+            const pend = userData?.fiatWithdrawPending;
+            if (pend && (pend.status === 'completed' || pend.status === 'rejected') && !withdrawItem) {
+                console.log(`[WithdrawBot] user ${targetUser} pending is already ${pend.status}, skipping duplicate approval`);
+                if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
+                    allUsersMasterData[targetUser].fiatWithdrawPending.status = pend.status;
+                    saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
+                }
+                return false;
+            }
             if (!withdrawItem) {
-                withdrawItem = userData?.fiatWithdrawPending;
+                withdrawItem = pend;
             }
             if (userData?.fiatWithdrawPending?.id === docId || !userData?.fiatWithdrawPending?.id) {
                 await userRef.update({
@@ -10585,6 +10697,27 @@ const doApproveWithdraw = async (docId, userId) => {
     } catch(e) {
         console.error('[WithdrawBot] approve user error:', e.message);
     }
+
+    // Always sync in-memory master data
+    if (allUsersMasterData[targetUser]) {
+        if (allUsersMasterData[targetUser].fiatWithdrawPending) {
+            allUsersMasterData[targetUser].fiatWithdrawPending.status = 'completed';
+            allUsersMasterData[targetUser].fiatWithdrawPending.completedAt = Date.now();
+        }
+        saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
+    }
+
+    // Clean up any remaining pending docs for this user in fiat_withdrawals
+    try {
+        const pendSnaps = await db.collection('fiat_withdrawals')
+            .where('userId', 'in', [parseInt(targetUser), targetUser.toString()].filter(Boolean))
+            .where('status', '==', 'pending').get();
+        for (const d of pendSnaps.docs) {
+            if (d.id === docId || !docId) {
+                await d.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
+            }
+        }
+    } catch(e) {}
 
     if (withdrawItem && bot) {
         const userMsg = `<b>${PE.approvedBag} উইথড্র অনুমোদিত! (Withdrawal Approved!)</b>\n\n` +
@@ -10607,6 +10740,8 @@ const doApproveWithdraw = async (docId, userId) => {
             number: formatBdPhone(withdrawItem?.number)
         });
     }
+
+    return true;
 };
 
 // Reject a withdrawal and refund user balance
@@ -10614,13 +10749,22 @@ const doRejectWithdraw = async (docId, userId, refundAmt) => {
     const targetUser = String(userId);
     const reason = 'বাতিল করেছেন এডমিন (Rejected by admin)';
     let actualRefund = refundAmt || 0;
+    let withdrawItem = null;
 
     try {
         const fwRef = db.collection('fiat_withdrawals').doc(docId);
         const fwDoc = await fwRef.get();
         if (fwDoc.exists) {
-            const fwData = fwDoc.data();
-            actualRefund = refundAmt || parseFloat(fwData.amount) || 0;
+            withdrawItem = fwDoc.data();
+            if (withdrawItem.status === 'completed' || withdrawItem.status === 'rejected') {
+                console.log(`[WithdrawBot] doc ${docId} is already ${withdrawItem.status}, skipping duplicate reject`);
+                if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
+                    allUsersMasterData[targetUser].fiatWithdrawPending.status = withdrawItem.status;
+                    saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
+                }
+                return false;
+            }
+            actualRefund = refundAmt || parseFloat(withdrawItem.amount) || 0;
             await fwRef.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() });
         }
     } catch(e) {
@@ -10632,8 +10776,17 @@ const doRejectWithdraw = async (docId, userId, refundAmt) => {
         const doc = await userRef.get();
         if (doc.exists) {
             const userData = doc.data();
+            const pend = userData?.fiatWithdrawPending;
+            if (pend && (pend.status === 'completed' || pend.status === 'rejected') && !withdrawItem) {
+                console.log(`[WithdrawBot] user ${targetUser} pending is already ${pend.status}, skipping duplicate reject`);
+                if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
+                    allUsersMasterData[targetUser].fiatWithdrawPending.status = pend.status;
+                    saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
+                }
+                return false;
+            }
             if (!actualRefund) {
-                actualRefund = parseFloat(userData.fiatWithdrawPending?.amount) || 0;
+                actualRefund = parseFloat(pend?.amount) || 0;
             }
             const updatePayload = {
                 balance: FieldValue.increment(actualRefund)
@@ -10654,6 +10807,32 @@ const doRejectWithdraw = async (docId, userId, refundAmt) => {
             }
         }
     } catch(e) { console.error('[WithdrawBot] reject user error:', e.message); }
+
+    // Always sync in-memory master data
+    if (allUsersMasterData[targetUser]) {
+        if (allUsersMasterData[targetUser].fiatWithdrawPending) {
+            allUsersMasterData[targetUser].fiatWithdrawPending.status = 'rejected';
+            allUsersMasterData[targetUser].fiatWithdrawPending.rejectReason = reason;
+            allUsersMasterData[targetUser].fiatWithdrawPending.rejectedAt = Date.now();
+        }
+        if (actualRefund > 0) {
+            allUsersMasterData[targetUser].balance = (parseFloat(allUsersMasterData[targetUser].balance) || 0) + actualRefund;
+        }
+        saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
+    }
+
+    try {
+        const pendSnaps = await db.collection('fiat_withdrawals')
+            .where('userId', 'in', [parseInt(targetUser), targetUser.toString()].filter(Boolean))
+            .where('status', '==', 'pending').get();
+        for (const d of pendSnaps.docs) {
+            if (d.id === docId || !docId) {
+                await d.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
+            }
+        }
+    } catch(e) {}
+
+    return true;
 };
 
 // Send the next withdrawal from DB
@@ -10741,6 +10920,12 @@ if (withdrawBot) {
             const docId = parts[1];
             const userId = parts[2];
 
+            if (processingWithdraws.has(docId)) {
+                await withdrawBot.answerCallbackQuery(query.id, { text: 'ইতিমধ্যে প্রক্রিয়াধীন...', show_alert: false }).catch(() => {});
+                return;
+            }
+            processingWithdraws.add(docId);
+
             await withdrawBot.answerCallbackQuery(query.id, { text: '✓ Confirming...', show_alert: false }).catch(() => {});
 
             // DELETE the current withdrawal message immediately
@@ -10748,9 +10933,13 @@ if (withdrawBot) {
                 await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
             }
 
-            // Process approval in Firestore, notify user and payout channel
-            await doApproveWithdraw(docId, userId);
-            invalidateOrdersCache();
+            try {
+                // Process approval in Firestore, notify user and payout channel
+                await doApproveWithdraw(docId, userId);
+                invalidateOrdersCache();
+            } finally {
+                processingWithdraws.delete(docId);
+            }
 
             // Automatically send the next pending withdrawal!
             await sendNextWithdrawal(chatId, 0);
@@ -10764,6 +10953,12 @@ if (withdrawBot) {
             const userId = parts[2];
             const refundAmt = parseFloat(parts[3]) || 0;
 
+            if (processingWithdraws.has(docId)) {
+                await withdrawBot.answerCallbackQuery(query.id, { text: 'ইতিমধ্যে প্রক্রিয়াধীন...', show_alert: false }).catch(() => {});
+                return;
+            }
+            processingWithdraws.add(docId);
+
             await withdrawBot.answerCallbackQuery(query.id, { text: '✕ Rejecting...', show_alert: false }).catch(() => {});
 
             // DELETE the current withdrawal message immediately
@@ -10771,9 +10966,13 @@ if (withdrawBot) {
                 await withdrawBot.deleteMessage(chatId, messageId).catch(() => {});
             }
 
-            // Process refund in Firestore and notify user
-            await doRejectWithdraw(docId, userId, refundAmt);
-            invalidateOrdersCache();
+            try {
+                // Process refund in Firestore and notify user
+                await doRejectWithdraw(docId, userId, refundAmt);
+                invalidateOrdersCache();
+            } finally {
+                processingWithdraws.delete(docId);
+            }
 
             // Automatically send the next pending withdrawal!
             await sendNextWithdrawal(chatId, 0);
