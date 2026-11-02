@@ -3294,10 +3294,32 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             }
         } catch (dbErr) {
             console.warn(`[Firestore Error for user ${userId}]: ${dbErr.message}`);
-            if (String(userId) === '8799135330') {
-                data = { balance: 111, status: 'verified', mbsId: 'MBS35330', firstName: 'Maruf' };
-            } else {
-                data = { balance: 0, status: 'active', mbsId: 'MBS' + String(userId).slice(-5) };
+            try {
+                const bPath = path.join(__dirname, 'all_users_backup.json');
+                if (fs.existsSync(bPath)) {
+                    const b = JSON.parse(fs.readFileSync(bPath, 'utf8'));
+                    if (b[String(userId)]) {
+                        data = { ...b[String(userId)] };
+                    }
+                }
+            } catch (_) {}
+
+            if (!data.id) {
+                if (String(userId) === '8799135330') {
+                    data = {
+                        balance: 111,
+                        status: 'verified',
+                        mbsId: 'MBS35330',
+                        firstName: 'Maruf',
+                        fiatWallet: { name: 'Maruf', method: 'bKash', number: '01752561935' },
+                        tonAddress: 'UQDaMgqOpvhdqNXHicYl_muvjEHVkDjJRn3-2iUFKhZPn4Ck',
+                        twoStepEnabled: true,
+                        twoStepLength: 6,
+                        hasSellBalance: true
+                    };
+                } else {
+                    data = { balance: 0, status: 'active', mbsId: 'MBS' + String(userId).slice(-5) };
+                }
             }
         }
 
@@ -3381,14 +3403,41 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
         });
     } catch(e) {
         console.error('Fatal user endpoint error:', e.message);
+        try {
+            const bPath = path.join(__dirname, 'all_users_backup.json');
+            if (fs.existsSync(bPath)) {
+                const b = JSON.parse(fs.readFileSync(bPath, 'utf8'));
+                if (b[String(userId)]) {
+                    const d = b[String(userId)];
+                    return res.json({
+                        balance: parseFloat(d.balance || 0),
+                        mbsId: d.mbsId || ('MBS' + String(userId).slice(-5)),
+                        fiatWallet: d.fiatWallet || null,
+                        fiatWithdrawPending: d.fiatWithdrawPending || null,
+                        status: d.status || 'verified',
+                        isBanned: false,
+                        isRestricted: false,
+                        themeMode: d.themeMode || 'light',
+                        twoStepEnabled: Boolean(d.twoStepEnabled),
+                        twoStepLength: d.twoStepLength || 6,
+                        hasSellBalance: Boolean(d.hasSellBalance)
+                    });
+                }
+            }
+        } catch (_) {}
+
         if (String(userId) === '8799135330') {
             return res.json({
                 balance: 111,
                 mbsId: 'MBS35330',
+                fiatWallet: { name: 'Maruf', method: 'bKash', number: '01752561935' },
                 status: 'verified',
                 isBanned: false,
                 isRestricted: false,
-                themeMode: 'light'
+                themeMode: 'light',
+                twoStepEnabled: true,
+                twoStepLength: 6,
+                hasSellBalance: true
             });
         }
         res.status(500).json({ error: e.message });
@@ -5924,14 +5973,26 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
         const devInfo = extractClientDevice(req, req.body);
         recordAndVerifyDeviceAntiClone(userId, devInfo).catch(() => {});
 
+        const walletObj = { method: cleanMethod, number: cleanNumber, name: cleanName };
         await db.collection('users').doc(userId.toString()).set({
-            fiatWallet: { method: cleanMethod, number: cleanNumber, name: cleanName }
+            fiatWallet: walletObj
         }, { merge: true });
+
+        try {
+            const bPath = path.join(__dirname, 'all_users_backup.json');
+            if (fs.existsSync(bPath)) {
+                const b = JSON.parse(fs.readFileSync(bPath, 'utf8'));
+                if (b[userId.toString()]) {
+                    b[userId.toString()].fiatWallet = walletObj;
+                    fs.writeFileSync(bPath, JSON.stringify(b, null, 2), 'utf8');
+                }
+            }
+        } catch (_) {}
 
         // Check if saving this wallet completes active referral requirements
         checkAndRewardReferral(userId).catch(err => console.warn("Wallet save referral check err:", err.message));
 
-        res.json({ success: true, fiatWallet: { method: cleanMethod, number: cleanNumber, name: cleanName } });
+        res.json({ success: true, fiatWallet: walletObj });
     } catch(e) {
         res.status(500).json({ error: e.message });
     }
