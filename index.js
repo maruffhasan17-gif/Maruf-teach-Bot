@@ -35,6 +35,12 @@ let ordersCache = { data: null, timestamp: 0 };
 function invalidateOrdersCache() {
     ordersCache = { data: null, timestamp: 0 };
 }
+const userHistoryMemoryCache = new Map();
+function invalidateUserHistoryCache(userId) {
+    if (!userId) return;
+    const strUserId = String(userId).trim();
+    userHistoryMemoryCache.delete(strUserId);
+}
 
 const ALL_USERS_BACKUP_FILE = path.join(__dirname, 'all_users_backup.json');
 let allUsersMasterData = {};
@@ -4190,6 +4196,8 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
             }
         }
 
+        invalidateUserHistoryCache(senderId);
+        invalidateUserHistoryCache(receiverId);
         return res.json({
             success: true,
             transferId,
@@ -4773,6 +4781,8 @@ app.post('/api/miniapp/sell', async (req, res) => {
             bot.sendMessage(userId, userSellMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e=>console.error(e.message));
         }
 
+        invalidateUserHistoryCache(userId);
+        invalidateOrdersCache();
         res.json({ success: true, orderId: savedOrderId, newBalance, creditedTk: verifiedTk });
     } catch(e) {
         console.error("Sell order error:", e);
@@ -6672,6 +6682,8 @@ app.post('/api/miniapp/add-money', async (req, res) => {
             bot.sendMessage(dataGroup, dataAddMoneyMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
 
+        invalidateUserHistoryCache(userId);
+        invalidateOrdersCache();
         res.json({
             success: true,
             message: `৳${amount} BDT সফলভাবে আপনার ব্যালেন্সে যোগ হয়েছে!`,
@@ -7046,6 +7058,8 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         // Second redundant alert removed per user request: only the message with button (userBuyInstantMsg) is sent to the user.
 
+        invalidateUserHistoryCache(userId);
+        invalidateOrdersCache();
         res.json({
             success: true,
             message: `সফলভাবে ${cryptoAmount} ${asset} (${selectedNetwork}) আপনার ওয়ালেটে পাঠানো হয়েছে!`,
@@ -9229,8 +9243,6 @@ app.use('/app', express.static(path.join(__dirname, 'miniapp/dist'), {
     }
 }));
 
-const userHistoryMemoryCache = new Map();
-
 app.get('/api/miniapp/history/:userId', async (req, res) => {
     try {
         const rawUserId = req.params.userId;
@@ -9239,9 +9251,12 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
         const userIds = [numUserId, strUserId].filter(Boolean);
         
         // Fast 30-second memory cache to eliminate repeated Firestore reads on page switches
-        const cached = userHistoryMemoryCache.get(strUserId);
-        if (cached && (Date.now() - cached.ts < 30000) && Array.isArray(cached.data)) {
-            return res.json({ success: true, history: cached.data });
+        const forceFresh = req.query._nocache === '1' || req.query.fresh === '1';
+        if (!forceFresh) {
+            const cached = userHistoryMemoryCache.get(strUserId);
+            if (cached && (Date.now() - cached.ts < 30000) && Array.isArray(cached.data)) {
+                return res.json({ success: true, history: cached.data });
+            }
         }
 
         const history = [];

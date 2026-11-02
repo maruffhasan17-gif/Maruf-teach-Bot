@@ -6107,10 +6107,11 @@ function HomePage({
     return [];
   });
 
-  const fetchRecent = () => {
+  const fetchRecent = (forceFresh = false) => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('192.168');
     const API_URL = isLocal ? 'http://localhost:3000' : 'https://maruf-teach-bot.onrender.com';
-    fetch(`${API_URL}/api/miniapp/history/${historyUserId}?_t=${Date.now()}`)
+    const freshQuery = forceFresh ? '&_nocache=1' : '';
+    fetch(`${API_URL}/api/miniapp/history/${historyUserId}?_t=${Date.now()}${freshQuery}`)
       .then(r => r.json())
       .then(data => {
         if (!data?.success || !Array.isArray(data.history)) return;
@@ -6121,10 +6122,10 @@ function HomePage({
   };
 
   useEffect(() => {
-    window.__reloadHomeHistory = fetchRecent;
+    window.__reloadHomeHistory = (force = true) => fetchRecent(force);
     fetchRecent();
     return () => {
-      if (window.__reloadHomeHistory === fetchRecent) {
+      if (window.__reloadHomeHistory) {
         window.__reloadHomeHistory = null;
       }
     };
@@ -7422,6 +7423,11 @@ function OnChainTransferProgressModal({
 }) {
   const [progressPercent, setProgressPercent] = useState(30);
   const [countdown, setCountdown] = useState(3);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -7443,7 +7449,7 @@ function OnChainTransferProgressModal({
         setCountdown(c => {
           if (c <= 1) {
             clearInterval(timer);
-            onClose();
+            if (onCloseRef.current) onCloseRef.current();
             return 0;
           }
           return c - 1;
@@ -7451,7 +7457,7 @@ function OnChainTransferProgressModal({
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [isOpen, stage, onClose]);
+  }, [isOpen, stage]);
 
   if (!isOpen) return null;
 
@@ -7689,7 +7695,19 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const [destMode, setDestMode] = useState(() => (userTonAddress ? 'connected' : 'custom'));
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-    const [transferStage, setTransferStage] = useState('verifying'); // 'verifying' | 'transferring' | 'success' | 'error'
+    const [transferStageRaw, setTransferStageRaw] = useState('verifying');
+    const isSuccessRef = useRef(false);
+
+    const setTransferStage = (stg) => {
+        if (isSuccessRef.current && stg !== 'success') {
+            return;
+        }
+        if (stg === 'success') {
+            isSuccessRef.current = true;
+        }
+        setTransferStageRaw(stg);
+    };
+    const transferStage = transferStageRaw; // 'verifying' | 'transferring' | 'success' | 'error'
     const [memo, setMemo] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
     const [txResult, setTxResult] = useState(null);
@@ -7816,12 +7834,13 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         setShowBuyPinModal(false);
         setBuyPinError('');
         setErrorMessage('');
+        isSuccessRef.current = false;
         setIsTransferModalOpen(true);
         setTransferStage('verifying');
 
         let isCompleted = false;
         const progressTimer = setTimeout(() => {
-            if (!isCompleted) setTransferStage('transferring');
+            if (!isCompleted && !isSuccessRef.current) setTransferStage('transferring');
         }, 600);
 
         try {
@@ -7841,6 +7860,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
             clearTimeout(progressTimer);
 
             if (res.success) {
+                isSuccessRef.current = true;
                 setTxResult(res);
                 setTransferStage('success');
                 if (reloadData) reloadData();
@@ -8327,7 +8347,19 @@ function SellCryptoPage({
     const [step, setStep] = useState(1);
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
-    const [transferStage, setTransferStage] = useState('verifying');
+    const [transferStageRaw, setTransferStageRaw] = useState('verifying');
+    const isSuccessRef = useRef(false);
+
+    const setTransferStage = (stg) => {
+        if (isSuccessRef.current && stg !== 'success') {
+            return;
+        }
+        if (stg === 'success') {
+            isSuccessRef.current = true;
+        }
+        setTransferStageRaw(stg);
+    };
+    const transferStage = transferStageRaw;
 
     useEffect(() => {
         if (initialAsset && (initialAsset === 'GRAM' || initialAsset === 'USDT')) {
@@ -8408,11 +8440,12 @@ function SellCryptoPage({
     });
 
     const verifyTonSellOnChain = async (codeToVerify, amtToVerify) => {
+        if (isSuccessRef.current) return true;
         const code = codeToVerify || lastActiveSellCode;
         const targetAmt = amtToVerify || numAmount || lastSellAmount;
         if (!code) return false;
         try {
-            setTransferStage('verifying');
+            if (!isSuccessRef.current) setTransferStage('verifying');
             const res = await submitSellOrder({
                 userId: user?.id || 123456789,
                 asset,
@@ -8424,6 +8457,7 @@ function SellCryptoPage({
             });
 
             if (res && res.success) {
+                isSuccessRef.current = true;
                 const finalCreditedTk = res.creditedTk || estimatedTk;
                 setSellResult({ ...res, amount: targetAmt, estimatedTk: finalCreditedTk });
                 setTransferStage('success');
@@ -8485,13 +8519,14 @@ function SellCryptoPage({
                 : alert("Minimum sell value is 1 BDT");
         }
 
+        isSuccessRef.current = false;
         setIsTransferModalOpen(true);
         setTransferStage('verifying');
         setErrorMessage('');
 
         let isCompleted = false;
         const progressTimer = setTimeout(() => {
-            if (!isCompleted) setTransferStage('transferring');
+            if (!isCompleted && !isSuccessRef.current) setTransferStage('transferring');
         }, 700);
 
         let activeSellCode = '';
@@ -8528,10 +8563,11 @@ function SellCryptoPage({
             // When user confirms in Tonkeeper, the transaction hits the blockchain within 3-8 seconds!
             // Poll in background so user doesn't get stuck waiting on TonConnect's modal!
             const triggerBackgroundPoll = async () => {
-                if (isCompleted) { stopPolling(); return; }
+                if (isCompleted || isSuccessRef.current) { stopPolling(); return; }
                 const verified = await verifyTonSellOnChain(activeSellCode, numAmount);
-                if (verified) {
+                if (verified || isSuccessRef.current) {
                     isCompleted = true;
+                    isSuccessRef.current = true;
                     stopPolling();
                     clearTimeout(progressTimer);
                     try { tonConnectUI.closeModal(); } catch (_) {}
@@ -8539,7 +8575,7 @@ function SellCryptoPage({
             };
 
             pollTimer = setTimeout(() => {
-                if (!isCompleted) {
+                if (!isCompleted && !isSuccessRef.current) {
                     triggerBackgroundPoll();
                     pollInterval = setInterval(triggerBackgroundPoll, 2500);
                 }
@@ -8552,21 +8588,41 @@ function SellCryptoPage({
             } catch (err) {
                 console.warn("tonConnectUI sendTransaction error or cancel:", err);
 
-                // CRITICAL RESILIENCE FIX:
+                // If already succeeded, DO NOT overwrite with verifying or error!
+                if (isSuccessRef.current || isCompleted) {
+                    stopPolling();
+                    clearTimeout(progressTimer);
+                    return;
+                }
+
                 // User may have confirmed in Tonkeeper, but tapped outside or bridge disconnected on app resume.
                 // Give on-chain verification multiple attempts before showing any error!
-                setTransferStage('verifying');
-                setErrorMessage(lang === 'bn' ? 'ব্লকচেইনে লেনদেন যাচাই করা হচ্ছে...' : 'Verifying on-chain confirmation...');
+                if (!isSuccessRef.current) {
+                    setTransferStage('verifying');
+                    setErrorMessage(lang === 'bn' ? 'ব্লকচেইনে লেনদেন যাচাই করা হচ্ছে...' : 'Verifying on-chain confirmation...');
+                }
 
                 for (let i = 0; i < 4; i++) {
                     await new Promise(r => setTimeout(r, 2000));
-                    const ok = await verifyTonSellOnChain(activeSellCode, numAmount);
-                    if (ok) {
-                        isCompleted = true;
+                    if (isSuccessRef.current || isCompleted) {
                         stopPolling();
                         clearTimeout(progressTimer);
                         return;
                     }
+                    const ok = await verifyTonSellOnChain(activeSellCode, numAmount);
+                    if (ok || isSuccessRef.current) {
+                        isCompleted = true;
+                        isSuccessRef.current = true;
+                        stopPolling();
+                        clearTimeout(progressTimer);
+                        return;
+                    }
+                }
+
+                if (isSuccessRef.current) {
+                    stopPolling();
+                    clearTimeout(progressTimer);
+                    return;
                 }
 
                 isCompleted = true;
@@ -8593,7 +8649,7 @@ function SellCryptoPage({
                 return;
             }
 
-            if (!isCompleted) {
+            if (!isCompleted && !isSuccessRef.current) {
                 stopPolling();
                 clearTimeout(progressTimer);
 
@@ -8612,6 +8668,7 @@ function SellCryptoPage({
                 isCompleted = true;
 
                 if (res.success) {
+                    isSuccessRef.current = true;
                     const finalCreditedTk = res.creditedTk || estimatedTk;
                     setSellResult({ ...res, amount: numAmount, estimatedTk: finalCreditedTk });
                     setTransferStage('success');
@@ -8627,6 +8684,7 @@ function SellCryptoPage({
             }
         } catch (err) {
             stopPolling();
+            if (isSuccessRef.current) return;
             if (!isCompleted) {
                 isCompleted = true;
                 clearTimeout(progressTimer);
