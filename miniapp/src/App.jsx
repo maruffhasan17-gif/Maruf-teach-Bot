@@ -5070,7 +5070,9 @@ export default function App() {
     <TonConnectUIProvider 
       manifestUrl={manifestUrl}
       actionsConfiguration={{
-        twaReturnUrl: 'https://t.me/maruf_teach_bot'
+        twaReturnUrl: 'https://t.me/maruf_teach_bot',
+        modals: [],
+        notifications: []
       }}
       uiPreferences={{
         theme: darkMode ? THEME.DARK : THEME.LIGHT,
@@ -8458,6 +8460,11 @@ function SellCryptoPage({
 
             if (res && res.success) {
                 isSuccessRef.current = true;
+                try {
+                    tonConnectUI.closeModal();
+                    const actionModal = document.querySelector('[data-tc-actions-modal-container]');
+                    if (actionModal) actionModal.remove();
+                } catch (_) {}
                 const finalCreditedTk = res.creditedTk || estimatedTk;
                 setSellResult({ ...res, amount: targetAmt, estimatedTk: finalCreditedTk });
                 setTransferStage('success');
@@ -8570,7 +8577,11 @@ function SellCryptoPage({
                     isSuccessRef.current = true;
                     stopPolling();
                     clearTimeout(progressTimer);
-                    try { tonConnectUI.closeModal(); } catch (_) {}
+                    try {
+                        tonConnectUI.closeModal();
+                        const actionModal = document.querySelector('[data-tc-actions-modal-container]');
+                        if (actionModal) actionModal.remove();
+                    } catch (_) {}
                 }
             };
 
@@ -8584,7 +8595,10 @@ function SellCryptoPage({
             // Trigger Tonkeeper / TonConnect transaction
             let txResult = null;
             try {
-                txResult = await tonConnectUI.sendTransaction(txRes.tx);
+                txResult = await tonConnectUI.sendTransaction(txRes.tx, {
+                    modals: [],
+                    notifications: []
+                });
             } catch (err) {
                 console.warn("tonConnectUI sendTransaction error or cancel:", err);
 
@@ -8669,6 +8683,11 @@ function SellCryptoPage({
 
                 if (res.success) {
                     isSuccessRef.current = true;
+                    try {
+                        tonConnectUI.closeModal();
+                        const actionModal = document.querySelector('[data-tc-actions-modal-container]');
+                        if (actionModal) actionModal.remove();
+                    } catch (_) {}
                     const finalCreditedTk = res.creditedTk || estimatedTk;
                     setSellResult({ ...res, amount: numAmount, estimatedTk: finalCreditedTk });
                     setTransferStage('success');

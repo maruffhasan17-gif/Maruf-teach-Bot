@@ -635,3 +635,14 @@ html.dark .tp-spin-card-idle {
 @media (prefers-reduced-motion: reduce) {
   .tp-sweep-beam, .tp-shine-text { animation: none; }
 }
+
+/* Prevent TonConnect default confirmation action modal from obscuring custom UI */
+[data-tc-actions-modal-container],
+[data-tc-confirm-modal],
+[data-tc-transaction-sent-modal],
+[data-tc-transaction-canceled-modal] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
