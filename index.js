@@ -2591,6 +2591,8 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     bot.sendMessage(chatId, t.bn.welcome, opts).catch(e => console.error(e.message));
 });
 
+const activeRefreshLocks = new Set();
+
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
     const userId = query.from.id;
@@ -2724,32 +2726,48 @@ bot.on('callback_query', async (query) => {
     if (query.data && query.data.startsWith('refresh_profit:')) {
         const parts = query.data.split(':');
         const targetDate = parts[1] || getBangladeshDateKey();
+        const msgId = query.message?.message_id;
+        const lockKey = `${chatId}_${msgId}`;
+
+        if (activeRefreshLocks.has(lockKey)) {
+            bot.answerCallbackQuery(query.id, { text: '⏳ ইতিমধ্যে রিফ্রেশ হচ্ছে...' }).catch(() => {});
+            return;
+        }
+        activeRefreshLocks.add(lockKey);
+
+        // Instant answer to stop Telegram button spinner immediately
+        bot.answerCallbackQuery(query.id, { text: '🔄 লাইভ হিসাব লোড হচ্ছে...' }).catch(() => {});
+
         try {
             const audit = await getDailyProfitAudit(targetDate);
             const reportMsg = formatDailyProfitTelegramReport(audit);
             const replyMarkup = getDailyProfitTelegramMarkup(audit);
+
             try {
                 await bot.editMessageText(reportMsg, {
                     chat_id: chatId,
-                    message_id: query.message.message_id,
+                    message_id: msgId,
                     parse_mode: 'HTML',
                     reply_markup: replyMarkup
                 });
             } catch (editErr) {
-                if (editErr.message && editErr.message.includes('message is not modified')) {
-                    bot.answerCallbackQuery(query.id, { text: '✅ হিসাব ইতিমধ্যে আপ-টু-ডেট আছে!' }).catch(() => {});
+                const errMsg = String(editErr?.message || '');
+                if (errMsg.includes('message is not modified') || errMsg.includes('MESSAGE_NOT_MODIFIED')) {
                     return;
                 }
                 // Fallback without markup if markup failed
-                await bot.editMessageText(reportMsg, {
-                    chat_id: chatId,
-                    message_id: query.message.message_id,
-                    parse_mode: 'HTML'
-                });
+                try {
+                    await bot.editMessageText(reportMsg, {
+                        chat_id: chatId,
+                        message_id: msgId,
+                        parse_mode: 'HTML'
+                    });
+                } catch (_) {}
             }
-            bot.answerCallbackQuery(query.id, { text: '✅ লাইভ হিসাব রিফ্রেশ সম্পন্ন!' }).catch(() => {});
         } catch (err) {
-            bot.answerCallbackQuery(query.id, { text: 'রিফ্রেশ ত্রুটি: ' + err.message, show_alert: true }).catch(() => {});
+            console.error('[refresh_profit] Refresh error:', err.message);
+        } finally {
+            setTimeout(() => activeRefreshLocks.delete(lockKey), 1500);
         }
         return;
     }
@@ -2843,160 +2861,150 @@ async function getDailyProfitAudit(targetDateStr = null) {
     let referralBonusesBdt = 0;
     let referralBonusesCount = 0;
 
-    // 0. Deposits (Add Money) Query
+    // Parallel fetch of all 6 collections for sub-second audit performance
+    let depSnap = { forEach: () => {} };
+    let p2pSnap = { forEach: () => {} };
+    let buysSnap = { forEach: () => {} };
+    let sellsSnap = { forEach: () => {} };
+    let fwSnap = { forEach: () => {} };
+    let eventsSnap = { forEach: () => {} };
+
     try {
-        const depSnap = await db.collection('deposits').get();
-        depSnap.forEach(doc => {
-            const d = doc.data();
-            if (isAdminTestAccount(d.userId, d)) return;
-            const ts = toEpochMs(d.timestamp || d.createdAt);
-            if (ts >= startMs && ts <= endMs) {
-                const status = (d.status || '').toLowerCase();
-                if (status === 'completed' || status === 'approved' || !status) {
-                    depositOrdersCount++;
-                    depositVolumeBdt += (parseFloat(d.amount || 0) || 0);
-                }
-            }
-        });
+        const [dRes, pRes, bRes, sRes, wRes, eRes] = await Promise.all([
+            db.collection('deposits').get().catch(e => { console.warn('depSnap err:', e.message); return null; }),
+            db.collection('p2p_transfers').get().catch(e => { console.warn('p2pSnap err:', e.message); return null; }),
+            db.collection('miniapp_buys').get().catch(e => { console.warn('buysSnap err:', e.message); return null; }),
+            db.collection('miniapp_sells').get().catch(e => { console.warn('sellsSnap err:', e.message); return null; }),
+            db.collection('fiat_withdrawals').get().catch(e => { console.warn('fwSnap err:', e.message); return null; }),
+            db.collection('profit_events').where('dateKey', '==', dateKey).get().catch(e => { console.warn('eventsSnap err:', e.message); return null; })
+        ]);
+        if (dRes) depSnap = dRes;
+        if (pRes) p2pSnap = pRes;
+        if (bRes) buysSnap = bRes;
+        if (sRes) sellsSnap = sRes;
+        if (wRes) fwSnap = wRes;
+        if (eRes) eventsSnap = eRes;
     } catch (e) {
-        console.warn('[getDailyProfitAudit] deposits query error:', e.message);
+        console.warn('[getDailyProfitAudit] Parallel fetch error:', e.message);
     }
 
-    // 0.1 P2P Internal Transfers Query
-    try {
-        const p2pSnap = await db.collection('p2p_transfers').get();
-        p2pSnap.forEach(doc => {
-            const p = doc.data();
-            if (isAdminTestAccount(p.senderId, p) || isAdminTestAccount(p.receiverId, p)) return;
-            const ts = toEpochMs(p.createdAt || p.timestamp);
-            if (ts >= startMs && ts <= endMs) {
-                p2pOrdersCount++;
-                p2pVolumeBdt += (parseFloat(p.amount || 0) || 0);
+    // Process Deposits
+    depSnap.forEach(doc => {
+        const d = doc.data();
+        if (isAdminTestAccount(d.userId, d)) return;
+        const ts = toEpochMs(d.timestamp || d.createdAt);
+        if (ts >= startMs && ts <= endMs) {
+            const status = (d.status || '').toLowerCase();
+            if (status === 'completed' || status === 'approved' || !status) {
+                depositOrdersCount++;
+                depositVolumeBdt += (parseFloat(d.amount || 0) || 0);
             }
-        });
-    } catch (e) {
-        console.warn('[getDailyProfitAudit] p2p query error:', e.message);
-    }
+        }
+    });
 
-    // 1. Miniapp Buys Query
-    try {
-        const buysSnap = await db.collection('miniapp_buys').get();
-        buysSnap.forEach(doc => {
-            const b = doc.data();
-            // Skip admin/test transactions
-            if (isAdminTestAccount(b.userId, b)) return;
+    // Process P2P
+    p2pSnap.forEach(doc => {
+        const p = doc.data();
+        if (isAdminTestAccount(p.senderId, p) || isAdminTestAccount(p.receiverId, p)) return;
+        const ts = toEpochMs(p.createdAt || p.timestamp);
+        if (ts >= startMs && ts <= endMs) {
+            p2pOrdersCount++;
+            p2pVolumeBdt += (parseFloat(p.amount || 0) || 0);
+        }
+    });
 
-            const ts = toEpochMs(b.completedAt || b.timestamp);
-            if (ts >= startMs && ts <= endMs) {
-                const status = (b.status || '').toLowerCase();
-                if (status === 'completed' || status === 'paid' || status === 'approved') {
-                    const asset = (b.asset || '').toUpperCase();
-                    // ONLY real crypto purchases (GRAM, TON, USDT). Never count BDT deposits as crypto buys!
-                    if (asset === 'GRAM' || asset === 'TON' || asset === 'USDT') {
-                        buyOrdersCount++;
-                        const bdt = parseFloat(b.totalBdt || b.amountBdt || 0) || 0;
-                        const crypto = parseFloat(b.amount || b.cryptoAmount || 0) || 0;
-                        buyVolumeBdt += bdt;
+    // Process Crypto Buys
+    buysSnap.forEach(doc => {
+        const b = doc.data();
+        if (isAdminTestAccount(b.userId, b)) return;
+        const ts = toEpochMs(b.completedAt || b.timestamp);
+        if (ts >= startMs && ts <= endMs) {
+            const status = (b.status || '').toLowerCase();
+            if (status === 'completed' || status === 'paid' || status === 'approved') {
+                const asset = (b.asset || '').toUpperCase();
+                if (asset === 'GRAM' || asset === 'TON' || asset === 'USDT') {
+                    buyOrdersCount++;
+                    const bdt = parseFloat(b.totalBdt || b.amountBdt || 0) || 0;
+                    const crypto = parseFloat(b.amount || b.cryptoAmount || 0) || 0;
+                    buyVolumeBdt += bdt;
 
-                        const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 170);
-                        const sRate = Number(sellRates[asset]) || (asset === 'USDT' ? 118 : 130);
-                        const spread = Math.max(0, bRate - sRate);
+                    const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 170);
+                    const sRate = Number(sellRates[asset]) || (asset === 'USDT' ? 118 : 130);
+                    const spread = Math.max(0, bRate - sRate);
 
-                        if (asset === 'USDT') {
-                            buyUsdtAmount += crypto;
-                            buySpreadProfit += (crypto * spread);
-                        } else {
-                            buyGramAmount += crypto;
-                            buySpreadProfit += (crypto * spread);
-                        }
+                    if (asset === 'USDT') {
+                        buyUsdtAmount += crypto;
+                        buySpreadProfit += (crypto * spread);
+                    } else {
+                        buyGramAmount += crypto;
+                        buySpreadProfit += (crypto * spread);
                     }
                 }
             }
-        });
-    } catch (e) {
-        console.warn('[getDailyProfitAudit] buys query error:', e.message);
-    }
+        }
+    });
 
-    // 2. Miniapp Sells Query
-    try {
-        const sellsSnap = await db.collection('miniapp_sells').get();
-        sellsSnap.forEach(doc => {
-            const s = doc.data();
-            // Skip admin/test transactions
-            if (isAdminTestAccount(s.userId, s)) return;
+    // Process Crypto Sells
+    sellsSnap.forEach(doc => {
+        const s = doc.data();
+        if (isAdminTestAccount(s.userId, s)) return;
+        const ts = toEpochMs(s.completedAt || s.timestamp);
+        if (ts >= startMs && ts <= endMs) {
+            const status = (s.status || '').toLowerCase();
+            if (status === 'completed' || !status) {
+                const asset = (s.asset || '').toUpperCase();
+                if (asset === 'GRAM' || asset === 'TON' || asset === 'USDT') {
+                    sellOrdersCount++;
+                    const bdt = parseFloat(s.bdtAmount || s.totalBdt || s.estimatedTk || 0) || 0;
+                    const crypto = parseFloat(s.cryptoAmount || s.amount || 0) || 0;
+                    sellVolumeBdt += bdt;
 
-            const ts = toEpochMs(s.completedAt || s.timestamp);
-            if (ts >= startMs && ts <= endMs) {
-                const status = (s.status || '').toLowerCase();
-                if (status === 'completed' || !status) {
-                    const asset = (s.asset || '').toUpperCase();
-                    if (asset === 'GRAM' || asset === 'TON' || asset === 'USDT') {
-                        sellOrdersCount++;
-                        const bdt = parseFloat(s.bdtAmount || s.totalBdt || s.estimatedTk || 0) || 0;
-                        const crypto = parseFloat(s.cryptoAmount || s.amount || 0) || 0;
-                        sellVolumeBdt += bdt;
+                    const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 170);
+                    const sRate = Number(sellRates[asset]) || (asset === 'USDT' ? 118 : 130);
+                    const spread = Math.max(0, bRate - sRate);
 
-                        const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 170);
-                        const sRate = Number(sellRates[asset]) || (asset === 'USDT' ? 118 : 130);
-                        const spread = Math.max(0, bRate - sRate);
-
-                        if (asset === 'USDT') {
-                            sellUsdtAmount += crypto;
-                            sellSpreadProfit += (crypto * spread);
-                        } else {
-                            sellGramAmount += crypto;
-                            sellSpreadProfit += (crypto * spread);
-                        }
+                    if (asset === 'USDT') {
+                        sellUsdtAmount += crypto;
+                        sellSpreadProfit += (crypto * spread);
+                    } else {
+                        sellGramAmount += crypto;
+                        sellSpreadProfit += (crypto * spread);
                     }
                 }
             }
-        });
-    } catch (e) {
-        console.warn('[getDailyProfitAudit] sells query error:', e.message);
-    }
+        }
+    });
 
-    // 3. Fiat Withdrawals Query (Fee is pure platform revenue)
-    try {
-        const fwSnap = await db.collection('fiat_withdrawals').get();
-        fwSnap.forEach(doc => {
-            const w = doc.data();
-            // Skip admin/test transactions
-            if (isAdminTestAccount(w.userId, w)) return;
+    // Process Fiat Withdrawals
+    fwSnap.forEach(doc => {
+        const w = doc.data();
+        if (isAdminTestAccount(w.userId, w)) return;
+        const ts = toEpochMs(w.completedAt || w.timestamp);
+        if (ts >= startMs && ts <= endMs) {
+            const status = (w.status || '').toLowerCase();
+            if (status === 'completed' || status === 'approved') {
+                withdrawOrdersCount++;
+                const amt = parseFloat(w.amount || 0) || 0;
+                withdrawTotalBdt += amt;
 
-            const ts = toEpochMs(w.completedAt || w.timestamp);
-            if (ts >= startMs && ts <= endMs) {
-                const status = (w.status || '').toLowerCase();
-                if (status === 'completed' || status === 'approved') {
-                    withdrawOrdersCount++;
-                    const amt = parseFloat(w.amount || 0) || 0;
-                    withdrawTotalBdt += amt;
-
-                    const fee = parseFloat(w.fee || (amt - (parseFloat(w.receiveAmount || w.sentAmount) || (amt - 5))) || 5) || 5;
-                    withdrawFeesCollected += fee;
-                }
+                const fee = parseFloat(w.fee || (amt - (parseFloat(w.receiveAmount || w.sentAmount) || (amt - 5))) || 5) || 5;
+                withdrawFeesCollected += fee;
             }
-        });
-    } catch (e) {
-        console.warn('[getDailyProfitAudit] withdrawals query error:', e.message);
-    }
+        }
+    });
 
-    // 4. Profit Events Query (Spins & Referrals)
-    try {
-        const eventsSnap = await db.collection('profit_events').where('dateKey', '==', dateKey).get();
-        eventsSnap.forEach(doc => {
-            const ev = doc.data();
-            if (isAdminTestAccount(ev.userId, ev)) return;
-            if (ev.type === 'SPIN_REWARD') {
-                spinRewardsBdt += (parseFloat(ev.bdtWon || ev.amount || 0) || 0);
-                spinRewardsCount++;
-            } else if (ev.type === 'REFERRAL_BONUS') {
-                referralBonusesBdt += (parseFloat(ev.amount || 5) || 5);
-                referralBonusesCount++;
-            }
-        });
-    } catch (e) {
-        console.warn('[getDailyProfitAudit] events query error:', e.message);
-    }
+    // Process Profit Events
+    eventsSnap.forEach(doc => {
+        const ev = doc.data();
+        if (isAdminTestAccount(ev.userId, ev)) return;
+        if (ev.type === 'SPIN_REWARD') {
+            spinRewardsBdt += (parseFloat(ev.bdtWon || ev.amount || 0) || 0);
+            spinRewardsCount++;
+        } else if (ev.type === 'REFERRAL_BONUS') {
+            referralBonusesBdt += (parseFloat(ev.amount || 5) || 5);
+            referralBonusesCount++;
+        }
+    });
 
     // Fallback for Spin/Referral if no explicit profit_events exist yet today
     if (spinRewardsBdt === 0) {
