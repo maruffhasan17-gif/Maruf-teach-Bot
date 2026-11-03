@@ -121,6 +121,11 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
         withdrawFees: todayData.withdrawFeesCollected || 0,
         spinCost: todayData.spinRewardsBdt || 0,
         referralCost: todayData.referralBonusesBdt || 0,
+        depositVolume: todayData.depositVolumeBdt || 0,
+        depositCount: todayData.depositOrdersCount || 0,
+        withdrawPaid: todayData.withdrawTotalBdt || 0,
+        withdrawCount: todayData.withdrawOrdersCount || 0,
+        netCashFlow: todayData.netCashFlowBdt || 0,
         isProfit: (todayData.netProfit || 0) >= 0
       };
     }
@@ -137,12 +142,18 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
         withdrawFees: allTime.totalWithdrawFees || 0,
         spinCost: allTime.totalSpinExpenses || 0,
         referralCost: allTime.totalReferralExpenses || 0,
+        depositVolume: allTime.totalDepositVolumeBdt || 0,
+        depositCount: allTime.totalDepositCount || 0,
+        withdrawPaid: allTime.totalWithdrawPaidBdt || 0,
+        withdrawCount: allTime.totalWithdrawCount || 0,
+        netCashFlow: allTime.totalNetCashFlowBdt || 0,
         isProfit: (allTime.netProfit || 0) >= 0
       };
     }
 
     // Sum over filtered history
     let gross = 0, exp = 0, net = 0, sav = 0, buyV = 0, sellV = 0, spread = 0, fees = 0, spin = 0, ref = 0;
+    let depV = 0, depC = 0, withV = 0, withC = 0, netCF = 0;
     filteredHistory.forEach(h => {
       gross += Number(h.grossIncome || 0);
       exp += Number(h.totalExpenses || 0);
@@ -154,6 +165,11 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
       fees += Number(h.withdrawFeesCollected || 0);
       spin += Number(h.spinRewardsBdt || 0);
       ref += Number(h.referralBonusesBdt || 0);
+      depV += Number(h.depositVolumeBdt || 0);
+      depC += Number(h.depositOrdersCount || 0);
+      withV += Number(h.withdrawTotalBdt || 0);
+      withC += Number(h.withdrawOrdersCount || 0);
+      netCF += Number(h.netCashFlowBdt || 0);
     });
 
     return {
@@ -167,6 +183,11 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
       withdrawFees: fees,
       spinCost: spin,
       referralCost: ref,
+      depositVolume: depV,
+      depositCount: depC,
+      withdrawPaid: withV,
+      withdrawCount: withC,
+      netCashFlow: netCF,
       isProfit: net >= 0
     };
   }, [selectedDateFilter, todayData, allTime, filteredHistory]);
@@ -246,7 +267,7 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
       </div>
 
       {/* ─── 2. Top Metric Cards ─────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         
         {/* Card 1: Net Profit */}
         <div className={`p-5 rounded-2xl border transition-all relative overflow-hidden ${
@@ -354,6 +375,31 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
             <div className="flex items-center gap-2 mt-2 text-xs text-indigo-400/80">
               <ShieldCheck size={14} />
               <span>নিরাপদে ব্যাংকে জমানোর সুপারিশ</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Net Cash Flow (Add Money vs Withdraw) */}
+        <div className={`p-5 rounded-2xl border transition-all ${
+          isDark ? 'bg-cyan-950/20 border-cyan-500/30' : 'bg-cyan-50/80 border-cyan-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+              নিট ক্যাশ ফ্লো (Cash In vs Out)
+            </span>
+            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400">
+              <Wallet size={18} />
+            </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-3xl font-black tracking-tight text-cyan-300">
+              {activeMetrics.netCashFlow >= 0 ? '+' : '-'}৳{Math.abs(activeMetrics.netCashFlow).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-xs font-medium ml-1.5 opacity-70">BDT</span>
+            </div>
+            <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+              <span>ডিপোজিট: <b className="text-emerald-400">৳{activeMetrics.depositVolume.toFixed(0)}</b></span>
+              <span>•</span>
+              <span>উইথড্র: <b className="text-rose-400">৳{activeMetrics.withdrawPaid.toFixed(0)}</b></span>
             </div>
           </div>
         </div>
@@ -474,6 +520,45 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
 
         </div>
 
+        {/* Cash Flow Summary Bar */}
+        <div className="mt-6 p-4 rounded-xl bg-slate-950/60 border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+              <ArrowDownLeft size={20} />
+            </div>
+            <div>
+              <div className="text-xs text-slate-400 font-semibold">মোট Add Money (ডিপোজিট)</div>
+              <div className="text-base font-black text-emerald-400">
+                +৳{activeMetrics.depositVolume.toLocaleString()} BDT <span className="text-xs text-slate-500 font-normal">({activeMetrics.depositCount}টি সফল)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-rose-500/20 text-rose-400">
+              <ArrowUpRight size={20} />
+            </div>
+            <div>
+              <div className="text-xs text-slate-400 font-semibold">মোট Cash Out (উইথড্র পেইড)</div>
+              <div className="text-base font-black text-rose-400">
+                -৳{activeMetrics.withdrawPaid.toLocaleString()} BDT <span className="text-xs text-slate-500 font-normal">({activeMetrics.withdrawCount}টি পেইড)</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-cyan-500/20 text-cyan-400">
+              <Wallet size={20} />
+            </div>
+            <div>
+              <div className="text-xs text-slate-400 font-semibold">নিট ক্যাশ ব্যালেন্স পরিবর্তন</div>
+              <div className="text-base font-black text-cyan-300">
+                {activeMetrics.netCashFlow >= 0 ? '+' : '-'}৳{Math.abs(activeMetrics.netCashFlow).toLocaleString()} BDT
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* ─── Bottom Line Divider & Final Verdict ─────────────── */}
         <div className="mt-8 pt-6 border-t border-slate-800">
           <div className={`p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
@@ -541,6 +626,8 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
             <thead>
               <tr className={`border-b ${isDark ? 'border-slate-800 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider">তারিখ (Date)</th>
+                <th className="py-3 px-3 font-bold uppercase tracking-wider text-cyan-400">ডিপোজিট (Add)</th>
+                <th className="py-3 px-3 font-bold uppercase tracking-wider text-rose-400">উইথড্র (Out)</th>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider">ক্রয় ভলিউম</th>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider">বিক্রয় ভলিউম</th>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider text-emerald-400">স্প্রেড লাভ</th>
@@ -556,7 +643,7 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
             <tbody className="divide-y divide-slate-800/60">
               {filteredHistory.length === 0 ? (
                 <tr>
-                  <td colSpan="11" className="py-12 text-center text-slate-500 font-medium">
+                  <td colSpan="13" className="py-12 text-center text-slate-500 font-medium">
                     কোনো তারিখের অডিট ডাটা পাওয়া যায়নি।
                   </td>
                 </tr>
@@ -574,6 +661,16 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
                       <td className="py-3.5 px-3 font-semibold text-slate-200">
                         <div className="font-bold">{item.dateDisplay || item.date}</div>
                         <div className="text-[10px] text-slate-500 font-mono">{item.dateKey || item.date}</div>
+                      </td>
+
+                      <td className="py-3.5 px-3 font-mono font-bold text-cyan-300">
+                        ৳{Number(item.depositVolumeBdt || 0).toLocaleString()}
+                        <span className="text-[10px] text-slate-500 ml-1">({item.depositOrdersCount || 0})</span>
+                      </td>
+
+                      <td className="py-3.5 px-3 font-mono font-bold text-rose-300">
+                        ৳{Number(item.withdrawTotalBdt || 0).toLocaleString()}
+                        <span className="text-[10px] text-slate-500 ml-1">({item.withdrawOrdersCount || 0})</span>
                       </td>
 
                       <td className="py-3.5 px-3 font-mono text-slate-300">

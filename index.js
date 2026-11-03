@@ -2815,6 +2815,12 @@ async function getDailyProfitAudit(targetDateStr = null) {
     const buyRates = cachedMarketRates?.buyRates || { USDT: 130, GRAM: 170, TON: 170 };
     const sellRates = cachedMarketRates?.sellRates || { USDT: 118, GRAM: 130, TON: 130 };
 
+    let depositOrdersCount = 0;
+    let depositVolumeBdt = 0;
+
+    let p2pOrdersCount = 0;
+    let p2pVolumeBdt = 0;
+
     let buyOrdersCount = 0;
     let buyVolumeBdt = 0;
     let buyGramAmount = 0;
@@ -2836,6 +2842,41 @@ async function getDailyProfitAudit(targetDateStr = null) {
 
     let referralBonusesBdt = 0;
     let referralBonusesCount = 0;
+
+    // 0. Deposits (Add Money) Query
+    try {
+        const depSnap = await db.collection('deposits').get();
+        depSnap.forEach(doc => {
+            const d = doc.data();
+            if (isAdminTestAccount(d.userId, d)) return;
+            const ts = toEpochMs(d.timestamp || d.createdAt);
+            if (ts >= startMs && ts <= endMs) {
+                const status = (d.status || '').toLowerCase();
+                if (status === 'completed' || status === 'approved' || !status) {
+                    depositOrdersCount++;
+                    depositVolumeBdt += (parseFloat(d.amount || 0) || 0);
+                }
+            }
+        });
+    } catch (e) {
+        console.warn('[getDailyProfitAudit] deposits query error:', e.message);
+    }
+
+    // 0.1 P2P Internal Transfers Query
+    try {
+        const p2pSnap = await db.collection('p2p_transfers').get();
+        p2pSnap.forEach(doc => {
+            const p = doc.data();
+            if (isAdminTestAccount(p.senderId, p) || isAdminTestAccount(p.receiverId, p)) return;
+            const ts = toEpochMs(p.createdAt || p.timestamp);
+            if (ts >= startMs && ts <= endMs) {
+                p2pOrdersCount++;
+                p2pVolumeBdt += (parseFloat(p.amount || 0) || 0);
+            }
+        });
+    } catch (e) {
+        console.warn('[getDailyProfitAudit] p2p query error:', e.message);
+    }
 
     // 1. Miniapp Buys Query
     try {
@@ -2977,6 +3018,7 @@ async function getDailyProfitAudit(targetDateStr = null) {
     const grossIncome = Math.round((tradingSpreadProfit + withdrawFeesCollected) * 100) / 100;
     const totalExpenses = Math.round((spinRewardsBdt + referralBonusesBdt) * 100) / 100;
     const netProfit = Math.round((grossIncome - totalExpenses) * 100) / 100;
+    const netCashFlowBdt = Math.round((depositVolumeBdt - withdrawTotalBdt) * 100) / 100;
 
     // 70% pure savings, 30% operational liquidity buffer
     const recommendedSavingsBdt = netProfit > 0 ? Math.round((netProfit * 0.70) * 100) / 100 : 0;
@@ -2996,18 +3038,23 @@ async function getDailyProfitAudit(targetDateStr = null) {
         grossIncome,
         totalExpenses,
         netProfit,
+        netCashFlowBdt,
         recommendedSavingsBdt,
         liquidityBufferBdt,
         tradingSpreadProfit,
-        buySpreadProfit: Math.round(buySpreadProfit * 100) / 100,
-        sellSpreadProfit: Math.round(sellSpreadProfit * 100) / 100,
-        withdrawFeesCollected: Math.round(withdrawFeesCollected * 100) / 100,
-        withdrawTotalBdt: Math.round(withdrawTotalBdt * 100) / 100,
-        buyVolumeBdt: Math.round(buyVolumeBdt * 100) / 100,
-        sellVolumeBdt: Math.round(sellVolumeBdt * 100) / 100,
-        buyOrdersCount,
-        sellOrdersCount,
+        depositOrdersCount,
+        depositVolumeBdt: Math.round(depositVolumeBdt * 100) / 100,
         withdrawOrdersCount,
+        withdrawTotalBdt: Math.round(withdrawTotalBdt * 100) / 100,
+        withdrawFeesCollected: Math.round(withdrawFeesCollected * 100) / 100,
+        buyOrdersCount,
+        buyVolumeBdt: Math.round(buyVolumeBdt * 100) / 100,
+        buySpreadProfit: Math.round(buySpreadProfit * 100) / 100,
+        sellOrdersCount,
+        sellVolumeBdt: Math.round(sellVolumeBdt * 100) / 100,
+        sellSpreadProfit: Math.round(sellSpreadProfit * 100) / 100,
+        p2pOrdersCount,
+        p2pVolumeBdt: Math.round(p2pVolumeBdt * 100) / 100,
         gramVolume: Math.round((buyGramAmount + sellGramAmount) * 1000) / 1000,
         buyGramAmount: Math.round(buyGramAmount * 1000) / 1000,
         sellGramAmount: Math.round(sellGramAmount * 1000) / 1000,
@@ -3040,32 +3087,41 @@ async function getDailyProfitAudit(targetDateStr = null) {
 function formatDailyProfitTelegramReport(audit) {
     const isProfitable = audit.netProfit >= 0;
     const profitSign = audit.netProfit > 0 ? '+' : '';
-    const statusText = isProfitable ? '🟢 লাভ (PROFIT)' : '🔴 ঘাটতি (LOSS)';
+    const statusText = isProfitable ? '🟢 লাভজনক দিন (NET PROFIT)' : '🔴 ঘাটতি (LOSS)';
+    const cfSign = (audit.netCashFlowBdt || 0) > 0 ? '+' : '';
 
-    return `📊 <b>দৈনিক প্রফিট রিপোর্ট (Daily P&L)</b>
+    return `📊 <b>দৈনিক পূর্ণাঙ্গ অডিট ও প্রফিট রিপোর্ট</b>
 📅 <b>তারিখ:</b> <code>${audit.formattedDate}</code> <i>${audit.isToday ? '(আজকের লাইভ)' : '(পূর্ণাঙ্গ ২৪ ঘণ্টা)'}</i>
 ━━━━━━━━━━━━━━━━━━━━
 
-💰 <b>মোট আয় (Gross Revenue):</b>
-• বাই প্রফিট: <b>+৳${audit.buySpreadProfit.toFixed(2)}</b> <i>(${audit.buyOrdersCount}টি Buy)</i>
-• সেল প্রফিট: <b>+৳${audit.sellSpreadProfit.toFixed(2)}</b> <i>(${audit.sellOrdersCount}টি Sell)</i>
-• ক্যাশআউট ফি: <b>+৳${audit.withdrawFeesCollected.toFixed(2)}</b> <i>(${audit.withdrawOrdersCount}টি Payout)</i>
-💵 <b>সর্বমোট আয়:</b> <b>+৳${audit.grossIncome.toFixed(2)} BDT</b>
-
-📉 <b>মোট খরচ (Expenses):</b>
-• স্পিন ক্যাশ রিওয়ার্ড: <b>-৳${audit.spinRewardsBdt.toFixed(2)}</b> <i>(${audit.spinRewardsCount}টি Win)</i>
-• রেফারেল বোনাস: <b>-৳${audit.referralBonusesBdt.toFixed(2)}</b> <i>(${audit.referralBonusesCount}টি Bonus)</i>
-• ব্লকচেইন গ্যাস ফি: <b>৳০.০০</b> <i>(ইউজার কর্তন)</i>
-💸 <b>সর্বমোট পরিচালন ব্যয়:</b> <b>-৳${audit.totalExpenses.toFixed(2)} BDT</b>
+📥 <b>ক্যাশ ফ্লো (Money In vs Out):</b>
+• 🟢 Add Money (ডিপোজিট): <b>+৳${(audit.depositVolumeBdt || 0).toFixed(2)}</b> <i>(${audit.depositOrdersCount || 0}টি সফল)</i>
+• 🔴 Cash Out (উইথড্র পেইড): <b>-৳${(audit.withdrawTotalBdt || 0).toFixed(2)}</b> <i>(${audit.withdrawOrdersCount || 0}টি পেইড)</i>
+• 💼 <b>নিট ক্যাশ ব্যালেন্স:</b> <b>${cfSign}৳${(audit.netCashFlowBdt || 0).toFixed(2)} BDT</b>
 
 ━━━━━━━━━━━━━━━━━━━━
-🏆 <b>আজকের নিট প্রফিট:</b> <b>${profitSign}৳${audit.netProfit.toFixed(2)} BDT</b>
+💰 <b>প্ল্যাটফর্ম গ্রস আয় (Gross Revenue):</b>
+• 🔹 বাই স্প্রেড প্রফিট: <b>+৳${(audit.buySpreadProfit || 0).toFixed(2)}</b> <i>(${audit.buyOrdersCount || 0}টি Buy | ৳${(audit.buyVolumeBdt || 0).toFixed(2)})</i>
+• 🔹 সেল স্প্রেড প্রফিট: <b>+৳${(audit.sellSpreadProfit || 0).toFixed(2)}</b> <i>(${audit.sellOrdersCount || 0}টি Sell | ৳${(audit.sellVolumeBdt || 0).toFixed(2)})</i>
+• 🔹 উইথড্র সার্ভিস ফি: <b>+৳${(audit.withdrawFeesCollected || 0).toFixed(2)}</b> <i>(${audit.withdrawOrdersCount || 0}টি চার্জ)</i>
+💵 <b>সর্বমোট গ্রস আয়:</b> <b>+৳${(audit.grossIncome || 0).toFixed(2)} BDT</b>
+
+━━━━━━━━━━━━━━━━━━━━
+📉 <b>পরিচালন ব্যয় ও বোনাস (Expenses):</b>
+• 🔸 স্পিন ক্যাশ রিওয়ার্ড: <b>-৳${(audit.spinRewardsBdt || 0).toFixed(2)}</b> <i>(${audit.spinRewardsCount || 0}টি উইন)</i>
+• 🔸 রেফারেল বোনাস: <b>-৳${(audit.referralBonusesBdt || 0).toFixed(2)}</b> <i>(${audit.referralBonusesCount || 0}টি বোনাস)</i>
+• 🔸 ব্লকচেইন গ্যাস ফি: <b>৳০.০০</b> <i>(ইউজার ব্যালেন্স থেকে কর্তিত)</i>
+💸 <b>সর্বমোট পরিচালন ব্যয়:</b> <b>-৳${(audit.totalExpenses || 0).toFixed(2)} BDT</b>
+
+━━━━━━━━━━━━━━━━━━━━
+🏆 <b>আজকের নিট প্রফিট (Net Operating Profit):</b>
+💎 <b>${profitSign}৳${(audit.netProfit || 0).toFixed(2)} BDT</b>
 📌 <b>অবস্থা:</b> <b>${statusText}</b>
 ━━━━━━━━━━━━━━━━━━━━
 
-🏦 <b>সেভিংস ফান্ড ও রিজার্ভ প্ল্যান:</b>
-• 💰 <b>৭০% সঞ্চয় ফান্ড:</b> <code>৳${audit.recommendedSavingsBdt.toFixed(2)} BDT</code> (ব্যাংক সেভিংস)
-• 🛡️ <b>৩০% ব্যাকআপ রিজার্ভ:</b> <code>৳${audit.liquidityBufferBdt.toFixed(2)} BDT</code> (ওয়ালেট ব্যালেন্স)
+🏦 <b>সেভিংস ফান্ড ও রিজার্ভ প্ল্যান (70% - 30%):</b>
+• 💰 <b>৭০% সঞ্চয় ফান্ড:</b> <code>৳${(audit.recommendedSavingsBdt || 0).toFixed(2)} BDT</code> (ব্যাংক সেভিংস)
+• 🛡️ <b>৩০% ব্যাকআপ রিজার্ভ:</b> <code>৳${(audit.liquidityBufferBdt || 0).toFixed(2)} BDT</code> (ওয়ালেট ব্যালেন্স)
 
 ━━━━━━━━━━━━━━━━━━━━
 ⚡️ <i>Trust Pay Executive Engine</i>`;
@@ -3075,26 +3131,36 @@ function formatDailyProfitPlainText(audit) {
     const isProfitable = audit.netProfit >= 0;
     const profitSign = audit.netProfit > 0 ? '+' : '';
     const statusText = isProfitable ? 'লাভজনক দিন (PROFIT)' : 'ঘাটতি (LOSS)';
+    const cfSign = (audit.netCashFlowBdt || 0) > 0 ? '+' : '';
 
-    return `📊 দৈনিক প্রফিট রিপোর্ট (Daily P&L)
+    return `📊 দৈনিক পূর্ণাঙ্গ অডিট ও প্রফিট রিপোর্ট
 📅 তারিখ: ${audit.formattedDate} ${audit.isToday ? '(আজকের লাইভ)' : '(পূর্ণাঙ্গ ২৪ ঘণ্টা)'}
 ━━━━━━━━━━━━━━━━━━━━
-💰 মোট আয়: +৳${audit.grossIncome.toFixed(2)} BDT
-• বাই প্রফিট: +৳${audit.buySpreadProfit.toFixed(2)} (${audit.buyOrdersCount}টি Buy)
-• সেল প্রফিট: +৳${audit.sellSpreadProfit.toFixed(2)} (${audit.sellOrdersCount}টি Sell)
-• ক্যাশআউট ফি: +৳${audit.withdrawFeesCollected.toFixed(2)} (${audit.withdrawOrdersCount}টি Payout)
-
-📉 মোট খরচ: -৳${audit.totalExpenses.toFixed(2)} BDT
-• স্পিন ক্যাশ রিওয়ার্ড: -৳${audit.spinRewardsBdt.toFixed(2)}
-• রেফারেল বোনাস: -৳${audit.referralBonusesBdt.toFixed(2)}
-• গ্যাস ফি: ৳0.00 (ইউজার কর্তন)
+📥 ক্যাশ ফ্লো (Money In vs Out):
+• Add Money (ডিপোজিট): +৳${(audit.depositVolumeBdt || 0).toFixed(2)} (${audit.depositOrdersCount || 0}টি)
+• Cash Out (উইথড্র পেইড): -৳${(audit.withdrawTotalBdt || 0).toFixed(2)} (${audit.withdrawOrdersCount || 0}টি)
+• নিট ক্যাশ ব্যালেন্স: ${cfSign}৳${(audit.netCashFlowBdt || 0).toFixed(2)} BDT
 
 ━━━━━━━━━━━━━━━━━━━━
-🏆 আজকের নিট প্রফিট: ${profitSign}৳${audit.netProfit.toFixed(2)} BDT (${statusText})
+💰 প্ল্যাটফর্ম গ্রস আয়:
+• বাই স্প্রেড প্রফিট: +৳${(audit.buySpreadProfit || 0).toFixed(2)}
+• সেল স্প্রেড প্রফিট: +৳${(audit.sellSpreadProfit || 0).toFixed(2)}
+• উইথড্র সার্ভিস ফি: +৳${(audit.withdrawFeesCollected || 0).toFixed(2)}
+💵 সর্বমোট গ্রস আয়: +৳${(audit.grossIncome || 0).toFixed(2)} BDT
+
+━━━━━━━━━━━━━━━━━━━━
+📉 পরিচালন ব্যয়:
+• স্পিন ক্যাশ রিওয়ার্ড: -৳${(audit.spinRewardsBdt || 0).toFixed(2)}
+• রেফারেল বোনাস: -৳${(audit.referralBonusesBdt || 0).toFixed(2)}
+• গ্যাস ফি: ৳0.00 (ইউজার কর্তন)
+💸 সর্বমোট ব্যয়: -৳${(audit.totalExpenses || 0).toFixed(2)} BDT
+
+━━━━━━━━━━━━━━━━━━━━
+🏆 নিট প্রফিট: ${profitSign}৳${(audit.netProfit || 0).toFixed(2)} BDT (${statusText})
 ━━━━━━━━━━━━━━━━━━━━
 🏦 সেভিংস প্ল্যান:
-• ৭০% সঞ্চয় ফান্ড: ৳${audit.recommendedSavingsBdt.toFixed(2)} BDT (ব্যাংক সেভিংস)
-• ৩০% ব্যাকআপ রিজার্ভ: ৳${audit.liquidityBufferBdt.toFixed(2)} BDT (ওয়ালেট ব্যালেন্স)
+• ৭০% সঞ্চয় ফান্ড: ৳${(audit.recommendedSavingsBdt || 0).toFixed(2)} BDT (ব্যাংক সেভিংস)
+• ৩০% ব্যাকআপ রিজার্ভ: ৳${(audit.liquidityBufferBdt || 0).toFixed(2)} BDT (ওয়ালেট ব্যালেন্স)
 ━━━━━━━━━━━━━━━━━━━━
 Trust Pay Executive Engine`;
 }
@@ -3103,11 +3169,10 @@ function getDailyProfitTelegramMarkup(audit) {
     const profitSign = audit.netProfit > 0 ? '+' : '';
     // Telegram Bot API limit: copy_text must be 1-256 characters!
     const shortCopy = `📊 Trust Pay (${audit.formattedDate})\n` +
-        `💰 আয়: +৳${audit.grossIncome.toFixed(2)} BDT\n` +
-        `📉 ব্যয়: -৳${audit.totalExpenses.toFixed(2)} BDT\n` +
-        `🏆 নিট লাভ: ${profitSign}৳${audit.netProfit.toFixed(2)} BDT\n` +
-        `💰 ৭০% সেভিংস: ৳${audit.recommendedSavingsBdt.toFixed(2)} BDT\n` +
-        `🛡️ ৩০% রিজার্ভ: ৳${audit.liquidityBufferBdt.toFixed(2)} BDT`;
+        `📥 ডিপোজিট: ৳${(audit.depositVolumeBdt || 0).toFixed(0)} | 📤 উইথড্র: ৳${(audit.withdrawTotalBdt || 0).toFixed(0)}\n` +
+        `💰 আয়: +৳${(audit.grossIncome || 0).toFixed(2)} | 📉 ব্যয়: -৳${(audit.totalExpenses || 0).toFixed(2)}\n` +
+        `🏆 নিট লাভ: ${profitSign}৳${(audit.netProfit || 0).toFixed(2)} BDT\n` +
+        `💰 ৭০% সেভিংস: ৳${(audit.recommendedSavingsBdt || 0).toFixed(2)} | 🛡️ ৩০% রিজার্ভ: ৳${(audit.liquidityBufferBdt || 0).toFixed(2)}`;
 
     return {
         inline_keyboard: [
@@ -8522,6 +8587,9 @@ app.get('/api/admin/profit-ledger', async (req, res) => {
         let totalWithdrawFees = 0;
         let totalSpinExpenses = 0;
         let totalReferralExpenses = 0;
+        let totalDepositVolumeBdt = 0;
+        let totalWithdrawPaidBdt = 0;
+        let totalNetCashFlowBdt = 0;
 
         history.forEach(h => {
             totalGrossIncome += Number(h.grossIncome || 0);
@@ -8534,6 +8602,9 @@ app.get('/api/admin/profit-ledger', async (req, res) => {
             totalWithdrawFees += Number(h.withdrawFeesCollected || 0);
             totalSpinExpenses += Number(h.spinRewardsBdt || 0);
             totalReferralExpenses += Number(h.referralBonusesBdt || 0);
+            totalDepositVolumeBdt += Number(h.depositVolumeBdt || 0);
+            totalWithdrawPaidBdt += Number(h.withdrawTotalBdt || 0);
+            totalNetCashFlowBdt += Number(h.netCashFlowBdt || 0);
         });
 
         res.json({
@@ -8550,7 +8621,10 @@ app.get('/api/admin/profit-ledger', async (req, res) => {
                 totalSpreadProfit: Math.round(totalSpreadProfit * 100) / 100,
                 totalWithdrawFees: Math.round(totalWithdrawFees * 100) / 100,
                 totalSpinExpenses: Math.round(totalSpinExpenses * 100) / 100,
-                totalReferralExpenses: Math.round(totalReferralExpenses * 100) / 100
+                totalReferralExpenses: Math.round(totalReferralExpenses * 100) / 100,
+                totalDepositVolumeBdt: Math.round(totalDepositVolumeBdt * 100) / 100,
+                totalWithdrawPaidBdt: Math.round(totalWithdrawPaidBdt * 100) / 100,
+                totalNetCashFlowBdt: Math.round(totalNetCashFlowBdt * 100) / 100
             },
             config: {
                 profitGroupId: botConfig.profitGroupId || ''
