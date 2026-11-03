@@ -2728,12 +2728,25 @@ bot.on('callback_query', async (query) => {
             const audit = await getDailyProfitAudit(targetDate);
             const reportMsg = formatDailyProfitTelegramReport(audit);
             const replyMarkup = getDailyProfitTelegramMarkup(audit);
-            await bot.editMessageText(reportMsg, {
-                chat_id: chatId,
-                message_id: query.message.message_id,
-                parse_mode: 'HTML',
-                reply_markup: replyMarkup
-            });
+            try {
+                await bot.editMessageText(reportMsg, {
+                    chat_id: chatId,
+                    message_id: query.message.message_id,
+                    parse_mode: 'HTML',
+                    reply_markup: replyMarkup
+                });
+            } catch (editErr) {
+                if (editErr.message && editErr.message.includes('message is not modified')) {
+                    bot.answerCallbackQuery(query.id, { text: '✅ হিসাব ইতিমধ্যে আপ-টু-ডেট আছে!' }).catch(() => {});
+                    return;
+                }
+                // Fallback without markup if markup failed
+                await bot.editMessageText(reportMsg, {
+                    chat_id: chatId,
+                    message_id: query.message.message_id,
+                    parse_mode: 'HTML'
+                });
+            }
             bot.answerCallbackQuery(query.id, { text: '✅ লাইভ হিসাব রিফ্রেশ সম্পন্ন!' }).catch(() => {});
         } catch (err) {
             bot.answerCallbackQuery(query.id, { text: 'রিফ্রেশ ত্রুটি: ' + err.message, show_alert: true }).catch(() => {});
@@ -3087,13 +3100,21 @@ Trust Pay Executive Engine`;
 }
 
 function getDailyProfitTelegramMarkup(audit) {
-    const copyText = formatDailyProfitPlainText(audit);
+    const profitSign = audit.netProfit > 0 ? '+' : '';
+    // Telegram Bot API limit: copy_text must be 1-256 characters!
+    const shortCopy = `📊 Trust Pay (${audit.formattedDate})\n` +
+        `💰 আয়: +৳${audit.grossIncome.toFixed(2)} BDT\n` +
+        `📉 ব্যয়: -৳${audit.totalExpenses.toFixed(2)} BDT\n` +
+        `🏆 নিট লাভ: ${profitSign}৳${audit.netProfit.toFixed(2)} BDT\n` +
+        `💰 ৭০% সেভিংস: ৳${audit.recommendedSavingsBdt.toFixed(2)} BDT\n` +
+        `🛡️ ৩০% রিজার্ভ: ৳${audit.liquidityBufferBdt.toFixed(2)} BDT`;
+
     return {
         inline_keyboard: [
             [
                 {
-                    text: "📋 সম্পূর্ণ রিপোর্ট এক ক্লিকে কপি করুন",
-                    copy_text: { text: copyText }
+                    text: "📋 এক ক্লিকে সামারি কপি (Copy)",
+                    copy_text: { text: shortCopy.slice(0, 250) }
                 }
             ],
             [
@@ -3119,7 +3140,12 @@ async function sendDailyProfitReport(targetDateStr = null, targetChatId = null) 
         }
 
         if (bot) {
-            await bot.sendMessage(targetGroup, reportMsg, { parse_mode: 'HTML', reply_markup: replyMarkup });
+            try {
+                await bot.sendMessage(targetGroup, reportMsg, { parse_mode: 'HTML', reply_markup: replyMarkup });
+            } catch (markupErr) {
+                console.warn('[sendDailyProfitReport] Markup send failed, falling back:', markupErr.message);
+                await bot.sendMessage(targetGroup, reportMsg, { parse_mode: 'HTML' });
+            }
             console.log(`[sendDailyProfitReport] Profit audit report sent to ${targetGroup} for ${audit.date}`);
             return { success: true, message: `রিপোর্ট সফলভাবে টেলিগ্রাম গ্রুপে (${targetGroup}) পাঠানো হয়েছে!`, audit };
         } else {
@@ -3173,6 +3199,47 @@ bot.on('channel_post', async (msg) => {
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text ? msg.text.trim() : '';
+    const cleanCmd = text.split(' ')[0].toLowerCase().replace(/@.+$/, '');
+
+    // Profit ledger on-demand commands (Works in Groups and Private Chats)
+    if (cleanCmd === '/profit' || cleanCmd === '/todayprofit') {
+        const todayKey = getBangladeshDateKey();
+        try {
+            const audit = await getDailyProfitAudit(todayKey);
+            const reportMsg = formatDailyProfitTelegramReport(audit);
+            const replyMarkup = getDailyProfitTelegramMarkup(audit);
+            try {
+                await bot.sendMessage(chatId, reportMsg, { parse_mode: 'HTML', reply_markup: replyMarkup });
+            } catch (sendErr) {
+                console.warn('[ProfitReport] Markup send failed, retrying plain HTML:', sendErr.message);
+                await bot.sendMessage(chatId, reportMsg, { parse_mode: 'HTML' });
+            }
+        } catch (e) {
+            console.error('[ProfitAudit] Error:', e);
+            bot.sendMessage(chatId, `⚠️ হিসাব লোড করতে সমস্যা: ${e.message}`).catch(() => {});
+        }
+        return;
+    }
+
+    if (cleanCmd === '/yesterdayprofit') {
+        const yesterdayDate = new Date(Date.now() + 6 * 3600 * 1000 - 24 * 3600 * 1000);
+        const yesterdayKey = yesterdayDate.toISOString().slice(0, 10);
+        try {
+            const audit = await getDailyProfitAudit(yesterdayKey);
+            const reportMsg = formatDailyProfitTelegramReport(audit);
+            const replyMarkup = getDailyProfitTelegramMarkup(audit);
+            try {
+                await bot.sendMessage(chatId, reportMsg, { parse_mode: 'HTML', reply_markup: replyMarkup });
+            } catch (sendErr) {
+                console.warn('[YesterdayReport] Markup send failed, retrying plain HTML:', sendErr.message);
+                await bot.sendMessage(chatId, reportMsg, { parse_mode: 'HTML' });
+            }
+        } catch (e) {
+            console.error('[YesterdayAudit] Error:', e);
+            bot.sendMessage(chatId, `⚠️ হিসাব লোড করতে সমস্যা: ${e.message}`).catch(() => {});
+        }
+        return;
+    }
 
     // Maintenance block removed
 
@@ -3181,7 +3248,7 @@ bot.on('message', async (msg) => {
         const titleLower = (msg.chat.title || '').toLowerCase();
 
         // 1. Group Setup Commands
-        if (text === '/setusers' || text === '/setusergroup' || (text === '/setgroup' && (titleLower.includes('user') || titleLower.includes('member') || titleLower.includes('join') || titleLower.includes('নতুন')))) {
+        if (cleanCmd === '/setusers' || cleanCmd === '/setusergroup' || (cleanCmd === '/setgroup' && (titleLower.includes('user') || titleLower.includes('member') || titleLower.includes('join') || titleLower.includes('নতুন')))) {
             await saveConfig({ userLogGroupId: chatId.toString() });
             const resp = `<blockquote><b>✅ New User Join Notification Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
                 `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
@@ -3189,7 +3256,7 @@ bot.on('message', async (msg) => {
             bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
             return;
         }
-        if (text === '/setdata' || (text === '/setgroup' && titleLower.includes('data'))) {
+        if (cleanCmd === '/setdata' || (cleanCmd === '/setgroup' && titleLower.includes('data'))) {
             await saveConfig({ dataGroupId: chatId.toString() });
             const resp = `<blockquote><b>✅ Data Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
                 `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
@@ -3198,7 +3265,7 @@ bot.on('message', async (msg) => {
             return;
         }
 
-        if (text === '/setsupport' || (text === '/setgroup' && titleLower.includes('support'))) {
+        if (cleanCmd === '/setsupport' || (cleanCmd === '/setgroup' && titleLower.includes('support'))) {
             await saveConfig({ supportGroupId: chatId.toString() });
             const resp = `<blockquote><b>✅ Support Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
                 `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
@@ -3207,7 +3274,7 @@ bot.on('message', async (msg) => {
             return;
         }
 
-        if (text === '/setwithdraw' || (text === '/setgroup' && (titleLower.includes('withdraw') || titleLower.includes('উইথড্র')))) {
+        if (cleanCmd === '/setwithdraw' || (cleanCmd === '/setgroup' && (titleLower.includes('withdraw') || titleLower.includes('উইথড্র')))) {
             await saveConfig({ withdrawGroupId: chatId.toString() });
             const resp = `<blockquote><b>✅ Withdraw Request Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
                 `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
@@ -3216,7 +3283,7 @@ bot.on('message', async (msg) => {
             return;
         }
 
-        if (text === '/setpayout' || (text === '/setgroup' && titleLower.includes('payout'))) {
+        if (cleanCmd === '/setpayout' || (cleanCmd === '/setgroup' && titleLower.includes('payout'))) {
             await saveConfig({ payoutGroupId: chatId.toString() });
             const resp = `<blockquote><b>✅ Payout Group / Channel সফলভাবে সেট করা হয়েছে!</b>\n\n` +
                 `🆔 <b>ID:</b> <code>${chatId}</code>\n` +
@@ -3225,7 +3292,7 @@ bot.on('message', async (msg) => {
             return;
         }
 
-        if (text === '/setprofit' || text === '/setmonthly' || (text === '/setgroup' && (titleLower.includes('profit') || titleLower.includes('monthly') || titleLower.includes('হিসাব')))) {
+        if (cleanCmd === '/setprofit' || cleanCmd === '/setmonthly' || (cleanCmd === '/setgroup' && (titleLower.includes('profit') || titleLower.includes('monthly') || titleLower.includes('হিসাব')))) {
             await saveConfig({ profitGroupId: chatId.toString() });
             const resp = `<blockquote><b>✅ Monthly Profit Audit Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
                 `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
@@ -3244,27 +3311,6 @@ bot.on('message', async (msg) => {
                 saveConfig({ profitGroupId: chatId.toString() }).catch(() => {});
                 console.log(`[MonthlyProfit] Auto-bound group ${chatId} (${msg.chat.title}) as profitGroupId`);
             }
-        }
-
-        if (text === '/profit' || text === '/todayprofit') {
-            const todayKey = getBangladeshDateKey();
-            getDailyProfitAudit(todayKey).then(audit => {
-                const reportMsg = formatDailyProfitTelegramReport(audit);
-                const replyMarkup = getDailyProfitTelegramMarkup(audit);
-                bot.sendMessage(chatId, reportMsg, { parse_mode: 'HTML', reply_markup: replyMarkup }).catch(e => console.error(e.message));
-            }).catch(e => bot.sendMessage(chatId, `হিসাব লোড করতে সমস্যা: ${e.message}`));
-            return;
-        }
-
-        if (text === '/yesterdayprofit') {
-            const yesterdayDate = new Date(Date.now() + 6 * 3600 * 1000 - 24 * 3600 * 1000);
-            const yesterdayKey = yesterdayDate.toISOString().slice(0, 10);
-            getDailyProfitAudit(yesterdayKey).then(audit => {
-                const reportMsg = formatDailyProfitTelegramReport(audit);
-                const replyMarkup = getDailyProfitTelegramMarkup(audit);
-                bot.sendMessage(chatId, reportMsg, { parse_mode: 'HTML', reply_markup: replyMarkup }).catch(e => console.error(e.message));
-            }).catch(e => bot.sendMessage(chatId, `হিসাব লোড করতে সমস্যা: ${e.message}`));
-            return;
         }
 
         if (text === '/setgroup') {
