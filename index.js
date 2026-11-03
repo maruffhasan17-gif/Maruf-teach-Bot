@@ -181,7 +181,8 @@ let botConfig = {
     supportGroupId: '-1003937919229',
     withdrawGroupId: '-1003912460131',
     payoutGroupId: '@bd_trust_pay_payout',
-    userLogGroupId: '-1004477003451'
+    userLogGroupId: '-1004477003451',
+    profitGroupId: process.env.PROFIT_GROUP_ID || ''
 };
 
 // Telegram Premium Animated Custom Emojis (<tg-emoji> with standard animated fallbacks)
@@ -2470,6 +2471,7 @@ async function checkAndRewardReferral(userId) {
         });
 
         if (bonusJustPaid && bot) {
+            recordProfitEvent('REFERRAL_BONUS', { referrerId: cleanReferrerId, amount: REFERRAL_BONUS_BDT });
             const referredName = userData.firstName || userData.first_name || 'User';
             const rewardMsg = `${PE.moneyBag} <b>অভিনন্দন! রেফারেল বোনাস যোগ হয়েছে! (+৳${REFERRAL_BONUS_BDT} BDT)</b> ${PE.party}\n\n` +
                 `<blockquote>${PE.user} <b>রেফার ইউজার:</b> <code>${referredName}</code>\n` +
@@ -2720,6 +2722,367 @@ bot.on('callback_query', async (query) => {
     }
 });
 
+// ============================================================================
+// EXECUTIVE DAILY PROFIT LEDGER & AUTOMATED MIDNIGHT AUDIT ENGINE
+// ============================================================================
+function toEpochMs(ts) {
+    if (!ts) return 0;
+    if (typeof ts === 'number') return ts < 1e11 ? ts * 1000 : ts;
+    if (ts._seconds) return ts._seconds * 1000;
+    if (ts.seconds) return ts.seconds * 1000;
+    if (typeof ts.toDate === 'function') {
+        try { return ts.toDate().getTime(); } catch (_) {}
+    }
+    const d = new Date(ts).getTime();
+    return isNaN(d) ? 0 : d;
+}
+
+function getBangladeshDateKey(epochMs = Date.now()) {
+    const ms = toEpochMs(epochMs);
+    const d = new Date(ms + 6 * 3600 * 1000);
+    return d.toISOString().slice(0, 10);
+}
+
+async function recordProfitEvent(type, payload = {}) {
+    try {
+        const nowMs = Date.now();
+        const dateKey = getBangladeshDateKey(nowMs);
+        const eventDoc = {
+            type, // 'BUY_SPREAD' | 'SELL_SPREAD' | 'WITHDRAWAL_FEE' | 'SPIN_REWARD' | 'REFERRAL_BONUS'
+            ...payload,
+            dateKey,
+            timestamp: nowMs,
+            createdAt: FieldValue.serverTimestamp()
+        };
+        await db.collection('profit_events').add(eventDoc);
+    } catch (e) {
+        console.warn('[recordProfitEvent] Warning:', e.message);
+    }
+}
+
+async function getDailyProfitAudit(targetDateStr = null) {
+    const todayKey = getBangladeshDateKey();
+    const dateKey = targetDateStr || todayKey;
+
+    const startMs = new Date(dateKey + 'T00:00:00+06:00').getTime();
+    const endMs = new Date(dateKey + 'T23:59:59.999+06:00').getTime();
+
+    // Dynamically retrieve current settings rates
+    const buyRates = cachedMarketRates?.buyRates || { USDT: 130, GRAM: 170, TON: 170 };
+    const sellRates = cachedMarketRates?.sellRates || { USDT: 118, GRAM: 130, TON: 130 };
+
+    let buyOrdersCount = 0;
+    let buyVolumeBdt = 0;
+    let buyGramAmount = 0;
+    let buyUsdtAmount = 0;
+    let buySpreadProfit = 0;
+
+    let sellOrdersCount = 0;
+    let sellVolumeBdt = 0;
+    let sellGramAmount = 0;
+    let sellUsdtAmount = 0;
+    let sellSpreadProfit = 0;
+
+    let withdrawOrdersCount = 0;
+    let withdrawTotalBdt = 0;
+    let withdrawFeesCollected = 0;
+
+    let spinRewardsBdt = 0;
+    let spinRewardsCount = 0;
+
+    let referralBonusesBdt = 0;
+    let referralBonusesCount = 0;
+
+    // 1. Miniapp Buys Query
+    try {
+        const buysSnap = await db.collection('miniapp_buys').get();
+        buysSnap.forEach(doc => {
+            const b = doc.data();
+            const ts = toEpochMs(b.completedAt || b.timestamp);
+            if (ts >= startMs && ts <= endMs) {
+                const status = (b.status || '').toLowerCase();
+                if (status === 'completed' || status === 'paid' || status === 'approved') {
+                    buyOrdersCount++;
+                    const bdt = parseFloat(b.totalBdt || b.amountBdt || 0) || 0;
+                    const crypto = parseFloat(b.amount || b.cryptoAmount || 0) || 0;
+                    const asset = (b.asset || 'GRAM').toUpperCase();
+                    buyVolumeBdt += bdt;
+
+                    const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 170);
+                    const sRate = Number(sellRates[asset]) || (asset === 'USDT' ? 118 : 130);
+                    const spread = Math.max(0, bRate - sRate);
+
+                    if (asset === 'USDT') {
+                        buyUsdtAmount += crypto;
+                        buySpreadProfit += (crypto * spread);
+                    } else {
+                        buyGramAmount += crypto;
+                        buySpreadProfit += (crypto * spread);
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.warn('[getDailyProfitAudit] buys query error:', e.message);
+    }
+
+    // 2. Miniapp Sells Query
+    try {
+        const sellsSnap = await db.collection('miniapp_sells').get();
+        sellsSnap.forEach(doc => {
+            const s = doc.data();
+            const ts = toEpochMs(s.completedAt || s.timestamp);
+            if (ts >= startMs && ts <= endMs) {
+                const status = (s.status || '').toLowerCase();
+                if (status === 'completed' || !status) {
+                    sellOrdersCount++;
+                    const bdt = parseFloat(s.bdtAmount || s.totalBdt || s.estimatedTk || 0) || 0;
+                    const crypto = parseFloat(s.cryptoAmount || s.amount || 0) || 0;
+                    const asset = (s.asset || 'GRAM').toUpperCase();
+                    sellVolumeBdt += bdt;
+
+                    const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 170);
+                    const sRate = Number(sellRates[asset]) || (asset === 'USDT' ? 118 : 130);
+                    const spread = Math.max(0, bRate - sRate);
+
+                    if (asset === 'USDT') {
+                        sellUsdtAmount += crypto;
+                        sellSpreadProfit += (crypto * spread);
+                    } else {
+                        sellGramAmount += crypto;
+                        sellSpreadProfit += (crypto * spread);
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.warn('[getDailyProfitAudit] sells query error:', e.message);
+    }
+
+    // 3. Fiat Withdrawals Query (Fee is pure platform revenue)
+    try {
+        const fwSnap = await db.collection('fiat_withdrawals').get();
+        fwSnap.forEach(doc => {
+            const w = doc.data();
+            const ts = toEpochMs(w.completedAt || w.timestamp);
+            if (ts >= startMs && ts <= endMs) {
+                const status = (w.status || '').toLowerCase();
+                if (status === 'completed' || status === 'approved') {
+                    withdrawOrdersCount++;
+                    const amt = parseFloat(w.amount || 0) || 0;
+                    withdrawTotalBdt += amt;
+
+                    const fee = parseFloat(w.fee || (amt - (parseFloat(w.receiveAmount || w.sentAmount) || (amt - 5))) || 5) || 5;
+                    withdrawFeesCollected += fee;
+                }
+            }
+        });
+    } catch (e) {
+        console.warn('[getDailyProfitAudit] withdrawals query error:', e.message);
+    }
+
+    // 4. Profit Events Query (Spins & Referrals)
+    try {
+        const eventsSnap = await db.collection('profit_events').where('dateKey', '==', dateKey).get();
+        eventsSnap.forEach(doc => {
+            const ev = doc.data();
+            if (ev.type === 'SPIN_REWARD') {
+                spinRewardsBdt += (parseFloat(ev.bdtWon || ev.amount || 0) || 0);
+                spinRewardsCount++;
+            } else if (ev.type === 'REFERRAL_BONUS') {
+                referralBonusesBdt += (parseFloat(ev.amount || 5) || 5);
+                referralBonusesCount++;
+            }
+        });
+    } catch (e) {
+        console.warn('[getDailyProfitAudit] events query error:', e.message);
+    }
+
+    // Fallback for Spin/Referral if no explicit profit_events exist yet today
+    if (spinRewardsBdt === 0) {
+        try {
+            const spinUsersSnap = await db.collection('users').where('lastSpinWinDate', '==', dateKey).limit(100).get();
+            spinUsersSnap.forEach(d => {
+                const u = d.data();
+                const dailyWon = parseFloat(u.dailySpinWonBdt || 0);
+                if (dailyWon > 0) {
+                    spinRewardsBdt += dailyWon;
+                    spinRewardsCount++;
+                }
+            });
+        } catch (_) {}
+    }
+
+    const tradingSpreadProfit = Math.round((buySpreadProfit + sellSpreadProfit) * 100) / 100;
+    const grossIncome = Math.round((tradingSpreadProfit + withdrawFeesCollected) * 100) / 100;
+    const totalExpenses = Math.round((spinRewardsBdt + referralBonusesBdt) * 100) / 100;
+    const netProfit = Math.round((grossIncome - totalExpenses) * 100) / 100;
+
+    // 70% pure savings, 30% operational liquidity buffer
+    const recommendedSavingsBdt = netProfit > 0 ? Math.round((netProfit * 0.70) * 100) / 100 : 0;
+    const liquidityBufferBdt = netProfit > 0 ? Math.round((netProfit * 0.30) * 100) / 100 : 0;
+
+    const formattedDate = new Date(dateKey + 'T12:00:00+06:00').toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    });
+
+    const auditData = {
+        date: dateKey,
+        formattedDate,
+        isToday: dateKey === todayKey,
+        isProfit: netProfit >= 0,
+        grossIncome,
+        totalExpenses,
+        netProfit,
+        recommendedSavingsBdt,
+        liquidityBufferBdt,
+        tradingSpreadProfit,
+        buySpreadProfit: Math.round(buySpreadProfit * 100) / 100,
+        sellSpreadProfit: Math.round(sellSpreadProfit * 100) / 100,
+        withdrawFeesCollected: Math.round(withdrawFeesCollected * 100) / 100,
+        withdrawTotalBdt: Math.round(withdrawTotalBdt * 100) / 100,
+        buyVolumeBdt: Math.round(buyVolumeBdt * 100) / 100,
+        sellVolumeBdt: Math.round(sellVolumeBdt * 100) / 100,
+        buyOrdersCount,
+        sellOrdersCount,
+        withdrawOrdersCount,
+        gramVolume: Math.round((buyGramAmount + sellGramAmount) * 1000) / 1000,
+        buyGramAmount: Math.round(buyGramAmount * 1000) / 1000,
+        sellGramAmount: Math.round(sellGramAmount * 1000) / 1000,
+        usdtVolume: Math.round((buyUsdtAmount + sellUsdtAmount) * 100) / 100,
+        buyUsdtAmount: Math.round(buyUsdtAmount * 100) / 100,
+        sellUsdtAmount: Math.round(sellUsdtAmount * 100) / 100,
+        spinRewardsBdt: Math.round(spinRewardsBdt * 100) / 100,
+        spinRewardsCount,
+        referralBonusesBdt: Math.round(referralBonusesBdt * 100) / 100,
+        referralBonusesCount,
+        gasFeeAdminPocket: 0,
+        ratesApplied: {
+            GRAM_BUY: buyRates.GRAM || 170,
+            GRAM_SELL: sellRates.GRAM || 130,
+            GRAM_SPREAD: (buyRates.GRAM || 170) - (sellRates.GRAM || 130),
+            USDT_BUY: buyRates.USDT || 130,
+            USDT_SELL: sellRates.USDT || 118,
+            USDT_SPREAD: (buyRates.USDT || 130) - (sellRates.USDT || 118)
+        },
+        updatedAt: Date.now()
+    };
+
+    // Save snapshot in daily_profits collection for audit record permanence
+    db.collection('daily_profits').doc(dateKey).set(auditData, { merge: true }).catch(() => {});
+
+    return auditData;
+}
+
+function formatDailyProfitTelegramReport(audit) {
+    const isProfitable = audit.netProfit >= 0;
+    const profitSign = audit.netProfit > 0 ? '+' : '';
+    const verdictTitle = isProfitable ? '🟢 আজকের অবস্থা: লাভজনক দিন (NET PROFIT)' : '🔴 আজকের অবস্থা: ঘাটতি (NET LOSS)';
+    const verdictEmoji = isProfitable ? '💎' : '⚠️';
+
+    return `╔══════════════════════════════╗
+   📊 <b>TRUST PAY — দৈনিক অডিট রিপোর্ট</b>
+   📅 <b>তারিখ:</b> <code>${audit.formattedDate}</code> ${audit.isToday ? '<i>(লাইভ অডিট)</i>' : '<i>(পূর্ণাঙ্গ ২৪ ঘণ্টা)</i>'}
+╚══════════════════════════════╝
+
+💰 <b>【মোট আয় ও প্রফিট মার্জিন (GROSS)】</b>
+────────────────────────
+🔹 <b>ক্রিপ্টো বাই স্প্রেড মার্জিন:</b>
+   • মোট বাই অর্ডার: <code>${audit.buyOrdersCount} টি</code> (৳${audit.buyVolumeBdt.toFixed(2)} BDT)
+   • GRAM/TON বিক্রি: <code>${audit.buyGramAmount.toFixed(2)} GRAM</code> (মার্জিন: ৳${audit.ratesApplied.GRAM_SPREAD}/GRAM) ➔ <b>+৳${(audit.buyGramAmount * audit.ratesApplied.GRAM_SPREAD).toFixed(2)} BDT</b>
+   • USDT বিক্রি: <code>${audit.buyUsdtAmount.toFixed(2)} USDT</code> (মার্জিন: ৳${audit.ratesApplied.USDT_SPREAD}/USDT) ➔ <b>+৳${(audit.buyUsdtAmount * audit.ratesApplied.USDT_SPREAD).toFixed(2)} BDT</b>
+   • গ্যাস ফি: ইউজার পেইড (অ্যাডমিন খরচ: ৳০)
+
+🔹 <b>ক্রিপ্টো সেল স্প্রেড মার্জিন:</b>
+   • ইউজার সেলস অর্ডার: <code>${audit.sellOrdersCount} টি</code> (৳${audit.sellVolumeBdt.toFixed(2)} BDT)
+   • সেল স্প্রেড প্রফিট: <b>+৳${audit.sellSpreadProfit.toFixed(2)} BDT</b>
+
+🔹 <b>উইথড্র সার্ভিস ফি (ক্যাশআউট চার্জ):</b>
+   • সম্পন্ন উইথড্র: <code>${audit.withdrawOrdersCount} টি</code> (মোট ৳${audit.withdrawTotalBdt.toFixed(2)} BDT)
+   • সংগৃহীত সেন্ড মানি ফি: <b>+৳${audit.withdrawFeesCollected.toFixed(2)} BDT</b>
+   • <i>(ফি ইউজার ব্যালেন্স থেকে কর্তন, অ্যাডমিন পকেট থেকে খরচ: ৳০)</i>
+
+💵 <b>মোট গ্রস রেভিনিউ:</b> <b>+৳${audit.grossIncome.toFixed(2)} BDT</b>
+
+📉 <b>【পরিচালন ব্যয় ও বোনাস (EXPENSES)】</b>
+────────────────────────
+🔸 স্পিন হুইল ক্যাশ উইন: <b>-৳${audit.spinRewardsBdt.toFixed(2)} BDT</b> (${audit.spinRewardsCount} টি উইন)
+🔸 রেফারেল বোনাস ক্যাশআউট: <b>-৳${audit.referralBonusesBdt.toFixed(2)} BDT</b> (${audit.referralBonusesCount} টি বোনাস)
+🔸 ব্লকচেইন গ্যাস ফি: <b>৳০.০০ BDT</b> <i>(ইউজার ব্যালেন্স থেকে কর্তিত)</i>
+
+💸 <b>মোট ব্যয়:</b> <b>-৳${audit.totalExpenses.toFixed(2)} BDT</b>
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+🏆 <b>আজকের নিট ফলাফল (BOTTOM LINE)</b>
+━━━━━━━━━━━━━━━━━━━━━━━━
+${verdictTitle}
+${verdictEmoji} <b>আজকের নিট প্রফিট:</b> <b>${profitSign}৳${audit.netProfit.toFixed(2)} BDT</b>
+
+🏦 <b>【ভবিষ্যৎ সঞ্চয় ও রিজার্ভ প্ল্যান】</b>
+• 💰 <b>সেভিংস ফান্ড (৭০% সঞ্চয়):</b> <code>৳${audit.recommendedSavingsBdt.toFixed(2)} BDT</code>
+  └➔ <i>(প্রফিট ব্যাংক অ্যাকাউন্টে আলাদা করে জমানো টাকা)</i>
+• 🛡️ <b>তারল্য রিজার্ভ (৩০% ব্যাকআপ):</b> <code>৳${audit.liquidityBufferBdt.toFixed(2)} BDT</code>
+  └➔ <i>(বটের লিকুইডিটি ও কার্যক্রমে রাখার ফান্ড)</i>
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+⚡️ <i>Trust Pay Automated Executive Accounting Engine</i>`;
+}
+
+async function sendDailyProfitReport(targetDateStr = null, targetChatId = null) {
+    try {
+        const audit = await getDailyProfitAudit(targetDateStr);
+        const reportMsg = formatDailyProfitTelegramReport(audit);
+
+        const targetGroup = targetChatId || botConfig.profitGroupId || botConfig.dataGroupId || botConfig.adminGroupId;
+        if (!targetGroup) {
+            console.warn("[sendDailyProfitReport] No profitGroupId or adminGroupId configured.");
+            return { success: false, error: 'কোনো Telegram Profit Group সেট করা নেই। /setprofit কমান্ড দিন।' };
+        }
+
+        if (bot) {
+            await bot.sendMessage(targetGroup, reportMsg, { parse_mode: 'HTML' });
+            console.log(`[sendDailyProfitReport] Profit audit report sent to ${targetGroup} for ${audit.date}`);
+            return { success: true, message: `রিপোর্ট সফলভাবে টেলিগ্রাম গ্রুপে (${targetGroup}) পাঠানো হয়েছে!`, audit };
+        } else {
+            return { success: false, error: 'Telegram Bot Instance not active' };
+        }
+    } catch (e) {
+        console.error("[sendDailyProfitReport] Error:", e.message);
+        return { success: false, error: e.message };
+    }
+}
+
+let lastMidnightReportDate = '';
+async function checkAndSendMidnightProfitReport() {
+    try {
+        const now = new Date();
+        const bdTime = new Date(now.getTime() + 6 * 3600 * 1000);
+        const hours = bdTime.getUTCHours();
+        const minutes = bdTime.getUTCMinutes();
+
+        // Fire once at 00:00 (between 00:00 and 00:03 BST)
+        if (hours === 0 && minutes <= 3) {
+            const yesterdayDate = new Date(bdTime.getTime() - 24 * 3600 * 1000);
+            const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+
+            if (lastMidnightReportDate !== yesterdayStr) {
+                lastMidnightReportDate = yesterdayStr;
+                console.log(`[MIDNIGHT AUDIT] Triggering automatic 12:00 AM report for ${yesterdayStr}...`);
+                if (botConfig.profitGroupId) {
+                    await sendDailyProfitReport(yesterdayStr, botConfig.profitGroupId);
+                } else {
+                    console.warn("[MIDNIGHT AUDIT] profitGroupId not set, sending to dataGroupId/adminGroupId");
+                    await sendDailyProfitReport(yesterdayStr);
+                }
+            }
+        }
+    } catch (e) {
+        console.error("[checkAndSendMidnightProfitReport] Error:", e.message);
+    }
+}
+setInterval(checkAndSendMidnightProfitReport, 30000);
 
 bot.on('channel_post', async (msg) => {
     const text = msg.text ? msg.text.trim() : '';
@@ -2785,12 +3148,53 @@ bot.on('message', async (msg) => {
             return;
         }
 
+        if (text === '/setprofit' || text === '/setmonthly' || (text === '/setgroup' && (titleLower.includes('profit') || titleLower.includes('monthly') || titleLower.includes('হিসাব')))) {
+            await saveConfig({ profitGroupId: chatId.toString() });
+            const resp = `<blockquote><b>✅ Monthly Profit Audit Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                `📌 <b>রোল:</b> প্রতিদিন রাত ১২:০০ টায় (00:00 AM BD Time) বিগত ২৪ ঘণ্টার ১ টাকা থেকে শুরু করে সম্পূর্ণ আয়, ব্যয়, নিট প্রফিট, ডিভাইডার এবং ৭০% সেভিংস প্ল্যানের নিখুঁত অডিট রিপোর্ট স্বয়ংক্রিয়ভাবে এই গ্রুপে চলে আসবে।\n\n` +
+                `💡 <i>যেকোনো সময় রিপোর্ট দেখতে কমান্ড দিন:</i>\n` +
+                `• <code>/profit</code> বা <code>/todayprofit</code> — আজকের লাইভ হিসাব\n` +
+                `• <code>/yesterdayprofit</code> — গতকালের পূর্ণাঙ্গ ২৪ ঘণ্টার হিসাব</blockquote>`;
+            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            return;
+        }
+
+        // Auto-detect Monthly Profit Group
+        if (titleLower.includes('profit') || titleLower.includes('monthly')) {
+            if (!botConfig.profitGroupId || botConfig.profitGroupId !== chatId.toString()) {
+                botConfig.profitGroupId = chatId.toString();
+                saveConfig({ profitGroupId: chatId.toString() }).catch(() => {});
+                console.log(`[MonthlyProfit] Auto-bound group ${chatId} (${msg.chat.title}) as profitGroupId`);
+            }
+        }
+
+        if (text === '/profit' || text === '/todayprofit') {
+            const todayKey = getBangladeshDateKey();
+            getDailyProfitAudit(todayKey).then(audit => {
+                const reportMsg = formatDailyProfitTelegramReport(audit);
+                bot.sendMessage(chatId, reportMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            }).catch(e => bot.sendMessage(chatId, `হিসাব লোড করতে সমস্যা: ${e.message}`));
+            return;
+        }
+
+        if (text === '/yesterdayprofit') {
+            const yesterdayDate = new Date(Date.now() + 6 * 3600 * 1000 - 24 * 3600 * 1000);
+            const yesterdayKey = yesterdayDate.toISOString().slice(0, 10);
+            getDailyProfitAudit(yesterdayKey).then(audit => {
+                const reportMsg = formatDailyProfitTelegramReport(audit);
+                bot.sendMessage(chatId, reportMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+            }).catch(e => bot.sendMessage(chatId, `হিসাব লোড করতে সমস্যা: ${e.message}`));
+            return;
+        }
+
         if (text === '/setgroup') {
             await saveConfig({ adminGroupId: chatId.toString() });
             const resp = `<blockquote><b>✅ Admin Group সেট করা হয়েছে!</b>\n\n` +
                 `🆔 <b>Group ID:</b> <code>${chatId}</code>\n\n` +
                 `💡 <i>নির্দিষ্ট গ্রুপ কনফিগার করতে নিচের কমান্ড ব্যবহার করুন:</i>\n` +
                 `• <code>/setdata</code> — Data Group এর জন্য\n` +
+                `• <code>/setprofit</code> — Monthly Profit Audit Group এর জন্য\n` +
                 `• <code>/setsupport</code> — Support Group এর জন্য\n` +
                 `• <code>/setwithdraw</code> — Withdraw Request Group এর জন্য\n` +
                 `• <code>/setpayout</code> — Payout Group / Channel এর জন্য</blockquote>`;
@@ -2803,7 +3207,9 @@ bot.on('message', async (msg) => {
                 `1️⃣ <b>Data Group:</b> <code>${botConfig.dataGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
                 `2️⃣ <b>Support Group:</b> <code>${botConfig.supportGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
                 `3️⃣ <b>Withdraw Request:</b> <code>${botConfig.withdrawGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
-                `4️⃣ <b>Payout Group / Channel:</b> <code>${botConfig.payoutGroupId || 'Not set'}</code>\n5️⃣ <b>New User Alert Group:</b> <code>${botConfig.userLogGroupId || 'Not set'}</code></blockquote>`;
+                `4️⃣ <b>Payout Group / Channel:</b> <code>${botConfig.payoutGroupId || 'Not set'}</code>\n` +
+                `5️⃣ <b>New User Alert Group:</b> <code>${botConfig.userLogGroupId || 'Not set'}</code>\n` +
+                `6️⃣ <b>Monthly Profit Audit:</b> <code>${botConfig.profitGroupId || 'Not set'}</code></blockquote>`;
             bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
             return;
         }
@@ -2813,7 +3219,8 @@ bot.on('message', async (msg) => {
             botConfig.dataGroupId,
             botConfig.supportGroupId,
             botConfig.withdrawGroupId,
-            botConfig.payoutGroupId
+            botConfig.payoutGroupId,
+            botConfig.profitGroupId
         ].filter(Boolean).map(String);
 
         const isConfiguredAdmin = configuredAdminGroupIds.includes(chatId.toString()) ||
@@ -7842,6 +8249,14 @@ app.post('/api/admin/approve-buy', async (req, res) => {
             status: 'Approved & Sent by Admin'
         }).catch(() => {});
 
+        recordProfitEvent('BUY_SPREAD', {
+            orderId: id,
+            userId: order.userId,
+            asset: order.asset,
+            amount: order.amount,
+            totalBdt: order.totalBdt || 0
+        });
+
         const config = botConfig || {};
         if (config.adminGroupId) {
             bot.sendMessage(config.adminGroupId, `${PE.check} <b>Buy Order Completed!</b>\nUser: <code>${order.userId}</code>\nAsset: <b>${order.amount} ${order.asset}</b>\nWallet: <code>${order.receiveAddress}</code>\nTrxID: <code>${order.trxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
@@ -7939,6 +8354,101 @@ app.post('/api/admin/bonus', async (req, res) => {
         bot.sendMessage(doc.id, bonusMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
         res.json({ success: true, newBalance });
     } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ============================================================================
+// ADMIN PROFIT LEDGER & TELEGRAM DISPATCH ENDPOINTS
+// ============================================================================
+app.get('/api/admin/profit-ledger', async (req, res) => {
+    try {
+        const todayKey = getBangladeshDateKey();
+        const todayAudit = await getDailyProfitAudit(todayKey);
+
+        // Fetch past daily audit snapshots from Firestore (ordered descending)
+        const historyDocs = await db.collection('daily_profits').orderBy('date', 'desc').limit(60).get();
+        const historyMap = new Map();
+        
+        // Ensure today is always present and updated
+        historyMap.set(todayKey, todayAudit);
+
+        historyDocs.forEach(d => {
+            const item = d.data();
+            if (item && item.date) {
+                if (item.date === todayKey) {
+                    historyMap.set(todayKey, { ...item, ...todayAudit });
+                } else {
+                    historyMap.set(item.date, item);
+                }
+            }
+        });
+
+        const history = Array.from(historyMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+
+        // Compute All-Time Aggregates
+        let totalGrossIncome = 0;
+        let totalExpenses = 0;
+        let netProfit = 0;
+        let totalSavings = 0;
+        let totalBuyVolumeBdt = 0;
+        let totalSellVolumeBdt = 0;
+        let totalSpreadProfit = 0;
+        let totalWithdrawFees = 0;
+        let totalSpinExpenses = 0;
+        let totalReferralExpenses = 0;
+
+        history.forEach(h => {
+            totalGrossIncome += Number(h.grossIncome || 0);
+            totalExpenses += Number(h.totalExpenses || 0);
+            netProfit += Number(h.netProfit || 0);
+            totalSavings += Number(h.recommendedSavingsBdt || 0);
+            totalBuyVolumeBdt += Number(h.buyVolumeBdt || 0);
+            totalSellVolumeBdt += Number(h.sellVolumeBdt || 0);
+            totalSpreadProfit += Number(h.tradingSpreadProfit || 0);
+            totalWithdrawFees += Number(h.withdrawFeesCollected || 0);
+            totalSpinExpenses += Number(h.spinRewardsBdt || 0);
+            totalReferralExpenses += Number(h.referralBonusesBdt || 0);
+        });
+
+        res.json({
+            success: true,
+            today: todayAudit,
+            history,
+            allTimeSummary: {
+                totalGrossIncome: Math.round(totalGrossIncome * 100) / 100,
+                totalExpenses: Math.round(totalExpenses * 100) / 100,
+                netProfit: Math.round(netProfit * 100) / 100,
+                totalSavings: Math.round(totalSavings * 100) / 100,
+                totalBuyVolumeBdt: Math.round(totalBuyVolumeBdt * 100) / 100,
+                totalSellVolumeBdt: Math.round(totalSellVolumeBdt * 100) / 100,
+                totalSpreadProfit: Math.round(totalSpreadProfit * 100) / 100,
+                totalWithdrawFees: Math.round(totalWithdrawFees * 100) / 100,
+                totalSpinExpenses: Math.round(totalSpinExpenses * 100) / 100,
+                totalReferralExpenses: Math.round(totalReferralExpenses * 100) / 100
+            },
+            config: {
+                profitGroupId: botConfig.profitGroupId || ''
+            }
+        });
+    } catch (e) {
+        console.error("GET /api/admin/profit-ledger error:", e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/admin/send-profit-report', async (req, res) => {
+    try {
+        const { date, chatId } = req.body || {};
+        const targetDate = date || getBangladeshDateKey();
+        const result = await sendDailyProfitReport(targetDate, chatId);
+        if (result.success) {
+            res.json(result);
+        } else {
+            res.status(400).json(result);
+        }
+    } catch (e) {
+        console.error("POST /api/admin/send-profit-report error:", e.message);
         res.status(500).json({ error: e.message });
     }
 });
@@ -8608,6 +9118,7 @@ app.post('/api/miniapp/spin-execute', async (req, res) => {
             userUpdates.totalSpinWonBdt = FieldValue.increment(bdtWon);
             userUpdates.lastSpinWinDate = todayKey;
             userUpdates.dailySpinWonBdt = newDailyWonBdt;
+            recordProfitEvent('SPIN_REWARD', { userId: cleanUserId, bdtWon });
         }
 
         if (prize.type === 'teddy') {
@@ -10665,6 +11176,12 @@ const doApproveWithdraw = async (docId, userId) => {
                 return false;
             }
             await fwRef.update({ status: 'completed', completedAt: Date.now() });
+            recordProfitEvent('WITHDRAWAL_FEE', {
+                withdrawId: docId,
+                userId: targetUser,
+                amount: parseFloat(withdrawItem?.amount || 0) || 0,
+                fee: parseFloat(withdrawItem?.fee || 5) || 5
+            });
         }
     } catch(e) {
         console.error('[WithdrawBot] approve doc error:', e.message);

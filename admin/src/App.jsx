@@ -63,6 +63,7 @@ import {
 } from './components/DashboardCharts';
 import TreasuryDepositPage, { NetworkLogo, AssetLogo, ExchangeLogo } from './components/TreasuryDepositPage';
 import FinancialHistoryHub from './components/FinancialHistoryHub';
+import DailyProfitLedger from './components/DailyProfitLedger';
 import brandLogo from './assets/logo.png';
 
 export const API_BASE = (function() {
@@ -389,6 +390,14 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       icon: <Coins size={18} strokeWidth={2.2} />,
       badge: 'REV',
       badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40'
+    },
+    { 
+      path: '/profit', 
+      name: 'Daily Profit Ledger', 
+      sub: 'Net Profit & Savings Audit', 
+      icon: <TrendingUp size={18} strokeWidth={2.2} />,
+      badge: 'P&L',
+      badgeColor: 'bg-emerald-500 text-white font-black shadow-sm'
     },
     { 
       path: '/buys', 
@@ -7529,6 +7538,8 @@ function App() {
               <Route path="/fraud" element={<FraudLogs />} />
               <Route path="/mock-tool" element={<MockTrxTool />} />
               <Route path="/transactions" element={<FinancialHistoryHub useOrdersDataHook={useOrdersData} useBotDataHook={useBotData} useThemeHook={useTheme} apiBase={API_BASE} />} />
+              <Route path="/profit" element={<DailyProfitLedger useThemeHook={useTheme} apiBase={API_BASE} />} />
+              <Route path="/ledger" element={<DailyProfitLedger useThemeHook={useTheme} apiBase={API_BASE} />} />
               <Route path="/history" element={<FinancialHistoryHub useOrdersDataHook={useOrdersData} useBotDataHook={useBotData} useThemeHook={useTheme} apiBase={API_BASE} />} />
               <Route path="/revenue" element={<FinancialHistoryHub useOrdersDataHook={useOrdersData} useBotDataHook={useBotData} useThemeHook={useTheme} apiBase={API_BASE} />} />
               <Route path="*" element={<Dashboard />} />
