@@ -9813,9 +9813,9 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
         <div 
           onClick={() => {
             if (window.Telegram?.WebApp?.openLink) {
-              window.Telegram.WebApp.openLink('https://youtu.be/iimWerd2dPI');
+              window.Telegram.WebApp.openLink('https://youtu.be/n1yri5vWLWE');
             } else {
-              window.open('https://youtu.be/iimWerd2dPI', '_blank');
+              window.open('https://youtu.be/n1yri5vWLWE', '_blank');
             }
           }} 
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
