@@ -58,6 +58,33 @@ function loadAllUsersMasterData() {
 }
 loadAllUsersMasterData();
 
+async function syncMasterUsersFromFirestore() {
+    try {
+        const snap = await db.collection('users').get();
+        if (!snap.empty) {
+            snap.forEach(doc => {
+                const docId = doc.id;
+                if (!docId || docId === '12345' || docId === '123456789') return;
+                const u = doc.data() || {};
+                allUsersMasterData[docId] = {
+                    ...(allUsersMasterData[docId] || {}),
+                    ...u,
+                    id: docId,
+                    userId: docId,
+                    balance: parseFloat(u.balance || 0)
+                };
+            });
+            console.log(`[MasterData] ✓ Live-synced ${Object.keys(allUsersMasterData).length} real users from Firestore.`);
+            try {
+                fs.writeFileSync(ALL_USERS_BACKUP_FILE, JSON.stringify(allUsersMasterData, null, 2), 'utf8');
+            } catch (_) {}
+        }
+    } catch (err) {
+        console.warn('[MasterData] syncMasterUsersFromFirestore error:', err.message);
+    }
+}
+setTimeout(syncMasterUsersFromFirestore, 1500);
+
 function saveUserMasterData(userId, data) {
     if (!userId) return;
     const strId = String(userId).trim();
@@ -8256,9 +8283,29 @@ app.get('/api/admin/pending-counts', async (req, res) => {
     }
 });
 
-// Dedicated User Database endpoint for Admin Panel (0 Firestore reads, loads only when on /users menu)
+// Dedicated User Database endpoint for Admin Panel (Always fetches live real data from Firestore)
 app.get('/api/admin/users', async (req, res) => {
     try {
+        try {
+            const snap = await db.collection('users').get();
+            if (!snap.empty) {
+                snap.forEach(doc => {
+                    const docId = doc.id;
+                    if (!docId || docId === '12345' || docId === '123456789') return;
+                    const u = doc.data() || {};
+                    allUsersMasterData[docId] = {
+                        ...(allUsersMasterData[docId] || {}),
+                        ...u,
+                        id: docId,
+                        userId: docId,
+                        balance: parseFloat(u.balance || 0)
+                    };
+                });
+            }
+        } catch (fErr) {
+            console.warn("Firestore live query warning in /api/admin/users:", fErr.message);
+        }
+
         const users = [];
         for (const [docId, u] of Object.entries(allUsersMasterData || {})) {
             if (!u || docId === '12345' || docId === '123456789') continue;
