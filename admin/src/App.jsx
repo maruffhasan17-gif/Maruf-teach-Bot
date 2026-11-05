@@ -4429,7 +4429,7 @@ function UsersManagement() {
 
   // Compute sorted & filtered users
   const { processedUsers, statsCounts } = useMemo(() => {
-    const sourceUsers = (users && users.length > 0) ? users : (botData.users || []);
+    const sourceUsers = (users && users.length > 0) ? users : (botData?.users || []);
     const rawList = sourceUsers.map(u => {
       const uId = (u.chatId || u.id || '').toString();
       const bal = parseFloat(u.balance || 0);
@@ -4474,7 +4474,7 @@ function UsersManagement() {
       processedUsers: filtered,
       statsCounts: { total, verifiedCount, unverifiedCount }
     };
-  }, [data.users, search, filter, sortOrder]);
+  }, [users, botData?.users, search, filter, sortOrder]);
 
   // Window scroll listener for progressive chunk loading
   useEffect(() => {
