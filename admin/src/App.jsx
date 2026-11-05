@@ -4429,51 +4429,59 @@ function UsersManagement() {
 
   // Compute sorted & filtered users
   const { processedUsers, statsCounts } = useMemo(() => {
-    const sourceUsers = (users && users.length > 0) ? users : (botData?.users || []);
-    const rawList = sourceUsers.map(u => {
-      const uId = (u.chatId || u.id || '').toString();
-      const bal = parseFloat(u.balance || 0);
-      return {
-        ...u,
-        chatId: uId,
-        mbsId: u.mbsId || `MBS${uId.slice(-5)}`,
-        balanceNum: bal,
-        isVerified: Boolean(u.isVerified || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0) || u.status === 'verified')
-      };
-    });
+    try {
+      const sourceUsers = (Array.isArray(users) && users.length > 0) 
+        ? users 
+        : (Array.isArray(botData?.users) ? botData.users : []);
+      const rawList = sourceUsers.map(u => {
+        if (!u) return null;
+        const uId = (u.chatId || u.id || '').toString();
+        const bal = parseFloat(u.balance || 0);
+        return {
+          ...u,
+          chatId: uId,
+          mbsId: u.mbsId || `MBS${uId.slice(-5)}`,
+          balanceNum: isNaN(bal) ? 0 : bal,
+          isVerified: Boolean(u.isVerified || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0) || u.status === 'verified')
+        };
+      }).filter(Boolean);
 
-    const total = rawList.length;
-    const verifiedCount = rawList.filter(u => u.isVerified).length;
-    const unverifiedCount = total - verifiedCount;
+      const total = rawList.length;
+      const verifiedCount = rawList.filter(u => u.isVerified).length;
+      const unverifiedCount = total - verifiedCount;
 
-    let filtered = rawList.filter(u => {
-      if (filter === 'verified') return u.isVerified;
-      if (filter === 'unverified') return !u.isVerified;
-      return true;
-    });
+      let filtered = rawList.filter(u => {
+        if (filter === 'verified') return u.isVerified;
+        if (filter === 'unverified') return !u.isVerified;
+        return true;
+      });
 
-    if (search.trim()) {
-      const q = search.toLowerCase().trim();
-      filtered = filtered.filter(u => 
-        (u.chatId || '').toLowerCase().includes(q) ||
-        (u.username || '').toLowerCase().includes(q) ||
-        (u.firstName || '').toLowerCase().includes(q) ||
-        (u.mbsId || '').toLowerCase().includes(q)
-      );
-    }
-
-    filtered.sort((a, b) => {
-      if (sortOrder === 'desc') {
-        return b.balanceNum - a.balanceNum;
-      } else {
-        return a.balanceNum - b.balanceNum;
+      if (search.trim()) {
+        const q = search.toLowerCase().trim();
+        filtered = filtered.filter(u => 
+          (u.chatId || '').toLowerCase().includes(q) ||
+          (u.username || '').toLowerCase().includes(q) ||
+          (u.firstName || '').toLowerCase().includes(q) ||
+          (u.mbsId || '').toLowerCase().includes(q)
+        );
       }
-    });
 
-    return {
-      processedUsers: filtered,
-      statsCounts: { total, verifiedCount, unverifiedCount }
-    };
+      filtered.sort((a, b) => {
+        if (sortOrder === 'desc') {
+          return b.balanceNum - a.balanceNum;
+        } else {
+          return a.balanceNum - b.balanceNum;
+        }
+      });
+
+      return {
+        processedUsers: filtered,
+        statsCounts: { total, verifiedCount, unverifiedCount }
+      };
+    } catch (e) {
+      console.error("Users memo computation error:", e);
+      return { processedUsers: [], statsCounts: { total: 0, verifiedCount: 0, unverifiedCount: 0 } };
+    }
   }, [users, botData?.users, search, filter, sortOrder]);
 
   // Window scroll listener for progressive chunk loading
@@ -7517,7 +7525,7 @@ function App() {
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       <TonConnectUIProvider manifestUrl={`${API_BASE}/tonconnect-manifest.json`}>
-        <Router basename={import.meta.env.BASE_URL}>
+        <Router basename={(import.meta.env.BASE_URL || '/').replace(/\/+$/, '')}>
           <Layout
             onOpenCreateTrx={() => setIsCreateTrxOpen(true)}
             onLogout={handleLogout}

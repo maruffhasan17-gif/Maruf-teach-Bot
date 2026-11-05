@@ -10553,14 +10553,12 @@ app.get('/api/my-ip', (req, res) => {
 
 // Serve Admin Panel Static Assets EXCLUSIVELY under ADMIN_SECRET_PATH (IP Whitelisted & Desktop Only)
 app.use(ADMIN_SECRET_PATH, requireAdminIpWhitelist, express.static(path.join(__dirname, 'admin/dist'), {
-    maxAge: '1d',
-    etag: true,
+    maxAge: 0,
+    etag: false,
     setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
-            res.setHeader('Pragma', 'no-cache');
-            res.setHeader('Expires', '0');
-        }
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
     }
 }));
 
