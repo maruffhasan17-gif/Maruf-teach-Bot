@@ -8283,9 +8283,23 @@ app.get('/api/admin/pending-counts', async (req, res) => {
     }
 });
 
-// Dedicated User Database endpoint for Admin Panel (Always fetches live real data from Firestore)
+const adminUsersCache = {
+    data: null,
+    timestamp: 0,
+    TTL: 180000 // 3 minutes cache (0 reads on page navigation)
+};
+
+// Dedicated User Database endpoint for Admin Panel (Smart 3-min in-memory cache to eliminate duplicate Firestore reads)
 app.get('/api/admin/users', async (req, res) => {
     try {
+        const forceRefresh = req.query.refresh === 'true' || req.query.force === '1';
+        const now = Date.now();
+
+        // 1. If cached within 3 minutes and not manual refresh -> Return directly (0 Firestore reads!)
+        if (!forceRefresh && adminUsersCache.data && (now - adminUsersCache.timestamp < adminUsersCache.TTL)) {
+            return res.json(adminUsersCache.data);
+        }
+
         try {
             const snap = await db.collection('users').get();
             if (!snap.empty) {
@@ -8301,6 +8315,9 @@ app.get('/api/admin/users', async (req, res) => {
                         balance: parseFloat(u.balance || 0)
                     };
                 });
+                try {
+                    fs.writeFileSync(ALL_USERS_BACKUP_FILE, JSON.stringify(allUsersMasterData, null, 2), 'utf8');
+                } catch (_) {}
             }
         } catch (fErr) {
             console.warn("Firestore live query warning in /api/admin/users:", fErr.message);
@@ -8324,8 +8341,14 @@ app.get('/api/admin/users', async (req, res) => {
                 userNumber: u.userNumber || 1
             });
         }
-        res.json({ success: true, users, total: users.length });
+
+        const responsePayload = { success: true, users, total: users.length };
+        adminUsersCache.data = responsePayload;
+        adminUsersCache.timestamp = now;
+
+        res.json(responsePayload);
     } catch (e) {
+        if (adminUsersCache.data) return res.json(adminUsersCache.data);
         res.status(500).json({ error: e.message });
     }
 });
@@ -8741,8 +8764,12 @@ app.post('/api/admin/user/balance', async (req, res) => {
             lastBalanceUpdate: FieldValue.serverTimestamp()
         }, { merge: true });
 
-        // Invalidate stats cache so stats refresh instantly
+        // Invalidate stats & admin users cache so data updates instantly
         statsCache.timestamp = 0;
+        adminUsersCache.timestamp = 0;
+        if (allUsersMasterData[userId.toString()]) {
+            allUsersMasterData[userId.toString()].balance = newBalance;
+        }
 
         // Send Telegram bot notification to the user
         if (bot) {
@@ -8793,8 +8820,12 @@ app.post('/api/admin/user/status', async (req, res) => {
 
         await userRef.set(updatePayload, { merge: true });
 
-        // Invalidate stats cache so stats refresh instantly
+        // Invalidate stats & admin users cache so data updates instantly
         statsCache.timestamp = 0;
+        adminUsersCache.timestamp = 0;
+        if (allUsersMasterData[userId.toString()]) {
+            allUsersMasterData[userId.toString()].balance = newBalance;
+        }
 
         // Send Telegram bot notification
         if (bot) {

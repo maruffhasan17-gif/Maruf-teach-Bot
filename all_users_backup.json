@@ -22,7 +22,7 @@
     "mbsId": "MBS56789"
   },
   "647853975": {
-    "id": 647853975,
+    "id": "647853975",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -40,7 +40,7 @@
     },
     "last_name": "",
     "first_name": "حسین",
-    "userId": 647853975,
+    "userId": "647853975",
     "userNumber": 42,
     "username": "Hossen75125",
     "phoneModel": "K",
@@ -56,10 +56,11 @@
       "_seconds": 1793258551,
       "_nanoseconds": 51000000
     },
-    "mbsId": "MBS53975"
+    "mbsId": "MBS53975",
+    "balance": 0
   },
   "650895668": {
-    "id": 650895668,
+    "id": "650895668",
     "firstName": "Mahfuz",
     "lastName": "(EO24)",
     "chatId": "650895668",
@@ -70,14 +71,15 @@
     },
     "last_name": "(EO24)",
     "first_name": "Mahfuz",
-    "userId": 650895668,
+    "userId": "650895668",
     "userNumber": 34,
     "status": "pending_verification",
     "username": "mahfuj12345",
-    "mbsId": "MBS95668"
+    "mbsId": "MBS95668",
+    "balance": 0
   },
   "1851329783": {
-    "id": 1851329783,
+    "id": "1851329783",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -95,7 +97,7 @@
     },
     "last_name": "",
     "first_name": "Heaven349",
-    "userId": 1851329783,
+    "userId": "1851329783",
     "userNumber": 61,
     "username": "Rabby7576",
     "verified": true,
@@ -125,10 +127,11 @@
       "_seconds": 1792912500,
       "_nanoseconds": 175000000
     },
-    "mbsId": "MBS29783"
+    "mbsId": "MBS29783",
+    "balance": 0
   },
   "1945639903": {
-    "id": 1945639903,
+    "id": "1945639903",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -146,7 +149,7 @@
     },
     "last_name": "",
     "first_name": "SOBUJ AHAMMED",
-    "userId": 1945639903,
+    "userId": "1945639903",
     "userNumber": 98,
     "username": "sobujahammedbabu",
     "verified": true,
@@ -175,10 +178,11 @@
       "_seconds": 1793422839,
       "_nanoseconds": 352000000
     },
-    "mbsId": "MBS39903"
+    "mbsId": "MBS39903",
+    "balance": 0
   },
   "2085692617": {
-    "id": 2085692617,
+    "id": "2085692617",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -192,7 +196,7 @@
     "notifiedNewUser": true,
     "last_name": "Ahamed",
     "first_name": "Ayan",
-    "userId": 2085692617,
+    "userId": "2085692617",
     "username": "",
     "verified": true,
     "language": "bn",
@@ -221,10 +225,11 @@
       "_seconds": 1793548254,
       "_nanoseconds": 754000000
     },
-    "mbsId": "MBS92617"
+    "mbsId": "MBS92617",
+    "balance": 0
   },
   "5293425253": {
-    "id": 5293425253,
+    "id": "5293425253",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -242,14 +247,15 @@
     },
     "last_name": "Zia",
     "first_name": "Mehedi Hasan \"\"😺CATGOLD\"\"",
-    "userId": 5293425253,
+    "userId": "5293425253",
     "userNumber": 83,
     "status": "pending_verification",
     "username": "mziabd",
-    "mbsId": "MBS25253"
+    "mbsId": "MBS25253",
+    "balance": 0
   },
   "5837359345": {
-    "id": 5837359345,
+    "id": "5837359345",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -263,7 +269,7 @@
       "_seconds": 1793062212,
       "_nanoseconds": 322000000
     },
-    "userId": 5837359345,
+    "userId": "5837359345",
     "userNumber": 70,
     "username": "Repon31",
     "phoneModel": "K",
@@ -287,10 +293,11 @@
       "_seconds": 1793363709,
       "_nanoseconds": 78000000
     },
-    "mbsId": "MBS59345"
+    "mbsId": "MBS59345",
+    "balance": 0
   },
   "5837696228": {
-    "id": 5837696228,
+    "id": "5837696228",
     "firstName": "꧁𓊈𒆜 𝙈𝙙",
     "lastName": "𝙕𝙖𝙝𝙞𝙙𝙪𝙡 𒆜𓊉꧂",
     "chatId": "5837696228",
@@ -301,14 +308,15 @@
     },
     "last_name": "𝙕𝙖𝙝𝙞𝙙𝙪𝙡 𒆜𓊉꧂",
     "first_name": "꧁𓊈𒆜 𝙈𝙙",
-    "userId": 5837696228,
+    "userId": "5837696228",
     "userNumber": 37,
     "status": "pending_verification",
     "username": "Zahidul550",
-    "mbsId": "MBS96228"
+    "mbsId": "MBS96228",
+    "balance": 0
   },
   "5856765682": {
-    "id": 5856765682,
+    "id": "5856765682",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -326,7 +334,7 @@
     },
     "last_name": "",
     "first_name": "Ridoy countrak",
-    "userId": 5856765682,
+    "userId": "5856765682",
     "userNumber": 63,
     "username": "asadon4",
     "verified": true,
@@ -346,10 +354,11 @@
       "_seconds": 1792913926,
       "_nanoseconds": 509000000
     },
-    "mbsId": "MBS65682"
+    "mbsId": "MBS65682",
+    "balance": 0
   },
   "5905698240": {
-    "id": 5905698240,
+    "id": "5905698240",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -367,7 +376,7 @@
     },
     "last_name": "Mohamed",
     "first_name": "Abdulrahman",
-    "userId": 5905698240,
+    "userId": "5905698240",
     "userNumber": 105,
     "username": "abd19ab",
     "verified": true,
@@ -383,7 +392,8 @@
     "updatedAt": {
       "_seconds": 1793789471,
       "_nanoseconds": 652000000
-    }
+    },
+    "balance": 0
   },
   "6006249147": {
     "id": "6006249147",
@@ -397,10 +407,12 @@
     "username": "Arafat255",
     "status": "verified",
     "language": "bn",
-    "mbsId": "MBS49147"
+    "mbsId": "MBS49147",
+    "userId": "6006249147",
+    "balance": 0
   },
   "6207183415": {
-    "id": 6207183415,
+    "id": "6207183415",
     "referredBy": 8799135330,
     "referredAt": {
       "_seconds": 1793351164,
@@ -416,7 +428,7 @@
     },
     "last_name": "SMER",
     "first_name": "ATA",
-    "userId": 6207183415,
+    "userId": "6207183415",
     "userNumber": 95,
     "username": "ATA_SMER",
     "verified": true,
@@ -457,7 +469,7 @@
     }
   },
   "6227182003": {
-    "id": 6227182003,
+    "id": "6227182003",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -475,14 +487,15 @@
     },
     "last_name": "",
     "first_name": "Loading......",
-    "userId": 6227182003,
+    "userId": "6227182003",
     "userNumber": 51,
     "status": "pending_verification",
     "username": "Psycho_DAD_1",
-    "mbsId": "MBS82003"
+    "mbsId": "MBS82003",
+    "balance": 0
   },
   "6312362664": {
-    "id": 6312362664,
+    "id": "6312362664",
     "firstName": "𝐌𝐮𝐬𝐡𝐚𝐫𝐨𝐟 𝐘𝐭〘 ᴬᵈᵐⁱⁿ 〙",
     "lastName": "",
     "chatId": "6312362664",
@@ -493,7 +506,7 @@
     },
     "last_name": "",
     "first_name": "𝐌𝐮𝐬𝐡𝐚𝐫𝐨𝐟 𝐘𝐭〘 ᴬᵈᵐⁱⁿ 〙",
-    "userId": 6312362664,
+    "userId": "6312362664",
     "userNumber": 30,
     "username": "musharof122",
     "verified": true,
@@ -510,7 +523,8 @@
       "_seconds": 1792309840,
       "_nanoseconds": 710000000
     },
-    "mbsId": "MBS62664"
+    "mbsId": "MBS62664",
+    "balance": 0
   },
   "6372877912": {
     "id": "6372877912",
@@ -524,10 +538,12 @@
     "username": "Antor2022",
     "status": "verified",
     "language": "bn",
-    "mbsId": "MBS77912"
+    "mbsId": "MBS77912",
+    "userId": "6372877912",
+    "balance": 0
   },
   "6385270288": {
-    "id": 6385270288,
+    "id": "6385270288",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -543,7 +559,7 @@
       "_nanoseconds": 582000000
     },
     "last_name": "",
-    "userId": 6385270288,
+    "userId": "6385270288",
     "userNumber": 31,
     "verified": true,
     "language": "bn",
@@ -562,17 +578,18 @@
       "_seconds": 1793185264,
       "_nanoseconds": 692000000
     },
-    "mbsId": "MBS70288"
+    "mbsId": "MBS70288",
+    "balance": 0
   },
   "6406567210": {
-    "id": 6406567210,
+    "id": "6406567210",
     "firstName": "MD. Alamin",
     "lastName": "",
     "chatId": "6406567210",
     "notifiedNewUser": true,
     "last_name": "",
     "first_name": "MD. Alamin",
-    "userId": 6406567210,
+    "userId": "6406567210",
     "username": "Criminal33111",
     "verified": true,
     "language": "bn",
@@ -602,7 +619,7 @@
     "mbsId": "MBS67210"
   },
   "6438323224": {
-    "id": 6438323224,
+    "id": "6438323224",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -620,7 +637,7 @@
     },
     "last_name": "Hassan Rigan",
     "first_name": "Siyam",
-    "userId": 6438323224,
+    "userId": "6438323224",
     "userNumber": 79,
     "username": "",
     "verified": true,
@@ -650,7 +667,7 @@
     "mbsId": "MBS23224"
   },
   "6593907398": {
-    "id": 6593907398,
+    "id": "6593907398",
     "firstName": "Md",
     "lastName": "Nazmulx",
     "chatId": "6593907398",
@@ -661,7 +678,7 @@
     },
     "last_name": "Nazmulx",
     "first_name": "Md",
-    "userId": 6593907398,
+    "userId": "6593907398",
     "userNumber": 60,
     "username": "nazmul432168",
     "verified": true,
@@ -681,16 +698,17 @@
       "_seconds": 1792911797,
       "_nanoseconds": 409000000
     },
-    "mbsId": "MBS07398"
+    "mbsId": "MBS07398",
+    "balance": 0
   },
   "6599715573": {
-    "id": 6599715573,
+    "id": "6599715573",
     "firstName": ",Paf",
     "lastName": "Film",
     "chatId": "6599715573",
     "last_name": "Film",
     "first_name": ",Paf",
-    "userId": 6599715573,
+    "userId": "6599715573",
     "username": "Pafilm13",
     "notifiedNewUser": true,
     "verified": true,
@@ -706,10 +724,11 @@
       "_seconds": 1792768633,
       "_nanoseconds": 706000000
     },
-    "mbsId": "MBS15573"
+    "mbsId": "MBS15573",
+    "balance": 0
   },
   "6713536326": {
-    "id": 6713536326,
+    "id": "6713536326",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -727,14 +746,15 @@
     },
     "last_name": "shahabtd",
     "first_name": "m",
-    "userId": 6713536326,
+    "userId": "6713536326",
     "userNumber": 78,
     "status": "pending_verification",
     "username": "",
-    "mbsId": "MBS36326"
+    "mbsId": "MBS36326",
+    "balance": 0
   },
   "6765636319": {
-    "id": 6765636319,
+    "id": "6765636319",
     "firstName": "🇨 🇾 🇧 🇪 🇷 ^🇸 🇮 🇾 🇦 🇲🪪",
     "lastName": "",
     "chatId": "6765636319",
@@ -745,7 +765,7 @@
     },
     "last_name": "",
     "first_name": "🇨 🇾 🇧 🇪 🇷 ^🇸 🇮 🇾 🇦 🇲🪪",
-    "userId": 6765636319,
+    "userId": "6765636319",
     "userNumber": 33,
     "username": "siyamdada",
     "verified": true,
@@ -761,10 +781,11 @@
       "_seconds": 1792777574,
       "_nanoseconds": 174000000
     },
-    "mbsId": "MBS36319"
+    "mbsId": "MBS36319",
+    "balance": 0
   },
   "6797494444": {
-    "id": 6797494444,
+    "id": "6797494444",
     "firstName": "𝙆𝘼𝙄𝙔𝙐𝙈 𝘽𝙍𝙊 (𝙊𝙬𝙣𝙚𝙧)",
     "lastName": "",
     "chatId": "6797494444",
@@ -775,14 +796,15 @@
     },
     "last_name": "",
     "first_name": "𝙆𝘼𝙄𝙔𝙐𝙈 𝘽𝙍𝙊 (𝙊𝙬𝙣𝙚𝙧)",
-    "userId": 6797494444,
+    "userId": "6797494444",
     "userNumber": 35,
     "status": "pending_verification",
     "username": "Kaiyumv33",
-    "mbsId": "MBS94444"
+    "mbsId": "MBS94444",
+    "balance": 0
   },
   "6857845956": {
-    "id": 6857845956,
+    "id": "6857845956",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -800,7 +822,7 @@
     },
     "last_name": "Ridoy",
     "first_name": "Md",
-    "userId": 6857845956,
+    "userId": "6857845956",
     "userNumber": 93,
     "username": "Ridoybbk",
     "verified": true,
@@ -821,10 +843,11 @@
       "method": "bKash",
       "name": "Md Ridoy Islam "
     },
-    "mbsId": "MBS45956"
+    "mbsId": "MBS45956",
+    "balance": 0
   },
   "6944825022": {
-    "id": 6944825022,
+    "id": "6944825022",
     "totalPayouts": 0,
     "language": "bn",
     "joinedAt": {
@@ -840,7 +863,7 @@
     "lastName": "",
     "chatId": "6944825022",
     "last_name": "",
-    "userId": 6944825022,
+    "userId": "6944825022",
     "photoUrl": "https://t.me/i/userpic/320/AmQPnucIoBgSPsG3sGqLBBByQ0ZDZNE5FE97ALFTSCAscepH5th1x-gnoZxktquv.svg",
     "phoneModel": "K",
     "cloneMatchedUserId": "8799135330",
@@ -877,7 +900,7 @@
     "pendingReceivedTransfer": null
   },
   "6992251078": {
-    "id": 6992251078,
+    "id": "6992251078",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 7984580619,
@@ -895,7 +918,7 @@
     },
     "last_name": "",
     "first_name": "7H RAJU SIR",
-    "userId": 6992251078,
+    "userId": "6992251078",
     "userNumber": 71,
     "username": "Razabdt321",
     "verified": true,
@@ -914,10 +937,11 @@
       "_seconds": 1793073166,
       "_nanoseconds": 344000000
     },
-    "mbsId": "MBS51078"
+    "mbsId": "MBS51078",
+    "balance": 0
   },
   "6994884792": {
-    "id": 6994884792,
+    "id": "6994884792",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 7321923115,
@@ -935,7 +959,7 @@
     },
     "last_name": "Musabbir",
     "first_name": "md",
-    "userId": 6994884792,
+    "userId": "6994884792",
     "userNumber": 76,
     "username": "",
     "phoneModel": "K",
@@ -960,10 +984,11 @@
       "_seconds": 1793517821,
       "_nanoseconds": 305000000
     },
-    "mbsId": "MBS84792"
+    "mbsId": "MBS84792",
+    "balance": 0
   },
   "7031857707": {
-    "id": 7031857707,
+    "id": "7031857707",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -981,7 +1006,7 @@
     },
     "last_name": "Islam",
     "first_name": "Raufun",
-    "userId": 7031857707,
+    "userId": "7031857707",
     "userNumber": 80,
     "username": "Raufun1234",
     "verified": true,
@@ -997,10 +1022,11 @@
       "_seconds": 1793122197,
       "_nanoseconds": 608000000
     },
-    "mbsId": "MBS57707"
+    "mbsId": "MBS57707",
+    "balance": 0
   },
   "7083522823": {
-    "id": 7083522823,
+    "id": "7083522823",
     "firstName": "𝘼𝙍𝙈𝘼𝙉~~𝘿𝙀𝙑𝙀𝙇𝙊𝙋𝙀𝙍",
     "lastName": "",
     "chatId": "7083522823",
@@ -1011,7 +1037,7 @@
     },
     "last_name": "",
     "first_name": "𝘼𝙍𝙈𝘼𝙉~~𝘿𝙀𝙑𝙀𝙇𝙊𝙋𝙀𝙍",
-    "userId": 7083522823,
+    "userId": "7083522823",
     "userNumber": 1,
     "username": "ArmanDeveloper1",
     "verified": true,
@@ -1021,7 +1047,8 @@
     "updatedAt": {
       "_seconds": 1793557736,
       "_nanoseconds": 958000000
-    }
+    },
+    "balance": 0
   },
   "7102232299": {
     "id": "7102232299",
@@ -1032,7 +1059,7 @@
       "_nanoseconds": 110000000
     },
     "totalPayouts": 0,
-    "userId": 7102232299,
+    "userId": "7102232299",
     "userNumber": 25,
     "username": "hri69",
     "verified": true,
@@ -1063,10 +1090,12 @@
     "username": "masum2128",
     "language": "bn",
     "status": "verified",
-    "mbsId": "MBS25619"
+    "mbsId": "MBS25619",
+    "userId": "7127125619",
+    "balance": 0
   },
   "7137067770": {
-    "id": 7137067770,
+    "id": "7137067770",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1084,7 +1113,7 @@
     },
     "last_name": "Hasan",
     "first_name": "MD",
-    "userId": 7137067770,
+    "userId": "7137067770",
     "userNumber": 87,
     "username": "towh8",
     "verified": true,
@@ -1100,10 +1129,11 @@
       "_seconds": 1793193823,
       "_nanoseconds": 596000000
     },
-    "mbsId": "MBS67770"
+    "mbsId": "MBS67770",
+    "balance": 0
   },
   "7246169053": {
-    "id": 7246169053,
+    "id": "7246169053",
     "referralBonusPaid": false,
     "referredBy": 8799135330,
     "referredAt": {
@@ -1120,7 +1150,7 @@
     },
     "last_name": "@giftsggapp",
     "first_name": "SAKHAWAT",
-    "userId": 7246169053,
+    "userId": "7246169053",
     "userNumber": 89,
     "username": "",
     "verified": true,
@@ -1147,7 +1177,8 @@
       "_seconds": 1793606253,
       "_nanoseconds": 634000000
     },
-    "mbsId": "MBS69053"
+    "mbsId": "MBS69053",
+    "balance": 0
   },
   "7286320834": {
     "id": "7286320834",
@@ -1161,20 +1192,24 @@
     "username": "nssab7ia",
     "language": "bn",
     "status": "verified",
-    "mbsId": "MBS20834"
+    "mbsId": "MBS20834",
+    "userId": "7286320834",
+    "balance": 0
   },
   "7287696682": {
     "id": "7287696682",
-    "mbsId": "MBS96682"
+    "mbsId": "MBS96682",
+    "userId": "7287696682",
+    "balance": 0
   },
   "7308572130": {
-    "id": 7308572130,
+    "id": "7308572130",
     "firstName": "Mahmodol",
     "lastName": "",
     "chatId": "7308572130",
     "last_name": "",
     "first_name": "Mahmodol",
-    "userId": 7308572130,
+    "userId": "7308572130",
     "username": "Mahmodol20",
     "verified": true,
     "language": "bn",
@@ -1202,10 +1237,11 @@
     "updatedAt": {
       "_seconds": 1793795842,
       "_nanoseconds": 776000000
-    }
+    },
+    "balance": 0
   },
   "7321923115": {
-    "id": 7321923115,
+    "id": "7321923115",
     "referredBy": 8799135330,
     "referredAt": {
       "_seconds": 1792860353,
@@ -1219,7 +1255,7 @@
       "_nanoseconds": 689000000
     },
     "last_name": "Mahfuj",
-    "userId": 7321923115,
+    "userId": "7321923115",
     "userNumber": 57,
     "username": "",
     "verified": true,
@@ -1281,10 +1317,12 @@
     "totalPayouts": 0,
     "status": "pending_verification",
     "username": "firoze63",
-    "mbsId": "MBS28978"
+    "mbsId": "MBS28978",
+    "userId": "7337028978",
+    "balance": 0
   },
   "7362306787": {
-    "id": 7362306787,
+    "id": "7362306787",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1302,7 +1340,7 @@
     },
     "last_name": "@OilVoyageBot",
     "first_name": "Tuhin",
-    "userId": 7362306787,
+    "userId": "7362306787",
     "userNumber": 58,
     "username": "Tuhin333221",
     "verified": true,
@@ -1319,10 +1357,11 @@
       "_seconds": 1792861180,
       "_nanoseconds": 224000000
     },
-    "mbsId": "MBS06787"
+    "mbsId": "MBS06787",
+    "balance": 0
   },
   "7403045400": {
-    "id": 7403045400,
+    "id": "7403045400",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1340,7 +1379,7 @@
     },
     "last_name": "『🇸‌🇺‌🇷‌🇪‌么 』",
     "first_name": "Nasim",
-    "userId": 7403045400,
+    "userId": "7403045400",
     "userNumber": 82,
     "username": "NLnasim426",
     "verified": true,
@@ -1356,10 +1395,11 @@
       "_seconds": 1793330419,
       "_nanoseconds": 564000000
     },
-    "mbsId": "MBS45400"
+    "mbsId": "MBS45400",
+    "balance": 0
   },
   "7449540687": {
-    "id": 7449540687,
+    "id": "7449540687",
     "referralBonusPaid": false,
     "referredBy": 7246169053,
     "referredAt": {
@@ -1376,7 +1416,7 @@
     },
     "last_name": "@OilVoyageBot",
     "first_name": "Xtr MD.SAKHAWAT $ZAI 🐾🌱SEED , @giftsggapp",
-    "userId": 7449540687,
+    "userId": "7449540687",
     "userNumber": 92,
     "username": "Sa_2kha2wat1",
     "verified": true,
@@ -1410,7 +1450,7 @@
     }
   },
   "7475621736": {
-    "id": 7475621736,
+    "id": "7475621736",
     "referredBy": 8799135330,
     "referredAt": {
       "_seconds": 1793258960,
@@ -1422,7 +1462,7 @@
     "notifiedNewUser": true,
     "last_name": "catgold,",
     "first_name": "@OilVoyageBot🐍 'Meshchain.Ai'@OilVoyageBot",
-    "userId": 7475621736,
+    "userId": "7475621736",
     "username": "anwar9540OilVoyageBot",
     "verified": true,
     "language": "bn",
@@ -1473,7 +1513,7 @@
     }
   },
   "7529621724": {
-    "id": 7529621724,
+    "id": "7529621724",
     "firstName": "Khokon",
     "joinedAt": {
       "_seconds": 1791899448,
@@ -1488,7 +1528,7 @@
     "notifiedNewUser": true,
     "last_name": "Rana",
     "first_name": "Khokon",
-    "userId": 7529621724,
+    "userId": "7529621724",
     "verified": true,
     "phoneModel": "K",
     "lastIp": "202.125.66.207",
@@ -1507,7 +1547,8 @@
       "_seconds": 1792678268,
       "_nanoseconds": 702000000
     },
-    "mbsId": "MBS21724"
+    "mbsId": "MBS21724",
+    "balance": 0
   },
   "7539631336": {
     "id": "7539631336",
@@ -1521,16 +1562,18 @@
     "username": "Fjsnsnh",
     "status": "verified",
     "language": "bn",
-    "mbsId": "MBS31336"
+    "mbsId": "MBS31336",
+    "userId": "7539631336",
+    "balance": 0
   },
   "7542568740": {
-    "id": 7542568740,
+    "id": "7542568740",
     "firstName": "Abdur",
     "lastName": "Rahman",
     "chatId": "7542568740",
     "last_name": "Rahman",
     "first_name": "Abdur",
-    "userId": 7542568740,
+    "userId": "7542568740",
     "username": "sadik0678",
     "verified": true,
     "language": "bn",
@@ -1576,7 +1619,7 @@
     "twoStepEnabled": false
   },
   "7568003208": {
-    "id": 7568003208,
+    "id": "7568003208",
     "firstName": "𝐌𝐑 𝐄𝐌𝐑𝐀𝐍",
     "lastName": "",
     "chatId": "7568003208",
@@ -1587,14 +1630,15 @@
     },
     "last_name": "",
     "first_name": "𝐌𝐑 𝐄𝐌𝐑𝐀𝐍",
-    "userId": 7568003208,
+    "userId": "7568003208",
     "userNumber": 32,
     "status": "pending_verification",
     "username": "Emran_440",
-    "mbsId": "MBS03208"
+    "mbsId": "MBS03208",
+    "balance": 0
   },
   "7711091949": {
-    "id": 7711091949,
+    "id": "7711091949",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1612,7 +1656,7 @@
     },
     "last_name": "Alam",
     "first_name": "Md Ashraful",
-    "userId": 7711091949,
+    "userId": "7711091949",
     "userNumber": 45,
     "status": "pending_verification",
     "username": "",
@@ -1626,10 +1670,11 @@
       "_seconds": 1792498992,
       "_nanoseconds": 670000000
     },
-    "mbsId": "MBS91949"
+    "mbsId": "MBS91949",
+    "balance": 0
   },
   "7799025167": {
-    "id": 7799025167,
+    "id": "7799025167",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1647,7 +1692,7 @@
     },
     "last_name": "",
     "first_name": "mank",
-    "userId": 7799025167,
+    "userId": "7799025167",
     "userNumber": 86,
     "username": "",
     "mbsId": "MBS25167",
@@ -1667,10 +1712,11 @@
     "updatedAt": {
       "_seconds": 1793708911,
       "_nanoseconds": 956000000
-    }
+    },
+    "balance": 0
   },
   "7812638663": {
-    "id": 7812638663,
+    "id": "7812638663",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1688,14 +1734,15 @@
     },
     "last_name": "onemanband",
     "first_name": "andre_onemanband",
-    "userId": 7812638663,
+    "userId": "7812638663",
     "userNumber": 41,
     "status": "pending_verification",
     "username": "andre_omb",
-    "mbsId": "MBS38663"
+    "mbsId": "MBS38663",
+    "balance": 0
   },
   "7880477517": {
-    "id": 7880477517,
+    "id": "7880477517",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1713,14 +1760,15 @@
     },
     "last_name": "✨",
     "first_name": "Ayshu🐥",
-    "userId": 7880477517,
+    "userId": "7880477517",
     "userNumber": 59,
     "status": "pending_verification",
     "username": "",
-    "mbsId": "MBS77517"
+    "mbsId": "MBS77517",
+    "balance": 0
   },
   "7909321501": {
-    "id": 7909321501,
+    "id": "7909321501",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1738,7 +1786,7 @@
     },
     "last_name": "",
     "first_name": "(Shuvo)Ghost) 👻",
-    "userId": 7909321501,
+    "userId": "7909321501",
     "userNumber": 88,
     "username": "Shuvo_naruto",
     "verified": true,
@@ -1766,10 +1814,11 @@
       "_seconds": 1793392823,
       "_nanoseconds": 272000000
     },
-    "mbsId": "MBS21501"
+    "mbsId": "MBS21501",
+    "balance": 0
   },
   "7984580619": {
-    "id": 7984580619,
+    "id": "7984580619",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1787,7 +1836,7 @@
     },
     "last_name": "",
     "first_name": "👑7H RAJU SIR👑",
-    "userId": 7984580619,
+    "userId": "7984580619",
     "userNumber": 68,
     "username": "",
     "verified": true,
@@ -1813,7 +1862,8 @@
       "_seconds": 1793221524,
       "_nanoseconds": 231000000
     },
-    "mbsId": "MBS80619"
+    "mbsId": "MBS80619",
+    "balance": 0
   },
   "8029739912": {
     "id": "8029739912",
@@ -1827,10 +1877,12 @@
     "username": "limon25253",
     "language": "bn",
     "status": "verified",
-    "mbsId": "MBS39912"
+    "mbsId": "MBS39912",
+    "userId": "8029739912",
+    "balance": 0
   },
   "8072066313": {
-    "id": 8072066313,
+    "id": "8072066313",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1848,14 +1900,15 @@
     },
     "last_name": "Rahman",
     "first_name": "Md Mokhlechhur",
-    "userId": 8072066313,
+    "userId": "8072066313",
     "userNumber": 56,
     "status": "pending_verification",
     "username": "Mokhlechhur",
-    "mbsId": "MBS66313"
+    "mbsId": "MBS66313",
+    "balance": 0
   },
   "8073979388": {
-    "id": 8073979388,
+    "id": "8073979388",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -1873,13 +1926,14 @@
     },
     "last_name": "",
     "first_name": "𝗥𝘅 𝗠𝗮𝗺𝘂𝗻 𝗕𝗿𝗼𝗵 [𝗤𝘅 𝗧𝗿𝗮𝗱𝗲𝗿]",
-    "userId": 8073979388,
+    "userId": "8073979388",
     "userNumber": 103,
     "status": "pending_verification",
-    "username": "rx_treding_king"
+    "username": "rx_treding_king",
+    "balance": 0
   },
   "8081677338": {
-    "id": 8081677338,
+    "id": "8081677338",
     "referralBonusPaid": false,
     "referredBy": 7246169053,
     "referredAt": {
@@ -1894,7 +1948,7 @@
       "_nanoseconds": 928000000
     },
     "last_name": "",
-    "userId": 8081677338,
+    "userId": "8081677338",
     "userNumber": 91,
     "username": "",
     "verified": true,
@@ -1946,7 +2000,7 @@
     "mbsId": "MBS77338"
   },
   "8113311894": {
-    "id": 8113311894,
+    "id": "8113311894",
     "referralBonusPaid": false,
     "referredBy": 7475621736,
     "referredAt": {
@@ -1963,7 +2017,7 @@
     },
     "last_name": "Hosen",
     "first_name": "Anwar",
-    "userId": 8113311894,
+    "userId": "8113311894",
     "userNumber": 101,
     "username": "",
     "verified": true,
@@ -1985,10 +2039,11 @@
     },
     "referralBlockReason": "same_physical_mobile_clone_app",
     "referralStatus": "blocked_clone",
-    "mbsId": "MBS11894"
+    "mbsId": "MBS11894",
+    "balance": 0
   },
   "8176587791": {
-    "id": 8176587791,
+    "id": "8176587791",
     "firstName": "Hossain",
     "lastName": "Ahmmad",
     "chatId": "8176587791",
@@ -1999,7 +2054,7 @@
     },
     "last_name": "Ahmmad",
     "first_name": "Hossain",
-    "userId": 8176587791,
+    "userId": "8176587791",
     "userNumber": 53,
     "username": "",
     "verified": true,
@@ -2019,10 +2074,11 @@
       "_seconds": 1792782477,
       "_nanoseconds": 91000000
     },
-    "mbsId": "MBS87791"
+    "mbsId": "MBS87791",
+    "balance": 0
   },
   "8215220510": {
-    "id": 8215220510,
+    "id": "8215220510",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2040,7 +2096,7 @@
     },
     "last_name": "",
     "first_name": "Soyeib owner",
-    "userId": 8215220510,
+    "userId": "8215220510",
     "userNumber": 66,
     "username": "soyeib15",
     "verified": true,
@@ -2067,7 +2123,7 @@
     "mbsId": "MBS20510"
   },
   "8225102254": {
-    "id": 8225102254,
+    "id": "8225102254",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2085,14 +2141,15 @@
     },
     "last_name": "Us And",
     "first_name": "How",
-    "userId": 8225102254,
+    "userId": "8225102254",
     "userNumber": 77,
     "status": "pending_verification",
     "username": "",
-    "mbsId": "MBS02254"
+    "mbsId": "MBS02254",
+    "balance": 0
   },
   "8243032222": {
-    "id": 8243032222,
+    "id": "8243032222",
     "firstName": "Im Back",
     "joinedAt": {
       "_seconds": 1791652568,
@@ -2108,7 +2165,7 @@
     "notifiedNewUser": true,
     "last_name": "Sohan",
     "first_name": "Im Back",
-    "userId": 8243032222,
+    "userId": "8243032222",
     "phoneModel": "K",
     "lastIp": "103.168.90.0",
     "deviceUid": "du_248c1a971b1c6b57",
@@ -2123,10 +2180,11 @@
     "updatedAt": {
       "_seconds": 1793729316,
       "_nanoseconds": 391000000
-    }
+    },
+    "balance": 0
   },
   "8268097258": {
-    "id": 8268097258,
+    "id": "8268097258",
     "firstName": "Sk Saikot",
     "lastName": "",
     "chatId": "8268097258",
@@ -2137,7 +2195,7 @@
     },
     "last_name": "",
     "first_name": "Sk Saikot",
-    "userId": 8268097258,
+    "userId": "8268097258",
     "userNumber": 55,
     "username": "",
     "verified": true,
@@ -2154,10 +2212,11 @@
       "_seconds": 1793128198,
       "_nanoseconds": 538000000
     },
-    "mbsId": "MBS97258"
+    "mbsId": "MBS97258",
+    "balance": 0
   },
   "8284787757": {
-    "id": 8284787757,
+    "id": "8284787757",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2175,7 +2234,7 @@
     },
     "last_name": "",
     "first_name": "SAGOR",
-    "userId": 8284787757,
+    "userId": "8284787757",
     "userNumber": 99,
     "username": "me1ilu",
     "verified": true,
@@ -2194,10 +2253,11 @@
       "_seconds": 1793377699,
       "_nanoseconds": 730000000
     },
-    "mbsId": "MBS87757"
+    "mbsId": "MBS87757",
+    "balance": 0
   },
   "8291224050": {
-    "id": 8291224050,
+    "id": "8291224050",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2215,7 +2275,7 @@
     },
     "last_name": "",
     "first_name": "Anonymous",
-    "userId": 8291224050,
+    "userId": "8291224050",
     "userNumber": 100,
     "username": "Anonymous_zubai",
     "verified": true,
@@ -2238,7 +2298,8 @@
       "_seconds": 1793400604,
       "_nanoseconds": 166000000
     },
-    "mbsId": "MBS24050"
+    "mbsId": "MBS24050",
+    "balance": 0
   },
   "8306494533": {
     "id": "8306494533",
@@ -2274,10 +2335,12 @@
     "updatedAt": {
       "_seconds": 1793614807,
       "_nanoseconds": 290000000
-    }
+    },
+    "userId": "8306494533",
+    "balance": 0
   },
   "8314973015": {
-    "id": 8314973015,
+    "id": "8314973015",
     "referredBy": 8799135330,
     "referredAt": {
       "_seconds": 1792391640,
@@ -2293,7 +2356,7 @@
     },
     "last_name": "Galaxy",
     "first_name": "Anime",
-    "userId": 8314973015,
+    "userId": "8314973015",
     "userNumber": 40,
     "username": "",
     "verified": true,
@@ -2361,7 +2424,7 @@
     "mbsId": "MBS73015"
   },
   "8321744381": {
-    "id": 8321744381,
+    "id": "8321744381",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2379,14 +2442,15 @@
     },
     "last_name": "",
     "first_name": "Rahel",
-    "userId": 8321744381,
+    "userId": "8321744381",
     "userNumber": 39,
     "status": "pending_verification",
     "username": "rahel255ghs",
-    "mbsId": "MBS44381"
+    "mbsId": "MBS44381",
+    "balance": 0
   },
   "8332542905": {
-    "id": 8332542905,
+    "id": "8332542905",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2404,14 +2468,15 @@
     },
     "last_name": "hossain",
     "first_name": "Bappi",
-    "userId": 8332542905,
+    "userId": "8332542905",
     "userNumber": 54,
     "status": "pending_verification",
     "username": "bappi6629",
-    "mbsId": "MBS42905"
+    "mbsId": "MBS42905",
+    "balance": 0
   },
   "8337024161": {
-    "id": 8337024161,
+    "id": "8337024161",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2429,14 +2494,15 @@
     },
     "last_name": "Sahabuddin",
     "first_name": "Md",
-    "userId": 8337024161,
+    "userId": "8337024161",
     "userNumber": 75,
     "status": "pending_verification",
     "username": "",
-    "mbsId": "MBS24161"
+    "mbsId": "MBS24161",
+    "balance": 0
   },
   "8347663693": {
-    "id": 8347663693,
+    "id": "8347663693",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2454,7 +2520,7 @@
     },
     "last_name": "",
     "first_name": ".",
-    "userId": 8347663693,
+    "userId": "8347663693",
     "userNumber": 74,
     "status": "pending_verification",
     "username": "",
@@ -2468,7 +2534,8 @@
       "_seconds": 1793083754,
       "_nanoseconds": 460000000
     },
-    "mbsId": "MBS63693"
+    "mbsId": "MBS63693",
+    "balance": 0
   },
   "8347969413": {
     "id": "8347969413",
@@ -2515,10 +2582,11 @@
     "updatedAt": {
       "_seconds": 1793686558,
       "_nanoseconds": 495000000
-    }
+    },
+    "userId": "8347969413"
   },
   "8353267510": {
-    "id": 8353267510,
+    "id": "8353267510",
     "referralBonusPaid": false,
     "referredBy": 8799135330,
     "referredAt": {
@@ -2535,7 +2603,7 @@
     },
     "last_name": "Ahmed",
     "first_name": "Rafe",
-    "userId": 8353267510,
+    "userId": "8353267510",
     "userNumber": 46,
     "username": "rafeahmed93",
     "verified": true,
@@ -2569,10 +2637,11 @@
       "_seconds": 1792511260,
       "_nanoseconds": 942000000
     },
-    "mbsId": "MBS67510"
+    "mbsId": "MBS67510",
+    "balance": 0
   },
   "8395881607": {
-    "id": 8395881607,
+    "id": "8395881607",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2590,7 +2659,7 @@
     },
     "last_name": "",
     "first_name": "𝐑𝐃𝐗. 𝐒𝐀𝐁𝐁𝐈𝐑",
-    "userId": 8395881607,
+    "userId": "8395881607",
     "userNumber": 81,
     "username": "",
     "verified": true,
@@ -2610,10 +2679,11 @@
       "_seconds": 1793146364,
       "_nanoseconds": 363000000
     },
-    "mbsId": "MBS81607"
+    "mbsId": "MBS81607",
+    "balance": 0
   },
   "8447969692": {
-    "id": 8447969692,
+    "id": "8447969692",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8314973015,
@@ -2631,7 +2701,7 @@
     },
     "last_name": "",
     "first_name": "SM-Mehraz_7",
-    "userId": 8447969692,
+    "userId": "8447969692",
     "userNumber": 44,
     "username": "",
     "verified": true,
@@ -2651,12 +2721,13 @@
       "_seconds": 1792496708,
       "_nanoseconds": 401000000
     },
-    "mbsId": "MBS69692"
+    "mbsId": "MBS69692",
+    "balance": 0
   },
   "8451938075": {
-    "id": 8451938075,
+    "id": "8451938075",
     "totalPayouts": 0,
-    "userId": 8451938075,
+    "userId": "8451938075",
     "verified": true,
     "language": "bn",
     "fiatWallet": {
@@ -2717,7 +2788,7 @@
     }
   },
   "8504622816": {
-    "id": 8504622816,
+    "id": "8504622816",
     "firstName": "Trader",
     "lastName": "Biddut",
     "chatId": "8504622816",
@@ -2728,7 +2799,7 @@
     },
     "last_name": "Biddut",
     "first_name": "Trader",
-    "userId": 8504622816,
+    "userId": "8504622816",
     "userNumber": 1,
     "username": "Traderiddut1",
     "verified": true,
@@ -2743,10 +2814,11 @@
       "number": "01333561658",
       "method": "Nagad",
       "name": "Biddut"
-    }
+    },
+    "balance": 0
   },
   "8511344736": {
-    "id": 8511344736,
+    "id": "8511344736",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2764,14 +2836,15 @@
     },
     "last_name": "",
     "first_name": "Ahk @giftsggapp",
-    "userId": 8511344736,
+    "userId": "8511344736",
     "userNumber": 85,
     "status": "pending_verification",
     "username": "",
-    "mbsId": "MBS44736"
+    "mbsId": "MBS44736",
+    "balance": 0
   },
   "8553496541": {
-    "id": 8553496541,
+    "id": "8553496541",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2789,7 +2862,7 @@
     },
     "last_name": "Shopon",
     "first_name": "Mustafizur Rahman",
-    "userId": 8553496541,
+    "userId": "8553496541",
     "userNumber": 43,
     "username": "Mustafizurshopon",
     "verified": true,
@@ -2825,7 +2898,7 @@
     "mbsId": "MBS96541"
   },
   "8566273388": {
-    "id": 8566273388,
+    "id": "8566273388",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2843,7 +2916,7 @@
     },
     "last_name": "",
     "first_name": "Easine",
-    "userId": 8566273388,
+    "userId": "8566273388",
     "userNumber": 84,
     "username": "",
     "verified": true,
@@ -2859,10 +2932,11 @@
       "_seconds": 1793182430,
       "_nanoseconds": 205000000
     },
-    "mbsId": "MBS73388"
+    "mbsId": "MBS73388",
+    "balance": 0
   },
   "8603207417": {
-    "id": 8603207417,
+    "id": "8603207417",
     "firstName": "Nazmul BP",
     "lastName": "",
     "chatId": "8603207417",
@@ -2873,7 +2947,7 @@
     },
     "last_name": "",
     "first_name": "Nazmul BP",
-    "userId": 8603207417,
+    "userId": "8603207417",
     "userNumber": 36,
     "username": "Nazmul7136",
     "verified": true,
@@ -2889,10 +2963,11 @@
       "_seconds": 1792266856,
       "_nanoseconds": 748000000
     },
-    "mbsId": "MBS07417"
+    "mbsId": "MBS07417",
+    "balance": 0
   },
   "8611314602": {
-    "id": 8611314602,
+    "id": "8611314602",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2910,7 +2985,7 @@
     },
     "last_name": "",
     "first_name": "Mollah",
-    "userId": 8611314602,
+    "userId": "8611314602",
     "userNumber": 104,
     "username": "Sojib5611",
     "verified": true,
@@ -2926,10 +3001,11 @@
     "updatedAt": {
       "_seconds": 1793771438,
       "_nanoseconds": 217000000
-    }
+    },
+    "balance": 0
   },
   "8621597190": {
-    "id": 8621597190,
+    "id": "8621597190",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2947,7 +3023,7 @@
     },
     "last_name": "𝗚𝗔𝗠𝗜𝗡𝗚@OilVoyageBot",
     "first_name": "𝗥𝗦",
-    "userId": 8621597190,
+    "userId": "8621597190",
     "userNumber": 47,
     "username": "Tr_Gaming_1",
     "verified": true,
@@ -2968,10 +3044,11 @@
       "_seconds": 1792648028,
       "_nanoseconds": 710000000
     },
-    "mbsId": "MBS97190"
+    "mbsId": "MBS97190",
+    "balance": 0
   },
   "8635404307": {
-    "id": 8635404307,
+    "id": "8635404307",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -2989,7 +3066,7 @@
     },
     "last_name": "ফারজানা",
     "first_name": "আইরিন",
-    "userId": 8635404307,
+    "userId": "8635404307",
     "userNumber": 50,
     "username": "",
     "verified": true,
@@ -3005,7 +3082,8 @@
       "_seconds": 1792562674,
       "_nanoseconds": 520000000
     },
-    "mbsId": "MBS04307"
+    "mbsId": "MBS04307",
+    "balance": 0
   },
   "8694375941": {
     "id": "8694375941",
@@ -3030,10 +3108,11 @@
       "_nanoseconds": 855000000
     },
     "status": "verified",
-    "mbsId": "MBS75941"
+    "mbsId": "MBS75941",
+    "userId": "8694375941"
   },
   "8730614199": {
-    "id": 8730614199,
+    "id": "8730614199",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8451938075,
@@ -3051,7 +3130,7 @@
     },
     "last_name": "",
     "first_name": "Arko",
-    "userId": 8730614199,
+    "userId": "8730614199",
     "userNumber": 48,
     "username": "Nirob_das12",
     "verified": true,
@@ -3078,7 +3157,7 @@
     "mbsId": "MBS14199"
   },
   "8763177130": {
-    "id": 8763177130,
+    "id": "8763177130",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -3096,13 +3175,14 @@
     },
     "last_name": "Alif",
     "first_name": "MD",
-    "userId": 8763177130,
+    "userId": "8763177130",
     "userNumber": 102,
     "status": "pending_verification",
-    "username": "mdalif453"
+    "username": "mdalif453",
+    "balance": 0
   },
   "8789947510": {
-    "id": 8789947510,
+    "id": "8789947510",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -3120,7 +3200,7 @@
     },
     "last_name": "apu",
     "first_name": "samiya",
-    "userId": 8789947510,
+    "userId": "8789947510",
     "userNumber": 96,
     "username": "samiyaapu2u4",
     "verified": true,
@@ -3136,7 +3216,8 @@
       "_seconds": 1793354749,
       "_nanoseconds": 997000000
     },
-    "mbsId": "MBS47510"
+    "mbsId": "MBS47510",
+    "balance": 0
   },
   "8791793396": {
     "id": "8791793396",
@@ -3150,10 +3231,12 @@
     },
     "status": "verified",
     "language": "bn",
-    "mbsId": "MBS93396"
+    "mbsId": "MBS93396",
+    "userId": "8791793396",
+    "balance": 0
   },
   "8799135330": {
-    "id": 8799135330,
+    "id": "8799135330",
     "firstName": "Maruf",
     "totalPayouts": 0,
     "username": "maruff666",
@@ -3166,7 +3249,7 @@
     "chatId": "8799135330",
     "last_name": "",
     "first_name": "Maruf",
-    "userId": 8799135330,
+    "userId": "8799135330",
     "photoUrl": "https://t.me/i/userpic/320/QlLh9JBhiCbUVsMYG2_IooSDC4d4cGTo8jeUrYHG1xJbgOtYtBR5beJkInlrHZ7z.svg",
     "hasSellBalance": true,
     "verified": true,
@@ -3241,10 +3324,12 @@
       "_nanoseconds": 306000000
     },
     "status": "verified",
-    "mbsId": "MBS04187"
+    "mbsId": "MBS04187",
+    "userId": "8803104187",
+    "balance": 0
   },
   "8807966127": {
-    "id": 8807966127,
+    "id": "8807966127",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -3262,7 +3347,7 @@
     },
     "last_name": "",
     "first_name": "𝐐𝐑™SIAM",
-    "userId": 8807966127,
+    "userId": "8807966127",
     "userNumber": 72,
     "username": "",
     "verified": true,
@@ -3278,7 +3363,8 @@
     "updatedAt": {
       "_seconds": 1793778475,
       "_nanoseconds": 664000000
-    }
+    },
+    "balance": 0
   },
   "8830408924": {
     "id": "8830408924",
@@ -3310,10 +3396,11 @@
       "_seconds": 1792235968,
       "_nanoseconds": 29000000
     },
-    "mbsId": "MBS08924"
+    "mbsId": "MBS08924",
+    "userId": "8830408924"
   },
   "8837052461": {
-    "id": 8837052461,
+    "id": "8837052461",
     "referredBy": 8799135330,
     "referredAt": {
       "_seconds": 1792935394,
@@ -3329,7 +3416,7 @@
     },
     "last_name": "Islam",
     "first_name": "Alamin",
-    "userId": 8837052461,
+    "userId": "8837052461",
     "userNumber": 65,
     "username": "",
     "phoneModel": "K",
@@ -3378,7 +3465,7 @@
     }
   },
   "8840200450": {
-    "id": 8840200450,
+    "id": "8840200450",
     "firstName": "Tasin",
     "lastName": "TX",
     "chatId": "8840200450",
@@ -3389,7 +3476,7 @@
     },
     "last_name": "TX",
     "first_name": "Tasin",
-    "userId": 8840200450,
+    "userId": "8840200450",
     "userNumber": 1,
     "username": "",
     "verified": true,
@@ -3405,10 +3492,11 @@
     "updatedAt": {
       "_seconds": 1793733105,
       "_nanoseconds": 687000000
-    }
+    },
+    "balance": 0
   },
   "8876546998": {
-    "id": 8876546998,
+    "id": "8876546998",
     "firstName": "OɴʟʏㅤRᴀғɪㅤ",
     "lastName": "",
     "chatId": "8876546998",
@@ -3419,7 +3507,7 @@
     },
     "last_name": "",
     "first_name": "OɴʟʏㅤRᴀғɪㅤ",
-    "userId": 8876546998,
+    "userId": "8876546998",
     "userNumber": 52,
     "username": "",
     "verified": true,
@@ -3443,10 +3531,11 @@
       "_seconds": 1792764292,
       "_nanoseconds": 778000000
     },
-    "mbsId": "MBS46998"
+    "mbsId": "MBS46998",
+    "balance": 0
   },
   "8876805984": {
-    "id": 8876805984,
+    "id": "8876805984",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 1851329783,
@@ -3464,7 +3553,7 @@
     },
     "last_name": "rrr",
     "first_name": "Rr",
-    "userId": 8876805984,
+    "userId": "8876805984",
     "userNumber": 62,
     "username": "alamin5386",
     "verified": true,
@@ -3485,10 +3574,11 @@
       "_seconds": 1792912418,
       "_nanoseconds": 966000000
     },
-    "mbsId": "MBS05984"
+    "mbsId": "MBS05984",
+    "balance": 0
   },
   "8878936573": {
-    "id": 8878936573,
+    "id": "8878936573",
     "firstName": "Babul",
     "lastName": "Ahmed",
     "chatId": "8878936573",
@@ -3499,7 +3589,7 @@
     },
     "last_name": "Ahmed",
     "first_name": "Babul",
-    "userId": 8878936573,
+    "userId": "8878936573",
     "userNumber": 1,
     "username": "babulahmed7",
     "verified": true,
@@ -3509,10 +3599,11 @@
     "updatedAt": {
       "_seconds": 1793545289,
       "_nanoseconds": 553000000
-    }
+    },
+    "balance": 0
   },
   "8879958748": {
-    "id": 8879958748,
+    "id": "8879958748",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -3530,14 +3621,15 @@
     },
     "last_name": "",
     "first_name": "Noyon",
-    "userId": 8879958748,
+    "userId": "8879958748",
     "userNumber": 67,
     "status": "pending_verification",
     "username": "",
-    "mbsId": "MBS58748"
+    "mbsId": "MBS58748",
+    "balance": 0
   },
   "8892566915": {
-    "id": 8892566915,
+    "id": "8892566915",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -3555,7 +3647,7 @@
     },
     "last_name": "",
     "first_name": "Baby Rakib",
-    "userId": 8892566915,
+    "userId": "8892566915",
     "userNumber": 69,
     "username": "",
     "verified": true,
@@ -3571,10 +3663,11 @@
       "_seconds": 1793056652,
       "_nanoseconds": 554000000
     },
-    "mbsId": "MBS66915"
+    "mbsId": "MBS66915",
+    "balance": 0
   },
   "8900093885": {
-    "id": 8900093885,
+    "id": "8900093885",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -3592,7 +3685,7 @@
     },
     "last_name": "",
     "first_name": "𓆩𝑺𝒖𝒏𝒏𝒚𓆪",
-    "userId": 8900093885,
+    "userId": "8900093885",
     "userNumber": 106,
     "username": "sanix306",
     "verified": true,
@@ -3615,7 +3708,8 @@
     "updatedAt": {
       "_seconds": 1793796004,
       "_nanoseconds": 317000000
-    }
+    },
+    "balance": 0
   },
   "8904365906": {
     "id": "8904365906",
@@ -3629,10 +3723,12 @@
     "username": "Unknown",
     "status": "verified",
     "language": "bn",
-    "mbsId": "MBS65906"
+    "mbsId": "MBS65906",
+    "userId": "8904365906",
+    "balance": 0
   },
   "8920538061": {
-    "id": 8920538061,
+    "id": "8920538061",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -3650,7 +3746,7 @@
     },
     "last_name": "K",
     "first_name": "S",
-    "userId": 8920538061,
+    "userId": "8920538061",
     "userNumber": 94,
     "username": "",
     "verified": true,
@@ -3673,10 +3769,11 @@
       "_seconds": 1793349369,
       "_nanoseconds": 473000000
     },
-    "mbsId": "MBS38061"
+    "mbsId": "MBS38061",
+    "balance": 0
   },
   "8924761303": {
-    "id": 8924761303,
+    "id": "8924761303",
     "firstName": "Sk",
     "lastName": "Shameem",
     "chatId": "8924761303",
@@ -3687,7 +3784,7 @@
     },
     "last_name": "Shameem",
     "first_name": "Sk",
-    "userId": 8924761303,
+    "userId": "8924761303",
     "userNumber": 38,
     "username": "Ksbx937",
     "verified": true,
@@ -3703,10 +3800,11 @@
       "_seconds": 1792289485,
       "_nanoseconds": 979000000
     },
-    "mbsId": "MBS61303"
+    "mbsId": "MBS61303",
+    "balance": 0
   },
   "8926384409": {
-    "id": 8926384409,
+    "id": "8926384409",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -3724,7 +3822,7 @@
     },
     "last_name": "",
     "first_name": "FX Sayko Trader",
-    "userId": 8926384409,
+    "userId": "8926384409",
     "userNumber": 64,
     "username": "FXSaykoTrader",
     "verified": true,
@@ -3744,10 +3842,11 @@
       "_seconds": 1792923346,
       "_nanoseconds": 932000000
     },
-    "mbsId": "MBS84409"
+    "mbsId": "MBS84409",
+    "balance": 0
   },
   "8945111819": {
-    "id": 8945111819,
+    "id": "8945111819",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8314973015,
@@ -3765,7 +3864,7 @@
     },
     "last_name": "",
     "first_name": "Rafi",
-    "userId": 8945111819,
+    "userId": "8945111819",
     "userNumber": 49,
     "username": "",
     "verified": true,
@@ -3784,10 +3883,11 @@
       "_seconds": 1792560591,
       "_nanoseconds": 301000000
     },
-    "mbsId": "MBS11819"
+    "mbsId": "MBS11819",
+    "balance": 0
   },
   "8966663297": {
-    "id": 8966663297,
+    "id": "8966663297",
     "referralBonusPaid": false,
     "referralStatus": "pending",
     "referredBy": 8799135330,
@@ -3805,7 +3905,7 @@
     },
     "last_name": "",
     "first_name": "Md Jibon Mahmud",
-    "userId": 8966663297,
+    "userId": "8966663297",
     "userNumber": 73,
     "username": "OilVoyageBot8",
     "verified": true,
@@ -3821,7 +3921,8 @@
       "_seconds": 1793083432,
       "_nanoseconds": 23000000
     },
-    "mbsId": "MBS63297"
+    "mbsId": "MBS63297",
+    "balance": 0
   },
   "8977684548": {
     "id": "8977684548",
@@ -3853,10 +3954,12 @@
       "_seconds": 1793378852,
       "_nanoseconds": 378000000
     },
-    "mbsId": "MBS84548"
+    "mbsId": "MBS84548",
+    "userId": "8977684548",
+    "balance": 0
   },
   "8982343360": {
-    "id": 8982343360,
+    "id": "8982343360",
     "firstName": "MD Mihad",
     "joinedAt": {
       "_seconds": 1791439790,
@@ -3870,7 +3973,7 @@
     "notifiedNewUser": true,
     "last_name": "Hossen",
     "first_name": "MD Mihad",
-    "userId": 8982343360,
+    "userId": "8982343360",
     "username": "mihhfkf",
     "verified": true,
     "phoneModel": "K",
@@ -3883,6 +3986,7 @@
       "_seconds": 1792855885,
       "_nanoseconds": 498000000
     },
-    "mbsId": "MBS43360"
+    "mbsId": "MBS43360",
+    "balance": 0
   }
 }

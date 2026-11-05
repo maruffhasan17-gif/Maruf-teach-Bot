@@ -4392,10 +4392,7 @@ function FiatWithdrawals() {
 // 6. USER MANAGEMENT COMPONENT (PREMIUM REDESIGNED)
 // =========================================================================
 function UsersManagement() {
-  const { users, refresh: refreshUsers, refreshing: usersRefreshing } = useUsersData();
-  const { data: botData, refresh: refreshBotData, refreshing: botRefreshing } = useBotData();
-  const refresh = () => { refreshUsers(); refreshBotData(); };
-  const refreshing = usersRefreshing || botRefreshing;
+  const { users, refresh, refreshing } = useUsersData();
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
@@ -4430,10 +4427,7 @@ function UsersManagement() {
   // Compute sorted & filtered users
   const { processedUsers, statsCounts } = useMemo(() => {
     try {
-      const sourceUsers = (Array.isArray(users) && users.length > 0) 
-        ? users 
-        : (Array.isArray(botData?.users) ? botData.users : []);
-      const rawList = sourceUsers.map(u => {
+      const rawList = (Array.isArray(users) ? users : []).map(u => {
         if (!u) return null;
         const uId = (u.chatId || u.id || '').toString();
         const bal = parseFloat(u.balance || 0);
@@ -4482,7 +4476,7 @@ function UsersManagement() {
       console.error("Users memo computation error:", e);
       return { processedUsers: [], statsCounts: { total: 0, verifiedCount: 0, unverifiedCount: 0 } };
     }
-  }, [users, botData?.users, search, filter, sortOrder]);
+  }, [users, search, filter, sortOrder]);
 
   // Window scroll listener for progressive chunk loading
   useEffect(() => {
