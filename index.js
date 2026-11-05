@@ -5691,6 +5691,17 @@ async function syncAllowedAdminIpsFromDb() {
             }, { merge: true });
             console.log('[AdminSecurity] Initialized allowed Admin IPs in Firestore.');
         }
+
+        // Real-time listener for instant zero-restart IP updates
+        db.collection('settings').doc('allowed_admin_ips').onSnapshot(liveSnap => {
+            if (liveSnap && liveSnap.exists && Array.isArray(liveSnap.data()?.ips)) {
+                liveSnap.data().ips.forEach(ip => {
+                    const norm = normalizeIp(ip);
+                    if (norm) allowedAdminIps.add(norm);
+                });
+                console.log(`[AdminSecurity] Real-time synced ${allowedAdminIps.size} allowed Admin IPs from Firestore.`);
+            }
+        }, err => console.warn('[AdminSecurity] allowed_admin_ips onSnapshot error:', err.message));
     } catch (e) {
         console.warn('[AdminSecurity] syncAllowedAdminIpsFromDb warning:', e.message);
     }
