@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText } from 'lucide-react';
+import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText, Trophy, Crown, Medal, Flame } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchSpinStatus, executeSpin, watchSpinAd, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, lookupRecipientUser, submitTransferMoney } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, lookupRecipientUser, submitTransferMoney } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/referral-banner.jpg';
@@ -1915,6 +1915,87 @@ function HeaderWalletButton({ lang = 'bn', setIsModalOpen, user, variant = 'defa
 }
 
 const GUEST_ID = 123456789;
+
+
+// ============================================================================
+// VIP LEVEL SYSTEM (LIFETIME BUY + SELL + ADD MONEY TRANSACTIONS)
+// VIP 1: ৳100 - ৳1,000 | VIP 2: ৳1,001 - ৳3,000 | VIP 3: ৳3,001 - ৳5,000
+// VIP 4: ৳5,001 - ৳10,000 | VIP MAX: ৳15,000+
+// ============================================================================
+function getUserVipLevel(userData) {
+  const sellBdt = Number(userData?.totalCryptoSellBdt) || 0;
+  const addBdt = Number(userData?.totalAddMoneyBdt) || 0;
+  const buyBdt = Number(userData?.totalBuyBdt) || 0;
+  const totalLifetimeVolume = Math.round((sellBdt + addBdt + buyBdt) * 100) / 100;
+
+  if (totalLifetimeVolume >= 15000) {
+    return {
+      level: 5,
+      isMax: true,
+      label: 'VIP MAX',
+      badgeBg: 'bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400',
+      pillClass: 'bg-purple-100/90 dark:bg-purple-950/70 border border-purple-300/60 dark:border-purple-600/50 text-[#8B5CF6] dark:text-[#A78BFA] shadow-xs shadow-purple-500/15',
+      frameSrc: '/vip-frames/vip-max.png',
+      glowColor: 'rgba(236,72,153,0.4)',
+      totalVolume: totalLifetimeVolume
+    };
+  } else if (totalLifetimeVolume >= 5001) {
+    return {
+      level: 4,
+      isMax: false,
+      label: 'VIP 4',
+      badgeBg: 'bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/70 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400',
+      pillClass: 'bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
+      frameSrc: '/vip-frames/vip-4.png',
+      glowColor: 'rgba(99,102,241,0.3)',
+      totalVolume: totalLifetimeVolume
+    };
+  } else if (totalLifetimeVolume >= 3001) {
+    return {
+      level: 3,
+      isMax: false,
+      label: 'VIP 3',
+      badgeBg: 'bg-amber-50 dark:bg-amber-950/60 border border-amber-200/70 dark:border-amber-800/60 text-amber-600 dark:text-amber-400',
+      pillClass: 'bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
+      frameSrc: '/vip-frames/vip-3.png',
+      glowColor: 'rgba(245,158,11,0.3)',
+      totalVolume: totalLifetimeVolume
+    };
+  } else if (totalLifetimeVolume >= 1001) {
+    return {
+      level: 2,
+      isMax: false,
+      label: 'VIP 2',
+      badgeBg: 'bg-sky-50 dark:bg-sky-950/60 border border-sky-200/70 dark:border-sky-800/60 text-sky-600 dark:text-sky-400',
+      pillClass: 'bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
+      frameSrc: '/vip-frames/vip-2.png',
+      glowColor: 'rgba(14,165,233,0.3)',
+      totalVolume: totalLifetimeVolume
+    };
+  } else if (totalLifetimeVolume >= 100) {
+    return {
+      level: 1,
+      isMax: false,
+      label: 'VIP 1',
+      badgeBg: 'bg-purple-50 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
+      pillClass: 'bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
+      frameSrc: '/vip-frames/vip-1.png',
+      glowColor: 'rgba(147,51,234,0.3)',
+      totalVolume: totalLifetimeVolume
+    };
+  } else {
+    return {
+      level: 0,
+      isMax: false,
+      label: 'VIP 0',
+      badgeBg: 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400',
+      pillClass: 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400',
+      frameSrc: null,
+      glowColor: 'transparent',
+      totalVolume: totalLifetimeVolume
+    };
+  }
+}
 
 function resolveTelegramUser() {
   try {
@@ -5052,7 +5133,7 @@ export default function App() {
     };
   }, []);
 
-  const manifestUrl = 'https://maruf-teach-bot.onrender.com/app/tonconnect-manifest.json';
+  const manifestUrl = 'https://trustpay-bot.com/app/tonconnect-manifest.json';
 
 
 
@@ -5103,7 +5184,7 @@ export default function App() {
         
         <div className="relative z-10 p-4 max-w-md mx-auto">
           {/* Header - shown only on primary tabs */}
-          {activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'withdraw' && activeTab !== 'notifications' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'spin' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (
+          {activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'withdraw' && activeTab !== 'notifications' && activeTab !== 'claim' && activeTab !== 'history'  && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support'  && (
             <div id="main-app-header" className="flex justify-between items-center mb-5 pt-2 transition-all duration-300">
                <div className="flex items-center gap-3">
                  <div className="w-[44px] h-[44px] flex items-center justify-center shrink-0">
@@ -5165,8 +5246,10 @@ export default function App() {
           )}
 
           {/* PERSISTENT MAIN TABS (0ms Instant Switching - No Unmount Lag) */}
+          
           <div className={activeTab === 'home' ? 'block' : 'hidden'}>
               <HomePage 
+                  onGoToLeaderboard={() => setActiveTab('leaderboard')}
                   balance={balance} 
                   balanceLoaded={balanceLoaded}
                   user={user} 
@@ -5227,6 +5310,8 @@ export default function App() {
 
           <div className={activeTab === 'profile' ? 'block' : 'hidden'}>
               <ProfilePage 
+                  onGoToVipLevels={() => setActiveTab('vip-levels')}
+                  onGoToLeaderboard={() => setActiveTab('leaderboard')}
                   user={user} 
                   balance={balance} 
                   mbsId={mbsId} 
@@ -5302,6 +5387,18 @@ export default function App() {
                   />
               )
           )}
+          
+          {activeTab === 'vip-levels' && (
+              <VipLevelsPage 
+                  user={user} 
+                  lang={lang} 
+                  darkMode={darkMode} 
+                  onBack={() => setActiveTab('profile')}
+                  onGoToAddMoney={() => setActiveTab('add-money')}
+                  onGoToTrade={() => setActiveTab('home')}
+              />
+          )}
+
           {activeTab === 'history' && <HistoryPage user={user} lang={lang} t={t} onBack={() => setActiveTab('profile')} />}
           {activeTab === 'referral' && (
               <ReferralPage
@@ -5416,7 +5513,7 @@ export default function App() {
         </div>
 
         {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
-        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral' && activeTab !== 'spin' && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (() => {
+        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral'  && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && activeTab !== 'vip-levels' && (() => {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
@@ -5477,6 +5574,7 @@ export default function App() {
                         </div>
                     </button>
   
+                    
                     {/* ADD MONEY */}
                     <button 
                         type="button"
@@ -6111,7 +6209,7 @@ function HomePage({
 
   const fetchRecent = (forceFresh = false) => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('192.168');
-    const API_URL = isLocal ? 'http://localhost:3000' : 'https://maruf-teach-bot.onrender.com';
+    const API_URL = isLocal ? 'http://localhost:3000' : 'https://trustpay-bot.com';
     const freshQuery = forceFresh ? '&_nocache=1' : '';
     fetch(`${API_URL}/api/miniapp/history/${historyUserId}?_t=${Date.now()}${freshQuery}`)
       .then(r => r.json())
@@ -6321,6 +6419,14 @@ function HomePage({
         <div className="relative z-10 max-w-[64%]">
           <p className={`text-[12px] font-medium ${darkMode ? 'text-violet-200/75' : 'text-[#7C3AED]/80'}`}>
             {greeting} <span className="font-semibold">{user?.first_name ? user.first_name : (lang === 'bn' ? 'গেস্ট' : 'Guest')}</span>
+            {(() => {
+              const vip = getUserVipLevel(user);
+              return (
+                <span onClick={() => { playAppSound("tap"); setActiveTab("vip-levels"); }} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-black tracking-wide ml-1.5 select-none bg-purple-50 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA] shadow-2xs cursor-pointer active:scale-95 transition-transform" title="View VIP Levels">
+                  {vip.label}
+                </span>
+              );
+            })()}
           </p>
 
           <div className="flex items-center gap-1 mt-3">
@@ -6423,6 +6529,7 @@ function HomePage({
         </div>
       </section>
 
+      
       {/* =========================================================================
           WALLET SHEET — quick actions, coins, transactions (reference: right screen)
           (Recent-contacts / profile avatars row intentionally omitted)
@@ -6774,7 +6881,7 @@ function AddMoneyPage({
 
     useEffect(() => {
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('192.168');
-        const API_URL = isLocal ? 'http://localhost:3000' : 'https://maruf-teach-bot.onrender.com';
+        const API_URL = isLocal ? 'http://localhost:3000' : 'https://trustpay-bot.com';
         fetch(`${API_URL}/api/settings`)
             .then(res => res.json())
             .then(data => {
@@ -9129,7 +9236,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
         if (isManual) setIsRefreshing(true);
         try {
             const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('192.168');
-            const API_URL = isLocal ? 'http://localhost:3000' : 'https://maruf-teach-bot.onrender.com';
+            const API_URL = isLocal ? 'http://localhost:3000' : 'https://trustpay-bot.com';
             const res = await fetch(`${API_URL}/api/miniapp/history/${userId}`);
             const data = await res.json();
             if(data.success && Array.isArray(data.history)) {
@@ -9389,7 +9496,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
     );
 }
 
-function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToSupport, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
+function ProfilePage({ onGoToVipLevels, onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToSupport, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const displayId = mbsId || user?.mbsId || (user?.id ? 'MBS' + String(user.id).slice(-5) : 'MBS00000');
@@ -9481,9 +9588,14 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
                 <h2 className="text-base font-black leading-tight truncate text-slate-900 dark:text-white">
                   {user?.first_name || 'User'}
                 </h2>
-                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 border border-purple-200/70 dark:border-purple-800/60">
-                  VIP 1
-                </span>
+                {(() => {
+                  const vip = getUserVipLevel(user);
+                  return (
+                    <span onClick={() => { playAppSound("tap"); onGoToVipLevels && onGoToVipLevels(); }} className="px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide bg-purple-50 dark:bg-purple-950/60 text-[#8B5CF6] dark:text-[#A78BFA] border border-purple-200/80 dark:border-purple-800/60 select-none shadow-2xs cursor-pointer active:scale-95 transition-transform" title="View VIP Levels">
+                      {vip.label}
+                    </span>
+                  );
+                })()}
               </div>
               <p className="text-slate-400 text-xs font-medium truncate mt-0.5">
                 @{user?.username || 'user'}
@@ -9731,7 +9843,44 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
           ? 'bg-slate-900/95 border-slate-800 text-white' 
           : 'bg-white border-slate-200/90 text-slate-900'
       }`}>
-        {/* 2-Step Security Verification Row */}
+        
+                {/* VIP Level Club Row */}
+        <div 
+          onClick={() => {
+            playAppSound('tap');
+            onGoToVipLevels && onGoToVipLevels();
+          }} 
+          className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/50 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shrink-0 border border-purple-100 dark:border-purple-800/60 shadow-2xs">
+              <Award size={17} className="group-hover:scale-110 transition-transform duration-300" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight">
+                  {lang === 'bn' ? 'ভিআইপি লেভেল ক্লাব' : 'VIP Level Club'}
+                </span>
+                {(() => {
+                  const vip = getUserVipLevel(user);
+                  return (
+                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black border bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30">
+                      {vip.label}
+                    </span>
+                  );
+                })()}
+              </div>
+              <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium block truncate">
+                {lang === 'bn' ? '১ থেকে MAX লেভেলের কার্ড ও সুবিধাসমূহ' : 'VIP 1 to MAX Cards & Exclusive Benefits'}
+              </span>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors shrink-0" />
+        </div>
+
+        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+
+{/* 2-Step Security Verification Row */}
         <div 
           onClick={onGoToTwoStep} 
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
@@ -9938,6 +10087,253 @@ function ProfilePage({ user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode
            </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+
+
+// ============================================================================
+// VIP LEVELS CLUB PAGE (VIP 1 TO VIP MAX CARDS IN SERIAL ORDER)
+// ============================================================================
+function VipLevelsPage({ user, lang = 'bn', darkMode = false, onBack, onGoToAddMoney, onGoToTrade }) {
+  const sellBdt = Number(user?.totalCryptoSellBdt) || 0;
+  const addBdt = Number(user?.totalAddMoneyBdt) || 0;
+  const buyBdt = Number(user?.totalBuyBdt) || 0;
+  const totalLifetimeVolume = Math.round((sellBdt + addBdt + buyBdt) * 100) / 100;
+  const currentVip = getUserVipLevel(user);
+
+  const vipTiers = [
+    {
+      level: 1,
+      badgeLabel: 'VIP 1',
+      titleBn: 'ব্রোঞ্জ স্টার VIP',
+      titleEn: 'Bronze Star VIP',
+      rangeBn: '৳১০০ - ৳১,০০০',
+      rangeEn: '৳100 - ৳1,000',
+      minBdt: 100,
+      maxBdt: 1000,
+      badgeClass: 'bg-purple-100/90 dark:bg-purple-950/80 border border-purple-300/70 dark:border-purple-700/60 text-[#8B5CF6] dark:text-[#A78BFA]',
+      cardBg: 'bg-gradient-to-br from-purple-500/10 via-white to-purple-50/40 dark:from-purple-950/40 dark:via-slate-900 dark:to-purple-900/20 border-purple-200 dark:border-purple-800/60',
+      glowColor: 'rgba(139,92,246,0.25)',
+      wingEmoji: '🪽',
+      wingsTheme: 'অ্যামেথিস্ট পার্পল উইংস (Amethyst Purple Wings)',
+      featuresBn: ['বেসিক ট্রেডার প্রিভিলেজ', 'বটের ইনস্ট্যান্ট নোটিফিকেশন', '২৪/৭ অটোমেটিক ক্যাশ ইন']
+    },
+    {
+      level: 2,
+      badgeLabel: 'VIP 2',
+      titleBn: 'সিলভার উইং VIP',
+      titleEn: 'Silver Wing VIP',
+      rangeBn: '৳১,০০১ - ৳৩,০০০',
+      rangeEn: '৳1,001 - ৳3,000',
+      minBdt: 1001,
+      maxBdt: 3000,
+      badgeClass: 'bg-sky-100/90 dark:bg-sky-950/80 border border-sky-300/70 dark:border-sky-700/60 text-[#0284C7] dark:text-[#38BDF8]',
+      cardBg: 'bg-gradient-to-br from-sky-500/10 via-white to-sky-50/40 dark:from-sky-950/40 dark:via-slate-900 dark:to-sky-900/20 border-sky-200 dark:border-sky-800/60',
+      glowColor: 'rgba(2,132,199,0.25)',
+      wingEmoji: '🪽',
+      wingsTheme: 'আইস সায়ান অ্যাঞ্জেলিক উইংস (Ice Cyan Wings)',
+      featuresBn: ['উইথড্র দ্রুত প্রক্রিয়াকরণ', 'স্পেশাল রিওয়ার্ড বোনাস', 'এক্সক্লুসিভ সিলভার ব্যাজ']
+    },
+    {
+      level: 3,
+      badgeLabel: 'VIP 3',
+      titleBn: 'গোল্ডেন ভালকিরি VIP',
+      titleEn: 'Golden Valkyrie VIP',
+      rangeBn: '৳৩,০০১ - ৳৫,০০০',
+      rangeEn: '৳3,001 - ৳5,000',
+      minBdt: 3001,
+      maxBdt: 5000,
+      badgeClass: 'bg-amber-100/90 dark:bg-amber-950/80 border border-amber-300/70 dark:border-amber-700/60 text-[#D97706] dark:text-[#FBBF24]',
+      cardBg: 'bg-gradient-to-br from-amber-500/15 via-white to-amber-50/40 dark:from-amber-950/40 dark:via-slate-900 dark:to-amber-900/20 border-amber-300 dark:border-amber-700/60',
+      glowColor: 'rgba(217,119,6,0.3)',
+      wingEmoji: '🪽',
+      wingsTheme: 'রয়্যাল গোল্ড ভালকিরি উইংস (Royal Gold Wings)',
+      featuresBn: ['০% ট্রান্সফার ফি (Free Transfers)', 'উচ্চ লিমিট ইনস্ট্যান্ট ক্রিপ্টো সেল', 'প্রায়োরিটি কাস্টমার সাপোর্ট']
+    },
+    {
+      level: 4,
+      badgeLabel: 'VIP 4',
+      titleBn: 'ডায়মন্ড সাইবার VIP',
+      titleEn: 'Diamond Cyber VIP',
+      rangeBn: '৳৫,০০১ - ৳১০,০০০',
+      rangeEn: '৳5,001 - ৳10,000',
+      minBdt: 5001,
+      maxBdt: 10000,
+      badgeClass: 'bg-indigo-100/90 dark:bg-indigo-950/80 border border-indigo-300/70 dark:border-indigo-700/60 text-[#4F46E5] dark:text-[#818CF8]',
+      cardBg: 'bg-gradient-to-br from-indigo-500/15 via-white to-indigo-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-indigo-900/20 border-indigo-300 dark:border-indigo-700/60',
+      glowColor: 'rgba(79,70,229,0.3)',
+      wingEmoji: '🪽',
+      wingsTheme: 'সাইবার ডায়মন্ড মেক উইংস (Cyber Diamond Wings)',
+      featuresBn: ['ইনস্ট্যান্ট উইথড্র প্রায়োরিটি কিউ', 'উচ্চ ট্রানজ্যাকশন ভলিউম লিমিট', 'এক্সক্লুসিভ ডায়মন্ড স্ট্যাটাস']
+    },
+    {
+      level: 5,
+      isMax: true,
+      badgeLabel: 'VIP MAX',
+      titleBn: 'সুপ্রিম ফিনিক্স VIP (MAX)',
+      titleEn: 'Supreme Phoenix VIP (MAX)',
+      rangeBn: '৳১৫,০০০+ (আনলিমিটেড)',
+      rangeEn: '৳15,000+ (Unlimited)',
+      minBdt: 15000,
+      maxBdt: Infinity,
+      badgeClass: 'bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 border border-rose-400/60 text-[#E11D48] dark:text-[#FB7185] shadow-xs',
+      cardBg: 'bg-gradient-to-br from-rose-500/20 via-amber-500/10 to-purple-900/20 dark:from-rose-950/50 dark:via-slate-900 dark:to-purple-950/40 border-rose-400/80 dark:border-rose-500/60 shadow-[0_10px_35px_rgba(225,29,72,0.2)]',
+      glowColor: 'rgba(225,29,72,0.35)',
+      wingEmoji: '👑🪽',
+      wingsTheme: 'গড-টিয়ার ফিনিক্স উইংস ও ইম্পেরিয়াল ক্রাউন (Supreme God-Tier Wings & Crown)',
+      featuresBn: ['বটের সর্বোচ্চ ভিআইপি প্রিভিলেজ', 'আনলিমিটেড ক্যাশআউট ও ইনস্ট্যান্ট হ্যান্ডলিং', '১-অন-১ ডেডিকেটেড ভিআইপি ম্যানেজার', 'সর্বোচ্চ স্টাইলিশ উইং ফ্রেম']
+    }
+  ];
+
+  return (
+    <div className="pb-36 pt-1 animate-fadeIn space-y-4">
+      {/* Top Header */}
+      <div className="flex items-center justify-between mb-2">
+        <button
+          type="button"
+          onClick={() => {
+            playAppSound('tap');
+            onBack();
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-all active:scale-95 shadow-xs cursor-pointer"
+        >
+          <ArrowLeft size={14} />
+          <span>{lang === 'bn' ? 'ফিরে যান' : 'Back'}</span>
+        </button>
+
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA] text-[11px] font-black">
+          <Award size={13} />
+          <span>VIP লেভেল ক্লাব</span>
+        </div>
+      </div>
+
+      {/* User Current VIP Progress Hero Card */}
+      <div className="rounded-[26px] p-4 bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-950 text-white shadow-[0_12px_36px_rgba(79,70,229,0.3)] border border-indigo-500/30 relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 w-36 h-36 bg-purple-500/25 rounded-full blur-2xl pointer-events-none" />
+        <div className="relative z-10 flex items-center justify-between gap-3 mb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-purple-200 font-bold">আপনার বর্তমান স্ট্যাটাস:</span>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide bg-white/20 border border-white/30 text-amber-300 shadow-xs">
+                {currentVip.label}
+              </span>
+            </div>
+            <h2 className="text-base font-black text-white mt-1">
+              মোট লাইফটাইম লেনদেন: ৳{totalLifetimeVolume.toLocaleString()}
+            </h2>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-purple-200/90 font-medium leading-relaxed">
+          বাই, সেল এবং ক্যাশ ইন এর মোট লেনদেন যোগ হয়ে আপনার ভিআইপি লেভেল স্বয়ংক্রিয়ভাবে আপগ্রেড হয়।
+        </p>
+      </div>
+
+      {/* Title */}
+      <div className="px-1 flex items-center justify-between">
+        <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          সকল ভিআইপি লেভেল কার্ড (১ থেকে MAX)
+        </h3>
+        <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">
+          ৫টি লেভেল
+        </span>
+      </div>
+
+      {/* 5 VIP LEVEL CARDS LIST IN SERIAL ORDER */}
+      <div className="space-y-3.5">
+        {vipTiers.map((tier) => {
+          const isCurrent = currentVip.level === tier.level;
+          const isUnlocked = totalLifetimeVolume >= tier.minBdt;
+          const isNextTarget = !isUnlocked && (tier.level === currentVip.level + 1 || (currentVip.level === 0 && tier.level === 1));
+
+          return (
+            <div
+              key={tier.level}
+              className={`rounded-[24px] p-4 border transition-all duration-300 relative overflow-hidden shadow-xs ${tier.cardBg} ${
+                isCurrent ? 'ring-2 ring-purple-500/70 shadow-md' : ''
+              }`}
+            >
+              {/* Card Header: VIP Badge + Status */}
+              <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
+                {/* The exact VIP pill badge matching user's screenshot */}
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11.5px] font-black tracking-wide select-none shadow-2xs ${tier.badgeClass}`}>
+                    {tier.badgeLabel}
+                  </span>
+                  <span className="text-xs font-black text-slate-800 dark:text-white">
+                    {lang === 'bn' ? tier.titleBn : tier.titleEn}
+                  </span>
+                </div>
+
+                {/* Status Pill */}
+                {isCurrent ? (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-black bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                    ✓ বর্তমান লেভেল
+                  </span>
+                ) : isUnlocked ? (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-black bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400">
+                    ✓ আনলকড
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-black bg-slate-200/80 dark:bg-slate-800 text-slate-500 border border-slate-300/60 dark:border-slate-700">
+                    🔒 লকড
+                  </span>
+                )}
+              </div>
+
+              {/* Requirement Box */}
+              <div className="my-2.5 p-2.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/70 flex items-center justify-between gap-2 text-xs">
+                <span className="text-slate-500 dark:text-slate-400 font-bold">
+                  প্রয়োজনীয় লেনদেন:
+                </span>
+                <span className="font-mono font-black text-slate-900 dark:text-white">
+                  {tier.rangeBn}
+                </span>
+              </div>
+
+              {/* Winged Theme & Perks */}
+              <div className="space-y-1.5 pt-1">
+                <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <span>{tier.wingEmoji}</span>
+                  <span className="text-[10.5px] font-semibold text-purple-700 dark:text-purple-300">
+                    {tier.wingsTheme}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-1 pt-1">
+                  {tier.featuresBn.map((feat, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5 text-[10.5px] text-slate-600 dark:text-slate-400">
+                      <span className="w-1 h-1 rounded-full bg-purple-500 shrink-0" />
+                      <span>{feat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Progress if this is the next level */}
+              {isNextTarget && (
+                <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-800">
+                  <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                    <span>লেভেল আনলক প্রগ্রেস</span>
+                    <span className="text-purple-600 dark:text-purple-400 font-mono">
+                      ৳{totalLifetimeVolume.toLocaleString()} / ৳{tier.minBdt.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, (totalLifetimeVolume / tier.minBdt) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -10407,1053 +10803,6 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
   );
 }
 
-const SPIN_WHEEL_SLICES = [
-  {
-    index: 0,
-    id: '1_tk',
-    title: '৳1 TK',
-    emoji: '🪙',
-    subtitleBn: 'নগদ বোনাস',
-    subtitleEn: 'Instant Cash',
-    sticker: 'tg-coin-sticker.json',
-    sliceBgA: '#1e1b4b',
-    sliceBgB: '#312e81',
-    pillBg: 'bg-emerald-500 text-white border-emerald-300'
-  },
-  {
-    index: 1,
-    id: '5_tk',
-    title: '৳5 TK',
-    emoji: '🌟',
-    subtitleBn: 'লাকি ক্যাশ',
-    subtitleEn: 'Lucky Cash',
-    sticker: 'tg-star-sticker.json',
-    sliceBgA: '#3b0764',
-    sliceBgB: '#581c87',
-    pillBg: 'bg-amber-500 text-slate-950 border-amber-200'
-  },
-  {
-    index: 2,
-    id: '10_tk',
-    title: '৳10 TK',
-    emoji: '💵',
-    subtitleBn: 'সুপার ক্যাশ',
-    subtitleEn: 'Super Cash',
-    sticker: 'tg-cash-sticker.json',
-    sliceBgA: '#0f172a',
-    sliceBgB: '#1e293b',
-    pillBg: 'bg-indigo-500 text-white border-indigo-300'
-  },
-  {
-    index: 3,
-    id: '20_tk',
-    title: '৳20 TK',
-    emoji: '🔥',
-    subtitleBn: 'হট প্রাইজ',
-    subtitleEn: 'Hot Prize',
-    sticker: 'tg-fire-sticker.json',
-    sliceBgA: '#4c0519',
-    sliceBgB: '#881337',
-    pillBg: 'bg-rose-500 text-white border-rose-300'
-  },
-  {
-    index: 4,
-    id: 'teddy',
-    title: 'Star Gift',
-    emoji: '💝',
-    subtitleBn: '💝 স্টার গিফট',
-    subtitleEn: '💝 Star Gift',
-    sticker: 'tg-heart-gift-sticker.json',
-    sliceBgA: '#78350f',
-    sliceBgB: '#b45309',
-    pillBg: 'bg-gradient-to-r from-amber-400 to-rose-500 text-white border-yellow-200',
-    isSpecialGift: true
-  },
-  {
-    index: 5,
-    id: '100_tk',
-    title: '৳100 TK',
-    emoji: '💰',
-    subtitleBn: 'রয়েল ক্যাশ',
-    subtitleEn: 'Royal Cash',
-    sticker: 'tg-moneybag-sticker.json',
-    sliceBgA: '#1e1b4b',
-    sliceBgB: '#3730a3',
-    pillBg: 'bg-purple-500 text-white border-purple-300'
-  },
-  {
-    index: 6,
-    id: 'again',
-    title: 'Again',
-    emoji: '🎯',
-    subtitleBn: 'আবার চেষ্টা করুন',
-    subtitleEn: 'Try Later',
-    sticker: 'tg-target-sticker.json',
-    sliceBgA: '#111827',
-    sliceBgB: '#1f2937',
-    pillBg: 'bg-slate-600 text-white border-slate-400'
-  },
-  {
-    index: 7,
-    id: '500_tk',
-    title: '৳500 TK',
-    emoji: '🏆',
-    subtitleBn: 'মেগা ক্যাশ',
-    subtitleEn: 'Mega Cash',
-    sticker: 'tg-trophy-sticker.json',
-    sliceBgA: '#451a03',
-    sliceBgB: '#92400e',
-    pillBg: 'bg-amber-400 text-slate-950 border-yellow-200'
-  },
-  {
-    index: 8,
-    id: '1_usd',
-    title: '$1 USD',
-    emoji: '💎',
-    subtitleBn: '≈ ৳১২০ টাকা',
-    subtitleEn: '≈ ৳120 BDT',
-    sticker: 'tg-gem-sticker.json',
-    sliceBgA: '#082f49',
-    sliceBgB: '#0369a1',
-    pillBg: 'bg-sky-500 text-white border-sky-200'
-  }
-];
-
-// Helper to create SVG path for a 40-degree wheel sector centered at `index * 40` degrees (0 deg = 12 o'clock)
-function getWheelSectorPath(index, totalSlices = 9, cx = 180, cy = 180, r = 174) {
-  const sliceDeg = 360 / totalSlices;
-  const startDeg = index * sliceDeg - sliceDeg / 2 - 90;
-  const endDeg = index * sliceDeg + sliceDeg / 2 - 90;
-  const startRad = (startDeg * Math.PI) / 180;
-  const endRad = (endDeg * Math.PI) / 180;
-  const x1 = cx + r * Math.cos(startRad);
-  const y1 = cy + r * Math.sin(startRad);
-  const x2 = cx + r * Math.cos(endRad);
-  const y2 = cy + r * Math.sin(endRad);
-  return `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
-}
-
-function SpinEventPage({ user, lang = 'bn', darkMode = false, onBack, onGoToReferral, reloadData }) {
-  const userId = user?.id || 123456789;
-  const [spinStatus, setSpinStatus] = useState(() => ({
-    dailyFreeAvailable: true,
-    nextDailySpinAt: Date.now(),
-    extraSpins: 0,
-    totalAvailableSpins: 1,
-    adProgress: 0,
-    totalSpinsByUser: 0,
-    totalWonBdt: 0,
-    totalReferralsForSpin: 0,
-    eventEndAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
-    monetagZoneId: '12077323',
-    adsgramBlockId: ''
-  }));
-  const [loading, setLoading] = useState(true);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [wheelRotation, setWheelRotation] = useState(0);
-  const wheelRotationRef = useRef(0);
-  const wheelDomRef = useRef(null);
-  const spinAnimRef = useRef(null);
-  const [pointerKick, setPointerKick] = useState(false);
-  const [activeSliceIndex, setActiveSliceIndex] = useState(0);
-  const [spinResultModal, setSpinResultModal] = useState(null);
-  const [spinError, setSpinError] = useState('');
-
-  // Countdown states
-  const [eventCountdown, setEventCountdown] = useState({ days: '30', hours: '00', mins: '00', secs: '00' });
-  const [dailyCooldownStr, setDailyCooldownStr] = useState('');
-
-  // Ad watching states
-  const [isWatchingAd, setIsWatchingAd] = useState(false);
-  const [fallbackAdTimer, setFallbackAdTimer] = useState(0);
-  const [showFallbackAdModal, setShowFallbackAdModal] = useState(false);
-  const [adUnlockToast, setAdUnlockToast] = useState('');
-
-  const loadSpinData = async () => {
-    try {
-      const data = await fetchSpinStatus(userId);
-      if (data && data.success) {
-        setSpinStatus(prev => ({
-          ...prev,
-          ...data,
-          monetagZoneId: data.monetagZoneId || prev.monetagZoneId || '12077323'
-        }));
-      }
-    } catch (e) {
-      console.warn('loadSpinData error:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSpinData();
-    return () => {
-      if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
-    };
-  }, [userId]);
-
-  // External ad scripts are deferred and loaded on-demand when user clicks 'Watch Ad'
-  // (Prevents freezing the mobile UI on spin page navigation)
-
-  // Live 1-second tick for 30-Day Event Countdown & 24h Daily Free Spin Cooldown
-  useEffect(() => {
-    const tick = () => {
-      const now = Date.now();
-      const diffEvent = Math.max(0, (spinStatus.eventEndAt || (now + 30 * 86400000)) - now);
-      const d = Math.floor(diffEvent / (1000 * 60 * 60 * 24));
-      const h = Math.floor((diffEvent / (1000 * 60 * 60)) % 24);
-      const m = Math.floor((diffEvent / (1000 * 60)) % 60);
-      const s = Math.floor((diffEvent / 1000) % 60);
-      setEventCountdown({
-        days: String(d).padStart(2, '0'),
-        hours: String(h).padStart(2, '0'),
-        mins: String(m).padStart(2, '0'),
-        secs: String(s).padStart(2, '0')
-      });
-
-      if (!spinStatus.dailyFreeAvailable && spinStatus.nextDailySpinAt > now) {
-        const rem = spinStatus.nextDailySpinAt - now;
-        const ch = Math.floor(rem / (1000 * 60 * 60));
-        const cm = Math.floor((rem / (1000 * 60)) % 60);
-        const cs = Math.floor((rem / 1000) % 60);
-        setDailyCooldownStr(
-          `${String(ch).padStart(2, '0')}:${String(cm).padStart(2, '0')}:${String(cs).padStart(2, '0')}`
-        );
-      } else {
-        setDailyCooldownStr('');
-      }
-    };
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [spinStatus.eventEndAt, spinStatus.dailyFreeAvailable, spinStatus.nextDailySpinAt]);
-
-  // 60fps Smooth Physics Wheel Spin with Peg Flapper Bounce & Haptic Ticks
-  const animateWheelToTarget = (targetIndex, onFinish) => {
-    if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
-
-    const startAngle = wheelRotationRef.current;
-    const desiredMod = (360 - targetIndex * 40) % 360;
-    const currentMod = ((startAngle % 360) + 360) % 360;
-    let deltaDeg = desiredMod - currentMod;
-    if (deltaDeg <= 0) deltaDeg += 360;
-
-    // 6 full turns (2160 deg) + exact delta to land dead-center at 12 o'clock
-    const totalSpinDeg = 6 * 360 + deltaDeg;
-    const finalAngle = startAngle + totalSpinDeg;
-    const durationMs = 4200;
-    const startTime = performance.now();
-    let lastSectorTick = Math.floor((startAngle + 20) / 40);
-
-    const stepFrame = (now) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(1, elapsed / durationMs);
-      // Smooth casino deceleration curve: fast start, suspenseful slow finish
-      const eased = 1 - Math.pow(1 - progress, 3.6);
-      const currentAngle = startAngle + totalSpinDeg * eased;
-
-      wheelRotationRef.current = currentAngle;
-      if (wheelDomRef.current) {
-        wheelDomRef.current.style.transform = `rotate(${currentAngle}deg)`;
-      }
-
-      const currentSectorTick = Math.floor((currentAngle + 20) / 40);
-      if (currentSectorTick !== lastSectorTick) {
-        lastSectorTick = currentSectorTick;
-        setPointerKick(true);
-        setTimeout(() => setPointerKick(false), 75);
-        try {
-          if (window.Telegram?.WebApp?.HapticFeedback) {
-            window.Telegram.WebApp.HapticFeedback.selectionChanged();
-          }
-        } catch (_) {}
-      }
-
-      if (progress < 1) {
-        spinAnimRef.current = requestAnimationFrame(stepFrame);
-      } else {
-        wheelRotationRef.current = finalAngle;
-        setWheelRotation(finalAngle);
-        setPointerKick(false);
-        if (onFinish) onFinish();
-      }
-    };
-
-    spinAnimRef.current = requestAnimationFrame(stepFrame);
-  };
-
-  // Handle Round Wheel Spin
-  const handleStartSpin = async () => {
-    if (isSpinning) return;
-    if ((spinStatus.totalAvailableSpins || 0) <= 0) {
-      setSpinError(
-        lang === 'bn'
-          ? 'স্পিন শেষ! নিচে অ্যাড দেখে বা রেফার করে ফ্রি স্পিন নিন।'
-          : 'No spins left! Watch ads or refer a friend below.'
-      );
-      if (window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
-      }
-      return;
-    }
-
-    setSpinError('');
-    setIsSpinning(true);
-    setSpinResultModal(null);
-
-    // Start spinning immediately at 0ms while API request resolves
-    if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
-    const preSpinLoop = () => {
-      wheelRotationRef.current += 11;
-      if (wheelDomRef.current) {
-        wheelDomRef.current.style.transform = `rotate(${wheelRotationRef.current}deg)`;
-      }
-      spinAnimRef.current = requestAnimationFrame(preSpinLoop);
-    };
-    spinAnimRef.current = requestAnimationFrame(preSpinLoop);
-
-    try {
-      const res = await executeSpin(userId);
-      if (!res || !res.success) {
-        if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
-        throw new Error(res?.error || 'Spin failed');
-      }
-
-      const targetIndex = typeof res.winningIndex === 'number' ? res.winningIndex : 6;
-
-      animateWheelToTarget(targetIndex, () => {
-        setActiveSliceIndex(targetIndex);
-        try {
-          if (window.Telegram?.WebApp?.HapticFeedback) {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred(
-              targetIndex === 6 && !res.bonusFreeRespin ? 'warning' : 'success'
-            );
-          }
-        } catch (_) {}
-
-        setSpinStatus(prev => ({
-          ...prev,
-          dailyFreeAvailable: res.dailyFreeAvailable,
-          nextDailySpinAt: res.nextDailySpinAt,
-          extraSpins: res.extraSpins,
-          totalAvailableSpins: res.totalAvailableSpins,
-          totalSpinsByUser: (prev.totalSpinsByUser || 0) + 1,
-          totalWonBdt: (prev.totalWonBdt || 0) + (res.bdtWon || 0)
-        }));
-
-        if (res.bdtWon > 0 && reloadData) {
-          reloadData();
-        }
-
-        setTimeout(() => {
-          setIsSpinning(false);
-          setSpinResultModal({
-            card: SPIN_WHEEL_SLICES[targetIndex] || SPIN_WHEEL_SLICES[6],
-            bdtWon: res.bdtWon || 0,
-            isMilestoneWinner: Boolean(res.isMilestoneWinner),
-            bonusFreeRespin: Boolean(res.bonusFreeRespin)
-          });
-        }, 320);
-      });
-    } catch (err) {
-      if (spinAnimRef.current) cancelAnimationFrame(spinAnimRef.current);
-      setIsSpinning(false);
-      setSpinError(err.message || (lang === 'bn' ? 'স্পিন করতে সমস্যা হয়েছে' : 'Spin failed'));
-    }
-  };
-
-  // Credit 1 Ad Watched on Backend
-  const completeOneAdWatch = async () => {
-    try {
-      const res = await watchSpinAd(userId);
-      if (res && res.success) {
-        setSpinStatus(prev => ({
-          ...prev,
-          adProgress: res.adProgress,
-          extraSpins: res.extraSpins,
-          totalAvailableSpins: res.totalAvailableSpins
-        }));
-        if (res.spinUnlocked) {
-          setAdUnlockToast(
-            lang === 'bn'
-              ? '🎉 ৩টি অ্যাড সম্পন্ন! +১টি ফ্রি স্পিন পেয়েছেন!'
-              : '🎉 3 Ads Completed! +1 Free Spin unlocked!'
-          );
-          setTimeout(() => setAdUnlockToast(''), 4500);
-          if (window.Telegram?.WebApp?.HapticFeedback) {
-            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-          }
-        } else {
-          setAdUnlockToast(
-            lang === 'bn'
-              ? `✅ অ্যাড সম্পন্ন (${res.adProgress}/3)! আর ${3 - res.adProgress}টি দেখলেই ১টি স্পিন ফ্রি।`
-              : `✅ Ad watched (${res.adProgress}/3)! Watch ${3 - res.adProgress} more for 1 Spin.`
-          );
-          setTimeout(() => setAdUnlockToast(''), 3500);
-        }
-      }
-    } catch (err) {
-      setSpinError(err.message || 'Ad verification error');
-    } finally {
-      setIsWatchingAd(false);
-    }
-  };
-
-  // Trigger Monetag (show_12077323 Rewarded Interstitial -> Rewarded Popup) or Adsgram or Fallback
-  const handleWatchAdClick = async () => {
-    if (isWatchingAd || isSpinning) return;
-    setSpinError('');
-    setIsWatchingAd(true);
-
-    const zoneId = String(spinStatus.monetagZoneId || '12077323').trim();
-    const monetagFn = window[`show_${zoneId}`] || window.show_12077323;
-
-    if (typeof monetagFn === 'function') {
-      try {
-        await monetagFn();
-        await completeOneAdWatch();
-        return;
-      } catch (errInterstitial) {
-        try {
-          await monetagFn('pop');
-          await completeOneAdWatch();
-          return;
-        } catch (errPop) {
-          console.warn('Monetag interstitial & pop fallback:', errPop);
-        }
-      }
-    }
-
-    if (spinStatus.adsgramBlockId && window.Adsgram) {
-      try {
-        const AdController = window.Adsgram.init({ blockId: String(spinStatus.adsgramBlockId).trim() });
-        await AdController.show();
-        await completeOneAdWatch();
-        return;
-      } catch (e) {
-        console.warn('Adsgram ad fallback:', e);
-      }
-    }
-
-    setShowFallbackAdModal(true);
-    setFallbackAdTimer(10);
-  };
-
-  useEffect(() => {
-    if (!showFallbackAdModal) return;
-    if (fallbackAdTimer <= 0) return;
-    const t = setTimeout(() => {
-      setFallbackAdTimer(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearTimeout(t);
-  }, [showFallbackAdModal, fallbackAdTimer]);
-
-  const handleClaimFallbackAd = async () => {
-    if (fallbackAdTimer > 0) return;
-    setShowFallbackAdModal(false);
-    await completeOneAdWatch();
-  };
-
-  return (
-    <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-12 max-w-md mx-auto">
-      {/* Top Header Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-xs border border-amber-200 active:scale-95 transition-transform text-amber-700 cursor-pointer shrink-0"
-          >
-            <ArrowLeft size={17} strokeWidth={2.5} />
-          </button>
-          <div>
-            <h2 className="text-[14.5px] font-black text-slate-900 leading-tight">
-              {lang === 'bn' ? 'লাকি স্পিন ও গিভওয়ে' : 'Lucky Spin & Giveaway'}
-            </h2>
-            <p className="text-[10px] text-amber-600 font-bold leading-none mt-0.5">
-              {lang === 'bn' ? 'স্পিন ঘুরিয়ে জিতুন Star Gift ও ক্যাশ!' : 'Spin to win Star Gift & Cash!'}
-            </p>
-          </div>
-        </div>
-
-        {/* Won Balance Pill */}
-        <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10.5px] font-black shrink-0">
-          {lang === 'bn' ? `জয়: ৳${spinStatus.totalWonBdt || 0}` : `Won: ৳${spinStatus.totalWonBdt || 0}`}
-        </div>
-      </div>
-
-      {/* 1. COMPACT 30-DAY COUNTDOWN BANNER */}
-      <CutCornerCard
-        className={`p-3 border ${
-          darkMode
-            ? 'bg-slate-900 border-amber-500/35'
-            : 'bg-gradient-to-r from-amber-50/90 via-white to-rose-50/85 border-amber-200/85'
-        }`}
-        flower={<ReferralRosePattern />}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-amber-100/90 border border-amber-200 flex items-center justify-center shrink-0">
-              <TelegramAnimatedSticker src="tg-crown-sticker.json" size={28} />
-            </div>
-            <div className="min-w-0">
-              <span className="inline-block px-2 py-0.5 rounded-full bg-gradient-to-r from-rose-600 to-amber-600 text-white text-[8px] font-black uppercase tracking-wider leading-none">
-                30 DAYS EVENT
-              </span>
-              <h3 className="text-[12px] font-black text-slate-900 leading-tight mt-1 truncate">
-                {lang === 'bn' ? 'ইভেন্ট বাকি:' : 'Ends In:'}
-              </h3>
-            </div>
-          </div>
-
-          {/* 4-Box Live Countdown */}
-          <div className="flex items-center gap-1 shrink-0">
-            {[
-              { val: eventCountdown.days, lbl: lang === 'bn' ? 'দিন' : 'D' },
-              { val: eventCountdown.hours, lbl: lang === 'bn' ? 'ঘণ্টা' : 'H' },
-              { val: eventCountdown.mins, lbl: lang === 'bn' ? 'মিনিট' : 'M' },
-              { val: eventCountdown.secs, lbl: lang === 'bn' ? 'সে.' : 'S' }
-            ].map((item, i) => (
-              <div
-                key={i}
-                className="min-w-[34px] px-1.5 py-1 rounded-lg bg-slate-900 text-white text-center border border-amber-400/50 shadow-xs"
-              >
-                <span className="text-[11.5px] font-black text-amber-300 block leading-none font-mono">
-                  {item.val}
-                </span>
-                <span className="text-[7.5px] font-bold text-slate-300 block mt-0.5">{item.lbl}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </CutCornerCard>
-
-      {/* 2. CENTERED ROUND 3D ROYAL SPIN WHEEL CARD */}
-      <CutCornerCard
-        className={`p-3.5 border ${
-          darkMode
-            ? 'bg-slate-900 border-indigo-500/45'
-            : 'bg-gradient-to-b from-indigo-50/75 via-white to-rose-50/65 border-indigo-200/85'
-        }`}
-        flower={<SellCryptoMandalaPattern />}
-      >
-        {/* TOP OF WHEEL: CLEAR SPINS LEFT BADGE */}
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-1.5">
-            <TelegramAnimatedSticker src="tg-heart-gift-sticker.json" size={20} />
-            <span className="text-[12px] font-black text-slate-800">
-              {lang === 'bn' ? 'রয়েল স্পিন হুইল' : 'Royal Spin Wheel'}
-            </span>
-          </div>
-
-          {/* Prominent Spins Remaining Badge Right Above the Wheel */}
-          <div className="px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-white text-[11px] font-black shadow-sm flex items-center gap-1.5">
-            <Sparkles size={12} />
-            <span>
-              {lang === 'bn'
-                ? `স্পিন বাকি: ${spinStatus.totalAvailableSpins || 0}টি`
-                : `Spins Left: ${spinStatus.totalAvailableSpins || 0}`}
-            </span>
-          </div>
-        </div>
-
-        {/* PERFECTLY CENTERED ROUND WHEEL WRAPPER */}
-        <div className="w-full flex flex-col items-center justify-center py-2">
-          <div
-            className="relative flex items-center justify-center mx-auto shrink-0"
-            style={{ width: 274, height: 274 }}
-          >
-            {/* Ambient Golden/Royal Backlight Glow */}
-            <div
-              className="absolute inset-0 rounded-full pointer-events-none blur-xl opacity-65"
-              style={{
-                background:
-                  'radial-gradient(circle, rgba(245,158,11,0.5) 0%, rgba(168,85,247,0.38) 55%, transparent 78%)'
-              }}
-            />
-
-            {/* TOP 12 O'CLOCK 3D GOLDEN POINTER WITH FLAPPER BOUNCE */}
-            <div
-              className="absolute -top-3 left-1/2 z-30 pointer-events-none flex flex-col items-center drop-shadow-[0_5px_10px_rgba(0,0,0,0.65)] transition-transform duration-75"
-              style={{
-                transform: `translateX(-50%) rotate(${pointerKick ? '-16deg' : '0deg'})`,
-                transformOrigin: 'top center'
-              }}
-            >
-              <div className="w-5 h-5 rounded-full bg-gradient-to-b from-yellow-300 via-amber-500 to-amber-700 border-2 border-white flex items-center justify-center shadow-md">
-                <div className="w-2 h-2 rounded-full bg-rose-600 border border-yellow-200" />
-              </div>
-              <div
-                className="-mt-1"
-                style={{
-                  width: 0,
-                  height: 0,
-                  borderLeft: '10px solid transparent',
-                  borderRight: '10px solid transparent',
-                  borderTop: '17px solid #f59e0b',
-                  filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.45))'
-                }}
-              />
-            </div>
-
-            {/* OUTER ROYAL GOLD BEZEL RING */}
-            <div
-              className="relative w-full h-full rounded-full p-[9px] flex items-center justify-center"
-              style={{
-                background:
-                  'conic-gradient(from 0deg, #fbbf24, #d97706, #fef08a, #b45309, #fbbf24, #92400e, #fef08a, #d97706, #fbbf24)',
-                boxShadow:
-                  '0 10px 28px rgba(15, 23, 42, 0.42), inset 0 2px 5px rgba(255,255,255,0.8), inset 0 -3px 7px rgba(120,53,15,0.85)'
-              }}
-            >
-              {/* 18 Twinkling Casino Rim Lights */}
-              {Array.from({ length: 18 }).map((_, idx) => {
-                const deg = idx * 20;
-                const isGold = idx % 2 === 0;
-                return (
-                  <div
-                    key={idx}
-                    className="absolute inset-0 pointer-events-none"
-                    style={{ transform: `rotate(${deg}deg)` }}
-                  >
-                    <div
-                      className={`mx-auto mt-[2px] w-[5px] h-[5px] rounded-full ${
-                        isSpinning ? 'animate-ping' : 'animate-pulse'
-                      }`}
-                      style={{
-                        backgroundColor: isGold ? '#ffffff' : '#fb7185',
-                        boxShadow: isGold
-                          ? '0 0 6px #fef08a, 0 0 10px #f59e0b'
-                          : '0 0 6px #fda4af, 0 0 10px #e11d48'
-                      }}
-                    />
-                  </div>
-                );
-              })}
-
-              {/* ROTATING INNER WHEEL DISC (DRIVEN BY 60FPS RAF - HARDWARE ACCELERATED) */}
-              <div
-                ref={wheelDomRef}
-                className="relative w-full h-full rounded-full overflow-hidden border-[2.5px] border-slate-950/90 shadow-inner"
-                style={{
-                  transform: `rotate(${wheelRotation}deg)`,
-                  willChange: 'transform'
-                }}
-              >
-                {/* SVG 9-Sector Radial Wheel Background */}
-                <svg viewBox="0 0 360 360" className="w-full h-full block">
-                  <defs>
-                    {SPIN_WHEEL_SLICES.map((slice) => (
-                      <radialGradient
-                        key={`grad-${slice.id}`}
-                        id={`wheelGrad-${slice.index}`}
-                        cx="50%"
-                        cy="50%"
-                        r="55%"
-                      >
-                        <stop offset="15%" stopColor={slice.sliceBgA} />
-                        <stop offset="100%" stopColor={slice.sliceBgB} />
-                      </radialGradient>
-                    ))}
-                  </defs>
-
-                  {SPIN_WHEEL_SLICES.map((slice) => (
-                    <path
-                      key={`sector-${slice.id}`}
-                      d={getWheelSectorPath(slice.index, 9, 180, 180, 180)}
-                      fill={`url(#wheelGrad-${slice.index})`}
-                      stroke="#fbbf24"
-                      strokeWidth="2.2"
-                    />
-                  ))}
-
-                  <circle
-                    cx="180"
-                    cy="180"
-                    r="142"
-                    fill="none"
-                    stroke="rgba(251, 191, 36, 0.25)"
-                    strokeWidth="1.2"
-                    strokeDasharray="4 4"
-                  />
-                  <circle
-                    cx="180"
-                    cy="180"
-                    r="48"
-                    fill="none"
-                    stroke="rgba(251, 191, 36, 0.55)"
-                    strokeWidth="2"
-                  />
-                </svg>
-
-                {/* 9 FLOATING MINI PRIZE CARDS WITH 3D TELEGRAM STICKERS */}
-                {SPIN_WHEEL_SLICES.map((slice) => {
-                  const angleDeg = slice.index * 40;
-                  const isWinnerHighlight = !isSpinning && activeSliceIndex === slice.index;
-                  return (
-                    <div
-                      key={`pod-${slice.id}`}
-                      className="absolute left-1/2 top-1/2 pointer-events-none select-none"
-                      style={{
-                        transform: `translate(-50%, -50%) rotate(${angleDeg}deg) translateY(-82px)`
-                      }}
-                    >
-                      <div
-                        className={`flex flex-col items-center justify-center px-1 py-0.5 rounded-xl border transition-all ${
-                          slice.isSpecialGift
-                            ? 'bg-gradient-to-b from-amber-400/35 via-rose-500/35 to-slate-900/90 border-yellow-300 shadow-[0_0_10px_rgba(251,191,36,0.55)]'
-                            : isWinnerHighlight
-                            ? 'bg-white/20 border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.45)]'
-                            : 'bg-slate-950/45 border-white/20'
-                        }`}
-                        style={{ minWidth: 46 }}
-                      >
-                        <div className="w-6 h-6 flex items-center justify-center">
-                          <span className="text-[17px] leading-none select-none drop-shadow-xs">
-                            {slice.emoji}
-                          </span>
-                        </div>
-
-                        <span
-                          className={`mt-0.5 px-1.5 py-0.2 rounded-full text-[8.5px] font-black leading-tight tracking-tight border shadow-2xs whitespace-nowrap ${slice.pillBg}`}
-                        >
-                          {slice.title}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* CENTER 3D "SPIN" HUB BUTTON */}
-              <button
-                type="button"
-                onClick={handleStartSpin}
-                disabled={isSpinning}
-                className="absolute z-20 w-[62px] h-[62px] rounded-full p-1 cursor-pointer active:scale-95 transition-transform flex items-center justify-center shadow-[0_6px_18px_rgba(0,0,0,0.65)]"
-                style={{
-                  background: 'linear-gradient(135deg, #fde047 0%, #f59e0b 50%, #b45309 100%)'
-                }}
-              >
-                <div className="w-full h-full rounded-full bg-gradient-to-b from-indigo-900 via-slate-900 to-rose-950 border-2 border-yellow-200/80 flex flex-col items-center justify-center text-white shadow-inner">
-                  {isSpinning ? (
-                    <Loader2 size={18} className="animate-spin text-amber-300" />
-                  ) : (
-                    <>
-                      <Sparkles size={12} className="text-amber-300" />
-                      <span className="text-[11px] font-black tracking-wider text-amber-200 leading-none mt-0.5">
-                        SPIN
-                      </span>
-                    </>
-                  )}
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Error / Ad Unlock Status Toast */}
-        {spinError && (
-          <div className="mt-1.5 mb-2 p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold text-center">
-            {spinError}
-          </div>
-        )}
-        {adUnlockToast && (
-          <div className="mt-1.5 mb-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold text-center animate-in fade-in">
-            {adUnlockToast}
-          </div>
-        )}
-
-        {/* CLEAN SINGLE-WORD "SPIN" BUTTON BELOW WHEEL */}
-        <button
-          type="button"
-          onClick={handleStartSpin}
-          disabled={isSpinning}
-          className={`mt-2 w-full py-3 px-4 rounded-xl font-black text-[15px] tracking-wider uppercase text-white shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98] ${
-            isSpinning
-              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 opacity-90 cursor-wait'
-              : (spinStatus.totalAvailableSpins || 0) > 0
-              ? 'bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 hover:brightness-105 shadow-rose-500/25'
-              : 'bg-slate-700 hover:bg-slate-800 text-[12.5px]'
-          }`}
-        >
-          {isSpinning ? (
-            <>
-              <Loader2 size={18} className="animate-spin" />
-              <span>SPINNING...</span>
-            </>
-          ) : (spinStatus.totalAvailableSpins || 0) > 0 ? (
-            <>
-              <Sparkles size={18} />
-              <span>SPIN</span>
-            </>
-          ) : (
-            <>
-              <Clock size={16} />
-              <span>
-                {dailyCooldownStr
-                  ? lang === 'bn'
-                    ? `ডেইলি স্পিন: ${dailyCooldownStr}`
-                    : `Next Spin: ${dailyCooldownStr}`
-                  : 'SPIN'}
-              </span>
-            </>
-          )}
-        </button>
-      </CutCornerCard>
-
-      {/* 3. SHORT & CLEAN: WATCH 3 ADS = 1 FREE SPIN CARD */}
-      <CutCornerCard
-        className={`p-3 border space-y-2 ${
-          darkMode
-            ? 'bg-slate-900 border-emerald-500/35'
-            : 'bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/60 border-emerald-200/80'
-        }`}
-        flower={<AddMoneyFloraPattern />}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100/90 border border-emerald-200 flex items-center justify-center shrink-0">
-              <TelegramAnimatedSticker src="tg-sparkles-sticker.json" size={26} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-[12.5px] font-black text-slate-900 leading-tight truncate">
-                  {lang === 'bn' ? '৩টি অ্যাড = ১টি ফ্রি স্পিন' : '3 Ads = +1 Free Spin'}
-                </h3>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[8.5px] font-black shrink-0">
-                  {spinStatus.adProgress || 0}/3
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 font-semibold mt-0.5 truncate">
-                {lang === 'bn' ? '৩টি অ্যাড দেখলেই ১টি স্পিন ফ্রি!' : 'Watch 3 short ads to get 1 free spin!'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* 3-Step Visual Ad Progress */}
-        <div className="grid grid-cols-3 gap-2">
-          {[1, 2, 3].map((stepNum) => {
-            const done = (spinStatus.adProgress || 0) >= stepNum;
-            return (
-              <div
-                key={stepNum}
-                className={`py-1.5 px-2 rounded-xl border text-center flex items-center justify-center gap-1 text-[10px] font-black transition-all ${
-                  done
-                    ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
-                    : 'bg-slate-50 border-slate-200 text-slate-400'
-                }`}
-              >
-                {done ? <CheckCircle2 size={12} className="text-emerald-600" /> : <PlayCircle size={12} />}
-                <span>{lang === 'bn' ? `অ্যাড ${stepNum}` : `Ad ${stepNum}`}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        <button
-          type="button"
-          onClick={handleWatchAdClick}
-          disabled={isWatchingAd || isSpinning}
-          className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[12px] shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
-        >
-          {isWatchingAd ? (
-            <>
-              <Loader2 size={15} className="animate-spin" />
-              <span>{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
-            </>
-          ) : (
-            <>
-              <PlayCircle size={15} />
-              <span>
-                {lang === 'bn'
-                  ? `অ্যাড দেখুন (${spinStatus.adProgress || 0}/3)`
-                  : `Watch Ad (${spinStatus.adProgress || 0}/3)`}
-              </span>
-            </>
-          )}
-        </button>
-      </CutCornerCard>
-
-      {/* 4. SHORT & CLEAN: 1 REFERRAL = 1 FREE SPIN CARD */}
-      <CutCornerCard
-        className={`p-3 border space-y-2 ${
-          darkMode
-            ? 'bg-slate-900 border-rose-500/35'
-            : 'bg-gradient-to-br from-rose-50/85 via-white to-pink-50/75 border-rose-200/80'
-        }`}
-        flower={<CardRoseBranch />}
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-rose-100/90 border border-rose-200 flex items-center justify-center shrink-0">
-            <TelegramAnimatedSticker src="tg-rose-sticker.json" size={26} />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-[12.5px] font-black text-slate-900 leading-tight truncate">
-              {lang === 'bn' ? '১টি রেফার = ১টি ফ্রি স্পিন + ৳৫' : '1 Referral = +1 Free Spin + ৳5'}
-            </h3>
-            <p className="text-[10px] text-slate-600 font-semibold mt-0.5 truncate">
-              {lang === 'bn'
-                ? 'বন্ধু জয়েন করলেই সাথে সাথে ১টি ফ্রি স্পিন পাবেন!'
-                : 'Get +1 Free Spin as soon as a friend joins!'}
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onGoToReferral}
-          className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white font-black text-[12px] shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
-        >
-          <Share2 size={14} />
-          <span>{lang === 'bn' ? 'রেফার করে স্পিন নিন' : 'Refer & Get Spin'}</span>
-        </button>
-      </CutCornerCard>
-
-      {/* BUILT-IN 10-SECOND SPONSORED AD MODAL FALLBACK */}
-      {showFallbackAdModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-[330px] bg-slate-900 border border-indigo-500/40 rounded-2xl p-5 text-center space-y-3.5 shadow-2xl text-white">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[9.5px] font-black uppercase">
-                Sponsored Ad • {(spinStatus.adProgress || 0) + 1}/3
-              </span>
-              <span className="text-[11px] font-mono font-black text-emerald-400">
-                {fallbackAdTimer > 0 ? `⏳ ${fallbackAdTimer}s` : '✓ Ready'}
-              </span>
-            </div>
-
-            <div className="py-2 flex flex-col items-center space-y-2">
-              <TelegramAnimatedSticker src="tg-gem-sticker.json" size={54} />
-              <h3 className="text-[14.5px] font-black text-white">Trust Pay — Crypto Exchange</h3>
-              <p className="text-[11px] text-slate-300 leading-snug">
-                {lang === 'bn'
-                  ? 'মাত্র ২০ টাকা থেকে TON, GRAM ও USDT কেনাবেচা ও বিকাশ/নগদে পেমেন্ট!'
-                  : 'Buy & Sell TON, GRAM & USDT with instant bKash & Nagad payout!'}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleClaimFallbackAd}
-              disabled={fallbackAdTimer > 0}
-              className={`w-full py-2.5 rounded-xl font-black text-[12px] transition-all cursor-pointer ${
-                fallbackAdTimer > 0
-                  ? 'bg-slate-800 text-slate-400 cursor-not-allowed'
-                  : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg'
-              }`}
-            >
-              {fallbackAdTimer > 0
-                ? lang === 'bn'
-                  ? `অপেক্ষা করুন (${fallbackAdTimer}s)...`
-                  : `Wait ${fallbackAdTimer}s...`
-                : lang === 'bn'
-                ? '✅ রিওয়ার্ড নিন'
-                : '✅ Claim Reward'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* LUXURY ANIMATED PRIZE POPUP MODAL */}
-      {spinResultModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-[310px] rounded-3xl p-6 text-center space-y-3.5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] border-2 border-amber-400/90 bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 text-white overflow-hidden animate-in zoom-in-90 duration-300">
-            {/* Rotating Golden Light Burst Behind Sticker */}
-            <div
-              className="absolute -top-12 left-1/2 -translate-x-1/2 w-56 h-56 rounded-full pointer-events-none opacity-30 blur-xl"
-              style={{
-                background:
-                  'conic-gradient(from 0deg, #f59e0b, transparent, #ec4899, transparent, #6366f1, transparent, #f59e0b)',
-                animation: 'flowerSpin 9s linear infinite'
-              }}
-            />
-
-            {/* Top Celebration Badge */}
-            <div className="relative z-10">
-              {spinResultModal.isMilestoneWinner ? (
-                <span className="inline-block px-3 py-1 rounded-full bg-gradient-to-r from-amber-400 to-rose-600 text-slate-950 text-[9.5px] font-black uppercase tracking-wider shadow-sm">
-                  🏆 MEGA JACKPOT WINNER!
-                </span>
-              ) : (
-                <span className="inline-block px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 text-[9.5px] font-black uppercase tracking-wider">
-                  {spinResultModal.card.id === 'again'
-                    ? lang === 'bn'
-                      ? 'স্পিন রেজাল্ট'
-                      : 'SPIN RESULT'
-                    : lang === 'bn'
-                    ? '🎉 অভিনন্দন!'
-                    : '🎉 CONGRATULATIONS!'}
-                </span>
-              )}
-            </div>
-
-            {/* Prize 3D Animated Sticker Showcase */}
-            <div className="relative z-10 flex items-center justify-center py-1">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-b from-amber-400/25 to-rose-500/20 border-2 border-amber-300/60 flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.45)]">
-                <TelegramAnimatedSticker src={spinResultModal.card.sticker} size={68} />
-              </div>
-              {spinResultModal.card.id !== 'again' && (
-                <div className="absolute -right-1 -top-1 pointer-events-none">
-                  <TelegramAnimatedSticker src="tg-party-sticker.json" size={38} />
-                </div>
-              )}
-            </div>
-
-            {/* Big Glowing Prize Title */}
-            <div className="relative z-10 space-y-1">
-              <div className="inline-block px-4 py-1 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 text-slate-950 font-black text-xl shadow-md">
-                {spinResultModal.card.title}
-              </div>
-
-              <h3 className="text-[15px] font-black text-white pt-1">
-                {spinResultModal.card.id === 'again'
-                  ? spinResultModal.bonusFreeRespin
-                    ? lang === 'bn'
-                      ? '🎁 +১টি বোনাস ফ্রি স্পিন পেয়েছেন!'
-                      : '🎁 +1 Bonus Free Spin!'
-                    : lang === 'bn'
-                    ? 'আবার চেষ্টা করুন!'
-                    : 'Try Again!'
-                  : lang === 'bn'
-                  ? `আপনি জিতেছেন ${spinResultModal.card.title}!`
-                  : `You Won ${spinResultModal.card.title}!`}
-              </h3>
-
-              <p className="text-[11px] text-slate-300 font-medium leading-snug">
-                {spinResultModal.bdtWon > 0
-                  ? lang === 'bn'
-                    ? `৳${spinResultModal.bdtWon} টাকা আপনার মূল ব্যালেন্সে যোগ হয়েছে!`
-                    : `৳${spinResultModal.bdtWon} BDT added to your balance!`
-                  : spinResultModal.card.id === 'teddy'
-                  ? lang === 'bn'
-                    ? 'অ্যাডমিন টিম আপনার আইডিতে Star Gift পাঠিয়ে দিবে।'
-                    : 'Admin team will send your Star Gift shortly.'
-                  : spinResultModal.bonusFreeRespin
-                  ? lang === 'bn'
-                    ? 'এখনই আবার ফ্রি স্পিন করুন!'
-                    : 'Spin again right now!'
-                  : lang === 'bn'
-                  ? 'অ্যাড দেখে বা রেফার করে আবার স্পিন করুন!'
-                  : 'Watch ads or refer a friend to spin again!'}
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSpinResultModal(null)}
-              className="relative z-10 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-rose-500 to-indigo-600 text-white font-black text-[13px] shadow-lg active:scale-95 transition-all cursor-pointer"
-            >
-              {lang === 'bn' ? 'ঠিক আছে (OK)' : 'COLLECT'}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 
 function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, twoStepEnabled = false, twoStepLength = 4, fiatWallet, setFiatWallet, fiatWithdrawPending, antiAbuseData = {}, setIsModalOpen, onBack, reloadData }) {

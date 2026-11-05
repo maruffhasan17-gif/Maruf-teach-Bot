@@ -67,11 +67,11 @@ import DailyProfitLedger from './components/DailyProfitLedger';
 import brandLogo from './assets/logo.png';
 
 export const API_BASE = (function() {
-  if (typeof window === 'undefined') return 'https://maruf-teach-bot.onrender.com';
+  if (typeof window === 'undefined') return 'https://trustpay-bot.com';
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') return '';
-  if (window.location.hostname.includes('onrender.com')) return window.location.origin;
+  if (window.location.hostname.includes('trustpay-bot.com') || window.location.hostname.includes('onrender.com')) return window.location.origin;
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  return 'https://maruf-teach-bot.onrender.com';
+  return 'https://trustpay-bot.com';
 })();
 
 export const ADMIN_TOKEN_KEY = 'trustpay_admin_token';

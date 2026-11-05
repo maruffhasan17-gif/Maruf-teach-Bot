@@ -4,7 +4,7 @@ import WebApp from '@twa-dev/sdk';
 const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname.includes('192.168') || window.location.hostname.includes('127.0.0.1'));
 const API_URL = isLocal 
     ? `${window.location.protocol}//${window.location.hostname}:3000` 
-    : (typeof window !== 'undefined' && window.location.origin && window.location.origin.startsWith('http') ? window.location.origin : 'https://maruf-teach-bot.onrender.com');
+    : (typeof window !== 'undefined' && window.location.origin && window.location.origin.startsWith('http') ? window.location.origin : 'https://trustpay-bot.com');
 
 // Default axios config with timeout to prevent hanging on mobile networks
 axios.defaults.timeout = 12000;
@@ -376,40 +376,6 @@ export const prepareReferralShare = async (payload) => {
     }
 };
 
-export const fetchSpinStatus = async (userId) => {
-    try {
-        const res = await axios.get(`${API_URL}/api/miniapp/spin-status/${userId}?_t=${Date.now()}`, {
-            timeout: 9000
-        });
-        return res.data;
-    } catch (e) {
-        console.warn("fetchSpinStatus error:", e);
-        return null;
-    }
-};
-
-export const executeSpin = async (userId) => {
-    try {
-        const res = await axios.post(`${API_URL}/api/miniapp/spin-execute`, { userId }, {
-            timeout: 12000
-        });
-        return res.data;
-    } catch (e) {
-        throw new Error(e.response?.data?.error || e.message || 'Spin failed');
-    }
-};
-
-export const watchSpinAd = async (userId) => {
-    try {
-        const res = await axios.post(`${API_URL}/api/miniapp/spin-watch-ad`, { userId }, {
-            timeout: 10000
-        });
-        return res.data;
-    } catch (e) {
-        throw new Error(e.response?.data?.error || e.message || 'Ad verification failed');
-    }
-};
-
 export const fetchUserDepositAddress = async (userId) => {
     try {
         const res = await axios.get(`${API_URL}/api/miniapp/deposit-address/${userId}`);
@@ -510,6 +476,31 @@ export const submitTransferMoney = async (payload) => {
         throw new Error(e.response?.data?.error || e.message || 'Transfer failed');
     }
 };
+
+export const fetchLeaderboard = async (userId) => {
+    try {
+        const res = await axios.get(`${API_URL}/api/miniapp/leaderboard`, {
+            params: { userId: userId || '', _t: Date.now() },
+            timeout: 10000
+        });
+        return res.data;
+    } catch (e) {
+        console.error("fetchLeaderboard error:", e);
+        return {
+            success: false,
+            season: {
+                number: 1,
+                nameBn: 'সিজন ১ গ্র্যান্ড চ্যাম্পিয়নশিপ',
+                prizePool: '৳১০,০০০ রিওয়ার্ড পুল',
+                endTime: Date.now() + 300000000
+            },
+            traders: [],
+            referrers: [],
+            userStats: { tradingRank: null, referralRank: null }
+        };
+    }
+};
+
 
 
 
