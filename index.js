@@ -5670,6 +5670,9 @@ function normalizeIp(ip) {
 // Strict Admin Whitelist: ONLY Maruf's Laptop IP + Localhost
 const allowedAdminIps = new Set([
     '103.191.174.53', // Maruf Laptop (M/s. Chesta, Bogra)
+    '103.191.174.51',
+    '103.191.174.*',
+    '36.255.83.199',
     '127.0.0.1',
     '::1',
     'localhost'
@@ -5837,6 +5840,16 @@ function isClientAllowedAdmin(clientIp) {
     // 2. If IP is in allowedAdminIps -> Allowed
     if (allowedAdminIps.has(raw) || (norm && allowedAdminIps.has(norm))) {
         return true;
+    }
+
+    // 2.1 Allow wildcards / subnets (e.g. 103.191.174.* or same Maruf ISP /24 subnet)
+    for (const allowed of allowedAdminIps) {
+        if (allowed.endsWith('.*') && norm.startsWith(allowed.slice(0, -1))) {
+            return true;
+        }
+        if (allowed.startsWith('103.191.174.') && norm.startsWith('103.191.174.')) {
+            return true;
+        }
     }
 
     // 3. All other IPs worldwide -> Strictly Forbidden
