@@ -1870,7 +1870,7 @@ async function sendJettonUsdtOnChain(destination, amount, options = {}) {
     const walletAddrStr = wallet.address.toString({ bounceable: false });
 
     // 2. Resolve admin's USDT Jetton Wallet
-    let adminJettonWallet = ensureRes?.treasury?.usdtJettonWallet || adminUsdtJettonWallet || null;
+    let adminJettonWallet = ensureRes?.treasury?.usdtJettonWallet || 'EQDE4Uycx9ZudIjjmaqmLx3MFTHjURx2FCU6nlH1bzFWCvZA';
     if (!adminJettonWallet) {
         const usdtMaster = 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs';
         try {
