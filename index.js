@@ -1851,10 +1851,11 @@ async function sendJettonUsdtOnChain(destination, amount, options = {}) {
     const reqUsdt = parseFloat(amount);
     let autoSwapped = false;
     let swapDetails = null;
+    let ensureRes = null;
 
     if (!options?.skipTreasuryCheck) {
         // Strict Treasury & Gas Check (with Auto-Swap if needed)
-        const ensureRes = await ensureAdminTreasuryForOrder('USDT', reqUsdt, { receiveAddress: destination });
+        ensureRes = await ensureAdminTreasuryForOrder('USDT', reqUsdt, { receiveAddress: destination });
         if (!ensureRes.ok) {
             const t = ensureRes.treasury || { ton: 0, usdt: 0 };
             throw new Error(`এডমিন ওয়ালেটে পর্যাপ্ত USDT বা গ্যাস ফি নেই! বর্তমান ব্যালেন্স: ${t.usdt} USDT | ${t.ton} TON, প্রয়োজন: ${reqUsdt} USDT`);
@@ -1869,7 +1870,7 @@ async function sendJettonUsdtOnChain(destination, amount, options = {}) {
     const walletAddrStr = wallet.address.toString({ bounceable: false });
 
     // 2. Resolve admin's USDT Jetton Wallet
-    let adminJettonWallet = ensureRes.treasury?.usdtJettonWallet || null;
+    let adminJettonWallet = ensureRes?.treasury?.usdtJettonWallet || adminUsdtJettonWallet || null;
     if (!adminJettonWallet) {
         const usdtMaster = 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs';
         try {
@@ -1926,7 +1927,7 @@ async function sendJettonUsdtOnChain(destination, amount, options = {}) {
     const bRes = await broadcastTonBoc(boc);
     recordAdminBroadcastSeqno(seqno);
     statsCache.timestamp = 0;
-    return { ...bRes, autoSwapped: ensureRes.autoSwapped, swapDetails: ensureRes.swapDetails || null };
+    return { ...bRes, autoSwapped, swapDetails };
 }
 
 function getMenu(lang) {
@@ -4609,6 +4610,62 @@ async function resolveUserByMbsOrUid(rawQuery) {
     return null;
 }
 
+// Search Users for Transfer Money Page (Search by Name, Username, UID, or MBS ID)
+app.get('/api/miniapp/search-users', async (req, res) => {
+    try {
+        const query = String(req.query.q || '').trim();
+        const callerId = String(req.query.callerId || '').trim();
+        const qLower = query.toLowerCase().replace(/^@/, '');
+        const qUpper = query.toUpperCase();
+
+        const results = [];
+        const seenIds = new Set();
+        if (callerId) seenIds.add(String(callerId));
+
+        for (const [uid, u] of Object.entries(allUsersMasterData)) {
+            if (!u || seenIds.has(String(uid))) continue;
+
+            const name = String(u.firstName || u.first_name || u.name || '').trim();
+            const username = String(u.username || '').replace(/^@/, '').toLowerCase();
+            const mbsId = String(u.mbsId || ('MBS' + String(uid).slice(-5))).toUpperCase();
+            const uIdStr = String(uid);
+
+            let matched = false;
+            if (!query) {
+                // Return top users with activity when query is empty
+                if (parseFloat(u.totalAddMoneyBdt) > 0 || parseFloat(u.totalCryptoSellBdt) > 0 || parseFloat(u.balance) > 0) {
+                    matched = true;
+                }
+            } else {
+                if (name.toLowerCase().includes(qLower) || 
+                    username.includes(qLower) || 
+                    uIdStr.includes(query) || 
+                    mbsId.includes(qUpper)) {
+                    matched = true;
+                }
+            }
+
+            if (matched) {
+                seenIds.add(uIdStr);
+                results.push({
+                    userId: uIdStr,
+                    mbsId,
+                    name: name || 'Trust Pay User',
+                    username,
+                    photoUrl: u.photoUrl || u.photo_url || `/api/miniapp/user-avatar/${uIdStr}`,
+                    isVerified: Boolean(u.isVerified || u.verified || (parseFloat(u.totalAddMoneyBdt) > 0)),
+                    balance: parseFloat(u.balance) || 0
+                });
+                if (results.length >= 20) break;
+            }
+        }
+
+        return res.json({ success: true, users: results });
+    } catch (e) {
+        return res.json({ success: false, users: [] });
+    }
+});
+
 // Live Recipient Account Lookup for Transfer Money Page
 app.get('/api/miniapp/lookup-user/:query', async (req, res) => {
     try {
@@ -4687,7 +4744,7 @@ const recentTransferSignatures = new Map();
 
 // Atomic Zero-Trust P2P Money Transfer Endpoint
 app.post('/api/miniapp/transfer-money', async (req, res) => {
-    let { userId, senderId: bodySenderId, recipientQuery, amount, twoStepPin, note, comment } = req.body || {};
+    let { userId, senderId: bodySenderId, recipientQuery, amount, twoStepPin, note, comment, isGift, giftTheme } = req.body || {};
     const effectiveUserId = userId || bodySenderId;
     if (!effectiveUserId || !recipientQuery || !amount) {
         return res.status(400).json({ error: 'প্রাপকের আইডি এবং টাকার পরিমাণ সঠিকভাবে দিন।' });
@@ -4791,6 +4848,8 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
             senderPhotoUrl: senderData.photoUrl || senderData.photo_url || `/api/miniapp/user-avatar/${senderId}`,
             amount: numAmount,
             comment: rawCommentText,
+            isGift: Boolean(isGift),
+            giftTheme: String(giftTheme || 'surprise').slice(0, 30),
             createdAt: Date.now()
         };
 
@@ -4851,6 +4910,8 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
                     fee: 0,
                     note: rawCommentText,
                     comment: rawCommentText,
+                    isGift: Boolean(isGift),
+                    giftTheme: String(giftTheme || 'surprise').slice(0, 30),
                     status: 'completed',
                     timestamp: FieldValue.serverTimestamp(),
                     createdAt: Date.now()
@@ -6961,17 +7022,35 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             throw new Error(`Daily withdrawal limit (${dailyLimit}) reached. Try again tomorrow.`);
         }
 
+        // Calculate user VIP tier for Send Money fee discounts
+        const sellBdt = Number(userData.totalCryptoSellBdt) || 0;
+        const addBdt = Number(userData.totalAddMoneyBdt) || 0;
+        const buyBdt = Number(userData.totalBuyBdt) || 0;
+        const totalLifetimeVolume = Math.round((sellBdt + addBdt + buyBdt) * 100) / 100;
+        let userVipLvl = 1;
+        if (totalLifetimeVolume >= 50001) userVipLvl = 5;
+        else if (totalLifetimeVolume >= 20001) userVipLvl = 4;
+        else if (totalLifetimeVolume >= 6001) userVipLvl = 3;
+        else if (totalLifetimeVolume >= 3001) userVipLvl = 2;
+
         // Strict Server-Side Send Money Fee Calculation (Never trust client fee/receiveAmount)
         // 25-100 TK => 5 TK | 101-500 TK => 10 TK | 501-1000 TK => 15 TK | 1001-5000 TK => 20 TK
-        const calculateSendMoneyFee = (amt) => {
+        // VIP Perks: VIP 2 (-1 TK), VIP 3 (-2 TK), VIP 4 (-3 TK), VIP MAX (0 fee / Free)
+        const calculateSendMoneyFee = (amt, vipLvl = 1) => {
             const a = parseFloat(amt) || 0;
             if (a <= 0) return 0;
-            if (a <= 100) return 5;
-            if (a <= 500) return 10;
-            if (a <= 1000) return 15;
-            return 20;
+            let baseFee = 20;
+            if (a <= 100) baseFee = 5;
+            else if (a <= 500) baseFee = 10;
+            else if (a <= 1000) baseFee = 15;
+
+            if (vipLvl >= 5) return 0; // VIP MAX: Free!
+            if (vipLvl === 4) return Math.max(0, baseFee - 3); // VIP 4: 3 TK discount
+            if (vipLvl === 3) return Math.max(0, baseFee - 2); // VIP 3: 2 TK discount
+            if (vipLvl === 2) return Math.max(0, baseFee - 1); // VIP 2: 1 TK discount
+            return baseFee;
         };
-        const calcFee = calculateSendMoneyFee(amount);
+        const calcFee = calculateSendMoneyFee(amount, userVipLvl);
         const calcReceive = Number((amount - calcFee).toFixed(2));
         if (calcReceive <= 0) {
             throw new Error("সেন্ড মানি ফি বাদ দিলে প্রাপ্য টাকার পরিমাণ শূন্য বা কম হয়।");
@@ -9232,12 +9311,13 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
         const sharePreviewUrl = `https://trustpay-bot.com/invite/${cleanUserId}`;
         const bannerUrl = `https://trustpay-bot.com/app/referral-banner.jpg`;
 
-        const inlineCleanCaption = `🌹 <b>Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল প্ল্যাটফর্ম!</b> ✨\n\n` +
-            `<blockquote>🚀 <b>TON, GRAM ও USDT</b> মুহূর্তেই কেনা-বেচা করুন!\n` +
-            `🏦 <b>পেমেন্ট মেথড:</b> bKash ও Nagad (Auto-Verified)\n` +
-            `⚡️ <b>উইথড্র ও ডেলিভারি:</b> ১০০% ফাস্ট ও নিরাপদ!\n` +
-            `🎁 <b>রেফার ও বোনাস:</b> জয়েন করে লেনদেন শুরু করুন!</blockquote>\n\n` +
-            `👇 <b>নিচের বাটনে ক্লিক করে এখনই Trust Pay বটে জয়েন করুন:</b>`;
+        const inlineCleanCaption = `💎 <b>Trust Pay — বাংলাদেশে প্রথম ইনস্ট্যান্ট ক্রিপ্টো প্ল্যাটফর্ম!</b> 🇧🇩✨\n\n` +
+            `<blockquote>🔥 <b>ক্রিপ্টো বাই ও সেল করুন ঘরে বসেই:</b>\n` +
+            `• <b>USDT, TON ও GRAM</b> সবচেয়ে সেরা রেটে কেনা-বেচা করুন!\n` +
+            `• <b>bKash ও Nagad</b>-এ মাত্র ২ মিনিটে ১০০% অটো পেমেন্ট!\n` +
+            `• ফুল সিকিউরড ও ২৪/৭ লাইভ সাপোর্ট 🛡️\n\n` +
+            `🎁 <b>লিংকে জয়েন করলেই স্পেশাল ক্যাশ রিওয়ার্ড!</b></blockquote>\n\n` +
+            `👇 <b>নিচের বাটনে ক্লিক করে এখনই শুরু করুন:</b>`;
 
         let preparedMessageId = null;
 
@@ -9276,10 +9356,10 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
         }
 
         const shareTextPlain =
-            `✨ Trust Pay — Instant Crypto Buy & Sell BD ✨\n\n` +
-            `💎 TON, GRAM ও USDT খুব সহজে কেনা-বেচা করুন!\n` +
-            `⚡ bKash ও Nagad-এ অটোমেটিক পেমেন্ট!\n` +
-            `🎁 নিচের লিংকে ক্লিক করে জয়েন করুন 👇\n${botStartLink}`;
+            `💎 Trust Pay — বাংলাদেশে প্রথম ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল প্ল্যাটফর্ম! 🇧🇩✨\n\n` +
+            `🔥 ঘরে বসেই USDT, TON ও GRAM বাই-সেল করুন!\n` +
+            `⚡ bKash ও Nagad-এ মাত্র ২ মিনিটে ১০০% অটো পেমেন্ট!\n` +
+            `🎁 নিচের লিংকে ক্লিক করে এখনই জয়েন করুন 👇\n${botStartLink}`;
         const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(sharePreviewUrl)}&text=${encodeURIComponent(shareTextPlain)}`;
 
         res.json({
@@ -9378,8 +9458,8 @@ app.get('/invite/:referrerId', (req, res) => {
     <title>💎 Trust Pay — Instant Crypto Buy & Sell (bKash & Nagad)</title>
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Trust Pay Official" />
-    <meta property="og:title" content="💎 Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই ও সেল (bKash & Nagad)" />
-    <meta property="og:description" content="🚀 TON, GRAM ও USDT মুহূর্তেই কেনা-বেচা করুন বিকাশ ও নগদে! নিচের লিংকে ক্লিক করে এখনই জয়েন করুন 👇" />
+    <meta property="og:title" content="💎 Trust Pay — বাংলাদেশে প্রথম ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল!" />
+    <meta property="og:description" content="🔥 ঘরে বসেই USDT, TON ও GRAM সহজে বাই-সেল করুন! বিকাশ ও নগদে ২ মিনিটে ১০০% অটোমেটিক পেমেন্ট ⚡ এখনই জয়েন করুন 👇" />
     <meta property="og:image" content="${bannerUrl}" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="720" />
@@ -10146,6 +10226,9 @@ app.post('/api/admin/broadcast/send', requireAdminAuth, async (req, res) => {
 // Serve Admin Frontend
 
 // Serve MiniApp on /app with anti-cache headers for HTML
+app.use(['/vip-cards', '/app/vip-cards'], express.static(path.join(__dirname, 'miniapp/public/vip-cards')));
+app.use(['/vip-frames', '/app/vip-frames'], express.static(path.join(__dirname, 'miniapp/public/vip-frames')));
+
 app.use('/app', (req, res, next) => {
     if (req.path === '/' || req.path === '' || req.path.endsWith('.html')) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
