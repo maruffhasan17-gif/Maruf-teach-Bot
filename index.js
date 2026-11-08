@@ -673,7 +673,7 @@ const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
 const REOPEN_TARGET_TS = 1793516400000; // Today 1:00 PM BST
-const WEB_APP_URL = 'https://trustpay-bot.com/app/?v=20261108v4';
+const WEB_APP_URL = 'https://trustpay-bot.com/app/?v=20261108v5';
 const appOpenMarkup = {
     reply_markup: {
         inline_keyboard: [

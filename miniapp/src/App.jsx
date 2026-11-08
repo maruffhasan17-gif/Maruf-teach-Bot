@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText, Trophy, Crown, Medal, Flame, Mail, Heart } from 'lucide-react';
+import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText, Trophy, Crown, Medal, Flame, Mail, Heart, Globe } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -10787,6 +10787,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
 function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToSupport, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const displayId = mbsId || user?.mbsId || (user?.id ? 'MBS' + String(user.id).slice(-5) : 'MBS00000');
 
   const handleCopyId = () => {
@@ -10811,9 +10812,9 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
 
   useEffect(() => {
     if (setIsModalOpen) {
-      setIsModalOpen(showWalletModal || !!txStatus);
+      setIsModalOpen(showWalletModal || showLanguageModal || !!txStatus);
     }
-  }, [showWalletModal, txStatus, setIsModalOpen]);
+  }, [showWalletModal, showLanguageModal, txStatus, setIsModalOpen]);
   
   const handleWithdrawClick = () => {
       if (fiatWallet) {
@@ -10907,7 +10908,7 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
             </div>
           </div>
 
-          {/* Quick Controls: Dark Mode Toggle + Language Pill */}
+          {/* Quick Controls: Dark Mode Toggle */}
           <div className="flex flex-col items-end gap-2 shrink-0">
             {/* Theme Toggle Button */}
             <button
@@ -10922,28 +10923,6 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
               {darkMode ? <Sun size={14} className="text-amber-300" /> : <CrescentMoonIcon size={14} isDark={false} />}
               <span>{darkMode ? (lang === 'bn' ? 'লাইট মোড' : 'Light') : (lang === 'bn' ? 'ডার্ক মোড' : 'Dark')}</span>
             </button>
-
-            {/* Language Switcher Pill */}
-            <div className="flex bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-200/70 dark:border-slate-700/70">
-              <button
-                type="button"
-                onClick={() => onSetLang && onSetLang('bn')}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                  lang === 'bn' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
-                }`}
-              >
-                বাংলা
-              </button>
-              <button
-                type="button"
-                onClick={() => onSetLang && onSetLang('en')}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                  lang === 'en' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
-                }`}
-              >
-                Eng
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -11083,6 +11062,34 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
             </div>
           </div>
           <ChevronRight size={16} className="text-slate-400 group-hover:text-fuchsia-600 dark:group-hover:text-fuchsia-400 transition-colors shrink-0" />
+        </div>
+
+        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+
+        {/* Language Selection Row */}
+        <div 
+          onClick={() => setShowLanguageModal(true)} 
+          className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-105 transition-transform shrink-0 border border-blue-100 dark:border-blue-800/60 shadow-2xs">
+              <Globe size={17} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-nowrap">
+                <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight truncate">
+                  {lang === 'bn' ? 'ভাষা পরিবর্তন (Language)' : 'Language Setting'}
+                </span>
+                <span className="px-2 py-0.5 rounded-md text-[9px] font-black border shrink-0 bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 flex items-center gap-1">
+                  <span>{lang === 'bn' ? '🇧🇩 বাংলা' : '🇺🇸 English'}</span>
+                </span>
+              </div>
+              <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium block truncate">
+                {lang === 'bn' ? 'বাংলা অথবা English নির্বাচন করুন' : 'Select Bengali or English interface'}
+              </span>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors shrink-0" />
         </div>
 
         <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
@@ -11292,6 +11299,132 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
                   </button>
               </div>
            </div>
+        </div>
+      )}
+
+      {/* Interactive Language Selector Popup Modal */}
+      {showLanguageModal && (
+        <div 
+          onClick={() => setShowLanguageModal(false)}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div 
+            onClick={e => e.stopPropagation()}
+            className={`relative w-full max-w-[340px] p-5 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 slide-in-from-bottom-4 overflow-hidden ${
+              darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+            }`}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-100 dark:border-blue-800/60 shadow-2xs">
+                  <Globe size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                    {lang === 'bn' ? 'ভাষা নির্বাচন করুন' : 'Select Language'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
+                    {lang === 'bn' ? 'আপনার পছন্দের ভাষা বেছে নিন' : 'Choose your preferred language'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowLanguageModal(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Language Options List */}
+            <div className="space-y-2.5">
+              {/* 1. Bengali Option */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSetLang) onSetLang('bn');
+                  if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                  }
+                  setShowLanguageModal(false);
+                }}
+                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between transition-all duration-200 active:scale-[0.98] cursor-pointer ${
+                  lang === 'bn'
+                    ? 'bg-blue-500/10 border-blue-500/50 shadow-xs ring-1 ring-blue-500/30'
+                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl select-none leading-none">🇧🇩</span>
+                  <div className="text-left">
+                    <span className={`text-sm font-black block leading-tight ${
+                      lang === 'bn' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'
+                    }`}>
+                      বাংলা
+                    </span>
+                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+                      Bengali Language
+                    </span>
+                  </div>
+                </div>
+
+                {/* Animated Radio Circle: Filled when selected, hollow when unselected */}
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                  lang === 'bn'
+                    ? 'border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 shadow-[0_0_8px_rgba(37,99,235,0.35)]'
+                    : 'border-slate-300 dark:border-slate-600 bg-transparent'
+                }`}>
+                  {lang === 'bn' && (
+                    <div className="w-2 h-2 rounded-full bg-white animate-in zoom-in-75 duration-150" />
+                  )}
+                </div>
+              </button>
+
+              {/* 2. English Option */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSetLang) onSetLang('en');
+                  if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                  }
+                  setShowLanguageModal(false);
+                }}
+                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between transition-all duration-200 active:scale-[0.98] cursor-pointer ${
+                  lang === 'en'
+                    ? 'bg-blue-500/10 border-blue-500/50 shadow-xs ring-1 ring-blue-500/30'
+                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl select-none leading-none">🇺🇸</span>
+                  <div className="text-left">
+                    <span className={`text-sm font-black block leading-tight ${
+                      lang === 'en' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'
+                    }`}>
+                      English
+                    </span>
+                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+                      ইংরেজি ভাষা
+                    </span>
+                  </div>
+                </div>
+
+                {/* Animated Radio Circle: Filled when selected, hollow when unselected */}
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                  lang === 'en'
+                    ? 'border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 shadow-[0_0_8px_rgba(37,99,235,0.35)]'
+                    : 'border-slate-300 dark:border-slate-600 bg-transparent'
+                }`}>
+                  {lang === 'en' && (
+                    <div className="w-2 h-2 rounded-full bg-white animate-in zoom-in-75 duration-150" />
+                  )}
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
