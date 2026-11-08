@@ -434,19 +434,60 @@ const notifyPayoutGroup = async (payoutData) => {
             const isTonHexHash = /^[0-9a-fA-F]{64}$/.test(rawTx);
 
             if (isTonHexHash) {
-                previewUrl = `https://tonviewer.com/transaction/${rawTx}`;
-                // Wait briefly & warm up Tonviewer so its OpenGraph lpimage is indexed before Telegram fetches the preview
-                for (let attempt = 1; attempt <= 5; attempt++) {
-                    await new Promise(r => setTimeout(r, 2500));
+                let resolvedEventId = rawTx;
+                // 1. Wait until TON blockchain trace (especially multi-hop Jetton USDT/GRAM) finishes in_progress === false on TonAPI
+                for (let step = 1; step <= 12; step++) {
+                    await new Promise(r => setTimeout(r, 3000));
                     try {
-                        const tvRes = await axios.get(previewUrl, {
-                            timeout: 5000,
-                            headers: { 'User-Agent': 'TelegramBot (like TwitterBot)' }
+                        const evRes = await axios.get(`https://tonapi.io/v2/events/${resolvedEventId}`, {
+                            timeout: 6000,
+                            headers: { 'Accept': 'application/json' }
                         });
-                        if (tvRes.data && tvRes.data.includes('api/lpimage')) {
+                        if (evRes.data && evRes.data.event_id) {
+                            resolvedEventId = evRes.data.event_id;
+                        }
+                        if (evRes.data && evRes.data.in_progress === false) {
                             break;
                         }
-                    } catch (e) {}
+                    } catch (_) {
+                        // Fallback: resolve external inbound message hash to root transaction hash
+                        try {
+                            const msgTxRes = await axios.get(`https://tonapi.io/v2/blockchain/messages/${rawTx}/transaction`, {
+                                timeout: 5000,
+                                headers: { 'Accept': 'application/json' }
+                            });
+                            if (msgTxRes.data && msgTxRes.data.hash) {
+                                resolvedEventId = msgTxRes.data.hash;
+                            }
+                        } catch (__) {}
+                    }
+                }
+
+                previewUrl = `https://tonviewer.com/transaction/${resolvedEventId}`;
+
+                // 2. Warm up Tonviewer's OpenGraph HTML & dynamic transaction card PNG before Telegram crawls the URL
+                for (let attempt = 1; attempt <= 6; attempt++) {
+                    try {
+                        const tvRes = await axios.get(previewUrl, {
+                            timeout: 6000,
+                            headers: { 'User-Agent': 'TelegramBot (like TwitterBot)' }
+                        });
+                        const htmlStr = String(tvRes.data || '');
+                        const ogImgMatch = htmlStr.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+                            || htmlStr.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+                        const ogImgUrl = ogImgMatch ? ogImgMatch[1].replace(/&amp;/g, '&') : '';
+
+                        if (ogImgUrl && !ogImgUrl.includes('assets/images/lp-image.png')) {
+                            // Pre-warm the dynamic lpimage PNG on Tonviewer's CDN so Telegram loads it instantly
+                            await axios.get(ogImgUrl, {
+                                timeout: 8000,
+                                responseType: 'arraybuffer',
+                                headers: { 'User-Agent': 'TelegramBot (like TwitterBot)' }
+                            }).catch(() => {});
+                            break;
+                        }
+                    } catch (_) {}
+                    await new Promise(r => setTimeout(r, 2500));
                 }
             } else if (payoutData.explorer && payoutData.explorer.startsWith('http')) {
                 previewUrl = payoutData.explorer;
@@ -457,12 +498,14 @@ const notifyPayoutGroup = async (payoutData) => {
             }
 
             const sentAmt = payoutData.receiveAmount || payoutData.amount;
+            const feeCrypto = Math.max(0, parseFloat((Number(payoutData.amount || 0) - Number(sentAmt || 0)).toFixed(6)));
+            const feePart = feeCrypto > 0 ? ` (after ${feeCrypto} fee)` : '';
             const bdtLabel = payoutData.totalBdt ? ` (৳${payoutData.totalBdt} BDT)` : '';
 
-            msg = `${PE.party} <b>New $${asset} Payout Processed!</b>\n\n` +
+            msg = `${PE.party} <b>New $${asset} Withdrawal Processed!</b>\n\n` +
                   `${PE.user} ${clickableCustomerHtml} (${maskedUid})\n` +
                   `${PE.dollar} Amount: ${payoutData.amount} ${asset}${bdtLabel}\n` +
-                  `${PE.flyingCash} Send (on-chain): ${sentAmt} ${asset}\n` +
+                  `${PE.flyingCash} Send${feePart}: ${sentAmt} ${asset}\n` +
                   `${PE.bank} To: ${fullAddr || maskWallet(fullAddr)}\n\n` +
                   `✅ Paid on-chain · <a href="${previewUrl}">view transaction</a>`;
         }
@@ -630,7 +673,7 @@ const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
 const REOPEN_TARGET_TS = 1793516400000; // Today 1:00 PM BST
-const WEB_APP_URL = 'https://trustpay-bot.com/app/?v=20261105v1';
+const WEB_APP_URL = 'https://trustpay-bot.com/app/?v=20261108v3';
 const appOpenMarkup = {
     reply_markup: {
         inline_keyboard: [
@@ -7708,10 +7751,10 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 effectiveRate = clientExpectedRate;
             }
         }
-        cryptoAmount = parseFloat((bdtAmount / effectiveRate).toFixed(4));
+        cryptoAmount = parseFloat((bdtAmount / effectiveRate).toFixed(bdtAmount < 10 ? 5 : 4));
 
-        if (!Number.isFinite(bdtAmount) || bdtAmount < 10 || !Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
-            return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ১০ টাকা' });
+        if (!Number.isFinite(bdtAmount) || bdtAmount < 1 || !Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
+            return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ১ টাকা' });
         }
 
         // 4. Mathematical Balance Provenance & Illegal Amount Audit
@@ -7750,7 +7793,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         const config = botConfig || {};
         const adminGroupId = config.adminGroupId || 8799135330;
 
-        const prevSpent = userDoc.data()?.spentSinceLastDeposit || 0;
+        const prevSpent = userData?.spentSinceLastDeposit || 0;
         const newSpent = prevSpent + bdtAmount;
         const buyUpdates = {
             balance: FieldValue.increment(-bdtAmount),
@@ -7762,6 +7805,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         let txResult = null;
         let gatewayName = 'TON Blockchain';
+        let netCryptoAmount = cryptoAmount;
 
         // =========================================================================
         // CASE A: TON NETWORK (GRAM or USDT on TON Jetton)
@@ -7773,8 +7817,9 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             }
 
             const isTonAsset = (asset === 'GRAM' || asset === 'TON');
-            const gasFee = (asset === 'USDT') ? 0.008 : 0.0015;
-            const netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - gasFee).toFixed(6)));
+            const baseGasFee = (asset === 'USDT') ? 0.008 : 0.0015;
+            const gasFee = cryptoAmount > baseGasFee * 2 ? baseGasFee : parseFloat((cryptoAmount * 0.10).toFixed(6));
+            netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - gasFee).toFixed(6)));
 
             const ensureRes = await ensureAdminTreasuryForOrder(asset, netCryptoAmount, {
                 userId,
@@ -7865,7 +7910,8 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             }
 
             gatewayName = netCfg.name;
-            const netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - 0.005).toFixed(4)));
+            const evmFee = cryptoAmount > 0.01 ? 0.005 : parseFloat((cryptoAmount * 0.10).toFixed(6));
+            netCryptoAmount = Math.max(0.0001, parseFloat((cryptoAmount - evmFee).toFixed(6)));
 
             const provider = new ethers.JsonRpcProvider(netCfg.rpc);
             const wallet = new ethers.Wallet(privKey.trim(), provider);
@@ -7996,7 +8042,8 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         notifyPayoutGroup({
             type: 'crypto',
             userId,
-            name: userDoc.data()?.firstName || userDoc.data()?.first_name || 'User',
+            name: userData?.firstName || userData?.first_name || allUsersMasterData[userId.toString()]?.firstName || 'User',
+            username: userData?.username || allUsersMasterData[userId.toString()]?.username || '',
             amount: cryptoAmount,
             receiveAmount: netCryptoAmount || cryptoAmount,
             asset,
@@ -8007,7 +8054,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             txHash: txResult?.txHash || orderId,
             trxId: txResult?.txHash || orderId,
             explorer: txResult?.explorer || ''
-        }).catch(() => {});
+        }).catch(err => console.error('notifyPayoutGroup crypto err:', err.message));
 
         // Notify Telegram Data Group with comprehensive details
         notifyDataGroup({
