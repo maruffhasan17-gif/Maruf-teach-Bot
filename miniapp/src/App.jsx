@@ -2861,120 +2861,32 @@ const transformTxToNotification = (tx, lang = 'bn') => {
 };
 
 // ============================================================================
-// TELEGRAM USER AVATAR BOX WITH LIVE PROXY, FULL PRELOAD CACHE & INITIAL FALLBACK
+// TELEGRAM USER AVATAR BOX WITH LIVE PROXY & INITIAL FALLBACK
 // ============================================================================
-const resolvedAvatarCache = new Map(); // userId -> working src string | 'NONE'
-const loadedImageObjectsCache = new Map(); // url -> HTMLImageElement (keeps decoded bitmap in RAM)
-
-const preloadSingleImageFull = (src, timeoutMs = 12000) => {
-  if (!src) return Promise.resolve(false);
-  if (loadedImageObjectsCache.has(src)) return Promise.resolve(true);
-
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (ok, imgObj) => {
-      if (settled) return;
-      settled = true;
-      if (ok && imgObj) {
-        loadedImageObjectsCache.set(src, imgObj);
-      }
-      resolve(ok);
-    };
-
-    const img = new Image();
-    const timer = setTimeout(() => finish(false, null), timeoutMs);
-
-    img.onload = () => {
-      clearTimeout(timer);
-      if (typeof img.decode === 'function') {
-        img.decode().then(() => finish(true, img)).catch(() => finish(true, img));
-      } else {
-        finish(true, img);
-      }
-    };
-    img.onerror = () => {
-      clearTimeout(timer);
-      finish(false, null);
-    };
-
-    img.src = src;
-    if (img.complete && img.naturalWidth > 0) {
-      clearTimeout(timer);
-      if (typeof img.decode === 'function') {
-        img.decode().then(() => finish(true, img)).catch(() => finish(true, img));
-      } else {
-        finish(true, img);
-      }
-    }
-  });
-};
-
-const getAvatarCandidatesForUser = (userId, photoUrl, avatarDataUrl) => {
+function UserAvatarBox({ userId, photoUrl, avatarDataUrl, name = 'U', sizeClass = 'w-13 h-13 rounded-2xl text-xl' }) {
+  const [imgIndex, setImgIndex] = useState(0);
   const proxyUrl = (userId && Number(userId) !== 123456789) ? getUserAvatarUrl(userId) : '';
   const directDataUrl = avatarDataUrl || (photoUrl && String(photoUrl).startsWith('data:image/') ? photoUrl : '');
   const externalPhotoUrl = photoUrl && !String(photoUrl).startsWith('data:image/') && !String(photoUrl).startsWith('/api/miniapp/user-avatar')
     ? photoUrl
     : '';
-  return Array.from(new Set([directDataUrl, proxyUrl, externalPhotoUrl].filter(Boolean)));
-};
-
-function UserAvatarBox({ userId, photoUrl, avatarDataUrl, name = 'U', sizeClass = 'w-13 h-13 rounded-2xl text-xl' }) {
-  const cacheKey = userId ? String(userId) : '';
-  const cachedResult = cacheKey ? resolvedAvatarCache.get(cacheKey) : undefined;
-
-  const candidates = useMemo(
-    () => getAvatarCandidatesForUser(userId, photoUrl, avatarDataUrl),
-    [userId, photoUrl, avatarDataUrl]
-  );
-
-  const [imgIndex, setImgIndex] = useState(0);
-  const activeSrc = cachedResult === 'NONE'
-    ? ''
-    : (cachedResult || candidates[imgIndex] || '');
-
-  const [isImgLoaded, setIsImgLoaded] = useState(() => Boolean(activeSrc && loadedImageObjectsCache.has(activeSrc)));
+  const candidates = Array.from(new Set([directDataUrl, proxyUrl, externalPhotoUrl].filter(Boolean)));
+  const activeSrc = candidates[imgIndex] || '';
   const initial = (name || 'U').trim().charAt(0).toUpperCase() || 'U';
 
   useEffect(() => {
     setImgIndex(0);
   }, [userId, photoUrl, avatarDataUrl]);
 
-  useEffect(() => {
-    if (!activeSrc) {
-      setIsImgLoaded(false);
-      return;
-    }
-    if (loadedImageObjectsCache.has(activeSrc)) {
-      setIsImgLoaded(true);
-    } else {
-      setIsImgLoaded(false);
-    }
-  }, [activeSrc]);
-
   return (
     <div className={`${sizeClass} bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 text-white font-black flex items-center justify-center shadow-md shadow-purple-600/25 shrink-0 select-none overflow-hidden relative`}>
       {activeSrc ? (
-        <>
-          {!isImgLoaded && (
-            <div className="absolute inset-0 bg-slate-200 dark:bg-slate-800 animate-pulse z-10" />
-          )}
-          <img
-            src={activeSrc}
-            alt={name || 'User'}
-            className={`w-full h-full object-cover transition-opacity duration-150 ${isImgLoaded ? 'opacity-100' : 'opacity-0'}`}
-            onLoad={() => {
-              if (cacheKey) resolvedAvatarCache.set(cacheKey, activeSrc);
-              setIsImgLoaded(true);
-            }}
-            onError={() => {
-              if (cachedResult) {
-                resolvedAvatarCache.set(cacheKey, 'NONE');
-              } else {
-                setImgIndex(prev => prev + 1);
-              }
-            }}
-          />
-        </>
+        <img
+          src={activeSrc}
+          alt={name || 'User'}
+          className="w-full h-full object-cover"
+          onError={() => setImgIndex(prev => prev + 1)}
+        />
       ) : (
         <span>{initial}</span>
       )}
@@ -3013,41 +2925,48 @@ function UserProfileSkeletonCard({ darkMode = false }) {
   );
 }
 
-// Preload multiple avatars AND Boss frame in parallel until 100% downloaded & decoded BEFORE ending skeleton loading
-const preloadUserAvatarsBatch = async (users) => {
-  if (!users || !users.length) return;
+// Preload multiple avatars AND Boss frame in parallel until downloaded BEFORE ending skeleton loading
+const preloadUserAvatarsBatch = (users) => {
+  if (!users || !users.length) return Promise.resolve();
 
-  const tasks = users.map(async (u) => {
-    const isBoss = Boolean(u.isOwner || String(u.userId) === '8799135330' || u.mbsId === 'MT999999');
-    const framePromise = isBoss ? preloadSingleImageFull(marufFrameImg, 15000) : Promise.resolve(true);
+  const promises = users.map(u => {
+    return new Promise(resolve => {
+      const isBoss = Boolean(u.isOwner || String(u.userId) === '8799135330' || u.mbsId === 'MT999999');
+      const proxyUrl = (u.userId && Number(u.userId) !== 123456789) ? getUserAvatarUrl(u.userId) : '';
+      const directUrl = (u.photoUrl && !String(u.photoUrl).startsWith('/api/miniapp/user-avatar')) ? u.photoUrl : '';
+      const src = directUrl || proxyUrl;
 
-    const cacheKey = u.userId ? String(u.userId) : '';
-    if (cacheKey && resolvedAvatarCache.has(cacheKey)) {
-      const cachedUrl = resolvedAvatarCache.get(cacheKey);
-      if (cachedUrl && cachedUrl !== 'NONE') {
-        await Promise.all([preloadSingleImageFull(cachedUrl, 12000), framePromise]);
-      } else {
-        await framePromise;
+      let pending = src ? 1 : 0;
+      if (isBoss) pending++;
+
+      if (pending === 0) return resolve();
+
+      const doneOne = () => {
+        pending--;
+        if (pending <= 0) resolve();
+      };
+
+      if (src) {
+        const img = new Image();
+        img.onload = doneOne;
+        img.onerror = doneOne;
+        img.src = src;
+        if (img.complete && img.naturalWidth > 0) doneOne();
       }
-      return;
-    }
 
-    const candidates = getAvatarCandidatesForUser(u.userId, u.photoUrl, u.avatarDataUrl);
-    let foundUrl = 'NONE';
-    for (const candidateUrl of candidates) {
-      const ok = await preloadSingleImageFull(candidateUrl, 12000);
-      if (ok) {
-        foundUrl = candidateUrl;
-        break;
+      if (isBoss) {
+        const frameImg = new Image();
+        frameImg.onload = doneOne;
+        frameImg.onerror = doneOne;
+        frameImg.src = marufFrameImg;
+        if (frameImg.complete && frameImg.naturalWidth > 0) doneOne();
       }
-    }
-    if (cacheKey) {
-      resolvedAvatarCache.set(cacheKey, foundUrl);
-    }
-    await framePromise;
+
+      setTimeout(resolve, 8000); // 8s safety timeout so UI never freezes indefinitely
+    });
   });
 
-  await Promise.all(tasks);
+  return Promise.all(promises);
 };
 
 // Strict Top-to-Bottom Ordered Recipient Card with Royal Golden Card for Boss
