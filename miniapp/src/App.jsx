@@ -519,15 +519,15 @@ const FloralWatermark = HomeLotusPattern;
 
 const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
   <div className="fixed inset-0 pointer-events-none select-none z-0 overflow-hidden">
-    {/* Ambient Dark Mode Glow Auras behind the botanical flower art */}
+    {/* Ambient Dark Mode Glow Auras behind the botanical flower art (Zero-Blur GPU Radial Gradients) */}
     {darkMode && (
       <>
         <div
-          className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-3xl opacity-30"
+          className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-30"
           style={{
             background:
               page === 'referral'
-                ? 'radial-gradient(circle, rgba(244,63,94,0.5) 0%, transparent 70%)'
+                ? 'radial-gradient(circle, rgba(168,85,247,0.5) 0%, transparent 70%)'
                 : page === 'add-money'
                 ? 'radial-gradient(circle, rgba(124,58,237,0.45) 0%, transparent 70%)'
                 : page === 'withdraw'
@@ -536,11 +536,11 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
           }}
         />
         <div
-          className="absolute bottom-8 -left-24 w-96 h-96 rounded-full blur-3xl opacity-25"
+          className="absolute bottom-8 -left-24 w-96 h-96 rounded-full opacity-25"
           style={{
             background:
               page === 'referral'
-                ? 'radial-gradient(circle, rgba(236,72,153,0.45) 0%, transparent 70%)'
+                ? 'radial-gradient(circle, rgba(99,102,241,0.45) 0%, transparent 70%)'
                 : page === 'sell'
                 ? 'radial-gradient(circle, rgba(168,85,247,0.45) 0%, transparent 70%)'
                 : 'radial-gradient(circle, rgba(56,189,248,0.4) 0%, transparent 70%)'
@@ -549,65 +549,61 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
       </>
     )}
 
-    {page === 'home' && (
-      <>
-        {/* Soft lavender/indigo ambient aura glow */}
-        <div
-          className="absolute -top-16 -right-16 w-[340px] h-[360px] pointer-events-none"
-          style={{
-            background: darkMode
-              ? 'radial-gradient(closest-side, rgba(99,102,241,0.2), transparent)'
-              : 'radial-gradient(closest-side, rgba(238,242,255,0.85), rgba(224,231,255,0.3) 60%, transparent)'
-          }}
+    {/* Persistently mounted primary tab backgrounds (Home, Add Money, Profile) for 0ms instant tab switching */}
+    <div className={page === 'home' || page === 'add-money' ? 'opacity-100' : 'opacity-0'}>
+      <div
+        className="absolute -top-16 -right-16 w-[340px] h-[360px] pointer-events-none"
+        style={{
+          background: darkMode
+            ? 'radial-gradient(closest-side, rgba(99,102,241,0.2), transparent)'
+            : 'radial-gradient(closest-side, rgba(238,242,255,0.85), rgba(224,231,255,0.3) 60%, transparent)'
+        }}
+      />
+      <div
+        className="absolute -left-6 bottom-16 w-[230px] pointer-events-none select-none overflow-hidden"
+        style={{
+          WebkitMaskImage: 'linear-gradient(to top, black 80%, transparent 100%)',
+          maskImage: 'linear-gradient(to top, black 80%, transparent 100%)'
+        }}
+      >
+        <img
+          src={roseBotanicalArt}
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+          draggable={false}
+          className={`w-full h-auto ${darkMode ? 'opacity-[0.35] brightness-125' : 'opacity-[0.78]'}`}
         />
-        {/* Delicate Botanical Rose Art at bottom-left */}
-        <div
-          className="absolute -left-6 bottom-16 w-[230px] pointer-events-none select-none overflow-hidden"
-          style={{
-            WebkitMaskImage: 'linear-gradient(to top, black 80%, transparent 100%)',
-            maskImage: 'linear-gradient(to top, black 80%, transparent 100%)'
-          }}
-        >
-          <img
-            src={roseBotanicalArt}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className={`w-full h-auto ${darkMode ? 'opacity-[0.35] brightness-125' : 'opacity-[0.78]'}`}
-          />
-        </div>
-      </>
-    )}
-    {page === 'add-money' && (
-      <>
-        {/* Soft lavender/purple ambient aura glow */}
-        <div
-          className="absolute -top-12 -right-12 w-[320px] h-[340px] pointer-events-none"
-          style={{
-            background: darkMode
-              ? 'radial-gradient(closest-side, rgba(168,85,247,0.18), transparent)'
-              : 'radial-gradient(closest-side, rgba(233,213,255,0.7), rgba(243,232,255,0.25) 60%, transparent)'
-          }}
-        />
+      </div>
+    </div>
 
-        {/* Delicate Botanical Rose Art at bottom-left — prominent and visible */}
-        <div
-          className="absolute -left-6 bottom-16 w-[240px] pointer-events-none select-none overflow-hidden"
-          style={{
-            WebkitMaskImage: 'linear-gradient(to top, black 80%, transparent 100%)',
-            maskImage: 'linear-gradient(to top, black 80%, transparent 100%)'
-          }}
-        >
-          <img
-            src={roseBotanicalArt}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className={`w-full h-auto ${darkMode ? 'opacity-[0.38] brightness-125' : 'opacity-[0.78]'}`}
-          />
-        </div>
-      </>
-    )}
+    <div className={page === 'profile' ? 'opacity-100' : 'opacity-0'}>
+      <div
+        className="absolute -top-12 -right-12 w-[300px] h-[340px] pointer-events-none"
+        style={{
+          background: darkMode
+            ? 'radial-gradient(closest-side, rgba(168,85,247,0.18), transparent)'
+            : 'radial-gradient(closest-side, rgba(233,213,255,0.7), rgba(243,232,255,0.25) 60%, transparent)'
+        }}
+      />
+      <div
+        className="absolute -right-3 top-2 w-[210px] pointer-events-none select-none overflow-hidden"
+        style={{
+          WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
+        }}
+      >
+        <img
+          src={roseBranchArt}
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+          draggable={false}
+          className={`w-full h-auto ${darkMode ? 'opacity-[0.45] brightness-125' : 'opacity-[0.88]'}`}
+        />
+      </div>
+    </div>
+
     {(page === 'buy' || page === 'sell') && (
       <>
         {/* Soft lavender aura glow behind botanical branch */}
@@ -634,36 +630,6 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
             aria-hidden="true"
             draggable={false}
             className={`w-full h-auto ${darkMode ? 'opacity-[0.32] brightness-125' : 'opacity-[0.65]'}`}
-          />
-        </div>
-      </>
-    )}
-    {page === 'profile' && (
-      <>
-        {/* Soft lavender glow aura */}
-        <div
-          className="absolute -top-12 -right-12 w-[300px] h-[340px] pointer-events-none"
-          style={{
-            background: darkMode
-              ? 'radial-gradient(closest-side, rgba(168,85,247,0.18), transparent)'
-              : 'radial-gradient(closest-side, rgba(233,213,255,0.7), rgba(243,232,255,0.25) 60%, transparent)'
-          }}
-        />
-
-        {/* Delicate Lavender Rose Branch Art */}
-        <div
-          className="absolute -right-3 top-2 w-[210px] pointer-events-none select-none overflow-hidden"
-          style={{
-            WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
-            maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
-          }}
-        >
-          <img
-            src={roseBranchArt}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className={`w-full h-auto ${darkMode ? 'opacity-[0.45] brightness-125' : 'opacity-[0.88]'}`}
           />
         </div>
       </>
@@ -10887,15 +10853,20 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
   };
 
   return (
-    <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-24 relative">
+    <div className="space-y-3.5 max-w-md mx-auto pb-24 relative">
       {/* 1. EXECUTIVE USER VIP IDENTITY CARD */}
-      <div className={`rounded-3xl border transition-all p-4 shadow-sm relative overflow-hidden ${
+      <div className={`rounded-3xl border transition-colors p-4 shadow-sm relative overflow-hidden ${
         darkMode 
           ? 'bg-slate-900/95 border-slate-800 text-white' 
           : 'bg-white border-slate-200/90 text-slate-900'
       }`}>
-        {/* Soft aura glow behind card */}
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-gradient-to-bl from-purple-500/15 via-indigo-500/10 to-transparent rounded-full blur-2xl pointer-events-none" />
+        {/* Zero-lag radial aura glow behind card */}
+        <div
+          className="absolute -top-12 -right-12 w-48 h-48 rounded-full pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle, rgba(147,51,234,0.14) 0%, rgba(79,70,229,0.06) 50%, transparent 70%)'
+          }}
+        />
 
         <div className="relative z-10 flex items-center justify-between gap-3">
           {/* Avatar & User Details */}
