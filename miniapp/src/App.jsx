@@ -4728,13 +4728,11 @@ function TransferMoneyPage({
                         </span>
                       )}
                     </div>
-                    <span className={`mt-1 text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full ${
-                      isSelectedBoss
-                        ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-400/40'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                    }`}>
-                      {selectedRecipient.mbsId}
-                    </span>
+                    {!isSelectedBoss && (
+                      <span className="mt-1 text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                        {selectedRecipient.mbsId}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
