@@ -3041,11 +3041,11 @@ function UserRecipientCard({ u, index = 0, onSelect, darkMode = false, lang = 'b
           {/* Left: Name & TrustPay ID */}
           <div className="min-w-0 flex-1 leading-tight flex items-center">
             {isBoss ? (
-              <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap min-w-0 pl-3.5">
+              <div className="flex items-center gap-2.5 flex-nowrap whitespace-nowrap min-w-0 pl-3.5">
                 <h4 className="font-black text-sm sm:text-base text-amber-950 dark:text-amber-200 shrink-0 whitespace-nowrap">
                   {u.name}
                 </h4>
-                <span className="text-[10px] sm:text-[10.5px] font-mono font-black px-2 py-0.5 rounded-md border shadow-2xs bg-gradient-to-r from-amber-400/30 to-yellow-400/20 text-amber-900 dark:text-amber-300 border-amber-400/60 shrink-0">
+                <span className="text-[10px] sm:text-[10.5px] font-mono font-black px-2 py-0.5 rounded-md border shadow-2xs bg-gradient-to-r from-amber-400/30 to-yellow-400/20 text-amber-900 dark:text-amber-300 border-amber-400/60 shrink-0 mr-1.5">
                   {u.mbsId}
                 </span>
               </div>
@@ -3065,11 +3065,11 @@ function UserRecipientCard({ u, index = 0, onSelect, darkMode = false, lang = 'b
         </div>
 
         {/* Right Middle: Role Title (USER for all users / FOUNDER for Boss) + Action Chevron */}
-        <div className={`flex items-center gap-1.5 shrink-0 pl-1.5 relative z-10 ${
-          isBoss ? 'text-amber-500 dark:text-amber-300' : 'text-purple-600 dark:text-purple-400'
+        <div className={`flex items-center gap-2 shrink-0 relative z-10 ${
+          isBoss ? 'pl-4 sm:pl-5 text-amber-500 dark:text-amber-300' : 'pl-1.5 text-purple-600 dark:text-purple-400'
         }`}>
           {isBoss ? (
-            <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 px-2 py-0.5 rounded-full shadow-2xs flex items-center gap-0.5 shrink-0">
+            <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 px-2.5 py-0.5 rounded-full shadow-2xs flex items-center gap-0.5 shrink-0 ml-1">
               👑 FOUNDER
             </span>
           ) : (
@@ -4148,6 +4148,7 @@ function SupportPage({
 function TransferMoneyPage({
   user,
   balance = 0,
+  mbsId,
   twoStepEnabled = false,
   twoStepLength = 4,
   onGoToTwoStep,
@@ -4270,8 +4271,17 @@ function TransferMoneyPage({
       setDirectLookupError('');
       try {
         const users = await searchUsers(clean, user?.id);
+        const myUidStr = String(user?.id || '').trim();
+        const myMbsStr = String(mbsId || user?.mbsId || '').trim().toUpperCase();
+        const filtered = (users || []).filter(u => {
+          const uUidStr = String(u.userId || '').trim();
+          const uMbsStr = String(u.mbsId || '').trim().toUpperCase();
+          if (myUidStr && uUidStr === myUidStr) return false;
+          if (myMbsStr && uMbsStr === myMbsStr) return false;
+          return true;
+        });
         if (!cancelled) {
-          setSearchResults(users || []);
+          setSearchResults(filtered);
         }
       } catch (err) {
         if (!cancelled) setSearchResults([]);
@@ -4321,15 +4331,24 @@ function TransferMoneyPage({
     try {
       const res = await lookupRecipientUser(clean, user?.id);
       const found = res?.recipient || res?.user;
+      const myUidStr = String(user?.id || '').trim();
+      const myMbsStr = String(mbsId || user?.mbsId || '').trim().toUpperCase();
+
+      if (res?.isSelf || String(found?.userId) === myUidStr || String(found?.mbsId || '').toUpperCase() === myMbsStr) {
+        setDirectLookupError(lang === 'bn' ? 'নিজের অ্যাকাউন্টে টাকা ট্রান্সফার করা যাবে না!' : 'Cannot transfer to your own account!');
+        playAppSound('error');
+        return;
+      }
+
       if (res?.success && res?.found && found) {
         playAppSound('tap');
         setSelectedRecipient(found);
       } else {
-        setDirectLookupError(lang === 'bn' ? 'এই আইডিতে কোনো অ্যাকাউন্ট পাওয়া যায়নি' : 'No account found with this ID');
+        setDirectLookupError(res?.error || (lang === 'bn' ? 'এই আইডিতে কোনো অ্যাকাউন্ট পাওয়া যায়নি' : 'No account found with this ID'));
         playAppSound('error');
       }
     } catch (e) {
-      setDirectLookupError(lang === 'bn' ? 'অ্যাকাউন্ট খুঁজতে সমস্যা হয়েছে' : 'Lookup failed');
+      setDirectLookupError(e.message || (lang === 'bn' ? 'অ্যাকাউন্ট খুঁজতে সমস্যা হয়েছে' : 'Lookup failed'));
       playAppSound('error');
     } finally {
       setIsSearching(false);
@@ -4341,6 +4360,13 @@ function TransferMoneyPage({
     const amt = parseFloat(String(amount || '').replace(/,/g, '').trim());
     if (!selectedRecipient) {
       playAppSound('error');
+      return;
+    }
+    const myUidStr = String(user?.id || '').trim();
+    const myMbsStr = String(mbsId || user?.mbsId || '').trim().toUpperCase();
+    if (String(selectedRecipient.userId) === myUidStr || String(selectedRecipient.mbsId || '').toUpperCase() === myMbsStr) {
+      playAppSound('error');
+      setErrorMessage(lang === 'bn' ? 'নিজের অ্যাকাউন্টে টাকা ট্রান্সফার করা যাবে না!' : 'Cannot transfer to your own account!');
       return;
     }
     if (!amt || isNaN(amt) || amt < 10) {
@@ -4562,6 +4588,15 @@ function TransferMoneyPage({
                     u={u}
                     index={idx}
                     onSelect={(sel) => {
+                      const myUidStr = String(user?.id || '').trim();
+                      const myMbsStr = String(mbsId || user?.mbsId || '').trim().toUpperCase();
+                      if (String(sel?.userId) === myUidStr || String(sel?.mbsId || '').toUpperCase() === myMbsStr) {
+                        playAppSound('error');
+                        if (window.Telegram?.WebApp?.showAlert) {
+                          window.Telegram.WebApp.showAlert(lang === 'bn' ? 'নিজের অ্যাকাউন্টে টাকা ট্রান্সফার করা যাবে না!' : 'Cannot transfer to your own account!');
+                        }
+                        return;
+                      }
                       playAppSound('tap');
                       if (window.Telegram?.WebApp?.HapticFeedback) {
                         window.Telegram.WebApp.HapticFeedback.selectionChanged();
@@ -6507,6 +6542,7 @@ export default function App() {
                   <TransferMoneyPage
                       user={user}
                       balance={balance}
+                      mbsId={mbsId}
                       twoStepEnabled={twoStepEnabled}
                       twoStepLength={twoStepLength}
                       onGoToTwoStep={() => setActiveTab('two-step')}

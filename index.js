@@ -4639,9 +4639,10 @@ app.get('/api/miniapp/search-users', async (req, res) => {
         const results = [];
         const seenIds = new Set();
         const OWNER_ID = '8799135330';
-        if (callerId && callerId !== OWNER_ID) seenIds.add(String(callerId));
+        if (callerId) seenIds.add(String(callerId));
 
-        // Always pin Owner / Founder account at top if matching or on default empty search
+        // Always pin Owner / Founder account at top if caller is NOT the owner
+        const isCallerOwner = String(callerId) === OWNER_ID;
         const ownerMaster = allUsersMasterData[OWNER_ID] || {};
         const ownerObj = {
             userId: OWNER_ID,
@@ -4657,15 +4658,17 @@ app.get('/api/miniapp/search-users', async (req, res) => {
         };
 
         let ownerMatches = false;
-        if (!query) {
-            ownerMatches = true;
-        } else {
-            if ('maruf'.includes(qLower) ||
-                'maruff666'.includes(qLower) ||
-                OWNER_ID.includes(query) ||
-                'MT999999'.includes(qUpper) ||
-                '999999'.includes(query)) {
+        if (!isCallerOwner) {
+            if (!query) {
                 ownerMatches = true;
+            } else {
+                if ('maruf'.includes(qLower) ||
+                    'maruff666'.includes(qLower) ||
+                    OWNER_ID.includes(query) ||
+                    'MT999999'.includes(qUpper) ||
+                    '999999'.includes(query)) {
+                    ownerMatches = true;
+                }
             }
         }
 
@@ -4751,6 +4754,14 @@ app.get('/api/miniapp/lookup-user/:query', async (req, res) => {
         const name = uData.firstName || uData.first_name || uData.name || uData.fiatWallet?.name || 'Trust Pay User';
         const username = uData.username ? String(uData.username).replace(/^@/, '') : '';
         const isSelf = Boolean(callerId && String(callerId) === uId);
+        if (isSelf) {
+            return res.json({
+                success: false,
+                found: false,
+                isSelf: true,
+                error: 'নিজের অ্যাকাউন্টে নিজের ব্যালেন্স ট্রান্সফার করা যাবে না!'
+            });
+        }
 
         const isVerified = Boolean(
             uData.isVerified ||
