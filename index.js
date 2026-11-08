@@ -381,7 +381,28 @@ const notifyPayoutGroup = async (payoutData) => {
         }).replace(/\//g, '.');
         const fullTimestampStr = `${datePart}, ${nowStr} BST`;
 
-        const safeCustomerName = escapeHtml(payoutData.name || 'Verified User');
+        const uidRaw = String(payoutData.userId || '').trim();
+        let cachedUser = uidRaw ? allUsersMasterData[uidRaw] : null;
+        if (uidRaw && (!cachedUser || (!cachedUser.firstName && !cachedUser.first_name && !cachedUser.username))) {
+            try {
+                const uSnap = await db.collection('users').doc(uidRaw).get();
+                if (uSnap.exists) {
+                    cachedUser = uSnap.data() || {};
+                }
+            } catch (_) {}
+        }
+
+        let resolvedName = String(payoutData.name || '').trim();
+        if (!resolvedName || resolvedName === 'User' || resolvedName === 'Verified User') {
+            resolvedName = String(cachedUser?.firstName || cachedUser?.first_name || cachedUser?.name || resolvedName || 'Verified User').trim();
+        }
+        const safeCustomerName = escapeHtml(resolvedName);
+        const resolvedUsername = String(payoutData.username || cachedUser?.username || '').replace(/^@/, '').trim();
+        const userProfileUrl = resolvedUsername
+            ? `https://t.me/${encodeURIComponent(resolvedUsername)}`
+            : (uidRaw ? `tg://user?id=${encodeURIComponent(uidRaw)}` : 'https://t.me/bd_trust_pay_bot');
+        const clickableCustomerHtml = `<a href="${userProfileUrl}"><b>${safeCustomerName}</b></a>`;
+
         const maskedUid = maskId(payoutData.userId);
         const publicOrigin = (process.env.RENDER_EXTERNAL_URL || 'https://trustpay-bot.com').replace(/\/$/, '');
 
@@ -391,19 +412,28 @@ const notifyPayoutGroup = async (payoutData) => {
         if (payoutData.type === 'fiat') {
             const amtNum = parseFloat(payoutData.amount || 0);
             const recNum = parseFloat(payoutData.receiveAmount || payoutData.amount || 0);
+            const feeNum = Math.max(0, amtNum - recNum);
             const amt = amtNum % 1 === 0 ? amtNum.toFixed(0) : amtNum.toFixed(2);
             const rec = recNum % 1 === 0 ? recNum.toFixed(0) : recNum.toFixed(2);
+            const feeStr = feeNum % 1 === 0 ? feeNum.toFixed(0) : feeNum.toFixed(2);
             const method = (payoutData.method || 'bKash').toUpperCase();
             const methodTitle = method === 'NAGAD' ? 'Nagad' : 'bKash';
             const maskedAcc = maskNumber(payoutData.number);
+            const settlementHash = crypto
+                .createHash('sha256')
+                .update(`${uidRaw}:${method}:${amt}:${rec}:${Date.now()}`)
+                .digest('hex')
+                .slice(0, 44);
 
-            previewUrl = `${publicOrigin}/payout-proof?method=${encodeURIComponent(method)}&amount=${encodeURIComponent(rec)}&reqAmount=${encodeURIComponent(amt)}&account=${encodeURIComponent(maskedAcc)}&name=${encodeURIComponent(payoutData.name || 'Verified User')}&uid=${encodeURIComponent(maskedUid)}&time=${encodeURIComponent(fullTimestampStr)}&v=${Date.now()}`;
+            previewUrl = `${publicOrigin}/payout-proof?method=${encodeURIComponent(method)}&amount=${encodeURIComponent(rec)}&reqAmount=${encodeURIComponent(amt)}&account=${encodeURIComponent(maskedAcc)}&name=${encodeURIComponent(resolvedName)}&uid=${encodeURIComponent(maskedUid)}&time=${encodeURIComponent(fullTimestampStr)}&v=${Date.now()}`;
             
-            msg = `${PE.approvedBag} <b>New\u00A0${methodTitle}\u00A0Withdrawal\u00A0Processed!</b>\n\n` +
-                  `${PE.user} <b>${safeCustomerName}</b>\u00A0(<code>${maskedUid}</code>)\u00A0·\u00A0<code>${nowStr}</code>\n` +
-                  `${PE.dollar} <b>Amount:</b>\u00A0৳${amt}\u00A0BDT\u00A0·\u00A0<b>Sent:</b>\u00A0<b>৳${rec}\u00A0BDT</b>\n` +
-                  `${PE.bank} <b>To\u00A0(${methodTitle}):</b>\u00A0<code>${maskedAcc}\u00A0·\u00A0Instant\u00A0Paid</code>\n\n` +
-                  `✅ <b>Paid\u00A0via\u00A0${methodTitle}</b>\u00A0·\u00A0<a href="${previewUrl}">view\u00A0transaction</a>`;
+            msg = `${PE.party} <b>New $${methodTitle} Withdrawal Processed!</b>\n\n` +
+                  `${PE.user} ${clickableCustomerHtml} (<code>${maskedUid}</code>)\n` +
+                  `${PE.dollar} <b>Amount:</b> ৳${amt} BDT\n` +
+                  `${PE.flyingCash} <b>Send (after ৳${feeStr} fee):</b> <b>৳${rec} BDT</b>\n` +
+                  `${PE.wallet} <b>Account:</b> <code>${maskedAcc}</code> (${methodTitle})\n` +
+                  `${PE.bank} <b>Hash:</b> <code>${settlementHash}</code>\n\n` +
+                  `✅ <b>Paid via ${methodTitle}</b> · <a href="${previewUrl}">view\u00A0transaction</a>`;
         } else {
             const asset = (payoutData.asset || 'TON').toUpperCase();
             const fullAddr = String(payoutData.destination || payoutData.wallet || '').trim();
@@ -434,13 +464,14 @@ const notifyPayoutGroup = async (payoutData) => {
             }
 
             const sentAmt = payoutData.receiveAmount || payoutData.amount;
-            const bdtLabel = payoutData.totalBdt ? `\u00A0(৳${payoutData.totalBdt}\u00A0BDT)` : '';
+            const bdtLabel = payoutData.totalBdt ? ` (৳${payoutData.totalBdt} BDT)` : '';
 
-            msg = `${PE.party} <b>New\u00A0$${asset}\u00A0Payout\u00A0Processed!</b>\n\n` +
-                  `${PE.user} <b>${safeCustomerName}</b>\u00A0(<code>${maskedUid}</code>)\u00A0·\u00A0<code>${nowStr}</code>\n` +
-                  `${PE.dollar} <b>Amount:</b>\u00A0<b>${sentAmt}\u00A0${asset}</b>${bdtLabel}\n` +
-                  `${PE.bank} <b>To:</b>\u00A0<code>${fullAddr || maskWallet(fullAddr)}</code>\n\n` +
-                  `✅ <b>Paid\u00A0on-chain</b>\u00A0·\u00A0<a href="${previewUrl}">view\u00A0transaction</a>`;
+            msg = `${PE.party} <b>New $${asset} Payout Processed!</b>\n\n` +
+                  `${PE.user} ${clickableCustomerHtml} (<code>${maskedUid}</code>)\n` +
+                  `${PE.dollar} <b>Amount:</b> <b>${payoutData.amount} ${asset}</b>${bdtLabel}\n` +
+                  `${PE.flyingCash} <b>Send (on-chain):</b> <b>${sentAmt} ${asset}</b>\n` +
+                  `${PE.bank} <b>To:</b> <code>${fullAddr || maskWallet(fullAddr)}</code>\n\n` +
+                  `✅ <b>Paid on-chain</b> · <a href="${previewUrl}">view\u00A0transaction</a>`;
         }
 
         const payoutBtnMarkup = {
@@ -10424,104 +10455,89 @@ async function generatePayoutCardPngBuffer(params = {}) {
         logoUri: logos.bkash
     };
 
-    const svg = `<svg width="1440" height="624" viewBox="0 0 1440 624" fill="none" xmlns="http://www.w3.org/2000/svg">
+    const svg = `<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-        <linearGradient id="bgGrad" x1="0" y1="0" x2="1440" y2="624" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="${theme.bgStart}"/>
-            <stop offset="55%" stop-color="${theme.bgMid}"/>
-            <stop offset="100%" stop-color="${theme.bgEnd}"/>
+        <linearGradient id="fullCardGrad" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#FFFFFF"/>
+            <stop offset="62%" stop-color="#FFFFFF"/>
+            <stop offset="100%" stop-color="${theme.bgMid}"/>
         </linearGradient>
-        <linearGradient id="cardGrad" x1="28" y1="22" x2="1412" y2="602" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.98"/>
-            <stop offset="65%" stop-color="#FFFFFF" stop-opacity="0.94"/>
-            <stop offset="100%" stop-color="${theme.accentLight}" stop-opacity="0.93"/>
-        </linearGradient>
-        <linearGradient id="topRightBadge" x1="920" y1="64" x2="1352" y2="204" gradientUnits="userSpaceOnUse">
+        <linearGradient id="topRightBadge" x1="720" y1="48" x2="1144" y2="196" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="${theme.badgeGradStart}"/>
             <stop offset="100%" stop-color="${theme.badgeGradEnd}"/>
         </linearGradient>
-        <linearGradient id="topBarGrad" x1="28" y1="22" x2="1412" y2="22" gradientUnits="userSpaceOnUse">
+        <linearGradient id="topBarGrad" x1="0" y1="0" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="${theme.badgeGradStart}"/>
             <stop offset="50%" stop-color="${theme.glowPrimary}"/>
             <stop offset="100%" stop-color="${theme.badgeGradEnd}"/>
         </linearGradient>
-        <radialGradient id="cornerOrb" cx="0.86" cy="0.22" r="0.55">
+        <radialGradient id="rightGlowOrb" cx="0.84" cy="0.52" r="0.48">
             <stop offset="0%" stop-color="${theme.glowPrimary}" stop-opacity="0.22"/>
-            <stop offset="60%" stop-color="${theme.glowSecondary}" stop-opacity="0.07"/>
+            <stop offset="60%" stop-color="${theme.glowSecondary}" stop-opacity="0.08"/>
             <stop offset="100%" stop-color="${theme.glowPrimary}" stop-opacity="0"/>
         </radialGradient>
-        <filter id="cardShadow" x="6" y="6" width="1428" height="612" filterUnits="userSpaceOnUse">
-            <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="${theme.accentDark}" flood-opacity="0.12"/>
-        </filter>
-        <filter id="badgeShadow" x="896" y="48" width="480" height="176" filterUnits="userSpaceOnUse">
+        <filter id="badgeShadow" x="696" y="32" width="472" height="190" filterUnits="userSpaceOnUse">
             <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="${theme.badgeGradEnd}" flood-opacity="0.28"/>
         </filter>
         <clipPath id="bigEmblemClip">
-            <circle cx="1180" cy="348" r="78"/>
+            <circle cx="980" cy="352" r="82"/>
         </clipPath>
         <clipPath id="tpClip">
-            <rect x="1084" y="516" width="38" height="38" rx="10"/>
+            <rect x="854" y="544" width="40" height="40" rx="10"/>
         </clipPath>
     </defs>
 
-    <!-- Full Panoramic Canvas Background (1440x624 like Tonviewer) -->
-    <rect width="1440" height="624" fill="url(#bgGrad)"/>
-    <rect width="1440" height="624" fill="url(#cornerOrb)"/>
+    <!-- Full-Bleed Card Background (0 outer margin so the card fills 100% of Telegram's preview box like Tonviewer) -->
+    <rect width="1200" height="630" fill="url(#fullCardGrad)"/>
+    <rect width="1200" height="630" fill="url(#rightGlowOrb)"/>
+    <rect x="0" y="0" width="1200" height="12" fill="url(#topBarGrad)"/>
 
-    <!-- Main Wide Explorer Card -->
-    <g filter="url(#cardShadow)">
-        <rect x="28" y="22" width="1384" height="580" rx="34" fill="url(#cardGrad)" stroke="${theme.pillBorder}" stroke-width="2.5"/>
-    </g>
-
-    <!-- Top Accent Ribbon inside Card -->
-    <path d="M62 23.5 H1378 A32 32 0 0 1 1410 55.5 V60 H30 V55.5 A32 32 0 0 1 62 23.5 Z" fill="url(#topBarGrad)" opacity="0.13"/>
-
-    <!-- Decorative Right Mesh Circles -->
-    <circle cx="1180" cy="348" r="118" fill="${theme.accentLight}" fill-opacity="0.65" stroke="${theme.pillBorder}" stroke-width="1.5" stroke-dasharray="6 6"/>
-    <circle cx="1180" cy="348" r="98" fill="#FFFFFF" fill-opacity="0.92" stroke="${theme.ringStroke}" stroke-width="2" stroke-opacity="0.45"/>
-    <circle cx="1180" cy="348" r="80" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="2"/>
-    ${theme.logoUri ? `<image href="${theme.logoUri}" x="1112" y="280" width="136" height="136" preserveAspectRatio="xMidYMid contain" clip-path="url(#bigEmblemClip)"/>` : ''}
+    <!-- Decorative Right Emblem Circles -->
+    <circle cx="980" cy="352" r="116" fill="${theme.accentLight}" fill-opacity="0.7" stroke="${theme.pillBorder}" stroke-width="2" stroke-dasharray="8 6"/>
+    <circle cx="980" cy="352" r="98" fill="#FFFFFF" fill-opacity="0.95" stroke="${theme.ringStroke}" stroke-width="2.5" stroke-opacity="0.5"/>
+    <circle cx="980" cy="352" r="84" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="2.5"/>
+    ${theme.logoUri ? `<image href="${theme.logoUri}" x="908" y="280" width="144" height="144" preserveAspectRatio="xMidYMid contain" clip-path="url(#bigEmblemClip)"/>` : ''}
 
     <!-- TOP-LEFT: Gateway Brand Header -->
-    <rect x="78" y="66" width="92" height="92" rx="24" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="2.5"/>
-    ${theme.logoUri ? `<image href="${theme.logoUri}" x="86" y="74" width="76" height="76" preserveAspectRatio="xMidYMid contain"/>` : ''}
+    <rect x="56" y="52" width="100" height="100" rx="26" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="3"/>
+    ${theme.logoUri ? `<image href="${theme.logoUri}" x="66" y="62" width="80" height="80" preserveAspectRatio="xMidYMid contain"/>` : ''}
 
-    <text x="192" y="106" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="34" font-weight="800" fill="#0F172A">${methodLabel} Instant Cashout</text>
-    <rect x="192" y="122" width="268" height="34" rx="17" fill="${theme.accentLight}" stroke="${theme.pillBorder}" stroke-width="1.5"/>
-    <circle cx="212" cy="139" r="5.5" fill="${theme.accentPrimary}"/>
-    <text x="228" y="144" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="15" font-weight="800" letter-spacing="0.8" fill="${theme.accentDark}">VERIFIED WALLET PAYOUT</text>
+    <text x="178" y="96" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="38" font-weight="900" fill="#0F172A">${methodLabel} Cashout</text>
+    <rect x="178" y="114" width="286" height="36" rx="18" fill="${theme.accentLight}" stroke="${theme.pillBorder}" stroke-width="1.8"/>
+    <circle cx="198" cy="132" r="6" fill="${theme.accentPrimary}"/>
+    <text x="214" y="138" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="16" font-weight="800" letter-spacing="0.8" fill="${theme.accentDark}">INSTANT VERIFIED PAYOUT</text>
 
     <!-- TOP-RIGHT CORNER: Prominent Luxury Amount Display -->
     <g filter="url(#badgeShadow)">
-        <rect x="920" y="64" width="432" height="126" rx="28" fill="url(#topRightBadge)" stroke="#FFFFFF" stroke-width="2.5"/>
+        <rect x="720" y="48" width="424" height="134" rx="30" fill="url(#topRightBadge)" stroke="#FFFFFF" stroke-width="3"/>
     </g>
-    <text x="1136" y="102" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="15" font-weight="800" letter-spacing="2.2" fill="#FFFFFF" fill-opacity="0.9">SENT PAYOUT AMOUNT</text>
-    <text x="1136" y="160" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="52" font-weight="900" fill="#FFFFFF">${formattedAmt} BDT</text>
+    <text x="932" y="88" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="16" font-weight="800" letter-spacing="2.2" fill="#FFFFFF" fill-opacity="0.92">SENT PAYOUT AMOUNT</text>
+    <text x="932" y="152" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="56" font-weight="900" fill="#FFFFFF">${formattedAmt} BDT</text>
 
-    <!-- MIDDLE-LEFT: Big Explorer Amount & Transfer Route -->
-    <text x="78" y="272" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="78" font-weight="900" fill="#0F172A">${formattedAmt} BDT</text>
+    <!-- MIDDLE-LEFT: Huge Explorer Amount & Transfer Route (Tonviewer Style) -->
+    <text x="56" y="280" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="88" font-weight="900" fill="#0F172A">${formattedAmt} BDT</text>
 
-    <!-- Sender -> Receiver Route Line with Vector Arrow -->
-    <text x="78" y="344" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="36" font-weight="700" fill="#334155">TrustPay</text>
-    <path d="M248 331 H288 M276 319 L289 331 L276 343" stroke="${theme.accentPrimary}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="310" y="344" font-family="Courier New, monospace, Arial" font-size="38" font-weight="800" fill="#0F172A">${accountStr}</text>
+    <!-- Sender -> Receiver Route Line with Bold Vector Arrow -->
+    <text x="56" y="358" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="40" font-weight="700" fill="#334155">TrustPay</text>
+    <path d="M242 344 H286 M273 331 L287 344 L273 357" stroke="${theme.accentPrimary}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="308" y="358" font-family="Courier New, monospace, Arial" font-size="42" font-weight="800" fill="#0F172A">${accountStr}</text>
 
     <!-- Customer & Success Status Row -->
-    <rect x="78" y="384" width="184" height="54" rx="16" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1.5"/>
-    <circle cx="110" cy="411" r="8" fill="#16A34A"/>
-    <text x="130" y="420" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="26" font-weight="800" fill="#15803D">Success</text>
+    <rect x="56" y="402" width="204" height="62" rx="18" fill="#DCFCE7" stroke="#86EFAC" stroke-width="2"/>
+    <circle cx="92" cy="433" r="9" fill="#16A34A"/>
+    <text x="114" y="443" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="30" font-weight="800" fill="#15803D">Success</text>
 
-    <rect x="280" y="384" width="520" height="54" rx="16" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5"/>
-    <text x="306" y="419" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="24" font-weight="700" fill="#475569">User: ${customerName} (${uidStr})</text>
+    <rect x="278" y="402" width="510" height="62" rx="18" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="2"/>
+    <text x="306" y="442" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="26" font-weight="700" fill="#334155">User: ${customerName} (${uidStr})</text>
 
     <!-- Divider Line -->
-    <line x1="78" y1="486" x2="1352" y2="486" stroke="#E2E8F0" stroke-width="2"/>
+    <line x1="56" y1="512" x2="1144" y2="512" stroke="#E2E8F0" stroke-width="2.5"/>
 
     <!-- BOTTOM BAR: Timestamp on Left, TrustPay Payout on Right -->
-    <text x="78" y="544" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="25" font-weight="600" fill="#64748B">Transaction · ${timeStr} · Req: ${formattedReq} BDT</text>
+    <text x="56" y="574" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="26" font-weight="600" fill="#64748B">Transaction · ${timeStr} · Req: ${formattedReq} BDT</text>
 
-    ${logos.tp ? `<image href="${logos.tp}" x="1084" y="516" width="38" height="38" preserveAspectRatio="xMidYMid cover" clip-path="url(#tpClip)"/>` : ''}
-    <text x="1352" y="545" text-anchor="end" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="27" font-weight="800" fill="#475569">TrustPay Payout</text>
+    ${logos.tp ? `<image href="${logos.tp}" x="854" y="544" width="40" height="40" preserveAspectRatio="xMidYMid cover" clip-path="url(#tpClip)"/>` : ''}
+    <text x="1144" y="575" text-anchor="end" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="29" font-weight="800" fill="#475569">TrustPay Payout</text>
 </svg>`;
 
     return await sharp(Buffer.from(svg)).png({ quality: 95 }).toBuffer();
@@ -10566,9 +10582,9 @@ app.get('/payout-proof', (req, res) => {
     const cardImageUrl = `${publicOrigin}/api/payout-card.png?${qs}`;
     const pageUrl = `${publicOrigin}/payout-proof?${qs}`;
 
-    const ogSiteName = `TrustPay Payout`;
-    const ogTitle = `${methodLabel} Cashout · ৳${amount} BDT → ${account}`;
-    const ogDesc = `Verified instant payout to ${account} (${name}).`;
+    const ogSiteName = `${methodLabel} Explorer`;
+    const ogTitle = `${methodLabel} · Instant Cashout Explorer`;
+    const ogDesc = `${methodLabel} Explorer: Track real-time mobile financial payouts, verified wallet transfers, and automated instant settlements on TrustPay.`;
     const accentHex = isNagad ? '#EA580C' : '#E2136E';
 
     const html = `<!DOCTYPE html>
@@ -10586,8 +10602,8 @@ app.get('/payout-proof', (req, res) => {
     <meta property="og:url" content="${pageUrl}" />
     <meta property="og:image" content="${cardImageUrl}" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1440" />
-    <meta property="og:image:height" content="624" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${ogTitle}" />
     <meta name="twitter:description" content="${ogDesc}" />
