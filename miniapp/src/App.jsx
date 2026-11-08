@@ -7,7 +7,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'rec
 import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, searchUsers, lookupRecipientUser, submitTransferMoney } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
-import referralBannerImg from './assets/referral-banner.jpg';
+import referralBannerImg from './assets/trustpay-official-banner.jpg';
 import lotusLineArt from './assets/lotus-line-art.webp';
 import roseBranchArt from './assets/rose-branch-art.webp';
 import addmoneyRoseArt from './assets/addmoney-rose-art.webp';
@@ -5726,14 +5726,9 @@ export default function App() {
   }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const prevTabForTapSoundRef = useRef(activeTab);
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    if (prevTabForTapSoundRef.current !== activeTab) {
-      prevTabForTapSoundRef.current = activeTab;
-      playAppSound('tap');
-    }
   }, [activeTab]);
 
   const [fiatWallet, setFiatWallet] = useState(null);
@@ -6299,9 +6294,9 @@ export default function App() {
             </div>
           )}
 
-          {/* PERSISTENT MAIN TABS (0ms Instant Switching - No Unmount Lag) */}
+          {/* PERSISTENT MAIN TABS (Pre-laid-out & pre-decoded for 0ms butter-smooth navbar switching) */}
           
-          <div className={activeTab === 'home' ? 'block' : 'hidden'}>
+          <div className={activeTab === 'home' ? 'block' : 'fixed top-0 left-0 w-full h-0 overflow-hidden opacity-0 pointer-events-none -z-50 select-none'}>
               <HomePage 
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
                   balance={balance} 
@@ -6338,7 +6333,7 @@ export default function App() {
               />
           </div>
 
-          <div className={activeTab === 'add-money' ? 'block' : 'hidden'}>
+          <div className={activeTab === 'add-money' ? 'block' : 'fixed top-0 left-0 w-full h-0 overflow-hidden opacity-0 pointer-events-none -z-50 select-none'}>
               {restrictionInfo?.isRestricted ? (
                   <RestrictedNoticeScreen 
                       onBack={() => setActiveTab('home')}
@@ -6361,7 +6356,7 @@ export default function App() {
               )}
           </div>
 
-          <div className={activeTab === 'profile' ? 'block' : 'hidden'}>
+          <div className={activeTab === 'profile' ? 'block' : 'fixed top-0 left-0 w-full h-0 overflow-hidden opacity-0 pointer-events-none -z-50 select-none'}>
               <ProfilePage 
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
                   user={user} 
@@ -6548,8 +6543,8 @@ export default function App() {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
-            <div className={`fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none transition-all duration-300 ${isKeyboardVisible ? 'opacity-0 translate-y-32 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
-                <div className="w-full max-w-[360px] bg-white/95 backdrop-blur-2xl rounded-[28px] relative flex justify-between items-center p-1.5 shadow-[0_12px_36px_rgba(15,23,42,0.08)] border border-slate-200/80 pointer-events-auto overflow-hidden">
+            <div className={`fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none transition-transform duration-300 ${isKeyboardVisible ? 'opacity-0 translate-y-32 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+                <div className="w-full max-w-[360px] bg-white/98 backdrop-blur-md rounded-[28px] relative flex justify-between items-center p-1.5 shadow-[0_12px_36px_rgba(15,23,42,0.08)] border border-slate-200/80 pointer-events-auto overflow-hidden">
                     
                     {/* Delicate floral line art in navigation bar corner */}
                     <svg 
@@ -6564,13 +6559,13 @@ export default function App() {
                       <circle cx="50" cy="15" r="2" fill="currentColor" />
                     </svg>
 
-                    {/* SMOOTH SLIDING ACTIVE PILL */}
+                    {/* SMOOTH GPU-ACCELERATED SLIDING ACTIVE PILL */}
                     {activeIndex !== -1 && (
                       <div 
-                        className="absolute top-1.5 bottom-1.5 rounded-[20px] bg-indigo-50 border border-indigo-100/90 shadow-xs transition-all duration-300 ease-out pointer-events-none"
+                        className="absolute top-1.5 bottom-1.5 left-1.5 rounded-[20px] bg-indigo-50 border border-indigo-100/90 shadow-xs transition-transform duration-300 ease-out will-change-transform pointer-events-none"
                         style={{
-                          width: 'calc(33.333% - 4px)',
-                          left: `calc(${activeIndex * 33.333}% + 2px)`,
+                          width: 'calc((100% - 12px) / 3)',
+                          transform: `translate3d(${activeIndex * 100}%, 0, 0)`,
                         }}
                       >
                         {/* Micro floral line art in active pill */}
@@ -6597,11 +6592,11 @@ export default function App() {
                             }
                             setActiveTab('home');
                         }} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10 cursor-pointer"
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-transform duration-200 group active:scale-95 z-10 cursor-pointer"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'home' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                            <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'home' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.home}</span>
+                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${activeTab === 'home' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${activeTab === 'home' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.home}</span>
                         </div>
                     </button>
   
@@ -6615,11 +6610,11 @@ export default function App() {
                             }
                             setActiveTab('add-money');
                         }} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10 cursor-pointer"
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-transform duration-200 group active:scale-95 z-10 cursor-pointer"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'add-money' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                            <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'add-money' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.addMoney}</span>
+                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${activeTab === 'add-money' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${activeTab === 'add-money' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.addMoney}</span>
                         </div>
                     </button>
   
@@ -6632,11 +6627,11 @@ export default function App() {
                             }
                             setActiveTab('profile');
                         }} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-all duration-300 group active:scale-95 z-10 cursor-pointer"
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-transform duration-200 group active:scale-95 z-10 cursor-pointer"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 2} className={`mb-1 transition-all duration-300 ${activeTab === 'profile' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                            <span className={`text-[10px] tracking-wide transition-all duration-300 ${activeTab === 'profile' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.profile}</span>
+                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${activeTab === 'profile' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${activeTab === 'profile' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.profile}</span>
                         </div>
                     </button>
                 </div>
@@ -11314,7 +11309,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
     referralLink: defaultBotLink,
     miniAppReferralLink: `https://t.me/bd_trust_pay_bot/app?startapp=ref_${userId}`,
     sharePreviewUrl: `${window.location.origin}/invite/${userId}`,
-    bannerUrl: `${window.location.origin}/app/referral-banner.jpg?v=20261108`,
+    bannerUrl: `${window.location.origin}/app/trustpay-official-banner.jpg?v=2`,
     rewardPerReferral: 5,
     minVolumeBdt: 20,
     totalReferrals: 0,
@@ -11459,7 +11454,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
             src={referralBannerImg}
             onError={(e) => {
               e.currentTarget.onerror = null;
-              e.currentTarget.src = `${import.meta.env.BASE_URL || '/app/'}referral-banner.jpg?v=20261108`;
+              e.currentTarget.src = `${import.meta.env.BASE_URL || '/app/'}trustpay-official-banner.jpg?v=2`;
             }}
             alt="Trust Pay Instant Crypto Buy & Sell Banner"
             className="w-full h-full object-cover"

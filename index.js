@@ -9099,13 +9099,13 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
 
 // ==================== REFERRAL API & RICH SHARE ENDPOINTS ====================
 app.get('/referral-banner.jpg', (req, res) => {
-    const p = path.join(__dirname, 'miniapp/public/referral-banner.jpg');
+    const p = path.join(__dirname, 'miniapp/public/trustpay-official-banner.jpg');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'no-cache, max-age=0');
     if (fs.existsSync(p)) {
         return res.sendFile(p);
     }
-    return res.redirect('/app/referral-banner.jpg?v=20261108');
+    return res.redirect('/app/trustpay-official-banner.jpg?v=2');
 });
 
 const userReferralsMemoryCache = new Map();
@@ -9124,7 +9124,7 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
                 botReferralLink: `https://t.me/${BOT_USERNAME}?start=ref_0`,
                 miniAppReferralLink: `https://t.me/${BOT_USERNAME}/app?startapp=ref_0`,
                 sharePreviewUrl: `https://trustpay-bot.com/invite/0`,
-                bannerUrl: `https://trustpay-bot.com/app/referral-banner.jpg?v=20261108`,
+                bannerUrl: `https://trustpay-bot.com/app/trustpay-official-banner.jpg?v=2`,
                 totalReferrals: 0,
                 activeReferrals: 0,
                 pendingReferrals: 0,
@@ -9185,7 +9185,7 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
             botReferralLink: `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`,
             miniAppReferralLink: `https://t.me/${BOT_USERNAME}/app?startapp=ref_${cleanUserId}`,
             sharePreviewUrl: `https://trustpay-bot.com/invite/${cleanUserId}`,
-            bannerUrl: `https://trustpay-bot.com/app/referral-banner.jpg?v=20261108`,
+            bannerUrl: `https://trustpay-bot.com/app/trustpay-official-banner.jpg?v=2`,
             botUsername: BOT_USERNAME,
             totalReferrals: referralsList.length,
             activeReferrals: activeCount,
@@ -9361,7 +9361,7 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
 
         const botStartLink = `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`;
         const sharePreviewUrl = `https://trustpay-bot.com/invite/${cleanUserId}`;
-        const bannerUrl = `https://trustpay-bot.com/app/referral-banner.jpg?v=20261108`;
+        const bannerUrl = `https://trustpay-bot.com/app/trustpay-official-banner.jpg?v=2`;
 
         const inlineCleanCaption = `💎 <b>Trust Pay — বাংলাদেশের সেরা Instant Crypto Buy & Sell Bot!</b> 🇧🇩✨\n\n` +
             `<blockquote>🔥 <b>ঘরে বসেই মুহূর্তে ক্রিপ্টো কেনা-বেচা (Buy & Sell) করুন:</b>\n` +
@@ -9501,7 +9501,7 @@ app.post('/api/miniapp/spin-watch-ad', (req, res) => res.status(400).json({ erro
 app.get('/invite/:referrerId', (req, res) => {
     const rawRef = (req.params.referrerId || '').toString().replace(/[^0-9]/g, '');
     const botStartLink = rawRef ? `https://t.me/${BOT_USERNAME}?start=ref_${rawRef}` : `https://t.me/${BOT_USERNAME}`;
-    const bannerUrl = `https://trustpay-bot.com/app/referral-banner.jpg?v=20261108`;
+    const bannerUrl = `https://trustpay-bot.com/app/trustpay-official-banner.jpg?v=2`;
 
     const html = `<!DOCTYPE html>
 <html lang="bn">
