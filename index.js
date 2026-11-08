@@ -397,11 +397,10 @@ const notifyPayoutGroup = async (payoutData) => {
             resolvedName = String(cachedUser?.firstName || cachedUser?.first_name || cachedUser?.name || resolvedName || 'Verified User').trim();
         }
         const safeCustomerName = escapeHtml(resolvedName);
-        const resolvedUsername = String(payoutData.username || cachedUser?.username || '').replace(/^@/, '').trim();
-        const userProfileUrl = resolvedUsername
-            ? `https://t.me/${encodeURIComponent(resolvedUsername)}`
-            : (uidRaw ? `tg://user?id=${encodeURIComponent(uidRaw)}` : 'https://t.me/bd_trust_pay_bot');
-        const clickableCustomerHtml = `<a href="${userProfileUrl}"><b>${safeCustomerName}</b></a>`;
+        // Always use tg://user?id= so clicking the name opens the user's profile WITHOUT triggering Telegram's "SEND MESSAGE" web preview card
+        const clickableCustomerHtml = uidRaw
+            ? `<a href="tg://user?id=${encodeURIComponent(uidRaw)}"><b>${safeCustomerName}</b></a>`
+            : `<b>${safeCustomerName}</b>`;
 
         const maskedUid = maskId(payoutData.userId);
         const publicOrigin = (process.env.RENDER_EXTERNAL_URL || 'https://trustpay-bot.com').replace(/\/$/, '');
@@ -419,21 +418,14 @@ const notifyPayoutGroup = async (payoutData) => {
             const method = (payoutData.method || 'bKash').toUpperCase();
             const methodTitle = method === 'NAGAD' ? 'Nagad' : 'bKash';
             const maskedAcc = maskNumber(payoutData.number);
-            const settlementHash = crypto
-                .createHash('sha256')
-                .update(`${uidRaw}:${method}:${amt}:${rec}:${Date.now()}`)
-                .digest('hex')
-                .slice(0, 44);
 
             previewUrl = `${publicOrigin}/payout-proof?method=${encodeURIComponent(method)}&amount=${encodeURIComponent(rec)}&reqAmount=${encodeURIComponent(amt)}&account=${encodeURIComponent(maskedAcc)}&name=${encodeURIComponent(resolvedName)}&uid=${encodeURIComponent(maskedUid)}&time=${encodeURIComponent(fullTimestampStr)}&v=${Date.now()}`;
             
-            msg = `${PE.party} <b>New $${methodTitle} Withdrawal Processed!</b>\n\n` +
-                  `${PE.user} ${clickableCustomerHtml} (<code>${maskedUid}</code>)\n` +
-                  `${PE.dollar} <b>Amount:</b> ৳${amt} BDT\n` +
-                  `${PE.flyingCash} <b>Send (after ৳${feeStr} fee):</b> <b>৳${rec} BDT</b>\n` +
-                  `${PE.wallet} <b>Account:</b> <code>${maskedAcc}</code> (${methodTitle})\n` +
-                  `${PE.bank} <b>Hash:</b> <code>${settlementHash}</code>\n\n` +
-                  `✅ <b>Paid via ${methodTitle}</b> · <a href="${previewUrl}">view\u00A0transaction</a>`;
+            msg = `${PE.party} <b>New $${methodTitle} Payout Processed!</b>\n\n` +
+                  `${PE.user} ${clickableCustomerHtml} (${maskedUid})\n` +
+                  `${PE.dollar} Amount: ৳${amt} BDT (Fee: ৳${feeStr})\n` +
+                  `${PE.flyingCash} Sent: ৳${rec} BDT → ${maskedAcc}\n\n` +
+                  `✅ Paid via ${methodTitle} · <a href="${previewUrl}">view transaction</a>`;
         } else {
             const asset = (payoutData.asset || 'TON').toUpperCase();
             const fullAddr = String(payoutData.destination || payoutData.wallet || '').trim();
@@ -467,22 +459,21 @@ const notifyPayoutGroup = async (payoutData) => {
             const bdtLabel = payoutData.totalBdt ? ` (৳${payoutData.totalBdt} BDT)` : '';
 
             msg = `${PE.party} <b>New $${asset} Payout Processed!</b>\n\n` +
-                  `${PE.user} ${clickableCustomerHtml} (<code>${maskedUid}</code>)\n` +
-                  `${PE.dollar} <b>Amount:</b> <b>${payoutData.amount} ${asset}</b>${bdtLabel}\n` +
-                  `${PE.flyingCash} <b>Send (on-chain):</b> <b>${sentAmt} ${asset}</b>\n` +
-                  `${PE.bank} <b>To:</b> <code>${fullAddr || maskWallet(fullAddr)}</code>\n\n` +
-                  `✅ <b>Paid on-chain</b> · <a href="${previewUrl}">view\u00A0transaction</a>`;
+                  `${PE.user} ${clickableCustomerHtml} (${maskedUid})\n` +
+                  `${PE.dollar} Amount: ${payoutData.amount} ${asset}${bdtLabel}\n` +
+                  `${PE.flyingCash} Send (on-chain): ${sentAmt} ${asset}\n` +
+                  `${PE.bank} To: ${fullAddr || maskWallet(fullAddr)}\n\n` +
+                  `✅ Paid on-chain · <a href="${previewUrl}">view transaction</a>`;
         }
 
         const payoutBtnMarkup = {
             parse_mode: 'HTML',
-            disable_web_page_preview: false,
-            link_preview_options: {
+            link_preview_options: JSON.stringify({
                 is_disabled: false,
                 url: previewUrl,
                 prefer_large_media: true,
                 show_above_text: false
-            },
+            }),
             reply_markup: {
                 inline_keyboard: [
                     [{ text: '🚀 Trust Pay ওপেন করুন', url: 'https://t.me/bd_trust_pay_bot' }]
@@ -10583,8 +10574,8 @@ app.get('/payout-proof', (req, res) => {
     const pageUrl = `${publicOrigin}/payout-proof?${qs}`;
 
     const ogSiteName = `${methodLabel} Explorer`;
-    const ogTitle = `${methodLabel} · Instant Cashout Explorer`;
-    const ogDesc = `${methodLabel} Explorer: Track real-time mobile financial payouts, verified wallet transfers, and automated instant settlements on TrustPay.`;
+    const ogTitle = `Transaction · ৳${amount} BDT → ${account}`;
+    const ogDesc = `Verified instant ${methodLabel} payout settled by TrustPay.`;
     const accentHex = isNagad ? '#EA580C' : '#E2136E';
 
     const html = `<!DOCTYPE html>
