@@ -9101,11 +9101,11 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
 app.get('/referral-banner.jpg', (req, res) => {
     const p = path.join(__dirname, 'miniapp/public/referral-banner.jpg');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.setHeader('Cache-Control', 'no-cache, max-age=0');
     if (fs.existsSync(p)) {
         return res.sendFile(p);
     }
-    return res.redirect('/app/referral-banner.jpg');
+    return res.redirect('/app/referral-banner.jpg?v=20261108');
 });
 
 const userReferralsMemoryCache = new Map();
@@ -9124,7 +9124,7 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
                 botReferralLink: `https://t.me/${BOT_USERNAME}?start=ref_0`,
                 miniAppReferralLink: `https://t.me/${BOT_USERNAME}/app?startapp=ref_0`,
                 sharePreviewUrl: `https://trustpay-bot.com/invite/0`,
-                bannerUrl: `https://trustpay-bot.com/app/referral-banner.jpg`,
+                bannerUrl: `https://trustpay-bot.com/app/referral-banner.jpg?v=20261108`,
                 totalReferrals: 0,
                 activeReferrals: 0,
                 pendingReferrals: 0,
@@ -9185,7 +9185,7 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
             botReferralLink: `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`,
             miniAppReferralLink: `https://t.me/${BOT_USERNAME}/app?startapp=ref_${cleanUserId}`,
             sharePreviewUrl: `https://trustpay-bot.com/invite/${cleanUserId}`,
-            bannerUrl: `https://trustpay-bot.com/app/referral-banner.jpg`,
+            bannerUrl: `https://trustpay-bot.com/app/referral-banner.jpg?v=20261108`,
             botUsername: BOT_USERNAME,
             totalReferrals: referralsList.length,
             activeReferrals: activeCount,
@@ -9361,15 +9361,15 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
 
         const botStartLink = `https://t.me/${BOT_USERNAME}?start=ref_${cleanUserId}`;
         const sharePreviewUrl = `https://trustpay-bot.com/invite/${cleanUserId}`;
-        const bannerUrl = `https://trustpay-bot.com/app/referral-banner.jpg`;
+        const bannerUrl = `https://trustpay-bot.com/app/referral-banner.jpg?v=20261108`;
 
-        const inlineCleanCaption = `💎 <b>Trust Pay — বাংলাদেশে প্রথম ইনস্ট্যান্ট ক্রিপ্টো প্ল্যাটফর্ম!</b> 🇧🇩✨\n\n` +
-            `<blockquote>🔥 <b>ক্রিপ্টো বাই ও সেল করুন ঘরে বসেই:</b>\n` +
-            `• <b>USDT, TON ও GRAM</b> সবচেয়ে সেরা রেটে কেনা-বেচা করুন!\n` +
-            `• <b>bKash ও Nagad</b>-এ মাত্র ২ মিনিটে ১০০% অটো পেমেন্ট!\n` +
-            `• ফুল সিকিউরড ও ২৪/৭ লাইভ সাপোর্ট 🛡️\n\n` +
-            `🎁 <b>লিংকে জয়েন করলেই স্পেশাল ক্যাশ রিওয়ার্ড!</b></blockquote>\n\n` +
-            `👇 <b>নিচের বাটনে ক্লিক করে এখনই শুরু করুন:</b>`;
+        const inlineCleanCaption = `💎 <b>Trust Pay — বাংলাদেশের সেরা Instant Crypto Buy & Sell Bot!</b> 🇧🇩✨\n\n` +
+            `<blockquote>🔥 <b>ঘরে বসেই মুহূর্তে ক্রিপ্টো কেনা-বেচা (Buy & Sell) করুন:</b>\n` +
+            `• <b>TON, USDT ও GRAM</b> সবচেয়ে সেরা মার্কেট রেটে বাই ও সেল করুন!\n` +
+            `• <b>bKash ও Nagad</b>-এ মাত্র ২ মিনিটে ১০০% অটোমেটিক পেমেন্ট!\n` +
+            `• সম্পূর্ণ নিরাপদ লেনদেন, P2P মানি ট্রান্সফার ও ২৪/৭ সাপোর্ট 🛡️\n\n` +
+            `🎁 <b>লিংকে জয়েন করে প্রথম লেনদেনেই স্পেশাল রিওয়ার্ড!</b></blockquote>\n\n` +
+            `👇 <b>নিচের বাটনে ক্লিক করে এখনই ক্রিপ্টো কেনা-বেচা শুরু করুন:</b>`;
 
         let preparedMessageId = null;
 
@@ -9384,13 +9384,13 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
                     thumb_url: bannerUrl,
                     photo_width: 1280,
                     photo_height: 720,
-                    title: 'Trust Pay — Instant Crypto Buy & Sell',
-                    description: 'TON, GRAM ও USDT কেনা-বেচা করুন বিকাশ ও নগদে!',
+                    title: 'Trust Pay — Instant Crypto Buy & Sell Bot',
+                    description: 'ঘরে বসেই TON, USDT ও GRAM কেনা-বেচা করুন বিকাশ ও নগদে!',
                     caption: inlineCleanCaption,
                     parse_mode: 'HTML',
                     reply_markup: {
                         inline_keyboard: [
-                            [{ text: '🚀 জয়েন করুন — Trust Pay (Join Now)', url: botStartLink }]
+                            [{ text: '🚀 জয়েন করুন — Trust Pay Crypto Bot', url: botStartLink }]
                         ]
                     }
                 },
@@ -9408,10 +9408,11 @@ app.post('/api/miniapp/prepare-referral-share', async (req, res) => {
         }
 
         const shareTextPlain =
-            `💎 Trust Pay — বাংলাদেশে প্রথম ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল প্ল্যাটফর্ম! 🇧🇩✨\n\n` +
-            `🔥 ঘরে বসেই USDT, TON ও GRAM বাই-সেল করুন!\n` +
-            `⚡ bKash ও Nagad-এ মাত্র ২ মিনিটে ১০০% অটো পেমেন্ট!\n` +
-            `🎁 নিচের লিংকে ক্লিক করে এখনই জয়েন করুন 👇\n${botStartLink}`;
+            `💎 Trust Pay — বাংলাদেশের সেরা Instant Crypto Buy & Sell Bot! 🇧🇩✨\n\n` +
+            `🔥 ঘরে বসেই খুব সহজে TON, USDT ও GRAM কেনা-বেচা (Buy & Sell) করুন!\n` +
+            `⚡ bKash ও Nagad-এ মাত্র ২ মিনিটে ১০০% অটোমেটিক পেমেন্ট!\n` +
+            `🛡️ শতভাগ নিরাপদ লেনদেন ও ২৪/৭ লাইভ সাপোর্ট।\n\n` +
+            `🎁 নিচের লিংকে ক্লিক করে এখনই বটে জয়েন করুন 👇\n${botStartLink}`;
         const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(sharePreviewUrl)}&text=${encodeURIComponent(shareTextPlain)}`;
 
         res.json({
@@ -9500,25 +9501,25 @@ app.post('/api/miniapp/spin-watch-ad', (req, res) => res.status(400).json({ erro
 app.get('/invite/:referrerId', (req, res) => {
     const rawRef = (req.params.referrerId || '').toString().replace(/[^0-9]/g, '');
     const botStartLink = rawRef ? `https://t.me/${BOT_USERNAME}?start=ref_${rawRef}` : `https://t.me/${BOT_USERNAME}`;
-    const bannerUrl = `https://trustpay-bot.com/app/referral-banner.jpg`;
+    const bannerUrl = `https://trustpay-bot.com/app/referral-banner.jpg?v=20261108`;
 
     const html = `<!DOCTYPE html>
 <html lang="bn">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>💎 Trust Pay — Instant Crypto Buy & Sell (bKash & Nagad)</title>
+    <title>💎 Trust Pay — Instant Crypto Buy & Sell Bot (bKash & Nagad)</title>
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Trust Pay Official" />
-    <meta property="og:title" content="💎 Trust Pay — বাংলাদেশে প্রথম ইনস্ট্যান্ট ক্রিপ্টো বাই/সেল!" />
-    <meta property="og:description" content="🔥 ঘরে বসেই USDT, TON ও GRAM সহজে বাই-সেল করুন! বিকাশ ও নগদে ২ মিনিটে ১০০% অটোমেটিক পেমেন্ট ⚡ এখনই জয়েন করুন 👇" />
+    <meta property="og:site_name" content="Trust Pay Official Crypto Bot" />
+    <meta property="og:title" content="💎 Trust Pay — বাংলাদেশের সেরা Instant Crypto Buy & Sell Bot!" />
+    <meta property="og:description" content="🔥 ঘরে বসেই TON, USDT ও GRAM কেনা-বেচা (Buy & Sell) করুন! bKash ও Nagad-এ মাত্র ২ মিনিটে ১০০% অটোমেটিক পেমেন্ট ⚡ এখনই জয়েন করুন 👇" />
     <meta property="og:image" content="${bannerUrl}" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="720" />
     <meta property="og:url" content="https://trustpay-bot.com/invite/${rawRef}" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="💎 Trust Pay — ইনস্ট্যান্ট ক্রিপ্টো বাই ও সেল (bKash & Nagad)" />
-    <meta name="twitter:description" content="🚀 TON, GRAM ও USDT মুহূর্তেই কেনা-বেচা করুন বিকাশ ও নগদে! এখনই জয়েন করুন 👇" />
+    <meta name="twitter:title" content="💎 Trust Pay — Instant Crypto Buy & Sell Bot (bKash & Nagad)" />
+    <meta name="twitter:description" content="🚀 ঘরে বসেই TON, USDT ও GRAM কেনা-বেচা করুন বিকাশ ও নগদে! এখনই জয়েন করুন 👇" />
     <meta name="twitter:image" content="${bannerUrl}" />
     <meta http-equiv="refresh" content="0;url=${botStartLink}" />
     <script>

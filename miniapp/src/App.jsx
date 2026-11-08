@@ -3041,13 +3041,10 @@ function UserRecipientCard({ u, index = 0, onSelect, darkMode = false, lang = 'b
           {/* Left: Name & TrustPay ID */}
           <div className="min-w-0 flex-1 leading-tight flex items-center">
             {isBoss ? (
-              <div className="flex items-center gap-2.5 flex-nowrap whitespace-nowrap min-w-0 pl-3.5">
-                <h4 className="font-black text-sm sm:text-base text-amber-950 dark:text-amber-200 shrink-0 whitespace-nowrap">
+              <div className="flex items-center min-w-0 pl-3.5">
+                <h4 className="font-black text-base sm:text-[17px] text-amber-950 dark:text-amber-200 shrink-0 whitespace-nowrap tracking-tight">
                   {u.name}
                 </h4>
-                <span className="text-[10px] sm:text-[10.5px] font-mono font-black px-2 py-0.5 rounded-md border shadow-2xs bg-gradient-to-r from-amber-400/30 to-yellow-400/20 text-amber-900 dark:text-amber-300 border-amber-400/60 shrink-0 mr-1.5">
-                  {u.mbsId}
-                </span>
               </div>
             ) : (
               <div>
@@ -6371,7 +6368,6 @@ export default function App() {
                     }
                   }}
                   onGoToAddMoney={() => setActiveTab('add-money')}
-                  onGoToSpin={() => setActiveTab('spin')}
                   onGoToHistory={() => setActiveTab('history')}
                   onGoToTransfer={() => setActiveTab('transfer')}
                   onDismissWithdrawNotice={() => handleDismissWithdrawNotice(fiatWithdrawPending)}
@@ -6422,7 +6418,6 @@ export default function App() {
                   onGoToWithdraw={() => setActiveTab('withdraw')} 
                   onGoToHistory={() => setActiveTab('history')} 
                   onGoToReferral={() => setActiveTab('referral')}
-                  onGoToSpin={() => setActiveTab('spin')}
                   setFiatWallet={setFiatWallet} 
                   setIsModalOpen={setIsModalOpen}
                   reloadData={() => loadData(user?.id || 123456789)} 
@@ -6487,16 +6482,6 @@ export default function App() {
                   lang={lang}
                   darkMode={darkMode}
                   onBack={() => setActiveTab('profile')}
-                  reloadData={() => loadData(user?.id || 123456789)}
-              />
-          )}
-          {activeTab === 'spin' && (
-              <SpinEventPage
-                  user={user}
-                  lang={lang}
-                  darkMode={darkMode}
-                  onBack={() => setActiveTab('home')}
-                  onGoToReferral={() => setActiveTab('referral')}
                   reloadData={() => loadData(user?.id || 123456789)}
               />
           )}
@@ -7205,7 +7190,6 @@ function HomePage({
   onOpenBuyCrypto, 
   onGoToSell, 
   onGoToAddMoney, 
-  onGoToSpin, 
   onGoToHistory,
   onGoToTransfer,
   onDismissWithdrawNotice,
@@ -10841,7 +10825,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
     );
 }
 
-function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToSupport, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
+function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToSupport, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const displayId = mbsId || user?.mbsId || (user?.id ? 'MBS' + String(user.id).slice(-5) : 'MBS00000');
@@ -11105,81 +11089,40 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
         </button>
       </div>
 
-      {/* 3. 30-DAY SPIN & STAR GIVEAWAY CARD */}
-      <div
-        onClick={onGoToSpin}
-        className={`p-3.5 rounded-3xl border transition-all cursor-pointer active:scale-[0.99] group shadow-xs hover:shadow-md ${
-          darkMode
-            ? 'bg-gradient-to-r from-amber-950/30 via-slate-900 to-slate-900 border-amber-500/30'
-            : 'bg-gradient-to-r from-amber-50/90 via-orange-50/30 to-white border-amber-200/80'
-        }`}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-2xl bg-amber-100/90 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800/60 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-              <TelegramAnimatedSticker src="tg-heart-gift-sticker.json" size={32} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-black text-slate-900 dark:text-white text-xs sm:text-[13px] leading-tight">
-                  {lang === 'bn' ? '৩০ দিনের মেগা স্পিন ও স্টার গিভওয়ে' : '30-Day Spin & Star Giveaway'}
-                </span>
-                <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white rounded-full text-[9px] font-black tracking-wide shadow-2xs">
-                  STAR GIFT & ৳500
-                </span>
-              </div>
-              <span className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold block mt-1 leading-snug">
-                {lang === 'bn' ? 'ডেইলি ফ্রি স্পিন, রেফার ও অ্যাড দেখে স্পিন করুন!' : 'Daily free spin, referral spin & watch 3 ads for spin!'}
-              </span>
-            </div>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-amber-100/90 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-all shadow-2xs">
-            <ChevronRight size={16} />
-          </div>
-        </div>
-      </div>
-
-      {/* 4. REFER & EARN CARD */}
-      <div
-        onClick={onGoToReferral}
-        className={`p-3.5 rounded-3xl border transition-all cursor-pointer active:scale-[0.99] group shadow-xs hover:shadow-md ${
-          darkMode
-            ? 'bg-gradient-to-r from-rose-950/30 via-slate-900 to-slate-900 border-rose-500/30'
-            : 'bg-gradient-to-r from-rose-50/90 via-pink-50/30 to-white border-rose-200/80'
-        }`}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-2xl bg-rose-100/90 dark:bg-rose-950/60 border border-rose-200/80 dark:border-rose-800/60 flex items-center justify-center shadow-xs shrink-0 group-hover:scale-105 transition-transform">
-              <TelegramAnimatedSticker src="tg-rose-sticker.json" size={32} />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-black text-slate-900 dark:text-white text-xs sm:text-[13px] leading-tight">
-                  {lang === 'bn' ? 'রেফার করুন এবং আয় করুন' : 'Refer Friends & Earn'}
-                </span>
-                <span className="px-2 py-0.5 bg-gradient-to-r from-rose-600 to-pink-600 text-white rounded-full text-[9px] font-black tracking-wide shadow-2xs">
-                  +৳5 / REF
-                </span>
-              </div>
-              <span className={`text-[11px] ${darkMode ? 'text-rose-300' : 'text-rose-700/85'} font-semibold inline-flex items-center gap-1 mt-1 leading-snug`}>
-                <span>{lang === 'bn' ? 'প্রতি সক্রিয় রেফারে ইনস্ট্যান্ট ৳৫ বোনাস পান' : 'Get instant ৳5 BDT per active referral'}</span>
-                <CustomRoseIcon size={13} />
-              </span>
-            </div>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-rose-100/90 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 group-hover:bg-rose-600 group-hover:text-white transition-all shadow-2xs">
-            <ChevronRight size={16} />
-          </div>
-        </div>
-      </div>
-
-      {/* 5. SERVICES & NAVIGATION MENU CARD */}
+      {/* 3. SERVICES & NAVIGATION MENU CARD (Includes Refer & Earn + Security + History + Support + Guide) */}
       <div className={`p-2.5 rounded-3xl border transition-all shadow-sm space-y-1 ${
         darkMode 
           ? 'bg-slate-900/95 border-slate-800 text-white' 
           : 'bg-white border-slate-200/90 text-slate-900'
       }`}>
+        {/* Refer & Earn Row */}
+        <div 
+          onClick={onGoToReferral} 
+          className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-fuchsia-50 dark:bg-fuchsia-950/50 flex items-center justify-center text-fuchsia-600 dark:text-fuchsia-400 group-hover:scale-105 transition-transform shrink-0 border border-fuchsia-100 dark:border-fuchsia-800/60 shadow-2xs">
+              <Gift size={17} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight">
+                  {lang === 'bn' ? 'রেফার করুন এবং আয় করুন' : 'Refer Friends & Earn'}
+                </span>
+                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black border bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/30">
+                  +৳5 / REF
+                </span>
+              </div>
+              <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium block truncate">
+                {lang === 'bn' ? 'প্রতি সক্রিয় রেফারে ইনস্ট্যান্ট ৳৫ বোনাস পান' : 'Get instant ৳5 BDT per active referral'}
+              </span>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-fuchsia-600 dark:group-hover:text-fuchsia-400 transition-colors shrink-0" />
+        </div>
+
+        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+
         {/* 2-Step Security Verification Row */}
         <div 
           onClick={onGoToTwoStep} 
@@ -11402,7 +11345,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
     referralLink: defaultBotLink,
     miniAppReferralLink: `https://t.me/bd_trust_pay_bot/app?startapp=ref_${userId}`,
     sharePreviewUrl: `${window.location.origin}/invite/${userId}`,
-    bannerUrl: `${window.location.origin}/app/referral-banner.jpg`,
+    bannerUrl: `${window.location.origin}/app/referral-banner.jpg?v=20261108`,
     rewardPerReferral: 5,
     minVolumeBdt: 20,
     totalReferrals: 0,
@@ -11479,10 +11422,11 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
         });
       } else {
         const fallbackShareText =
-          `✨ Trust Pay — Instant Crypto Buy & Sell BD ✨\n\n` +
-          `💎 TON, GRAM ও USDT খুব সহজে কিনুন এবং বিক্রি করুন!\n` +
-          `⚡ bKash ও Nagad-এ মাত্র ২ মিনিটে অটোমেটিক পেমেন্ট!\n` +
-          `🎁 নিচের লিংকে ক্লিক করে জয়েন করুন 👇\n` +
+          `💎 Trust Pay — বাংলাদেশের সেরা Instant Crypto Buy & Sell Bot! 🇧🇩✨\n\n` +
+          `🔥 ঘরে বসেই খুব সহজে TON, USDT ও GRAM কেনা-বেচা (Buy & Sell) করুন সবচেয়ে সেরা রেটে!\n` +
+          `⚡ bKash ও Nagad-এ মাত্র ২ মিনিটে ১০০% অটোমেটিক পেমেন্ট!\n` +
+          `🛡️ শতভাগ নিরাপদ লেনদেন ও ২৪/৭ লাইভ সাপোর্ট।\n\n` +
+          `🎁 নিচের লিংকে ক্লিক করে এখনই বটে জয়েন করুন 👇\n` +
           `${activeReferralLink}`;
         const shareUrl =
           res?.telegramShareUrl ||
@@ -11496,7 +11440,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
       }
     } catch (err) {
       console.error('Share error:', err);
-      const fallbackUrl = `https://t.me/share/url?url=${encodeURIComponent(activeReferralLink)}&text=${encodeURIComponent('✨ Trust Pay — Instant Crypto Buy & Sell (bKash & Nagad)! নিচের লিংকে ক্লিক করে জয়েন করুন 👇')}`;
+      const fallbackUrl = `https://t.me/share/url?url=${encodeURIComponent(activeReferralLink)}&text=${encodeURIComponent('💎 Trust Pay — বাংলাদেশের সেরা Instant Crypto Buy & Sell Bot! ঘরে বসেই TON, USDT ও GRAM কেনা-বেচা করুন বিকাশ ও নগদে। নিচের লিংকে ক্লিক করে জয়েন করুন 👇')}`;
       if (window.Telegram?.WebApp?.openTelegramLink) {
         window.Telegram.WebApp.openTelegramLink(fallbackUrl);
       } else {
@@ -11509,135 +11453,163 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-16 relative">
-      {/* Top Navigation & Telegram Animated Rose Header Bar */}
+      {/* Top Navigation & Executive Badge Bar */}
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/95 border border-rose-200 text-rose-700 font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+          className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl border font-bold text-xs shadow-2xs active:scale-95 transition-all cursor-pointer ${
+            darkMode
+              ? 'bg-slate-900 border-slate-800 text-slate-200 hover:bg-slate-800'
+              : 'bg-white border-slate-200/90 text-slate-700 hover:bg-slate-50'
+          }`}
         >
           <ArrowLeft size={15} />
           <span>{lang === 'bn' ? 'প্রোফাইলে ফিরুন' : 'Back to Profile'}</span>
         </button>
 
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-100/95 border border-rose-200 text-rose-700 text-[11px] font-black shadow-xs">
-          <TelegramAnimatedSticker src="tg-rose-sticker.json" size={18} />
+        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-black shadow-2xs ${
+          darkMode
+            ? 'bg-purple-950/60 border-purple-500/30 text-purple-300'
+            : 'bg-purple-50 border-purple-200/80 text-purple-700'
+        }`}>
+          <Gift size={13} className="text-purple-600 dark:text-purple-400" />
           <span>{lang === 'bn' ? 'রেফারেল প্রোগ্রাম' : 'Referral Program'}</span>
         </div>
       </div>
 
-      {/* 1. HERO ROSE GARDEN BANNER CARD */}
-      <CutCornerCard
-        className="p-0 overflow-hidden bg-gradient-to-br from-rose-600 via-rose-500 to-pink-600 text-white border border-rose-300/60 shadow-[0_14px_34px_rgba(225,29,72,0.22)]"
-        flower={null}
-      >
-        {/* Promotional Referral Banner Image Preview */}
-        <div className="relative w-full h-44 overflow-hidden border-b border-white/15 bg-indigo-950">
+      {/* 1. CLEAN EXECUTIVE HERO BANNER & STATS CARD */}
+      <div className={`rounded-3xl border overflow-hidden transition-all shadow-sm ${
+        darkMode
+          ? 'bg-slate-900/95 border-slate-800 text-white'
+          : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        {/* Clean Full-Bleed Crypto Buy & Sell Promo Banner (No Messy Overlapping Text) */}
+        <div className="relative w-full aspect-[16/9] overflow-hidden bg-slate-950 border-b border-slate-100 dark:border-slate-800">
           <img
             src={referralBannerImg}
             onError={(e) => {
               e.currentTarget.onerror = null;
-              e.currentTarget.src = `${import.meta.env.BASE_URL || '/app/'}referral-banner.jpg`;
+              e.currentTarget.src = `${import.meta.env.BASE_URL || '/app/'}referral-banner.jpg?v=20261108`;
             }}
-            alt="Trust Pay Referral Banner"
+            alt="Trust Pay Instant Crypto Buy & Sell Banner"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-rose-950/90 via-rose-950/25 to-transparent flex items-end justify-between p-3.5 gap-2">
-            <div className="min-w-0">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-600/95 backdrop-blur-xs text-white text-[10px] font-black w-fit mb-1 border border-rose-300/50 shadow-xs">
-                <CustomRoseIcon size={13} />
-                <span>{lang === 'bn' ? 'অ্যাক্টিভ রেফার বোনাস' : 'Active Refer Bonus'}</span>
-                <span className="bg-white text-rose-600 px-1.5 py-0.2 rounded-full font-black">+৳৫ টাকা</span>
-              </div>
-              <h2 className="text-[15px] font-black text-white leading-snug drop-shadow-xs">
-                {lang === 'bn'
-                  ? 'বন্ধুদের ইনভাইট করুন এবং প্রতি রেফারে ৫ টাকা পান!'
-                  : 'Invite Friends & Earn ৳5 Per Active Referral!'}
-              </h2>
-            </div>
-
-            {/* Official Telegram Animated Gift Sticker */}
-            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center shrink-0 shadow-md">
-              <TelegramAnimatedSticker src="tg-gift-sticker.json" size={38} />
-            </div>
+          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-slate-950/75 backdrop-blur-md border border-purple-400/30 text-white text-[10px] font-black flex items-center gap-1 shadow-md">
+            <Sparkles size={11} className="text-amber-400" />
+            <span>+৳৫ / Active Ref</span>
           </div>
         </div>
 
-        {/* 3-Column Stats Row */}
-        <div className="p-3.5 bg-white/95 text-slate-900">
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="p-2.5 rounded-xl bg-rose-50/80 border border-rose-100">
-              <span className="text-[10px] font-bold text-rose-500 block">
+        {/* Clean Headline & 3-Column Stats */}
+        <div className="p-4 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 text-[10px] font-black mb-1.5">
+                <span>{lang === 'bn' ? 'ইনস্ট্যান্ট রেফার বোনাস +৳৫ টাকা' : 'Instant Referral Bonus +৳5 BDT'}</span>
+              </div>
+              <h2 className="text-sm sm:text-[15px] font-black text-slate-900 dark:text-white leading-snug">
+                {lang === 'bn'
+                  ? 'বন্ধুদের ইনভাইট করুন এবং প্রতি রেফারে ৫ টাকা বোনাস পান!'
+                  : 'Invite Friends & Earn ৳5 BDT Per Active Referral!'}
+              </h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 leading-relaxed">
+                {lang === 'bn'
+                  ? 'আপনার বন্ধু বটে জয়েন করে প্রথম ক্রিপ্টো বাই/সেল বা অ্যাড মানি করলেই বোনাস অটোমেটিক আপনার ব্যালেন্সে যোগ হবে।'
+                  : 'Get instant cash rewards directly in your main balance when your friend completes their first transaction.'}
+              </p>
+            </div>
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-purple-500/20">
+              <Gift size={20} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2.5 text-center">
+            <div className={`p-3 rounded-2xl border ${
+              darkMode
+                ? 'bg-slate-800/70 border-slate-700/80'
+                : 'bg-slate-50/90 border-slate-200/70'
+            }`}>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
                 {lang === 'bn' ? 'মোট রেফার' : 'Total Joined'}
               </span>
-              <span className="text-lg font-black text-slate-900 mt-0.5 block">
+              <span className="text-lg font-black text-slate-900 dark:text-white mt-0.5 block">
                 {loading ? '...' : refData.totalReferrals}
               </span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-100">
-              <span className="text-[10px] font-bold text-emerald-600 block">
+            <div className={`p-3 rounded-2xl border ${
+              darkMode
+                ? 'bg-emerald-950/30 border-emerald-500/25'
+                : 'bg-emerald-50/80 border-emerald-200/70'
+            }`}>
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block">
                 {lang === 'bn' ? 'অ্যাক্টিভ রেফার' : 'Active Refs'}
               </span>
-              <span className="text-lg font-black text-emerald-700 mt-0.5 block">
+              <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
                 {loading ? '...' : refData.activeReferrals}
               </span>
             </div>
 
-            <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/70">
-              <span className="text-[10px] font-bold text-amber-700 block">
+            <div className={`p-3 rounded-2xl border ${
+              darkMode
+                ? 'bg-purple-950/35 border-purple-500/30'
+                : 'bg-purple-50/80 border-purple-200/70'
+            }`}>
+              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 block">
                 {lang === 'bn' ? 'মোট বোনাস আয়' : 'Total Earned'}
               </span>
-              <span className="text-lg font-black text-amber-700 mt-0.5 block">
+              <span className="text-lg font-black text-purple-600 dark:text-purple-400 mt-0.5 block">
                 ৳{loading ? '...' : refData.referralEarnings}
               </span>
             </div>
           </div>
         </div>
-      </CutCornerCard>
+      </div>
 
-      {/* 2. REFERRAL LINK COPY & RICH SHARE CARD (WITH ANIMATED ROSE STICKER & SHORT BUTTON) */}
-      <CutCornerCard
-        className={`p-4 space-y-3 border ${
-          darkMode
-            ? 'bg-slate-900 border-rose-500/30'
-            : 'bg-gradient-to-br from-white via-rose-50/40 to-pink-50/50 border-rose-200/80'
-        }`}
-        flower={null}
-      >
+      {/* 2. PERSONAL REFERRAL LINK & TACTILE 3D SHARE CARD */}
+      <div className={`p-4 rounded-3xl border space-y-3.5 transition-all shadow-sm ${
+        darkMode
+          ? 'bg-slate-900/95 border-slate-800 text-white'
+          : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-rose-100/90 border border-rose-200/80 flex items-center justify-center shrink-0">
-              <TelegramAnimatedSticker src="tg-rose-sticker.json" size={28} />
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-800/60 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0 shadow-2xs">
+              <Share2 size={17} />
             </div>
             <div className="min-w-0">
-              <h3 className="text-[13px] font-black text-slate-900 leading-tight">
+              <h3 className="text-xs sm:text-[13px] font-black text-slate-900 dark:text-white leading-tight">
                 {lang === 'bn' ? 'আপনার পার্সোনাল রেফারেল লিংক' : 'Your Personal Referral Link'}
               </h3>
-              <p className={`text-[10px] ${darkMode ? 'text-rose-300' : 'text-rose-600/85'} font-semibold truncate mt-0.5`}>
-                {lang === 'bn' ? 'লিংক কপি বা শেয়ার করে বন্ধুদের আমন্ত্রণ জানান' : 'Copy or share your link to invite friends'}
+              <p className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium truncate mt-0.5">
+                {lang === 'bn' ? 'লিংক কপি বা সরাসরি টেলিগ্রামে শেয়ার করুন' : 'Copy link or share directly on Telegram'}
               </p>
             </div>
           </div>
-          <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-[10px] font-black shrink-0 border border-rose-200/60">
+          <span className="px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-black shrink-0 border border-purple-500/20">
             +৳5 / Ref
           </span>
         </div>
 
         {/* Link Box + Copy Button */}
-        <div className="flex items-center gap-2 bg-white border-2 border-rose-200/90 rounded-xl p-1.5 shadow-2xs">
-          <div className="flex-1 min-w-0 px-2">
-            <span className="text-[11px] font-mono font-bold text-slate-700 block truncate select-all">
+        <div className={`flex items-center gap-2 rounded-2xl p-1.5 border ${
+          darkMode
+            ? 'bg-slate-950/80 border-slate-800'
+            : 'bg-slate-50 border-slate-200/90'
+        }`}>
+          <div className="flex-1 min-w-0 px-2.5">
+            <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300 block truncate select-all">
               {activeReferralLink}
             </span>
           </div>
           <button
             type="button"
             onClick={handleCopyLink}
-            className={`px-3 py-2 rounded-lg text-[11px] font-black flex items-center gap-1.5 shrink-0 transition-all active:scale-95 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-[11px] font-black flex items-center gap-1.5 shrink-0 transition-all active:scale-95 cursor-pointer ${
               copied
                 ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/30'
-                : 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+                : 'bg-purple-600/10 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 hover:bg-purple-600/20 border border-purple-500/20'
             }`}
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
@@ -11645,60 +11617,63 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
           </button>
         </div>
 
-        {/* Clean, Short Single-Line Share Button */}
+        {/* Tactile 3D Purple Share Button */}
         <button
           type="button"
           onClick={handleShareRichMessage}
           disabled={sharing}
-          className="w-full h-[46px] px-4 rounded-xl bg-gradient-to-r from-rose-600 via-pink-600 to-rose-600 hover:from-rose-700 hover:to-pink-700 text-white font-black text-[13.5px] shadow-md shadow-rose-500/25 flex items-center justify-center gap-2 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-60"
+          className="w-full h-[50px] px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs sm:text-[13.5px] border-t border-purple-300/40 shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3,0_6px_12px_rgba(79,70,229,0.25)] flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer disabled:opacity-60"
         >
           {sharing ? (
             <Loader2 size={17} className="animate-spin" />
           ) : (
             <>
-              <CustomRoseIcon size={17} />
-              <span>{lang === 'bn' ? 'শেয়ার করুন' : 'Share Link'}</span>
-              <Send size={14} className="ml-0.5" />
+              <Send size={15} />
+              <span>{lang === 'bn' ? 'বন্ধুদের শেয়ার করুন (SHARE NOW)' : 'SHARE REFERRAL LINK'}</span>
             </>
           )}
         </button>
 
         {shareToast && (
-          <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-[11px] font-bold flex items-center justify-center gap-1.5 text-center leading-snug animate-in fade-in">
-            <CustomRoseIcon size={14} />
+          <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold flex items-center justify-center gap-1.5 text-center leading-snug animate-in fade-in">
+            <CheckCircle2 size={14} />
             <span>{shareToast}</span>
           </div>
         )}
-      </CutCornerCard>
+      </div>
 
-      {/* 3. HOW ACTIVE REFERRAL WORKS (3 CONDITIONS) */}
-      <CutCornerCard
-        className={`p-4 space-y-3 border ${
-          darkMode
-            ? 'bg-slate-900 border-rose-500/30'
-            : 'bg-gradient-to-br from-white via-rose-50/25 to-white border-rose-200/70'
-        }`}
-        flower={null}
-      >
+      {/* 3. HOW ACTIVE REFERRAL WORKS (3 CLEAN STEPS) */}
+      <div className={`p-4 rounded-3xl border space-y-3.5 transition-all shadow-sm ${
+        darkMode
+          ? 'bg-slate-900/95 border-slate-800 text-white'
+          : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-rose-100/90 border border-rose-200/80 flex items-center justify-center shrink-0 shadow-2xs">
-            <TelegramAnimatedSticker src="tg-gift-sticker.json" size={24} />
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-2xs">
+            <Sparkles size={17} />
           </div>
-          <h3 className="text-[13px] font-black text-slate-900 leading-snug">
-            {lang === 'bn' ? 'কীভাবে রেফার Active হবে এবং ৫ টাকা পাবেন?' : 'How Referral Becomes Active (+৳5 Bonus)'}
-          </h3>
+          <div>
+            <h3 className="text-xs sm:text-[13px] font-black text-slate-900 dark:text-white leading-snug">
+              {lang === 'bn' ? 'কীভাবে রেফার Active হবে এবং ৫ টাকা পাবেন?' : 'How Referral Becomes Active (+৳5 Bonus)'}
+            </h3>
+            <p className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+              {lang === 'bn' ? 'নিচের ৩টি সহজ ধাপ সম্পন্ন হলেই বোনাস অটোমেটিক যুক্ত হবে' : 'Complete these 3 simple steps to unlock instant bonus'}
+            </p>
+          </div>
         </div>
 
         <div className="space-y-2.5">
-          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-rose-50/60 border border-rose-100">
-            <div className="w-6 h-6 rounded-full bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+          <div className={`flex items-start gap-3 p-3 rounded-2xl border ${
+            darkMode ? 'bg-slate-800/50 border-slate-800' : 'bg-slate-50/80 border-slate-200/60'
+          }`}>
+            <div className="w-6 h-6 rounded-full bg-purple-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
               1
             </div>
             <div>
-              <span className="text-[12px] font-extrabold text-slate-900 block">
-                {lang === 'bn' ? 'রেফারেল লিংক বা বাটনে ক্লিক করে আইডি তৈরি' : 'Join via Referral Link or Button'}
+              <span className="text-xs font-black text-slate-900 dark:text-white block">
+                {lang === 'bn' ? 'রেফারেল লিংকে ক্লিক করে বটে জয়েন' : 'Join via Referral Link or Share Button'}
               </span>
-              <span className="text-[10.5px] text-slate-600 font-medium leading-snug block mt-0.5">
+              <span className="text-[10.5px] text-slate-500 dark:text-slate-400 font-medium leading-snug block mt-0.5">
                 {lang === 'bn'
                   ? 'আপনার শেয়ার করা মেসেজের বাটনে বা লিংকে ক্লিক করে নতুন ইউজারকে বটে স্টার্ট করতে হবে।'
                   : 'Your friend must start the bot using your referral link or join button.'}
@@ -11706,31 +11681,35 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-rose-50/60 border border-rose-100">
-            <div className="w-6 h-6 rounded-full bg-rose-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+          <div className={`flex items-start gap-3 p-3 rounded-2xl border ${
+            darkMode ? 'bg-slate-800/50 border-slate-800' : 'bg-slate-50/80 border-slate-200/60'
+          }`}>
+            <div className="w-6 h-6 rounded-full bg-indigo-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
               2
             </div>
             <div>
-              <span className="text-[12px] font-extrabold text-slate-900 block">
-                {lang === 'bn' ? 'ওয়ালেট কানেক্ট করা (Wallet Connect)' : 'Connect a Wallet'}
+              <span className="text-xs font-black text-slate-900 dark:text-white block">
+                {lang === 'bn' ? 'ওয়ালেট কানেক্ট বা পেমেন্ট নম্বর সেটআপ' : 'Connect Wallet or Save bKash/Nagad'}
               </span>
-              <span className="text-[10.5px] text-slate-600 font-medium leading-snug block mt-0.5">
+              <span className="text-[10.5px] text-slate-500 dark:text-slate-400 font-medium leading-snug block mt-0.5">
                 {lang === 'bn'
-                  ? 'ইউজারকে বটে TON Wallet কানেক্ট করতে হবে অথবা bKash/Nagad পেআউট ওয়ালেট যুক্ত করতে হবে।'
+                  ? 'ইউজারকে বটে TON Wallet কানেক্ট করতে হবে অথবা bKash/Nagad ওয়ালেট নম্বর যুক্ত করতে হবে।'
                   : 'Your friend must connect a TON wallet or save a bKash/Nagad wallet.'}
               </span>
             </div>
           </div>
 
-          <div className="flex items-start gap-2.5 p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/70">
-            <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5">
+          <div className={`flex items-start gap-3 p-3 rounded-2xl border ${
+            darkMode ? 'bg-emerald-950/25 border-emerald-500/25' : 'bg-emerald-50/70 border-emerald-200/70'
+          }`}>
+            <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-black text-[11px] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
               3
             </div>
             <div>
-              <span className="text-[12px] font-extrabold text-emerald-950 block">
-                {lang === 'bn' ? '২০ টাকা Add Money অথবা ২০ টাকা Crypto Sell' : 'Complete ৳20 Add Money or ৳20 Crypto Sell'}
+              <span className="text-xs font-black text-emerald-950 dark:text-emerald-300 block">
+                {lang === 'bn' ? 'কমপক্ষে ২০ টাকা Add Money বা Crypto Sell' : 'Complete ৳20 Add Money or ৳20 Crypto Sell'}
               </span>
-              <span className="text-[10.5px] text-emerald-800 font-medium leading-snug block mt-0.5">
+              <span className="text-[10.5px] text-emerald-800 dark:text-emerald-400/90 font-medium leading-snug block mt-0.5">
                 {lang === 'bn'
                   ? 'কমপক্ষে ২০ টাকা অ্যাড মানি অথবা ২০ টাকার ক্রিপ্টো সেল সম্পন্ন করলেই রেফারটি সাথে সাথে Active হবে এবং আপনার মেইন ব্যালেন্সে +৳৫ টাকা যোগ হয়ে যাবে!'
                   : 'Once they complete at least ৳20 Add Money or ৳20 Crypto Sell, the referral becomes Active and +৳5 BDT is credited instantly!'}
@@ -11740,48 +11719,61 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
         </div>
 
         {/* Anti-Clone Security Warning */}
-        <div className="p-3 rounded-xl bg-amber-50/90 border border-amber-200/80 flex items-start gap-2.5">
-          <ShieldCheck size={17} className="text-amber-700 shrink-0 mt-0.5" />
-          <div className="text-[10.5px] text-amber-900 font-semibold leading-relaxed">
-            <span className="font-black block text-amber-950 mb-0.5">
+        <div className={`p-3 rounded-2xl border flex items-start gap-2.5 ${
+          darkMode
+            ? 'bg-amber-950/25 border-amber-500/25 text-amber-300'
+            : 'bg-amber-50/80 border-amber-200/80 text-amber-900'
+        }`}>
+          <ShieldCheck size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-[10.5px] font-medium leading-relaxed">
+            <span className="font-black block mb-0.5">
               {lang === 'bn' ? 'অ্যান্টি-ক্লোন ও ডিভাইস সিকিউরিটি সতর্কবার্তা:' : 'Anti-Clone & Device Security Notice:'}
             </span>
             {lang === 'bn'
-              ? 'একই মোবাইলে Clone App, Parallel Space, Dual App বা একাধিক টেলিগ্রাম আইডি খুলে নিজে নিজেকে রেফার করলে আমাদের হার্ডওয়্যার সিকিউরিটি সিস্টেম তা সাথে সাথে ব্লক করে দিবে এবং কোনো বোনাস যুক্ত হবে না।'
-              : 'Using Clone Apps, Parallel Space, or multiple accounts on the same phone is strictly blocked by our hardware device fingerprint security.'}
+              ? 'একই মোবাইলে Clone App বা একাধিক টেলিগ্রাম আইডি খুলে নিজে নিজেকে রেফার করলে সিকিউরিটি সিস্টেম তা অটোমেটিক ব্লক করে দিবে।'
+              : 'Using Clone Apps or multiple accounts on the same phone is strictly blocked by device fingerprint security.'}
           </div>
         </div>
-      </CutCornerCard>
+      </div>
 
       {/* 4. REFERRED USERS LIST CARD */}
-      <CutCornerCard
-        className="p-4 space-y-3 bg-white border border-rose-200/70"
-        flower={null}
-      >
+      <div className={`p-4 rounded-3xl border space-y-3 transition-all shadow-sm ${
+        darkMode
+          ? 'bg-slate-900/95 border-slate-800 text-white'
+          : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users size={16} className="text-rose-600" />
-            <h3 className="text-[13px] font-black text-slate-900">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-100 dark:border-purple-800/60 flex items-center justify-center text-purple-600 dark:text-purple-400">
+              <Users size={15} />
+            </div>
+            <h3 className="text-xs sm:text-[13px] font-black text-slate-900 dark:text-white">
               {lang === 'bn' ? 'আপনার রেফার তালিকা' : 'Your Referred Users'}
             </h3>
           </div>
-          <span className="text-[10px] font-bold text-slate-400">
+          <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400">
             {refData.referrals?.length || 0} {lang === 'bn' ? 'জন' : 'Users'}
           </span>
         </div>
 
         {loading ? (
-          <div className="py-8 flex flex-col items-center justify-center text-rose-500 gap-2">
+          <div className="py-8 flex flex-col items-center justify-center text-purple-600 dark:text-purple-400 gap-2">
             <Loader2 size={22} className="animate-spin" />
             <span className="text-xs font-bold">{lang === 'bn' ? 'লোড হচ্ছে...' : 'Loading...'}</span>
           </div>
         ) : !refData.referrals || refData.referrals.length === 0 ? (
-          <div className="py-6 text-center space-y-1.5 bg-rose-50/40 rounded-xl border border-dashed border-rose-200 p-4 flex flex-col items-center">
-            <TelegramAnimatedSticker src="tg-rose-sticker.json" size={52} />
-            <p className="text-[12px] font-bold text-slate-700 mt-1">
+          <div className={`py-7 px-4 text-center space-y-2 rounded-2xl border border-dashed flex flex-col items-center ${
+            darkMode
+              ? 'bg-slate-800/40 border-slate-700/80'
+              : 'bg-slate-50/70 border-slate-200'
+          }`}>
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <Users size={22} />
+            </div>
+            <p className="text-xs font-black text-slate-800 dark:text-slate-200 mt-1">
               {lang === 'bn' ? 'এখনো কোনো রেফার নেই' : 'No referrals yet'}
             </p>
-            <p className="text-[10.5px] text-slate-500">
+            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
               {lang === 'bn'
                 ? 'উপরের শেয়ার বাটনে ক্লিক করে বন্ধুদের ইনভাইট করুন এবং প্রতি অ্যাক্টিভ রেফারে ৫ টাকা বোনাস নিন!'
                 : 'Tap the Share button above to invite friends and earn ৳5 per active referral!'}
@@ -11795,11 +11787,15 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
               return (
                 <div
                   key={item.userId || item.id || idx}
-                  className="p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/80 flex items-center justify-between gap-2"
+                  className={`p-3 rounded-2xl border flex items-center justify-between gap-2 ${
+                    darkMode
+                      ? 'bg-slate-800/60 border-slate-700/80'
+                      : 'bg-slate-50/90 border-slate-200/80'
+                  }`}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[12px] font-black text-slate-900 truncate">
+                      <span className="text-[12px] font-black text-slate-900 dark:text-white truncate">
                         {item.name || 'Telegram User'}
                       </span>
                       {item.username && (
@@ -11808,15 +11804,15 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                         ✓ ID Joined
                       </span>
                       <span
                         className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
                           item.walletConnected
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
-                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                            : 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20'
                         }`}
                       >
                         {item.walletConnected ? '✓ Wallet' : '⏳ Wallet'}
@@ -11824,8 +11820,8 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
                       <span
                         className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
                           item.qualifyingTxDone
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
-                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                            : 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20'
                         }`}
                       >
                         {item.qualifyingTxDone ? '✓ ৳20+ Tx' : '⏳ ৳20+ Tx'}
@@ -11835,15 +11831,15 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
 
                   <div className="shrink-0 text-right">
                     {isAct ? (
-                      <span className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-[10px] font-black block">
+                      <span className="px-2.5 py-1 rounded-xl bg-emerald-600 text-white text-[10px] font-black block">
                         +৳{item.rewardAmount || item.bonusAmount || 5} Active
                       </span>
                     ) : isBlocked ? (
-                      <span className="px-2 py-1 rounded-lg bg-rose-100 text-rose-700 text-[10px] font-black block">
+                      <span className="px-2.5 py-1 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 text-[10px] font-black block">
                         Clone Blocked
                       </span>
                     ) : (
-                      <span className="px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-black block">
+                      <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-black block">
                         Pending
                       </span>
                     )}
@@ -11853,7 +11849,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
             })}
           </div>
         )}
-      </CutCornerCard>
+      </div>
     </div>
   );
 }
