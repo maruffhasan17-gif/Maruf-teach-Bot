@@ -389,21 +389,21 @@ const notifyPayoutGroup = async (payoutData) => {
         let previewUrl = '';
 
         if (payoutData.type === 'fiat') {
-            const amt = parseFloat(payoutData.amount || 0).toFixed(2);
-            const rec = parseFloat(payoutData.receiveAmount || payoutData.amount || 0).toFixed(2);
+            const amtNum = parseFloat(payoutData.amount || 0);
+            const recNum = parseFloat(payoutData.receiveAmount || payoutData.amount || 0);
+            const amt = amtNum % 1 === 0 ? amtNum.toFixed(0) : amtNum.toFixed(2);
+            const rec = recNum % 1 === 0 ? recNum.toFixed(0) : recNum.toFixed(2);
             const method = (payoutData.method || 'bKash').toUpperCase();
+            const methodTitle = method === 'NAGAD' ? 'Nagad' : 'bKash';
             const maskedAcc = maskNumber(payoutData.number);
 
             previewUrl = `${publicOrigin}/payout-proof?method=${encodeURIComponent(method)}&amount=${encodeURIComponent(rec)}&reqAmount=${encodeURIComponent(amt)}&account=${encodeURIComponent(maskedAcc)}&name=${encodeURIComponent(payoutData.name || 'Verified User')}&uid=${encodeURIComponent(maskedUid)}&time=${encodeURIComponent(fullTimestampStr)}&v=${Date.now()}`;
             
-            msg = `${PE.approvedBag} <b>Withdrawal Approved! (ক্যাশআউট সফল!)</b>\n\n` +
-                  `${PE.user} <b>Customer:</b> ${safeCustomerName} (<code>${maskedUid}</code>)\n` +
-                  `${PE.dollar} <b>Amount:</b> ৳${amt} BDT\n` +
-                  `${PE.flyingCash} <b>Net Sent:</b> <b>৳${rec} BDT</b>\n` +
-                  `${PE.bank} <b>Gateway:</b> ${method}\n` +
-                  `${PE.wallet} <b>Account:</b> <code>${maskedAcc}</code>\n` +
-                  `${PE.globe} <b>Time:</b> <code>${nowStr} (BST)</code>\n\n` +
-                  `✅ <b>Paid via ${method}</b> · <a href="${previewUrl}">view transaction</a>`;
+            msg = `${PE.approvedBag} <b>New\u00A0${methodTitle}\u00A0Withdrawal\u00A0Processed!</b>\n\n` +
+                  `${PE.user} <b>${safeCustomerName}</b>\u00A0(<code>${maskedUid}</code>)\u00A0·\u00A0<code>${nowStr}</code>\n` +
+                  `${PE.dollar} <b>Amount:</b>\u00A0৳${amt}\u00A0BDT\u00A0·\u00A0<b>Sent:</b>\u00A0<b>৳${rec}\u00A0BDT</b>\n` +
+                  `${PE.bank} <b>To\u00A0(${methodTitle}):</b>\u00A0<code>${maskedAcc}\u00A0·\u00A0Instant\u00A0Paid</code>\n\n` +
+                  `✅ <b>Paid\u00A0via\u00A0${methodTitle}</b>\u00A0·\u00A0<a href="${previewUrl}">view\u00A0transaction</a>`;
         } else {
             const asset = (payoutData.asset || 'TON').toUpperCase();
             const fullAddr = String(payoutData.destination || payoutData.wallet || '').trim();
@@ -434,15 +434,13 @@ const notifyPayoutGroup = async (payoutData) => {
             }
 
             const sentAmt = payoutData.receiveAmount || payoutData.amount;
-            const bdtLabel = payoutData.totalBdt ? ` (৳${payoutData.totalBdt} BDT)` : '';
+            const bdtLabel = payoutData.totalBdt ? `\u00A0(৳${payoutData.totalBdt}\u00A0BDT)` : '';
 
-            msg = `${PE.party} <b>New $${asset} Payout Processed! (ক্রিপ্টো পে-আউট সফল!)</b>\n\n` +
-                  `${PE.user} <b>Customer:</b> ${safeCustomerName} (<code>${maskedUid}</code>)\n` +
-                  `${PE.dollar} <b>Amount:</b> <b>${payoutData.amount} ${asset}</b>${bdtLabel}\n` +
-                  `${PE.gem} <b>Send:</b> <b>${sentAmt} ${asset}</b>\n` +
-                  `${PE.bank} <b>To:</b> <code>${fullAddr || maskWallet(fullAddr)}</code>\n` +
-                  `${PE.clock} <b>Time:</b> <code>${nowStr} (BST)</code>\n\n` +
-                  `✅ <b>Paid on-chain</b> · <a href="${previewUrl}">view transaction</a>`;
+            msg = `${PE.party} <b>New\u00A0$${asset}\u00A0Payout\u00A0Processed!</b>\n\n` +
+                  `${PE.user} <b>${safeCustomerName}</b>\u00A0(<code>${maskedUid}</code>)\u00A0·\u00A0<code>${nowStr}</code>\n` +
+                  `${PE.dollar} <b>Amount:</b>\u00A0<b>${sentAmt}\u00A0${asset}</b>${bdtLabel}\n` +
+                  `${PE.bank} <b>To:</b>\u00A0<code>${fullAddr || maskWallet(fullAddr)}</code>\n\n` +
+                  `✅ <b>Paid\u00A0on-chain</b>\u00A0·\u00A0<a href="${previewUrl}">view\u00A0transaction</a>`;
         }
 
         const payoutBtnMarkup = {
@@ -10426,107 +10424,104 @@ async function generatePayoutCardPngBuffer(params = {}) {
         logoUri: logos.bkash
     };
 
-    const svg = `<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+    const svg = `<svg width="1440" height="624" viewBox="0 0 1440 624" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
-        <linearGradient id="bgGrad" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+        <linearGradient id="bgGrad" x1="0" y1="0" x2="1440" y2="624" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="${theme.bgStart}"/>
             <stop offset="55%" stop-color="${theme.bgMid}"/>
             <stop offset="100%" stop-color="${theme.bgEnd}"/>
         </linearGradient>
-        <linearGradient id="cardGrad" x1="40" y1="36" x2="1160" y2="594" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.97"/>
-            <stop offset="65%" stop-color="#FFFFFF" stop-opacity="0.93"/>
-            <stop offset="100%" stop-color="${theme.accentLight}" stop-opacity="0.92"/>
+        <linearGradient id="cardGrad" x1="28" y1="22" x2="1412" y2="602" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.98"/>
+            <stop offset="65%" stop-color="#FFFFFF" stop-opacity="0.94"/>
+            <stop offset="100%" stop-color="${theme.accentLight}" stop-opacity="0.93"/>
         </linearGradient>
-        <linearGradient id="topRightBadge" x1="760" y1="76" x2="1110" y2="210" gradientUnits="userSpaceOnUse">
+        <linearGradient id="topRightBadge" x1="920" y1="64" x2="1352" y2="204" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="${theme.badgeGradStart}"/>
             <stop offset="100%" stop-color="${theme.badgeGradEnd}"/>
         </linearGradient>
-        <linearGradient id="topBarGrad" x1="40" y1="36" x2="1160" y2="36" gradientUnits="userSpaceOnUse">
+        <linearGradient id="topBarGrad" x1="28" y1="22" x2="1412" y2="22" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stop-color="${theme.badgeGradStart}"/>
             <stop offset="50%" stop-color="${theme.glowPrimary}"/>
             <stop offset="100%" stop-color="${theme.badgeGradEnd}"/>
         </linearGradient>
-        <radialGradient id="cornerOrb" cx="0.85" cy="0.22" r="0.55">
+        <radialGradient id="cornerOrb" cx="0.86" cy="0.22" r="0.55">
             <stop offset="0%" stop-color="${theme.glowPrimary}" stop-opacity="0.22"/>
             <stop offset="60%" stop-color="${theme.glowSecondary}" stop-opacity="0.07"/>
             <stop offset="100%" stop-color="${theme.glowPrimary}" stop-opacity="0"/>
         </radialGradient>
-        <filter id="cardShadow" x="12" y="14" width="1176" height="604" filterUnits="userSpaceOnUse">
-            <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="${theme.accentDark}" flood-opacity="0.12"/>
+        <filter id="cardShadow" x="6" y="6" width="1428" height="612" filterUnits="userSpaceOnUse">
+            <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="${theme.accentDark}" flood-opacity="0.12"/>
         </filter>
-        <filter id="badgeShadow" x="720" y="60" width="420" height="180" filterUnits="userSpaceOnUse">
+        <filter id="badgeShadow" x="896" y="48" width="480" height="176" filterUnits="userSpaceOnUse">
             <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="${theme.badgeGradEnd}" flood-opacity="0.28"/>
         </filter>
-        <clipPath id="logoClip">
-            <rect x="92" y="84" width="84" height="84" rx="22"/>
-        </clipPath>
         <clipPath id="bigEmblemClip">
-            <circle cx="965" cy="346" r="74"/>
+            <circle cx="1180" cy="348" r="78"/>
         </clipPath>
         <clipPath id="tpClip">
-            <rect x="862" y="512" width="36" height="36" rx="10"/>
+            <rect x="1084" y="516" width="38" height="38" rx="10"/>
         </clipPath>
     </defs>
 
-    <!-- Full Canvas Background -->
-    <rect width="1200" height="630" fill="url(#bgGrad)"/>
-    <rect width="1200" height="630" fill="url(#cornerOrb)"/>
+    <!-- Full Panoramic Canvas Background (1440x624 like Tonviewer) -->
+    <rect width="1440" height="624" fill="url(#bgGrad)"/>
+    <rect width="1440" height="624" fill="url(#cornerOrb)"/>
 
-    <!-- Main Elevated Explorer Card -->
+    <!-- Main Wide Explorer Card -->
     <g filter="url(#cardShadow)">
-        <rect x="44" y="36" width="1112" height="558" rx="36" fill="url(#cardGrad)" stroke="${theme.pillBorder}" stroke-width="2.5"/>
+        <rect x="28" y="22" width="1384" height="580" rx="34" fill="url(#cardGrad)" stroke="${theme.pillBorder}" stroke-width="2.5"/>
     </g>
 
     <!-- Top Accent Ribbon inside Card -->
-    <path d="M80 37.5 H1120 A34 34 0 0 1 1154 71.5 V74 H46 V71.5 A34 34 0 0 1 80 37.5 Z" fill="url(#topBarGrad)" opacity="0.12"/>
+    <path d="M62 23.5 H1378 A32 32 0 0 1 1410 55.5 V60 H30 V55.5 A32 32 0 0 1 62 23.5 Z" fill="url(#topBarGrad)" opacity="0.13"/>
 
-    <!-- Decorative Right Mesh Circles (Like Tonviewer Explorer Card, safely above divider) -->
-    <circle cx="965" cy="346" r="114" fill="${theme.accentLight}" fill-opacity="0.65" stroke="${theme.pillBorder}" stroke-width="1.5" stroke-dasharray="6 6"/>
-    <circle cx="965" cy="346" r="94" fill="#FFFFFF" fill-opacity="0.9" stroke="${theme.ringStroke}" stroke-width="2" stroke-opacity="0.45"/>
-    <circle cx="965" cy="346" r="76" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="2"/>
-    ${theme.logoUri ? `<image href="${theme.logoUri}" x="901" y="282" width="128" height="128" preserveAspectRatio="xMidYMid contain" clip-path="url(#bigEmblemClip)"/>` : ''}
+    <!-- Decorative Right Mesh Circles -->
+    <circle cx="1180" cy="348" r="118" fill="${theme.accentLight}" fill-opacity="0.65" stroke="${theme.pillBorder}" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <circle cx="1180" cy="348" r="98" fill="#FFFFFF" fill-opacity="0.92" stroke="${theme.ringStroke}" stroke-width="2" stroke-opacity="0.45"/>
+    <circle cx="1180" cy="348" r="80" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="2"/>
+    ${theme.logoUri ? `<image href="${theme.logoUri}" x="1112" y="280" width="136" height="136" preserveAspectRatio="xMidYMid contain" clip-path="url(#bigEmblemClip)"/>` : ''}
 
     <!-- TOP-LEFT: Gateway Brand Header -->
-    <rect x="90" y="82" width="88" height="88" rx="24" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="2.5"/>
-    ${theme.logoUri ? `<image href="${theme.logoUri}" x="98" y="90" width="72" height="72" preserveAspectRatio="xMidYMid contain"/>` : ''}
+    <rect x="78" y="66" width="92" height="92" rx="24" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="2.5"/>
+    ${theme.logoUri ? `<image href="${theme.logoUri}" x="86" y="74" width="76" height="76" preserveAspectRatio="xMidYMid contain"/>` : ''}
 
-    <text x="198" y="120" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="30" font-weight="800" fill="#0F172A">${methodLabel} Instant Cashout</text>
-    <rect x="198" y="134" width="248" height="32" rx="16" fill="${theme.accentLight}" stroke="${theme.pillBorder}" stroke-width="1.5"/>
-    <circle cx="216" cy="150" r="5" fill="${theme.accentPrimary}"/>
-    <text x="230" y="155" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="14" font-weight="700" letter-spacing="0.8" fill="${theme.accentDark}">VERIFIED WALLET PAYOUT</text>
+    <text x="192" y="106" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="34" font-weight="800" fill="#0F172A">${methodLabel} Instant Cashout</text>
+    <rect x="192" y="122" width="268" height="34" rx="17" fill="${theme.accentLight}" stroke="${theme.pillBorder}" stroke-width="1.5"/>
+    <circle cx="212" cy="139" r="5.5" fill="${theme.accentPrimary}"/>
+    <text x="228" y="144" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="15" font-weight="800" letter-spacing="0.8" fill="${theme.accentDark}">VERIFIED WALLET PAYOUT</text>
 
-    <!-- TOP-RIGHT CORNER: Prominent Luxury Amount Display (Requested by Boss) -->
+    <!-- TOP-RIGHT CORNER: Prominent Luxury Amount Display -->
     <g filter="url(#badgeShadow)">
-        <rect x="742" y="76" width="366" height="122" rx="28" fill="url(#topRightBadge)" stroke="#FFFFFF" stroke-width="2.5"/>
+        <rect x="920" y="64" width="432" height="126" rx="28" fill="url(#topRightBadge)" stroke="#FFFFFF" stroke-width="2.5"/>
     </g>
-    <text x="925" y="112" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="14" font-weight="800" letter-spacing="2" fill="#FFFFFF" fill-opacity="0.88">SENT PAYOUT AMOUNT</text>
-    <text x="925" y="165" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="46" font-weight="900" fill="#FFFFFF">${formattedAmt} BDT</text>
+    <text x="1136" y="102" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="15" font-weight="800" letter-spacing="2.2" fill="#FFFFFF" fill-opacity="0.9">SENT PAYOUT AMOUNT</text>
+    <text x="1136" y="160" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="52" font-weight="900" fill="#FFFFFF">${formattedAmt} BDT</text>
 
-    <!-- MIDDLE-LEFT: Big Explorer Amount & Transfer Route (Tonviewer Style) -->
-    <text x="92" y="276" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="68" font-weight="900" fill="#0F172A">${formattedAmt} BDT</text>
+    <!-- MIDDLE-LEFT: Big Explorer Amount & Transfer Route -->
+    <text x="78" y="272" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="78" font-weight="900" fill="#0F172A">${formattedAmt} BDT</text>
 
     <!-- Sender -> Receiver Route Line with Vector Arrow -->
-    <text x="92" y="340" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="32" font-weight="700" fill="#334155">TrustPay</text>
-    <path d="M244 329 H278 M268 319 L279 329 L268 339" stroke="${theme.accentPrimary}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="298" y="340" font-family="Courier New, monospace, Arial" font-size="33" font-weight="800" fill="#0F172A">${accountStr}</text>
+    <text x="78" y="344" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="36" font-weight="700" fill="#334155">TrustPay</text>
+    <path d="M248 331 H288 M276 319 L289 331 L276 343" stroke="${theme.accentPrimary}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="310" y="344" font-family="Courier New, monospace, Arial" font-size="38" font-weight="800" fill="#0F172A">${accountStr}</text>
 
     <!-- Customer & Success Status Row -->
-    <rect x="92" y="378" width="168" height="50" rx="16" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1.5"/>
-    <circle cx="122" cy="403" r="7" fill="#16A34A"/>
-    <text x="140" y="411" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="24" font-weight="800" fill="#15803D">Success</text>
+    <rect x="78" y="384" width="184" height="54" rx="16" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1.5"/>
+    <circle cx="110" cy="411" r="8" fill="#16A34A"/>
+    <text x="130" y="420" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="26" font-weight="800" fill="#15803D">Success</text>
 
-    <rect x="276" y="378" width="440" height="50" rx="16" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5"/>
-    <text x="300" y="410" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="21" font-weight="700" fill="#475569">User: ${customerName} (${uidStr})</text>
+    <rect x="280" y="384" width="520" height="54" rx="16" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5"/>
+    <text x="306" y="419" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="24" font-weight="700" fill="#475569">User: ${customerName} (${uidStr})</text>
 
     <!-- Divider Line -->
-    <line x1="92" y1="482" x2="1108" y2="482" stroke="#E2E8F0" stroke-width="2"/>
+    <line x1="78" y1="486" x2="1352" y2="486" stroke="#E2E8F0" stroke-width="2"/>
 
     <!-- BOTTOM BAR: Timestamp on Left, TrustPay Payout on Right -->
-    <text x="92" y="537" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="23" font-weight="600" fill="#64748B">Transaction · ${timeStr} · Req: ${formattedReq} BDT</text>
+    <text x="78" y="544" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="25" font-weight="600" fill="#64748B">Transaction · ${timeStr} · Req: ${formattedReq} BDT</text>
 
-    ${logos.tp ? `<image href="${logos.tp}" x="862" y="512" width="36" height="36" preserveAspectRatio="xMidYMid cover" clip-path="url(#tpClip)"/>` : ''}
-    <text x="1108" y="538" text-anchor="end" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="25" font-weight="800" fill="#475569">TrustPay Payout</text>
+    ${logos.tp ? `<image href="${logos.tp}" x="1084" y="516" width="38" height="38" preserveAspectRatio="xMidYMid cover" clip-path="url(#tpClip)"/>` : ''}
+    <text x="1352" y="545" text-anchor="end" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="27" font-weight="800" fill="#475569">TrustPay Payout</text>
 </svg>`;
 
     return await sharp(Buffer.from(svg)).png({ quality: 95 }).toBuffer();
@@ -10548,8 +10543,10 @@ app.get('/payout-proof', (req, res) => {
     const rawMethod = String(req.query.method || 'BKASH').toUpperCase();
     const isNagad = rawMethod.includes('NAGAD');
     const methodLabel = isNagad ? 'Nagad' : 'bKash';
-    const amount = String(req.query.amount || '1000.00').replace(/[<>"'&]/g, '');
-    const reqAmount = String(req.query.reqAmount || amount).replace(/[<>"'&]/g, '');
+    const rawAmt = parseFloat(String(req.query.amount || '1000').replace(/,/g, '')) || 0;
+    const amount = rawAmt % 1 === 0 ? rawAmt.toFixed(0) : rawAmt.toFixed(2);
+    const rawReq = parseFloat(String(req.query.reqAmount || rawAmt).replace(/,/g, '')) || rawAmt;
+    const reqAmount = rawReq % 1 === 0 ? rawReq.toFixed(0) : rawReq.toFixed(2);
     const account = String(req.query.account || (isNagad ? '0187***320' : '0175***580')).replace(/[<>"'&]/g, '');
     const name = String(req.query.name || 'Verified User').replace(/[<>"'&]/g, '');
     const uid = String(req.query.uid || 'Verified').replace(/[<>"'&]/g, '');
@@ -10569,9 +10566,9 @@ app.get('/payout-proof', (req, res) => {
     const cardImageUrl = `${publicOrigin}/api/payout-card.png?${qs}`;
     const pageUrl = `${publicOrigin}/payout-proof?${qs}`;
 
-    const ogSiteName = `${methodLabel} Explorer · TrustPay`;
-    const ogTitle = `${methodLabel} Cashout: Transaction · ৳${amount} BDT → ${account}`;
-    const ogDesc = `${methodLabel} Instant Explorer: Verified payout of ৳${amount} BDT sent to ${account} (${name}). Real-time automated settlement powered by TrustPay.`;
+    const ogSiteName = `TrustPay Payout`;
+    const ogTitle = `${methodLabel} Cashout · ৳${amount} BDT → ${account}`;
+    const ogDesc = `Verified instant payout to ${account} (${name}).`;
     const accentHex = isNagad ? '#EA580C' : '#E2136E';
 
     const html = `<!DOCTYPE html>
@@ -10589,8 +10586,8 @@ app.get('/payout-proof', (req, res) => {
     <meta property="og:url" content="${pageUrl}" />
     <meta property="og:image" content="${cardImageUrl}" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <meta property="og:image:width" content="1440" />
+    <meta property="og:image:height" content="624" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${ogTitle}" />
     <meta name="twitter:description" content="${ogDesc}" />
@@ -11610,14 +11607,15 @@ const adminReplyKeyboard = {
     persistent: true
 };
 
-// In-flight mutex set to prevent rapid double-processing of the same withdrawal
+// In-flight mutex set & permanent completed/rejected filter to prevent duplicate processing or resurfacing
 const processingWithdraws = new Set();
+const completedOrRejectedWithdrawDocs = new Set();
+const completedOrRejectedWithdrawSerials = new Set();
 
-// Fetch pending withdrawals from Firestore
+// Fetch pending withdrawals strictly from Firestore (with strong consistency verification)
 const fetchPendingWithdrawals = async () => {
     const results = [];
     const seenIds = new Set();
-    const seenUsers = new Set();
 
     try {
         // Query canonical fiat_withdrawals with status == 'pending'
@@ -11626,12 +11624,35 @@ const fetchPendingWithdrawals = async () => {
             .limit(50)
             .get();
 
-        fwSnap.forEach(doc => {
-            const d = doc.data();
-            const id = doc.id;
-            if (seenIds.has(id)) return;
+        // Verify each candidate doc directly by ID to eliminate any Firestore index lag after .update({ status: 'completed' })
+        const candidateDocs = fwSnap.docs.filter(doc => {
+            if (seenIds.has(doc.id) || completedOrRejectedWithdrawDocs.has(doc.id)) return false;
+            const d = doc.data() || {};
+            if (d.status !== 'pending' || d.completedAt || d.rejectedAt) {
+                completedOrRejectedWithdrawDocs.add(doc.id);
+                if (d.serial) completedOrRejectedWithdrawSerials.add(String(d.serial));
+                return false;
+            }
+            if (d.serial && completedOrRejectedWithdrawSerials.has(String(d.serial))) return false;
+            return true;
+        });
+
+        const verifiedSnapshots = await Promise.all(
+            candidateDocs.map(doc => db.collection('fiat_withdrawals').doc(doc.id).get().catch(() => doc))
+        );
+
+        for (const freshDoc of verifiedSnapshots) {
+            if (!freshDoc || !freshDoc.exists) continue;
+            const id = freshDoc.id;
+            const d = freshDoc.data() || {};
+            if (seenIds.has(id) || completedOrRejectedWithdrawDocs.has(id)) continue;
+            if (d.status !== 'pending' || d.completedAt || d.rejectedAt) {
+                completedOrRejectedWithdrawDocs.add(id);
+                if (d.serial) completedOrRejectedWithdrawSerials.add(String(d.serial));
+                continue;
+            }
+            if (d.serial && completedOrRejectedWithdrawSerials.has(String(d.serial))) continue;
             seenIds.add(id);
-            if (d.userId) seenUsers.add(String(d.userId));
 
             const amount = parseFloat(d.amount) || 0;
             const fee = (d.fee !== undefined && d.fee !== null && parseFloat(d.fee) > 0) ? parseFloat(d.fee) : calcWithdrawFee(amount);
@@ -11650,62 +11671,9 @@ const fetchPendingWithdrawals = async () => {
                 createdAt: d.createdAt || (d.timestamp?._seconds ? d.timestamp._seconds * 1000 : (typeof d.timestamp === 'number' ? d.timestamp : 0)) || 0,
                 source: 'fiat_withdrawals'
             });
-        });
-    } catch(e) {
-        console.error('[WithdrawBot] fiat_withdrawals fetch error:', e.message);
-    }
-
-    try {
-        // Self-heal and verify in-memory master data (0 Firestore reads)
-        for (const [uId, data] of Object.entries(allUsersMasterData || {})) {
-            if (!data || !data.fiatWithdrawPending) continue;
-            const p = data.fiatWithdrawPending;
-            if (!p) continue;
-
-            // If already marked completed or rejected, skip
-            if (p.status === 'completed' || p.status === 'rejected') continue;
-
-            // If it has a fiat_withdrawals document ID:
-            if (p.id) {
-                if (seenIds.has(p.id)) {
-                    // Already captured from fiat_withdrawals
-                    continue;
-                } else {
-                    // Not pending in fiat_withdrawals; it was already completed/rejected in Firestore!
-                    // Heal stale cache so it never resurfaces:
-                    p.status = 'completed';
-                    continue;
-                }
-            }
-
-            // Only pure legacy entries (without p.id) where status is strictly 'pending':
-            if (p.status === 'pending' && !seenUsers.has(String(uId))) {
-                const pendId = uId;
-                if (seenIds.has(pendId)) continue;
-                seenIds.add(pendId);
-                seenUsers.add(String(uId));
-
-                const amount = parseFloat(p.amount) || 0;
-                const fee = (p.fee !== undefined && p.fee !== null && parseFloat(p.fee) > 0) ? parseFloat(p.fee) : calcWithdrawFee(amount);
-                const receiveAmount = (p.receiveAmount && parseFloat(p.receiveAmount) < amount) ? parseFloat(p.receiveAmount) : Math.max(0, amount - fee);
-
-                results.push({
-                    docId: pendId,
-                    userId: String(uId),
-                    method: p.method || 'bKash',
-                    number: p.number || 'N/A',
-                    amount,
-                    fee,
-                    receiveAmount,
-                    name: p.name || data.firstName || data.name || 'User',
-                    serial: p.serial || '?',
-                    createdAt: p.createdAt || p.timestamp || 0,
-                    source: 'master_data'
-                });
-            }
         }
     } catch(e) {
-        console.error('[WithdrawBot] master data pending scan error:', e.message);
+        console.error('[WithdrawBot] fiat_withdrawals fetch error:', e.message);
     }
 
     // Sort chronologically (earliest first - FIFO)
@@ -11761,6 +11729,10 @@ const buildWithdrawCard = (w, index, total) => {
 // Approve a withdrawal in Firestore, notify user & payout channel
 const doApproveWithdraw = async (docId, userId) => {
     const targetUser = String(userId);
+    if (docId && completedOrRejectedWithdrawDocs.has(docId)) {
+        return false;
+    }
+    if (docId) completedOrRejectedWithdrawDocs.add(docId);
     let withdrawItem = null;
 
     try {
@@ -11768,6 +11740,9 @@ const doApproveWithdraw = async (docId, userId) => {
         const fwDoc = await fwRef.get();
         if (fwDoc.exists) {
             withdrawItem = fwDoc.data();
+            if (withdrawItem?.serial) {
+                completedOrRejectedWithdrawSerials.add(String(withdrawItem.serial));
+            }
             // Critical duplicate check
             if (withdrawItem.status === 'completed' || withdrawItem.status === 'rejected') {
                 console.log(`[WithdrawBot] doc ${docId} is already ${withdrawItem.status}, skipping duplicate approval`);
@@ -11795,6 +11770,7 @@ const doApproveWithdraw = async (docId, userId) => {
         if (doc.exists) {
             const userData = doc.data();
             const pend = userData?.fiatWithdrawPending;
+            if (pend?.serial) completedOrRejectedWithdrawSerials.add(String(pend.serial));
             if (pend && (pend.status === 'completed' || pend.status === 'rejected') && !withdrawItem) {
                 console.log(`[WithdrawBot] user ${targetUser} pending is already ${pend.status}, skipping duplicate approval`);
                 if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
@@ -11833,6 +11809,7 @@ const doApproveWithdraw = async (docId, userId) => {
             .where('status', '==', 'pending').get();
         for (const d of pendSnaps.docs) {
             if (d.id === docId || !docId) {
+                completedOrRejectedWithdrawDocs.add(d.id);
                 await d.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
             }
         }
@@ -11849,7 +11826,7 @@ const doApproveWithdraw = async (docId, userId) => {
             `${PE.party} <i>আপনার একাউন্ট চেক করুন। TrustPay-এর সাথে থাকার জন্য ধন্যবাদ!</i>`;
         bot.sendMessage(targetUser, userMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
 
-        await notifyPayoutGroup({
+        notifyPayoutGroup({
             type: 'fiat',
             userId: targetUser,
             name: withdrawItem?.name || 'User',
@@ -11857,7 +11834,7 @@ const doApproveWithdraw = async (docId, userId) => {
             receiveAmount: withdrawItem?.receiveAmount || withdrawItem?.amount || 0,
             method: withdrawItem?.method || 'bKash',
             number: formatBdPhone(withdrawItem?.number)
-        });
+        }).catch(() => {});
     }
 
     return true;
@@ -11866,6 +11843,10 @@ const doApproveWithdraw = async (docId, userId) => {
 // Reject a withdrawal and refund user balance
 const doRejectWithdraw = async (docId, userId, refundAmt) => {
     const targetUser = String(userId);
+    if (docId && completedOrRejectedWithdrawDocs.has(docId)) {
+        return false;
+    }
+    if (docId) completedOrRejectedWithdrawDocs.add(docId);
     const reason = 'বাতিল করেছেন এডমিন (Rejected by admin)';
     let actualRefund = refundAmt || 0;
     let withdrawItem = null;
@@ -11875,6 +11856,9 @@ const doRejectWithdraw = async (docId, userId, refundAmt) => {
         const fwDoc = await fwRef.get();
         if (fwDoc.exists) {
             withdrawItem = fwDoc.data();
+            if (withdrawItem?.serial) {
+                completedOrRejectedWithdrawSerials.add(String(withdrawItem.serial));
+            }
             if (withdrawItem.status === 'completed' || withdrawItem.status === 'rejected') {
                 console.log(`[WithdrawBot] doc ${docId} is already ${withdrawItem.status}, skipping duplicate reject`);
                 if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
