@@ -9191,7 +9191,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const activeNetworkObj = BUY_NETWORKS.find(n => n.id === selectedNetwork) || BUY_NETWORKS[0];
     const cryptoRate = rates[selectedAsset] || (selectedAsset === 'GRAM' ? 165 : 125);
     const numBdt = parseFloat(bdtAmount) || 0;
-    const calculatedCrypto = numBdt > 0 ? (numBdt < 10 ? (numBdt / cryptoRate).toFixed(5) : (numBdt / cryptoRate).toFixed(4)) : '';
+    const calculatedCrypto = numBdt > 0 ? (numBdt / cryptoRate).toFixed(4) : '';
     const hasInsufficientBalance = numBdt > balance;
 
     // Real-time Address Validation
@@ -9297,10 +9297,10 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
 
     const handleConfirmBuy = async () => {
         const targetAddress = destMode === 'connected' ? (userTonAddress || receiveAddress) : receiveAddress;
-        if (!numBdt || isNaN(numBdt) || numBdt < 1) {
+        if (!numBdt || isNaN(numBdt) || numBdt < 20) {
             return window.Telegram?.WebApp?.showAlert 
-                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম ১ টাকার ক্রিপ্টো ক্রয় করতে হবে।" : "Minimum order amount is 1 BDT.")
-                : alert("Minimum order is 1 BDT");
+                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম ২০ টাকার ক্রিপ্টো ক্রয় করতে হবে।" : "Minimum order amount is 20 BDT.")
+                : alert("Minimum order is 20 BDT");
         }
         if (!targetAddress || targetAddress.trim().length < 6) {
             return window.Telegram?.WebApp?.showAlert 
@@ -9600,7 +9600,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                             type="number"
                             value={bdtAmount}
                             onChange={e => setBdtAmount(e.target.value)}
-                            placeholder={lang === 'bn' ? 'নূন্যতম ৳1 BDT' : 'Min. ৳1 BDT'}
+                            placeholder={lang === 'bn' ? 'নূন্যতম ৳20 BDT' : 'Min. ৳20 BDT'}
                             style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
                             className="w-full bg-transparent text-lg sm:text-xl font-black font-mono tracking-tight outline-none pr-16 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
                         />
@@ -9678,7 +9678,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                     <button
                         type="button"
                         onClick={hasInsufficientBalance ? onGoToAddMoney : handleConfirmBuy}
-                        disabled={!hasInsufficientBalance && (!numBdt || numBdt < 1)}
+                        disabled={!hasInsufficientBalance && (!numBdt || numBdt < 20)}
                         className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
                     >
                         <Zap size={16} fill="currentColor" />

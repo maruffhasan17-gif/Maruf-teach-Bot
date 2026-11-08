@@ -673,7 +673,7 @@ const PAYOUT_GROUP = '@bd_trust_pay_payout';
 const OFFICIAL_CHANNEL_URL = 'https://t.me/maruf_teach';
 const PAYOUT_GROUP_URL = 'https://t.me/bd_trust_pay_payout';
 const REOPEN_TARGET_TS = 1793516400000; // Today 1:00 PM BST
-const WEB_APP_URL = 'https://trustpay-bot.com/app/?v=20261108v3';
+const WEB_APP_URL = 'https://trustpay-bot.com/app/?v=20261108v4';
 const appOpenMarkup = {
     reply_markup: {
         inline_keyboard: [
@@ -7751,10 +7751,10 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 effectiveRate = clientExpectedRate;
             }
         }
-        cryptoAmount = parseFloat((bdtAmount / effectiveRate).toFixed(bdtAmount < 10 ? 5 : 4));
+        cryptoAmount = parseFloat((bdtAmount / effectiveRate).toFixed(4));
 
-        if (!Number.isFinite(bdtAmount) || bdtAmount < 1 || !Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
-            return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ১ টাকা' });
+        if (!Number.isFinite(bdtAmount) || bdtAmount < 20 || !Number.isFinite(cryptoAmount) || cryptoAmount <= 0) {
+            return res.status(400).json({ error: 'নূন্যতম ক্রিপ্টো ক্রয় ২০ টাকা' });
         }
 
         // 4. Mathematical Balance Provenance & Illegal Amount Audit
