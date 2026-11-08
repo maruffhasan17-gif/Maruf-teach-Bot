@@ -421,10 +421,11 @@ const notifyPayoutGroup = async (payoutData) => {
 
             previewUrl = `${publicOrigin}/payout-proof?method=${encodeURIComponent(method)}&amount=${encodeURIComponent(rec)}&reqAmount=${encodeURIComponent(amt)}&account=${encodeURIComponent(maskedAcc)}&name=${encodeURIComponent(resolvedName)}&uid=${encodeURIComponent(maskedUid)}&time=${encodeURIComponent(fullTimestampStr)}&v=${Date.now()}`;
             
-            msg = `${PE.party} <b>New $${methodTitle} Payout Processed!</b>\n\n` +
+            msg = `${PE.party} <b>New $${methodTitle} Withdrawal Processed!</b>\n\n` +
                   `${PE.user} ${clickableCustomerHtml} (${maskedUid})\n` +
-                  `${PE.dollar} Amount: ৳${amt} BDT (Fee: ৳${feeStr})\n` +
-                  `${PE.flyingCash} Sent: ৳${rec} BDT → ${maskedAcc}\n\n` +
+                  `${PE.dollar} Amount: ৳${amt} BDT\n` +
+                  `${PE.flyingCash} Send (after ৳${feeStr} fee): ৳${rec} BDT\n` +
+                  `${PE.bank} To: ${maskedAcc} (${methodTitle} Verified Wallet)\n\n` +
                   `✅ Paid via ${methodTitle} · <a href="${previewUrl}">view transaction</a>`;
         } else {
             const asset = (payoutData.asset || 'TON').toUpperCase();
@@ -10574,8 +10575,8 @@ app.get('/payout-proof', (req, res) => {
     const pageUrl = `${publicOrigin}/payout-proof?${qs}`;
 
     const ogSiteName = `${methodLabel} Explorer`;
-    const ogTitle = `Transaction · ৳${amount} BDT → ${account}`;
-    const ogDesc = `Verified instant ${methodLabel} payout settled by TrustPay.`;
+    const ogTitle = `${methodLabel} Explorer: Transaction · ৳${amount} BDT → ${account}`;
+    const ogDesc = `${methodLabel} Explorer: Track real-time mobile financial payouts, verified wallet transfers, and automated instant settlements on TrustPay.`;
     const accentHex = isNagad ? '#EA580C' : '#E2136E';
 
     const html = `<!DOCTYPE html>
