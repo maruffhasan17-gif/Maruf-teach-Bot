@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText, Trophy, Crown, Medal, Flame } from 'lucide-react';
+import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText, Trophy, Crown, Medal, Flame, Mail, Heart } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, lookupRecipientUser, submitTransferMoney } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, searchUsers, lookupRecipientUser, submitTransferMoney } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/referral-banner.jpg';
@@ -15,6 +15,7 @@ import sakuraBranchArt from './assets/sakura-branch-art.webp';
 import mapleBranchArt from './assets/maple-branch-art.webp';
 import wisteriaCascadeArt from './assets/wisteria-cascade-art.webp';
 import roseBotanicalArt from './assets/rose-botanical-art.webp';
+import marufFrameImg from './assets/frame-maruf.png';
 
 const stickerJsonCache = new Map();
 
@@ -1268,126 +1269,665 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode =
 };
 
 // ============================================================================
-// ONE-TIME ANIMATED "MONEY RECEIVED" POPUP CARD FOR RECIPIENT
+// ULTRA-PREMIUM 3D LUXURY GIFT VECTOR ARTWORK & ANIMATED EMBLEMS
 // ============================================================================
-const MoneyReceivedPopupModal = ({ transfer, onDismiss, lang = 'bn', darkMode = false }) => {
-  if (!transfer) return null;
+const GIFT_THEME_META = {
+  surprise: {
+    id: 'surprise',
+    labelBn: 'রয়েল সারপ্রাইজ',
+    labelEn: 'Royal Surprise',
+    subBn: '24K গোল্ড মিস্ট্রি বক্স',
+    accentFrom: '#F59E0B',
+    accentVia: '#FBBF24',
+    accentTo: '#D97706',
+    glowRgba: 'rgba(245, 158, 11, 0.45)',
+    cardGrad: 'from-[#2A1805] via-[#452708] to-[#1E1003]',
+    lightCardGrad: 'from-amber-50 via-yellow-50/90 to-orange-50',
+    borderActive: 'border-amber-400 ring-2 ring-amber-400/40',
+    badgeBg: 'from-amber-400 via-yellow-500 to-amber-600',
+    titleBn: 'আপনার জন্য একটি রাজকীয় সারপ্রাইজ উপহার এসেছে!'
+  },
+  love: {
+    id: 'love',
+    labelBn: 'রয়্যাল লাভ',
+    labelEn: 'Royal Love',
+    subBn: 'রুবি হার্ট ও ভেলভেট খাম',
+    accentFrom: '#F43F5E',
+    accentVia: '#FB7185',
+    accentTo: '#E11D48',
+    glowRgba: 'rgba(244, 63, 94, 0.45)',
+    cardGrad: 'from-[#2D0814] via-[#4C0D22] to-[#1F040C]',
+    lightCardGrad: 'from-rose-50 via-pink-50/90 to-red-50',
+    borderActive: 'border-rose-400 ring-2 ring-rose-400/40',
+    badgeBg: 'from-rose-500 via-pink-500 to-red-600',
+    titleBn: 'আপনার জন্য ভালোবাসার বিশেষ উপহার ও বার্তা এসেছে!'
+  },
+  salami: {
+    id: 'salami',
+    labelBn: 'শাহী সালামি',
+    labelEn: 'Shahi Salami',
+    subBn: 'গোল্ডেন চাঁদ ও ফানুস',
+    accentFrom: '#10B981',
+    accentVia: '#34D399',
+    accentTo: '#059669',
+    glowRgba: 'rgba(16, 185, 129, 0.45)',
+    cardGrad: 'from-[#04261C] via-[#064230] to-[#021811]',
+    lightCardGrad: 'from-emerald-50 via-teal-50/90 to-green-50',
+    borderActive: 'border-emerald-400 ring-2 ring-emerald-400/40',
+    badgeBg: 'from-emerald-500 via-teal-500 to-emerald-700',
+    titleBn: 'ঈদ মোবারক! আপনার জন্য শাহী ঈদের সালামি এসেছে!'
+  },
+  birthday: {
+    id: 'birthday',
+    labelBn: 'বার্থডে রয়্যাল',
+    labelEn: 'Birthday Royal',
+    subBn: 'ক্রাউন কেক ও স্পার্কল',
+    accentFrom: '#A855F7',
+    accentVia: '#EC4899',
+    accentTo: '#7C3AED',
+    glowRgba: 'rgba(168, 85, 247, 0.45)',
+    cardGrad: 'from-[#1F0B38] via-[#35125E] to-[#130624]',
+    lightCardGrad: 'from-purple-50 via-fuchsia-50/90 to-pink-50',
+    borderActive: 'border-purple-400 ring-2 ring-purple-400/40',
+    badgeBg: 'from-purple-500 via-fuchsia-500 to-pink-600',
+    titleBn: 'শুভ জন্মদিন! আপনার জন্য রাজকীয় জন্মদিনের উপহার এসেছে!'
+  },
+  congrats: {
+    id: 'congrats',
+    labelBn: 'ডায়মন্ড ট্রফি',
+    labelEn: 'Diamond Trophy',
+    subBn: 'ভিক্টরি কাপ ও সম্মাননা',
+    accentFrom: '#3B82F6',
+    accentVia: '#60A5FA',
+    accentTo: '#1D4ED8',
+    glowRgba: 'rgba(59, 130, 246, 0.45)',
+    cardGrad: 'from-[#081A38] via-[#102C5E] to-[#051024]',
+    lightCardGrad: 'from-blue-50 via-indigo-50/90 to-sky-50',
+    borderActive: 'border-sky-400 ring-2 ring-sky-400/40',
+    badgeBg: 'from-blue-500 via-indigo-500 to-cyan-600',
+    titleBn: 'অভিনন্দন! আপনার সাফল্যের জন্য বিশেষ উপহার এসেছে!'
+  }
+};
 
-  const senderName = transfer.senderName || 'Trust Pay User';
-  const senderMbsId = transfer.senderMbsId || (transfer.senderId ? `MBS${String(transfer.senderId).slice(-5)}` : '');
-  const amountFormatted = Number(transfer.amount || 0).toFixed(2);
-  const commentText = String(transfer.comment || transfer.note || '').trim();
+const PremiumGiftArtwork = ({ theme = 'surprise', size = 56, animated = false, className = '' }) => {
+  const key = String(theme || 'surprise').toLowerCase();
+  const uid = `pg-${key}-${size}`;
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
-      <div className={`relative w-full max-w-[355px] p-6 rounded-[32px] shadow-2xl border text-center space-y-4 animate-in zoom-in-95 duration-300 overflow-hidden ${
-        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
-      }`}>
-        {/* Ambient Emerald Celebration Glow + Botanical Sakura Art */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 rounded-full bg-emerald-500/20 blur-2xl pointer-events-none" />
-        <img
-          src={sakuraBranchArt}
-          alt=""
-          className={`absolute -top-3 -right-3 w-32 h-32 object-contain pointer-events-none select-none ${
-            darkMode ? 'opacity-[0.16] brightness-125' : 'opacity-[0.2]'
-          }`}
-        />
-        <img
-          src={lotusLineArt}
-          alt=""
-          className={`absolute -bottom-4 -left-4 w-28 h-28 object-contain pointer-events-none select-none ${
-            darkMode ? 'opacity-[0.1] brightness-125' : 'opacity-[0.14]'
-          }`}
-        />
+    <div
+      style={{ width: size, height: size }}
+      className={`relative inline-flex items-center justify-center select-none shrink-0 ${
+        animated ? 'animate-[tpGiftFloat_3s_ease-in-out_infinite]' : ''
+      } ${className}`}
+    >
+      {key === 'surprise' && (
+        <svg viewBox="0 0 120 120" className="w-full h-full overflow-visible drop-shadow-[0_8px_16px_rgba(245,158,11,0.45)]">
+          <defs>
+            <linearGradient id={`${uid}-boxL`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#991B1B" />
+              <stop offset="50%" stopColor="#7F1D1D" />
+              <stop offset="100%" stopColor="#450A0A" />
+            </linearGradient>
+            <linearGradient id={`${uid}-boxR`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#DC2626" />
+              <stop offset="50%" stopColor="#B91C1C" />
+              <stop offset="100%" stopColor="#7F1D1D" />
+            </linearGradient>
+            <linearGradient id={`${uid}-lid`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#EF4444" />
+              <stop offset="50%" stopColor="#DC2626" />
+              <stop offset="100%" stopColor="#991B1B" />
+            </linearGradient>
+            <linearGradient id={`${uid}-gold`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FEF08A" />
+              <stop offset="35%" stopColor="#FACC15" />
+              <stop offset="70%" stopColor="#D97706" />
+              <stop offset="100%" stopColor="#FEF08A" />
+            </linearGradient>
+            <radialGradient id={`${uid}-glow`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#FBBF24" stopOpacity="0.65" />
+              <stop offset="100%" stopColor="#F59E0B" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="60" cy="64" r="52" fill={`url(#${uid}-glow)`} />
+          <ellipse cx="60" cy="104" rx="38" ry="8" fill="rgba(0,0,0,0.35)" />
+          <polygon points="22,52 60,68 60,104 22,86" fill={`url(#${uid}-boxL)`} stroke="#FBBF24" strokeWidth="0.8" strokeOpacity="0.5" />
+          <polygon points="98,52 60,68 60,104 98,86" fill={`url(#${uid}-boxR)`} stroke="#FBBF24" strokeWidth="0.8" strokeOpacity="0.5" />
+          <polygon points="36,58 46,62 46,98 36,93" fill={`url(#${uid}-gold)`} />
+          <polygon points="84,58 74,62 74,98 84,93" fill={`url(#${uid}-gold)`} />
+          <polygon points="60,28 104,44 60,60 16,44" fill={`url(#${uid}-lid)`} stroke="#FDE047" strokeWidth="1" />
+          <polygon points="16,44 60,60 60,70 16,53" fill="#991B1B" stroke="#FBBF24" strokeWidth="0.7" />
+          <polygon points="104,44 60,60 60,70 104,53" fill="#B91C1C" stroke="#FBBF24" strokeWidth="0.7" />
+          <polygon points="35,37 45,33 85,51 75,55" fill={`url(#${uid}-gold)`} />
+          <polygon points="85,37 75,33 35,51 45,55" fill={`url(#${uid}-gold)`} />
+          <polygon points="34,51 45,55 45,65 34,60" fill={`url(#${uid}-gold)`} />
+          <polygon points="86,51 75,55 75,65 86,60" fill={`url(#${uid}-gold)`} />
+          <path d="M60,42 C42,20 26,30 38,44 C46,48 54,45 60,42 Z" fill={`url(#${uid}-gold)`} stroke="#FEF9C3" strokeWidth="1" />
+          <path d="M60,42 C78,20 94,30 82,44 C74,48 66,45 60,42 Z" fill={`url(#${uid}-gold)`} stroke="#FEF9C3" strokeWidth="1" />
+          <polygon points="60,34 68,42 60,50 52,42" fill="#FEF08A" stroke="#B45309" strokeWidth="1.2" />
+          <polygon points="60,37 65,42 60,47 55,42" fill="#FFFFFF" opacity="0.85" />
+          <path d="M22,22 L24,27 L29,29 L24,31 L22,36 L20,31 L15,29 L20,27 Z" fill="#FEF08A" />
+          <path d="M98,18 L99.5,22 L103.5,23.5 L99.5,25 L98,29 L96.5,25 L92.5,23.5 L96.5,22 Z" fill="#FDE047" />
+          <circle cx="60" cy="14" r="2.5" fill="#FEF08A" />
+        </svg>
+      )}
 
-        {/* Animated Celebration Emblem */}
-        <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'টাকা পেয়েছেন • MONEY RECEIVED' : 'MONEY RECEIVED'} />
+      {key === 'love' && (
+        <svg viewBox="0 0 120 120" className="w-full h-full overflow-visible drop-shadow-[0_8px_16px_rgba(244,63,94,0.45)]">
+          <defs>
+            <linearGradient id={`${uid}-env`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FB7185" />
+              <stop offset="50%" stopColor="#E11D48" />
+              <stop offset="100%" stopColor="#881337" />
+            </linearGradient>
+            <linearGradient id={`${uid}-heart`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFE4E6" />
+              <stop offset="30%" stopColor="#F43F5E" />
+              <stop offset="75%" stopColor="#9F1239" />
+              <stop offset="100%" stopColor="#881337" />
+            </linearGradient>
+            <linearGradient id={`${uid}-gold`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FEF08A" />
+              <stop offset="50%" stopColor="#F59E0B" />
+              <stop offset="100%" stopColor="#B45309" />
+            </linearGradient>
+            <radialGradient id={`${uid}-glow`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#FB7185" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#E11D48" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="60" cy="60" r="52" fill={`url(#${uid}-glow)`} />
+          <ellipse cx="60" cy="104" rx="38" ry="7" fill="rgba(0,0,0,0.3)" />
+          <path d="M22,58 C6,46 8,28 24,34 C16,40 20,48 28,50 Z" fill={`url(#${uid}-gold)`} />
+          <path d="M98,58 C114,46 112,28 96,34 C104,40 100,48 92,50 Z" fill={`url(#${uid}-gold)`} />
+          <rect x="18" y="42" width="84" height="56" rx="10" fill={`url(#${uid}-env)`} stroke="#FDE047" strokeWidth="1.5" />
+          <rect x="26" y="28" width="68" height="44" rx="6" fill="#FFFBEB" stroke="#F59E0B" strokeWidth="1.2" />
+          <line x1="36" y1="38" x2="66" y2="38" stroke="#F43F5E" strokeWidth="2.5" strokeLinecap="round" opacity="0.5" />
+          <line x1="36" y1="45" x2="82" y2="45" stroke="#FB7185" strokeWidth="2" strokeLinecap="round" opacity="0.35" />
+          <path d="M18,94 L60,66 L102,94" fill="rgba(136,19,55,0.55)" stroke="#FDA4AF" strokeWidth="1" />
+          <path
+            d="M60,84 C60,84 35,68 35,51 C35,41 44,35 52,39 C56,41 58,44 60,47 C62,44 64,41 68,39 C76,35 85,41 85,51 C85,68 60,84 60,84 Z"
+            fill={`url(#${uid}-heart)`}
+            stroke={`url(#${uid}-gold)`}
+            strokeWidth="2.2"
+          />
+          <ellipse cx="47" cy="48" rx="5" ry="3" transform="rotate(-30 47 48)" fill="#FFFFFF" opacity="0.65" />
+          <path d="M24,22 L26,26 L30,28 L26,30 L24,34 L22,30 L18,28 L22,26 Z" fill="#FECDD3" />
+          <path d="M96,20 L98,24 L102,26 L98,28 L96,32 L94,28 L90,26 L94,24 Z" fill="#FDE047" />
+        </svg>
+      )}
 
-        {/* Title & Amount */}
-        <div className="relative z-10 space-y-1">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
-            {lang === 'bn' ? 'অভিনন্দন! আপনি টাকা পেয়েছেন 🎉' : 'Money Received! 🎉'}
-          </h3>
-          <div className="text-3xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400 drop-shadow-2xs">
-            +৳{amountFormatted} <span className="text-sm font-extrabold">BDT</span>
-          </div>
-          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
-            {lang === 'bn'
-              ? 'টাকাটি সরাসরি আপনার অ্যাপ ব্যালেন্সে যোগ করা হয়েছে'
-              : 'Instantly credited to your Trust Pay balance'}
-          </p>
-        </div>
+      {key === 'salami' && (
+        <svg viewBox="0 0 120 120" className="w-full h-full overflow-visible drop-shadow-[0_8px_16px_rgba(16,185,129,0.45)]">
+          <defs>
+            <linearGradient id={`${uid}-em`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#34D399" />
+              <stop offset="50%" stopColor="#059669" />
+              <stop offset="100%" stopColor="#064E3B" />
+            </linearGradient>
+            <linearGradient id={`${uid}-gold`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FEF08A" />
+              <stop offset="45%" stopColor="#F59E0B" />
+              <stop offset="100%" stopColor="#B45309" />
+            </linearGradient>
+            <radialGradient id={`${uid}-glow`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#34D399" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#059669" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="60" cy="60" r="52" fill={`url(#${uid}-glow)`} />
+          <ellipse cx="60" cy="105" rx="36" ry="6" fill="rgba(0,0,0,0.3)" />
+          <rect x="30" y="28" width="60" height="72" rx="12" transform="rotate(-6 60 64)" fill={`url(#${uid}-em)`} stroke={`url(#${uid}-gold)`} strokeWidth="2" />
+          <path d="M38,92 L38,52 C38,38 60,32 60,32 C60,32 82,38 82,52 L82,92 Z" transform="rotate(-6 60 64)" fill="rgba(6,78,59,0.65)" stroke="#FDE047" strokeWidth="1" strokeDasharray="3 2" />
+          <path
+            d="M58,22 C36,24 22,44 26,66 C30,88 52,100 74,94 C54,94 40,78 40,58 C40,38 52,26 68,24 C64,22 61,22 58,22 Z"
+            fill={`url(#${uid}-gold)`}
+            stroke="#FEF9C3"
+            strokeWidth="1"
+          />
+          <line x1="74" y1="22" x2="74" y2="38" stroke="#FDE047" strokeWidth="2" />
+          <polygon points="74,36 84,44 64,44" fill={`url(#${uid}-gold)`} />
+          <rect x="66" y="44" width="16" height="22" rx="3" fill="#FEF08A" stroke="#D97706" strokeWidth="1.5" />
+          <circle cx="74" cy="55" r="5" fill="#FFFFFF" opacity="0.9" />
+          <polygon points="64,66 84,66 78,74 70,74" fill={`url(#${uid}-gold)`} />
+          <path d="M92,24 L94,30 L100,32 L94,34 L92,40 L90,34 L84,32 L90,30 Z" fill="#FEF08A" />
+          <path d="M24,28 L25.5,32 L29.5,33.5 L25.5,35 L24,39 L22.5,35 L18.5,33.5 L22.5,32 Z" fill="#A7F3D0" />
+        </svg>
+      )}
 
-        {/* Sender Profile Card (Money Received By / From) */}
-        <div className={`relative z-10 p-3.5 rounded-2xl border text-left space-y-2.5 ${
-          darkMode
-            ? 'bg-gradient-to-r from-slate-800/90 via-slate-800/70 to-emerald-950/30 border-slate-700/90'
-            : 'bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-white border-emerald-200/80'
-        }`}>
-          <div className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
-            <span>{lang === 'bn' ? 'যিনি টাকা পাঠিয়েছেন (Money Received From)' : 'Money Received From'}</span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[9.5px] font-black">
-              ✓ Instant P2P
-            </span>
-          </div>
+      {key === 'birthday' && (
+        <svg viewBox="0 0 120 120" className="w-full h-full overflow-visible drop-shadow-[0_8px_16px_rgba(168,85,247,0.45)]">
+          <defs>
+            <linearGradient id={`${uid}-tier1`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#C084FC" />
+              <stop offset="50%" stopColor="#9333EA" />
+              <stop offset="100%" stopColor="#581C87" />
+            </linearGradient>
+            <linearGradient id={`${uid}-tier2`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#F472B6" />
+              <stop offset="50%" stopColor="#DB2777" />
+              <stop offset="100%" stopColor="#831843" />
+            </linearGradient>
+            <linearGradient id={`${uid}-cream`} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#FFFFFF" />
+              <stop offset="100%" stopColor="#FCE7F3" />
+            </linearGradient>
+            <linearGradient id={`${uid}-gold`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FEF08A" />
+              <stop offset="50%" stopColor="#F59E0B" />
+              <stop offset="100%" stopColor="#B45309" />
+            </linearGradient>
+            <radialGradient id={`${uid}-glow`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#E879F9" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#9333EA" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="60" cy="60" r="52" fill={`url(#${uid}-glow)`} />
+          <ellipse cx="60" cy="98" rx="44" ry="9" fill={`url(#${uid}-gold)`} stroke="#FEF9C3" strokeWidth="1.2" />
+          <rect x="24" y="66" width="72" height="30" rx="8" fill={`url(#${uid}-tier1)`} stroke="#FDE047" strokeWidth="1.2" />
+          <path d="M24,72 Q33,82 42,72 Q51,82 60,72 Q69,82 78,72 Q87,82 96,72 L96,68 L24,68 Z" fill={`url(#${uid}-cream)`} />
+          <rect x="34" y="42" width="52" height="26" rx="7" fill={`url(#${uid}-tier2)`} stroke="#FDE047" strokeWidth="1.2" />
+          <path d="M34,48 Q42,57 51,48 Q60,57 69,48 Q78,57 86,48 L86,44 L34,44 Z" fill={`url(#${uid}-cream)`} />
+          <rect x="44" y="26" width="5" height="16" rx="2" fill="#FEF08A" stroke="#D97706" strokeWidth="0.8" />
+          <rect x="57.5" y="22" width="5" height="20" rx="2" fill="#FEF08A" stroke="#D97706" strokeWidth="0.8" />
+          <rect x="71" y="26" width="5" height="16" rx="2" fill="#FEF08A" stroke="#D97706" strokeWidth="0.8" />
+          <path d="M46.5,14 C46.5,14 42,20 44.5,24 C46.5,26 48.5,24 48.5,24 C51,20 46.5,14 46.5,14 Z" fill="#FBBF24" />
+          <path d="M60,10 C60,10 55,16 58,21 C60,23 62,21 62,21 C65,16 60,10 60,10 Z" fill="#FEF08A" />
+          <path d="M73.5,14 C73.5,14 69,20 71.5,24 C73.5,26 75.5,24 75.5,24 C78,20 73.5,14 73.5,14 Z" fill="#FBBF24" />
+          <circle cx="40" cy="86" r="2.5" fill="#FEF08A" />
+          <circle cx="60" cy="86" r="2.5" fill="#FEF08A" />
+          <circle cx="80" cy="86" r="2.5" fill="#FEF08A" />
+          <path d="M18,32 L20,36 L24,38 L20,40 L18,44 L16,40 L12,38 L16,36 Z" fill="#FDE047" />
+          <path d="M102,28 L104,32 L108,34 L104,36 L102,40 L100,36 L96,34 L100,32 Z" fill="#F472B6" />
+        </svg>
+      )}
 
-          <div className="flex items-center gap-3">
-            <div className="relative shrink-0">
-              <UserAvatarBox
-                userId={transfer.senderId}
-                avatarDataUrl={transfer.senderAvatarDataUrl}
-                photoUrl={transfer.senderPhotoUrl}
-                name={senderName}
-                sizeClass="w-12 h-12 rounded-2xl text-base"
-              />
-              <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[9px] text-white font-bold">
-                ✓
-              </div>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-black text-slate-900 dark:text-white truncate">
-                {senderName}
-              </div>
-              <div className="text-[11px] font-mono font-bold text-purple-600 dark:text-purple-400 truncate">
-                ID: {senderMbsId} {transfer.senderId ? `• UID: ${transfer.senderId}` : ''}
-              </div>
-            </div>
-          </div>
-
-          {/* Optional Sender Comment / Note */}
-          {commentText && (
-            <div className={`mt-2 p-2.5 rounded-xl border text-xs ${
-              darkMode
-                ? 'bg-slate-900/80 border-slate-700/80 text-slate-200'
-                : 'bg-white/90 border-emerald-200/70 text-slate-700'
-            }`}>
-              <div className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-0.5">
-                💬 {lang === 'bn' ? 'প্রেরকের মন্তব্য (Comment):' : 'Sender Comment:'}
-              </div>
-              <p className="font-bold italic break-words leading-snug">
-                "{commentText}"
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Okay Button */}
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="relative z-10 w-full h-[48px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-sm shadow-[0_8px_22px_rgba(16,185,129,0.35)] hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <CheckCircle2 size={17} />
-          <span>{lang === 'bn' ? 'ঠিক আছে (Okay)' : 'Okay'}</span>
-        </button>
-      </div>
+      {key === 'congrats' && (
+        <svg viewBox="0 0 120 120" className="w-full h-full overflow-visible drop-shadow-[0_8px_16px_rgba(59,130,246,0.45)]">
+          <defs>
+            <linearGradient id={`${uid}-gold`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FEF9C3" />
+              <stop offset="35%" stopColor="#FACC15" />
+              <stop offset="75%" stopColor="#D97706" />
+              <stop offset="100%" stopColor="#92400E" />
+            </linearGradient>
+            <linearGradient id={`${uid}-gem`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#BAE6FD" />
+              <stop offset="45%" stopColor="#38BDF8" />
+              <stop offset="100%" stopColor="#1D4ED8" />
+            </linearGradient>
+            <radialGradient id={`${uid}-glow`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#60A5FA" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="60" cy="60" r="52" fill={`url(#${uid}-glow)`} />
+          <ellipse cx="60" cy="105" rx="34" ry="7" fill="rgba(0,0,0,0.35)" />
+          <path d="M36,34 C18,34 18,58 38,62" fill="none" stroke={`url(#${uid}-gold)`} strokeWidth="5" strokeLinecap="round" />
+          <path d="M84,34 C102,34 102,58 82,62" fill="none" stroke={`url(#${uid}-gold)`} strokeWidth="5" strokeLinecap="round" />
+          <path d="M34,26 L86,26 L80,58 C78,72 68,78 60,78 C52,78 42,72 40,58 Z" fill={`url(#${uid}-gold)`} stroke="#FEF9C3" strokeWidth="1.5" />
+          <rect x="55" y="76" width="10" height="14" rx="2" fill={`url(#${uid}-gold)`} />
+          <rect x="40" y="90" width="40" height="10" rx="4" fill="#1E293B" stroke={`url(#${uid}-gold)`} strokeWidth="2" />
+          <polygon points="60,34 72,48 60,62 48,48" fill={`url(#${uid}-gem)`} stroke="#FFFFFF" strokeWidth="1.5" />
+          <polygon points="60,38 67,48 60,54 53,48" fill="#E0F2FE" opacity="0.75" />
+          <path d="M60,8 L62,15 L69,17 L62,19 L60,26 L58,19 L51,17 L58,15 Z" fill="#FEF08A" />
+          <path d="M20,20 L22,24 L26,26 L22,28 L20,32 L18,28 L14,26 L18,24 Z" fill="#BAE6FD" />
+          <path d="M100,20 L102,24 L106,26 L102,28 L100,32 L98,28 L94,26 L98,24 Z" fill="#FDE047" />
+        </svg>
+      )}
     </div>
   );
 };
 
 // ============================================================================
-// OFFICIAL BLOCKCHAIN NETWORK & CRYPTO ASSET VECTOR LOGOS (CRISP SVG)
+// ONE-TIME ANIMATED "MONEY RECEIVED" POPUP CARD FOR RECIPIENT
 // ============================================================================
+const MoneyReceivedPopupModal = ({ transfer, onDismiss, lang = 'bn', darkMode = false }) => {
+  if (!transfer) return null;
+
+  const [isOpened, setIsOpened] = useState(false);
+  const isGift = Boolean(transfer.isGift);
+  const themeKey = String(transfer.giftTheme || 'surprise').toLowerCase();
+  const currentTheme = GIFT_THEME_META[themeKey] || GIFT_THEME_META.surprise;
+  const senderName = transfer.senderName || 'Trust Pay User';
+  const senderMbsId = transfer.senderMbsId || (transfer.senderId ? `MBS${String(transfer.senderId).slice(-5)}` : '');
+  const isSenderBoss = Boolean(String(transfer.senderId) === '8799135330' || senderMbsId === 'MT999999');
+  const amountFormatted = Number(transfer.amount || 0).toFixed(2);
+  const commentText = String(transfer.comment || transfer.note || '').trim();
+
+  const handleOpenGift = () => {
+    if (isOpened) return;
+    playAppSound('success');
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+    setIsOpened(true);
+  };
+
+  const handleClaimAndClose = () => {
+    playAppSound('tap');
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+    }
+    onDismiss();
+  };
+
+  return (
+    <div 
+      onClick={isGift && !isOpened ? handleOpenGift : undefined}
+      className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl animate-in fade-in duration-300 select-none cursor-pointer"
+    >
+      <style>{`
+        @keyframes tpGiftFloat {
+          0%, 100% { transform: translateY(0px) rotate(0deg) scale(1); }
+          25% { transform: translateY(-7px) rotate(-2.5deg) scale(1.04); }
+          50% { transform: translateY(-10px) rotate(0deg) scale(1.06); }
+          75% { transform: translateY(-5px) rotate(2.5deg) scale(1.03); }
+        }
+        @keyframes tpRaysSpin {
+          0% { transform: rotate(0deg) scale(1); }
+          50% { transform: rotate(180deg) scale(1.08); }
+          100% { transform: rotate(360deg) scale(1); }
+        }
+        @keyframes tpCardReveal3D {
+          0% { transform: perspective(900px) rotateX(22deg) scale(0.72) translateY(30px); opacity: 0; }
+          65% { transform: perspective(900px) rotateX(-3deg) scale(1.03) translateY(-4px); opacity: 1; }
+          100% { transform: perspective(900px) rotateX(0deg) scale(1) translateY(0px); opacity: 1; }
+        }
+        @keyframes tpRingPulse {
+          0% { transform: scale(0.85); opacity: 0.75; }
+          100% { transform: scale(1.65); opacity: 0; }
+        }
+      `}</style>
+
+      {/* Ambient Rotating God-Rays & Luxury Glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
+        <div
+          style={{ background: `radial-gradient(circle, ${currentTheme.glowRgba} 0%, transparent 70%)` }}
+          className="w-[420px] h-[420px] rounded-full blur-3xl opacity-80"
+        />
+        {isGift && (
+          <svg
+            viewBox="0 0 400 400"
+            className="absolute w-[460px] h-[460px] opacity-25 animate-[tpRaysSpin_22s_linear_infinite]"
+          >
+            {Array.from({ length: 12 }).map((_, i) => (
+              <polygon
+                key={i}
+                points="200,200 182,10 218,10"
+                fill={currentTheme.accentVia}
+                transform={`rotate(${i * 30} 200 200)`}
+              />
+            ))}
+          </svg>
+        )}
+      </div>
+
+      {/* ==================================================================== */}
+      {/* CASE A: ULTRA-PREMIUM 3D GIFT UNBOXING EXPERIENCE                    */}
+      {/* ==================================================================== */}
+      {isGift ? (
+        <div 
+          onClick={e => e.stopPropagation()} 
+          className="relative w-full max-w-sm flex flex-col items-center justify-center cursor-default"
+        >
+          {!isOpened ? (
+            /* 1. UNOPENED 3D ROYAL GIFT SHOWCASE */
+            <div 
+              onClick={handleOpenGift}
+              className="w-full flex flex-col items-center justify-center cursor-pointer group py-4"
+            >
+              {/* Top Sender Badge */}
+              <div className="mb-5 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-amber-400/40 text-white text-xs font-black shadow-[0_0_25px_rgba(245,158,11,0.3)] flex items-center gap-2">
+                <Sparkles size={14} className="text-amber-300 animate-spin" style={{ animationDuration: '5s' }} />
+                <span className="text-amber-200">{senderName}</span>
+                <span>{lang === 'bn' ? 'একটি প্রিমিয়াম গিফট পাঠিয়েছেন!' : 'sent you a Royal Gift!'}</span>
+              </div>
+
+              {/* 3D Pedestal Stage with Pulsing Halo Rings & Large Gift Artwork */}
+              <div className="relative w-64 h-64 flex items-center justify-center">
+                <div
+                  style={{ borderColor: currentTheme.accentVia, animation: 'tpRingPulse 2.2s ease-out infinite' }}
+                  className="absolute w-44 h-44 rounded-full border-2"
+                />
+                <div
+                  style={{ borderColor: currentTheme.accentFrom, animation: 'tpRingPulse 2.2s ease-out 0.9s infinite' }}
+                  className="absolute w-44 h-44 rounded-full border"
+                />
+
+                {/* Glassmorphic Royal Showcase Pod */}
+                <div className={`relative w-52 h-52 rounded-[40px] bg-gradient-to-b ${currentTheme.cardGrad} border-2 border-amber-400/60 shadow-[0_25px_70px_rgba(0,0,0,0.85)] flex flex-col items-center justify-center p-4 group-hover:scale-105 transition-transform duration-300`}>
+                  <div className="absolute inset-x-6 top-0 h-[2px] bg-gradient-to-r from-transparent via-amber-300 to-transparent opacity-90" />
+                  <PremiumGiftArtwork theme={themeKey} size={132} animated={true} />
+                  <span className={`mt-1 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r ${currentTheme.badgeBg} text-white shadow-md`}>
+                    {lang === 'bn' ? currentTheme.labelBn : currentTheme.labelEn}
+                  </span>
+                </div>
+              </div>
+
+              {/* Tap to Open CTA Button */}
+              <div className="mt-6 text-center space-y-2">
+                <div className={`inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r ${currentTheme.badgeBg} text-white font-black text-sm shadow-[0_10px_30px_rgba(245,158,11,0.45)] border-t border-white/40 group-hover:scale-105 active:scale-95 transition-transform`}>
+                  <Sparkles size={16} />
+                  <span>{lang === 'bn' ? 'উপহারটি আনবক্স করতে ট্যাপ করুন' : 'Tap to Unbox Your Gift'}</span>
+                  <Sparkles size={16} />
+                </div>
+                <p className="text-[11px] text-white/60 font-medium block">
+                  {lang === 'bn' ? 'টাচ করলেই ম্যাজিকের মতো উপহার খুলে যাবে ✨' : 'Tap anywhere to reveal your surprise ✨'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            /* 2. UNBOXED 3D LUXURY GIFT REVEAL CARD */
+            <div 
+              style={{ animation: 'tpCardReveal3D 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}
+              className={`relative w-full max-w-[360px] p-5 sm:p-6 rounded-[32px] shadow-[0_25px_70px_rgba(0,0,0,0.85)] border-2 text-center space-y-4 overflow-hidden ${
+                darkMode 
+                  ? `bg-gradient-to-b ${currentTheme.cardGrad} border-amber-400/60 text-white` 
+                  : 'bg-gradient-to-b from-[#FFFDF9] via-white to-[#FEF9EE] border-amber-400/90 text-slate-900'
+              }`}
+            >
+              {/* Top Shimmer Line */}
+              <div className="absolute inset-x-8 top-0 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
+
+              {/* Floating 3D Gift Emblem at Top Center */}
+              <div className="relative flex flex-col items-center justify-center pt-1">
+                <div className="relative">
+                  <PremiumGiftArtwork theme={themeKey} size={86} animated={true} />
+                </div>
+                <span className={`mt-1 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-gradient-to-r ${currentTheme.badgeBg} text-white shadow-sm`}>
+                  {lang === 'bn' ? currentTheme.labelBn : currentTheme.labelEn}
+                </span>
+                <p className="text-xs font-bold text-amber-600 dark:text-amber-300 mt-1.5">
+                  {currentTheme.titleBn}
+                </p>
+              </div>
+
+              {/* Huge Sparkling Gift Amount */}
+              <div className="py-2.5 px-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 space-y-0.5">
+                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-300 block uppercase tracking-widest">
+                  {lang === 'bn' ? 'উপহারের পরিমাণ' : 'GIFT AMOUNT'}
+                </span>
+                <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-emerald-500 dark:text-emerald-400 drop-shadow-xs">
+                  +৳{amountFormatted} <span className="text-sm font-extrabold font-sans">BDT</span>
+                </div>
+                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-300/80 block">
+                  {lang === 'bn' ? 'সরাসরি আপনার মেইন ব্যালেন্সে যুক্ত হয়েছে ✓' : 'Added directly to your main balance ✓'}
+                </span>
+              </div>
+
+              {/* Sender Profile Card */}
+              <div className={`flex items-center gap-3 p-3 rounded-2xl border text-left ${
+                darkMode ? 'bg-black/30 border-white/15' : 'bg-amber-50/70 border-amber-200/80'
+              }`}>
+                <div className="relative shrink-0 flex items-center justify-center">
+                  {isSenderBoss ? (
+                    <div className="relative flex items-center justify-center w-11 h-11">
+                      <UserAvatarBox
+                        userId={transfer.senderId}
+                        photoUrl={transfer.senderPhotoUrl}
+                        name={senderName}
+                        sizeClass="w-11 h-11 rounded-full text-base shadow-xs overflow-hidden"
+                      />
+                      <img
+                        src={marufFrameImg}
+                        alt="Crown Frame"
+                        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[68px] h-[68px] max-w-none pointer-events-none z-20"
+                      />
+                    </div>
+                  ) : (
+                    <UserAvatarBox
+                      userId={transfer.senderId}
+                      photoUrl={transfer.senderPhotoUrl}
+                      name={senderName}
+                      sizeClass="w-11 h-11 rounded-full text-base shadow-sm"
+                    />
+                  )}
+                </div>
+                <div className={`min-w-0 flex-1 leading-tight ${isSenderBoss ? 'pl-2.5' : ''}`}>
+                  <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">
+                    {lang === 'bn' ? 'উপহার পাঠিয়েছেন' : 'Gift Sent By'}
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-nowrap">
+                    <span className="font-black text-sm truncate">
+                      {senderName}
+                    </span>
+                    <span className="text-[9.5px] font-mono font-black px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                      {senderMbsId}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sender's Special Note */}
+              {commentText && (
+                <div className={`p-3.5 rounded-2xl border text-left relative ${
+                  darkMode 
+                    ? 'bg-white/5 border-amber-400/30 text-amber-100' 
+                    : 'bg-white border-amber-200 text-slate-800 shadow-2xs'
+                }`}>
+                  <div className="text-[10px] font-black uppercase tracking-wider text-amber-500 mb-1 flex items-center gap-1">
+                    <Sparkles size={11} />
+                    <span>{lang === 'bn' ? 'প্রেরকের শুভেচ্ছা বার্তা:' : 'Personal Message:'}</span>
+                  </div>
+                  <p className="font-serif italic font-bold text-sm leading-relaxed break-words">
+                    "{commentText}"
+                  </p>
+                </div>
+              )}
+
+              {/* Claim 3D Button */}
+              <button
+                type="button"
+                onClick={handleClaimAndClose}
+                className={`w-full h-[48px] rounded-2xl bg-gradient-to-r ${currentTheme.badgeBg} text-white font-black text-sm shadow-[0_10px_25px_rgba(245,158,11,0.4)] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border-t border-white/35 border-b-[3px] border-black/30`}
+              >
+                <Sparkles size={16} />
+                <span>{lang === 'bn' ? 'উপহার গ্রহণ করুন (Claim Gift)' : 'Claim Gift'}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ==================================================================== */
+        /* CASE B: STANDARD DIRECT TRANSFER (রেগুলার মানি রিসিভড)                */
+        /* ==================================================================== */
+        <div 
+          onClick={e => e.stopPropagation()} 
+          className={`relative w-full max-w-[355px] p-6 rounded-[32px] shadow-2xl border text-center space-y-4 animate-in zoom-in-95 duration-300 overflow-hidden cursor-default ${
+            darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+          }`}
+        >
+          {/* Ambient Emerald Celebration Glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 rounded-full bg-emerald-500/20 blur-2xl pointer-events-none" />
+
+          {/* Animated Celebration Emblem */}
+          <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'টাকা পেয়েছেন • MONEY RECEIVED' : 'MONEY RECEIVED'} />
+
+          {/* Title & Amount */}
+          <div className="relative z-10 space-y-1">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
+              {lang === 'bn' ? 'অভিনন্দন! আপনি টাকা পেয়েছেন 🎉' : 'Money Received! 🎉'}
+            </h3>
+            <div className="text-3xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400 drop-shadow-2xs">
+              +৳{amountFormatted} <span className="text-sm font-extrabold">BDT</span>
+            </div>
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              {lang === 'bn'
+                ? 'টাকাটি সরাসরি আপনার অ্যাপ ব্যালেন্সে যোগ করা হয়েছে'
+                : 'Instantly credited to your Trust Pay balance'}
+            </p>
+          </div>
+
+          {/* Sender Profile Card */}
+          <div className={`relative z-10 p-3.5 rounded-2xl border text-left space-y-2.5 ${
+            darkMode
+              ? 'bg-gradient-to-r from-slate-800/90 via-slate-800/70 to-emerald-950/30 border-slate-700/90'
+              : 'bg-gradient-to-r from-emerald-50/70 via-teal-50/40 to-white border-emerald-200/80'
+          }`}>
+            <div className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center justify-between">
+              <span>{lang === 'bn' ? 'প্রেরকের বিবরণ (Sent By)' : 'Sent By'}</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[9.5px] font-black">
+                ✓ P2P Direct
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="relative shrink-0">
+                <UserAvatarBox
+                  userId={transfer.senderId}
+                  avatarDataUrl={transfer.senderAvatarDataUrl}
+                  photoUrl={transfer.senderPhotoUrl}
+                  name={senderName}
+                  sizeClass="w-12 h-12 rounded-2xl text-base"
+                />
+                <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[9px] text-white font-bold">
+                  ✓
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-black text-slate-900 dark:text-white truncate">
+                  {senderName}
+                </div>
+                <div className="text-[11px] font-mono font-bold text-purple-600 dark:text-purple-400 truncate">
+                  ID: {senderMbsId} {transfer.senderId ? `• UID: ${transfer.senderId}` : ''}
+                </div>
+              </div>
+            </div>
+
+            {/* Sender Note / Comment in sleek quote bubble */}
+            {commentText && (
+              <div className={`mt-2 p-2.5 rounded-xl border text-xs ${
+                darkMode
+                  ? 'bg-slate-900/80 border-slate-700/80 text-slate-200'
+                  : 'bg-white/90 border-emerald-200/70 text-slate-700'
+              }`}>
+                <div className="text-[10px] font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-0.5">
+                  💬 {lang === 'bn' ? 'প্রেরকের মন্তব্য (Note):' : 'Sender Note:'}
+                </div>
+                <p className="font-bold italic break-words leading-snug">
+                  "{commentText}"
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Okay Button */}
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="relative z-10 w-full h-[48px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-sm shadow-[0_8px_22px_rgba(16,185,129,0.35)] hover:opacity-95 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border-b-[3px] border-[#065f46]"
+          >
+            <CheckCircle2 size={17} />
+            <span>{lang === 'bn' ? 'ঠিক আছে (Okay)' : 'Okay'}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 export function NetworkLogo({ id, networkId, size = 20, className = "w-5 h-5 shrink-0 rounded-full" }) {
     const netId = String(id || networkId || 'TON').toUpperCase();
 
@@ -1916,87 +2456,6 @@ function HeaderWalletButton({ lang = 'bn', setIsModalOpen, user, variant = 'defa
 
 const GUEST_ID = 123456789;
 
-
-// ============================================================================
-// VIP LEVEL SYSTEM (LIFETIME BUY + SELL + ADD MONEY TRANSACTIONS)
-// VIP 1: ৳100 - ৳1,000 | VIP 2: ৳1,001 - ৳3,000 | VIP 3: ৳3,001 - ৳5,000
-// VIP 4: ৳5,001 - ৳10,000 | VIP MAX: ৳15,000+
-// ============================================================================
-function getUserVipLevel(userData) {
-  const sellBdt = Number(userData?.totalCryptoSellBdt) || 0;
-  const addBdt = Number(userData?.totalAddMoneyBdt) || 0;
-  const buyBdt = Number(userData?.totalBuyBdt) || 0;
-  const totalLifetimeVolume = Math.round((sellBdt + addBdt + buyBdt) * 100) / 100;
-
-  if (totalLifetimeVolume >= 15000) {
-    return {
-      level: 5,
-      isMax: true,
-      label: 'VIP MAX',
-      badgeBg: 'bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400',
-      pillClass: 'bg-purple-100/90 dark:bg-purple-950/70 border border-purple-300/60 dark:border-purple-600/50 text-[#8B5CF6] dark:text-[#A78BFA] shadow-xs shadow-purple-500/15',
-      frameSrc: '/vip-frames/vip-max.png',
-      glowColor: 'rgba(236,72,153,0.4)',
-      totalVolume: totalLifetimeVolume
-    };
-  } else if (totalLifetimeVolume >= 5001) {
-    return {
-      level: 4,
-      isMax: false,
-      label: 'VIP 4',
-      badgeBg: 'bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/70 dark:border-indigo-800/60 text-indigo-600 dark:text-indigo-400',
-      pillClass: 'bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
-      frameSrc: '/vip-frames/vip-4.png',
-      glowColor: 'rgba(99,102,241,0.3)',
-      totalVolume: totalLifetimeVolume
-    };
-  } else if (totalLifetimeVolume >= 3001) {
-    return {
-      level: 3,
-      isMax: false,
-      label: 'VIP 3',
-      badgeBg: 'bg-amber-50 dark:bg-amber-950/60 border border-amber-200/70 dark:border-amber-800/60 text-amber-600 dark:text-amber-400',
-      pillClass: 'bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
-      frameSrc: '/vip-frames/vip-3.png',
-      glowColor: 'rgba(245,158,11,0.3)',
-      totalVolume: totalLifetimeVolume
-    };
-  } else if (totalLifetimeVolume >= 1001) {
-    return {
-      level: 2,
-      isMax: false,
-      label: 'VIP 2',
-      badgeBg: 'bg-sky-50 dark:bg-sky-950/60 border border-sky-200/70 dark:border-sky-800/60 text-sky-600 dark:text-sky-400',
-      pillClass: 'bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
-      frameSrc: '/vip-frames/vip-2.png',
-      glowColor: 'rgba(14,165,233,0.3)',
-      totalVolume: totalLifetimeVolume
-    };
-  } else if (totalLifetimeVolume >= 100) {
-    return {
-      level: 1,
-      isMax: false,
-      label: 'VIP 1',
-      badgeBg: 'bg-purple-50 dark:bg-purple-950/60 border border-purple-200/70 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
-      pillClass: 'bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA]',
-      frameSrc: '/vip-frames/vip-1.png',
-      glowColor: 'rgba(147,51,234,0.3)',
-      totalVolume: totalLifetimeVolume
-    };
-  } else {
-    return {
-      level: 0,
-      isMax: false,
-      label: 'VIP 0',
-      badgeBg: 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400',
-      pillClass: 'bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400',
-      frameSrc: null,
-      glowColor: 'transparent',
-      totalVolume: totalLifetimeVolume
-    };
-  }
-}
-
 function resolveTelegramUser() {
   try {
     // 1. Direct candidates from Telegram WebApp SDK
@@ -2431,6 +2890,179 @@ function UserAvatarBox({ userId, photoUrl, avatarDataUrl, name = 'U', sizeClass 
       ) : (
         <span>{initial}</span>
       )}
+    </div>
+  );
+}
+
+// Dedicated Skeleton Card for User Profiles (Real Skeleton Loading with pulsing placeholders)
+function UserProfileSkeletonCard({ darkMode = false }) {
+  return (
+    <div className={`w-full p-3.5 rounded-2xl border flex items-center justify-between transition-all duration-200 shadow-2xs select-none ${
+      darkMode 
+        ? 'bg-slate-900/90 border-slate-800/80' 
+        : 'bg-white border-slate-200/80'
+    }`}>
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {/* Avatar skeleton */}
+        <div className="w-12 h-12 rounded-2xl bg-slate-200 dark:bg-slate-800 shrink-0 animate-pulse" />
+
+        {/* Text lines skeleton */}
+        <div className="min-w-0 flex-1 space-y-2 py-0.5">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-28 sm:w-36 bg-slate-200 dark:bg-slate-800 rounded-md animate-pulse" />
+            <div className="h-3 w-16 bg-slate-200/70 dark:bg-slate-800/60 rounded-md animate-pulse" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-4.5 w-16 bg-purple-200/60 dark:bg-purple-950/60 rounded-md animate-pulse" />
+            <div className="h-3 w-20 bg-slate-200/70 dark:bg-slate-800/60 rounded-md animate-pulse" />
+          </div>
+        </div>
+      </div>
+
+      {/* Right chevron box skeleton */}
+      <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800/80 shrink-0 ml-2 animate-pulse" />
+    </div>
+  );
+}
+
+// Preload multiple avatars in parallel to ensure images are in memory BEFORE revealing cards
+const preloadUserAvatarsBatch = (users) => {
+  if (!users || !users.length) return Promise.resolve();
+  const promises = users.map(u => {
+    return new Promise(resolve => {
+      const proxyUrl = (u.userId && Number(u.userId) !== 123456789) ? getUserAvatarUrl(u.userId) : '';
+      const directUrl = (u.photoUrl && !String(u.photoUrl).startsWith('/api/miniapp/user-avatar')) ? u.photoUrl : '';
+      const src = directUrl || proxyUrl;
+      if (!src) return resolve();
+      const img = new Image();
+      img.src = src;
+      if (img.complete && img.naturalWidth > 0) return resolve();
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+      setTimeout(resolve, 600); // 600ms safety limit
+    });
+  });
+  return Promise.all(promises);
+};
+
+// Strict Top-to-Bottom Ordered Recipient Card with Royal Golden Card for Boss
+function UserRecipientCard({ u, index = 0, onSelect, darkMode = false, lang = 'bn' }) {
+  const isBoss = Boolean(u.isOwner || u.userId === '8799135330' || u.mbsId === 'MT999999');
+  const initial = (u.name || 'U').trim().charAt(0).toUpperCase() || 'U';
+  // Strict serial top-to-bottom delay: 0ms, 45ms, 90ms, 135ms, 180ms
+  const staggerDelay = (index % 5) * 45;
+
+  return (
+    <div
+      style={{
+        animation: `slideDownIn 260ms cubic-bezier(0.16, 1, 0.3, 1) ${staggerDelay}ms both`
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onSelect(u)}
+        className={`w-full rounded-2xl border flex items-center justify-between transition-all duration-200 active:scale-[0.98] cursor-pointer text-left group relative overflow-hidden ${
+          isBoss
+            ? (darkMode
+                ? 'p-3 sm:p-3.5 bg-gradient-to-r from-amber-950/40 via-amber-900/30 to-amber-950/40 border-2 border-amber-400/80 shadow-[0_4px_20px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/40 hover:border-amber-300'
+                : 'p-3 sm:p-3.5 bg-gradient-to-r from-amber-50 via-yellow-50/70 to-amber-50 border-2 border-amber-400/90 shadow-[0_4px_20px_rgba(245,158,11,0.2)] ring-1 ring-amber-400/30 hover:border-amber-500')
+            : (darkMode 
+                ? 'p-3.5 bg-slate-900/90 border-slate-800 hover:border-purple-600/60 shadow-2xs' 
+                : 'p-3.5 bg-white border-slate-200/80 hover:border-purple-300 hover:shadow-xs')
+        }`}
+      >
+        {/* Subtle Golden Ambient Shimmer for Boss VIP Card */}
+        {isBoss && (
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-300/15 to-transparent pointer-events-none -translate-x-full group-hover:translate-x-full transition-transform duration-1000 z-1" />
+        )}
+
+        <div className="flex items-center gap-2.5 min-w-0 relative z-10 flex-1">
+          <div className="relative shrink-0 flex items-center justify-center">
+            {/* Boss Royal Winged Crown Avatar Frame */}
+            {isBoss ? (
+              <div className="relative flex items-center justify-center w-11 h-11">
+                <UserAvatarBox
+                  userId={u.userId}
+                  photoUrl={u.photoUrl}
+                  name={u.name}
+                  sizeClass="w-11 h-11 rounded-full text-base shadow-xs overflow-hidden"
+                />
+                <img
+                  src={marufFrameImg}
+                  alt="Royal Crown Frame"
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[70px] h-[70px] max-w-none pointer-events-none z-20 drop-shadow-[0_2px_8px_rgba(245,158,11,0.55)]"
+                />
+              </div>
+            ) : (
+              <UserAvatarBox
+                userId={u.userId}
+                photoUrl={u.photoUrl}
+                name={u.name}
+                sizeClass="w-12 h-12 rounded-2xl text-base shadow-xs"
+              />
+            )}
+
+            {isBoss ? (
+              <span className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-500 border-2 border-white dark:border-slate-950 flex items-center justify-center text-[9px] text-slate-950 font-black shadow-xs z-30">
+                ✓
+              </span>
+            ) : u.isVerified ? (
+              <span className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[9px] text-white font-bold shadow-2xs">
+                ✓
+              </span>
+            ) : null}
+          </div>
+
+          {/* Left: Name & TrustPay ID */}
+          <div className="min-w-0 flex-1 leading-tight flex items-center">
+            {isBoss ? (
+              <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap min-w-0 pl-3.5">
+                <h4 className="font-black text-sm sm:text-base text-amber-950 dark:text-amber-200 shrink-0 whitespace-nowrap">
+                  {u.name}
+                </h4>
+                <span className="text-[10px] sm:text-[10.5px] font-mono font-black px-2 py-0.5 rounded-md border shadow-2xs bg-gradient-to-r from-amber-400/30 to-yellow-400/20 text-amber-900 dark:text-amber-300 border-amber-400/60 shrink-0">
+                  {u.mbsId}
+                </span>
+              </div>
+            ) : (
+              <div>
+                <h4 className="font-black text-sm text-slate-900 dark:text-white truncate">
+                  {u.name}
+                </h4>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-[10px] font-mono font-black px-2 py-0.5 rounded-md border shadow-2xs text-purple-600 dark:text-purple-400 bg-purple-500/10 border-purple-500/20">
+                    {u.mbsId}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Middle: Role Title (USER for all users / FOUNDER for Boss) + Action Chevron */}
+        <div className={`flex items-center gap-1.5 shrink-0 pl-1.5 relative z-10 ${
+          isBoss ? 'text-amber-500 dark:text-amber-300' : 'text-purple-600 dark:text-purple-400'
+        }`}>
+          {isBoss ? (
+            <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 px-2 py-0.5 rounded-full shadow-2xs flex items-center gap-0.5 shrink-0">
+              👑 FOUNDER
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              USER
+            </span>
+          )}
+
+          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform shadow-2xs shrink-0 ${
+            isBoss
+              ? 'bg-gradient-to-tr from-amber-400 to-yellow-500 text-slate-950 border border-amber-300/80 shadow-[0_0_10px_rgba(245,158,11,0.35)]'
+              : 'bg-purple-50 dark:bg-purple-950/60 border border-purple-200/60 dark:border-purple-800/60'
+          }`}>
+            <ChevronRight size={14} strokeWidth={isBoss ? 3 : 2.5} />
+          </div>
+        </div>
+      </button>
     </div>
   );
 }
@@ -3499,111 +4131,211 @@ function TransferMoneyPage({
   darkMode = false,
   lang = 'bn'
 }) {
-  const [recipientQuery, setRecipientQuery] = useState('');
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [recipientInfo, setRecipientInfo] = useState(null);
-  const [lookupError, setLookupError] = useState('');
-  const [amount, setAmount] = useState('');
-  const [comment, setComment] = useState('');
+  // Step 1 = Search & Select User, Step 2 = Amount & Gift/Note
+  // NOTE: Per user instruction: "sathe step systeam thakbe but ota dekha jabe na" (No visible step 1/2 indicator!)
+  const [selectedRecipient, setSelectedRecipient] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(true);
   const [pastedFeedback, setPastedFeedback] = useState(false);
-  const [showPinModal, setShowPinModal] = useState(false);
+  const [directLookupError, setDirectLookupError] = useState('');
+
+  // 5 Users per scroll pagination with Batch Preload Protection
+  const [visibleCount, setVisibleCount] = useState(5);
+  const [isBatchLoading, setIsBatchLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const sentinelRef = useRef(null);
+
+  // When search query or results change, preload the first 5 avatars so all 5 reveal simultaneously in order
+  useEffect(() => {
+    let cancelled = false;
+    setVisibleCount(5);
+    setIsBatchLoading(true);
+
+    if (!searchResults || searchResults.length === 0) {
+      if (!isSearching) setIsBatchLoading(false);
+      return;
+    }
+
+    const first5 = searchResults.slice(0, 5);
+    preloadUserAvatarsBatch(first5).then(() => {
+      if (!cancelled) {
+        setIsBatchLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery, searchResults, isSearching]);
+
+  const visibleUsers = useMemo(() => {
+    return (searchResults || []).slice(0, visibleCount);
+  }, [searchResults, visibleCount]);
+
+  const hasMore = visibleCount < (searchResults?.length || 0);
+
+  // Next 5 on scroll: preloads images before revealing to guarantee serial order (never bottom-up!)
+  const loadMoreUsers = useCallback(async () => {
+    if (isLoadingMore || isBatchLoading || !hasMore) return;
+    setIsLoadingMore(true);
+    const next5 = (searchResults || []).slice(visibleCount, visibleCount + 5);
+    await preloadUserAvatarsBatch(next5);
+    setVisibleCount(prev => Math.min(prev + 5, searchResults?.length || 0));
+    setIsLoadingMore(false);
+  }, [isLoadingMore, isBatchLoading, hasMore, searchResults, visibleCount]);
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          loadMoreUsers();
+        }
+      },
+      { threshold: 0.1, rootMargin: '120px' }
+    );
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, loadMoreUsers]);
+
+  // Window scroll fallback listener
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isLoadingMore || !hasMore) return;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const clientHeight = window.innerHeight || document.documentElement.clientHeight;
+      if (scrollTop + clientHeight >= scrollHeight - 140) {
+        loadMoreUsers();
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [hasMore, isLoadingMore, loadMoreUsers]);
+
+  // Step 2 Form State
+  const [amount, setAmount] = useState('');
+  const [transferType, setTransferType] = useState('direct'); // 'direct' | 'gift'
+  const [giftTheme, setGiftTheme] = useState('surprise'); // 'surprise' | 'love' | 'salami' | 'birthday' | 'congrats'
+  const [comment, setComment] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Modals & Submission
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
   const [pinError, setPinError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transferSuccessData, setTransferSuccessData] = useState(null);
 
-  // Instant debounced lookup when user pastes or types an ID
+  // Quick Amount Chips
+  const quickAmounts = [20, 50, 100, 500, 1000];
+
+  // Gift Theme Configurations (Backed by 3D PremiumGiftArtwork)
+  const giftThemes = Object.values(GIFT_THEME_META);
+
+  // Live Debounced User Search (Searches by Name, Username, UID, or TrustPay MBS ID)
   useEffect(() => {
-    const clean = recipientQuery.trim();
-    if (clean.length < 3) {
-      setRecipientInfo(null);
-      setLookupError('');
-      setLookupLoading(false);
-      return;
-    }
-
     let cancelled = false;
-    setLookupLoading(true);
-    setLookupError('');
+    const clean = searchQuery.trim();
 
-    const timer = setTimeout(async () => {
+    const fetchUsers = async () => {
+      setIsSearching(true);
+      setDirectLookupError('');
       try {
-        const res = await lookupRecipientUser(clean, user?.id);
-        if (cancelled) return;
-        const foundUser = res?.recipient || res?.user;
-        if (res?.success && res?.found && foundUser) {
-          setRecipientInfo({
-            ...foundUser,
-            isSelf: Boolean(res.isSelf || foundUser.isSelf)
-          });
-          setLookupError('');
-        } else {
-          setRecipientInfo(null);
-          setLookupError(lang === 'bn' ? 'এই আইডিতে কোনো অ্যাকাউন্ট পাওয়া যায়নি' : 'No account found with this ID');
-        }
-      } catch (e) {
+        const users = await searchUsers(clean, user?.id);
         if (!cancelled) {
-          setRecipientInfo(null);
-          setLookupError(lang === 'bn' ? 'অ্যাকাউন্ট খুঁজতে সমস্যা হয়েছে' : 'Failed to lookup user');
+          setSearchResults(users || []);
         }
+      } catch (err) {
+        if (!cancelled) setSearchResults([]);
       } finally {
-        if (!cancelled) setLookupLoading(false);
+        if (!cancelled) setIsSearching(false);
       }
-    }, 260);
+    };
 
+    const timer = setTimeout(fetchUsers, clean ? 250 : 50);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [recipientQuery, user?.id, lang]);
+  }, [searchQuery, user?.id]);
 
-  const handlePasteId = async () => {
+  // Paste into search box
+  const handlePasteSearch = async () => {
     try {
+      const applyText = (text) => {
+        if (text && text.trim()) {
+          setSearchQuery(text.trim());
+          setPastedFeedback(true);
+          playAppSound('tap');
+          setTimeout(() => setPastedFeedback(false), 1800);
+        }
+      };
+
       if (window.Telegram?.WebApp?.readTextFromClipboard) {
-        window.Telegram.WebApp.readTextFromClipboard((clipText) => {
-          if (clipText && clipText.trim()) {
-            setRecipientQuery(clipText.trim().toUpperCase());
-            setPastedFeedback(true);
-            setTimeout(() => setPastedFeedback(false), 1800);
-          }
+        window.Telegram.WebApp.readTextFromClipboard((clip) => {
+          if (clip) applyText(clip);
         });
         return;
       }
       if (navigator.clipboard?.readText) {
         const text = await navigator.clipboard.readText();
-        if (text && text.trim()) {
-          setRecipientQuery(text.trim().toUpperCase());
-          setPastedFeedback(true);
-          setTimeout(() => setPastedFeedback(false), 1800);
-        }
+        applyText(text);
       }
     } catch (_) {}
   };
 
+  // Direct lookup fallback if user entered an exact ID that wasn't in top search
+  const handleDirectLookup = async () => {
+    const clean = searchQuery.trim();
+    if (!clean) return;
+    setIsSearching(true);
+    setDirectLookupError('');
+    try {
+      const res = await lookupRecipientUser(clean, user?.id);
+      const found = res?.recipient || res?.user;
+      if (res?.success && res?.found && found) {
+        playAppSound('tap');
+        setSelectedRecipient(found);
+      } else {
+        setDirectLookupError(lang === 'bn' ? 'এই আইডিতে কোনো অ্যাকাউন্ট পাওয়া যায়নি' : 'No account found with this ID');
+        playAppSound('error');
+      }
+    } catch (e) {
+      setDirectLookupError(lang === 'bn' ? 'অ্যাকাউন্ট খুঁজতে সমস্যা হয়েছে' : 'Lookup failed');
+      playAppSound('error');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Step 2 Submission Trigger
   const handleInitiateTransfer = () => {
-    const amt = parseFloat(amount);
-    if (!recipientInfo || recipientInfo.isSelf) {
+    const amt = parseFloat(String(amount || '').replace(/,/g, '').trim());
+    if (!selectedRecipient) {
       playAppSound('error');
       return;
     }
     if (!amt || isNaN(amt) || amt < 10) {
       playAppSound('error');
-      const msg = lang === 'bn' ? 'সর্বনিম্ন ১০ টাকা ট্রান্সফার করা যাবে।' : 'Minimum transfer amount is 10 BDT.';
-      return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+      setErrorMessage(lang === 'bn' ? 'সর্বনিম্ন ১০ টাকা ট্রান্সফার করতে হবে' : 'Minimum transfer is 10 BDT');
+      return;
     }
     if (amt > 5000) {
       playAppSound('error');
-      const msg = lang === 'bn' ? 'একবারে সর্বোচ্চ ৫,০০০ টাকা ট্রান্সফার করা যাবে।' : 'Maximum transfer limit is 5,000 BDT.';
-      return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+      setErrorMessage(lang === 'bn' ? 'একবারে সর্বোচ্চ ৫,০০০ টাকা ট্রান্সফার করা যাবে' : 'Maximum transfer is 5,000 BDT');
+      return;
     }
     if (amt > balance) {
       playAppSound('error');
-      const msg = lang === 'bn' ? 'আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই!' : 'Insufficient balance!';
-      return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+      setErrorMessage(lang === 'bn' ? 'আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই!' : 'Insufficient balance!');
+      return;
     }
 
+    setErrorMessage('');
     playAppSound('confirm');
-    setPinError('');
     if (twoStepEnabled) {
       setShowPinModal(true);
     } else {
@@ -3615,27 +4347,36 @@ function TransferMoneyPage({
     setIsSubmitting(true);
     setPinError('');
     try {
-      const cleanComment = comment.trim().slice(0, 80);
+      const cleanComment = comment.trim().slice(0, 100);
       const res = await submitTransferMoney({
         userId: user?.id || 123456789,
         senderId: user?.id || 123456789,
-        recipientQuery: recipientInfo?.mbsId || recipientInfo?.userId || recipientQuery.trim(),
+        recipientQuery: selectedRecipient.userId || selectedRecipient.mbsId,
         amount: parseFloat(amount),
         comment: cleanComment,
         note: cleanComment,
+        isGift: transferType === 'gift',
+        giftTheme: transferType === 'gift' ? giftTheme : undefined,
         twoStepPin: enteredPin || undefined
       });
+
       if (res?.success) {
         setShowPinModal(false);
         setShowConfirmModal(false);
         playAppSound('success');
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        }
         setTransferSuccessData({
           transferId: res.transferId,
-          amount: res.amount,
-          comment: res.comment || cleanComment,
-          recipientName: res.recipientName || res.recipient?.name || recipientInfo?.name,
-          recipientMbsId: res.recipientMbsId || res.recipient?.mbsId || recipientInfo?.mbsId,
-          recipientUid: res.recipientUid || res.recipient?.userId || recipientInfo?.userId
+          amount: res.amount || parseFloat(amount),
+          comment: cleanComment,
+          isGift: transferType === 'gift',
+          giftTheme,
+          recipientName: selectedRecipient.name,
+          recipientMbsId: selectedRecipient.mbsId,
+          recipientUid: selectedRecipient.userId,
+          recipientPhotoUrl: selectedRecipient.photoUrl
         });
         setAmount('');
         setComment('');
@@ -3648,8 +4389,7 @@ function TransferMoneyPage({
         setPinError(errMsg);
       } else {
         setShowConfirmModal(false);
-        if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(errMsg);
-        else alert(errMsg);
+        setErrorMessage(errMsg);
       }
     } finally {
       setIsSubmitting(false);
@@ -3657,442 +4397,735 @@ function TransferMoneyPage({
   };
 
   return (
-    <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300 max-w-md mx-auto pb-28 relative">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-9 h-9 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
-          >
-            <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
-          </button>
-          <div>
-            <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">
-              {lang === 'bn' ? 'মানি ট্রান্সফার (Transfer Money)' : 'Transfer Money'}
-            </h2>
-            <p className="text-[10.5px] text-slate-400 font-medium leading-none mt-0.5">
-              {lang === 'bn' ? 'অন্য ইউজারের আইডিতে ইনস্ট্যান্ট ফ্রি ব্যালেন্স ট্রান্সফার' : 'Instant 0-fee P2P balance transfer'}
-            </p>
-          </div>
-        </div>
-        <div className="text-right">
-          <span className="text-[10px] font-bold text-slate-400 block">{lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}</span>
-          <span className="text-xs font-black font-mono text-purple-600 dark:text-purple-400">৳{Number(balance || 0).toFixed(2)}</span>
-        </div>
-      </div>
-
-      {/* Main Transfer Card with Custom Botanical Flower Art */}
-      <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs space-y-4 relative overflow-hidden ${
-        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
-      }`}>
-        {/* Decorative Flower Art inside the Transfer Card */}
-        <div
-          className="absolute -right-3 -top-3 w-[135px] h-[155px] pointer-events-none select-none overflow-hidden"
-          style={{
-            WebkitMaskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)',
-            maskImage: 'linear-gradient(to bottom, black 70%, transparent 100%)'
-          }}
-        >
-          <img
-            src={lotusLineArt}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className={`w-full h-auto ${darkMode ? 'opacity-[0.3] brightness-125' : 'opacity-[0.55]'}`}
-          />
-        </div>
-
-        {/* 1. Recipient User ID Input */}
-        <div className="relative z-10">
-          <label className="text-xs font-black uppercase tracking-wider block mb-1.5 text-slate-600 dark:text-slate-400">
-            {lang === 'bn' ? 'প্রাপকের প্রোফাইল আইডি (User ID / MBS ID)' : 'Recipient Profile ID (MBS ID or UID)'}
-          </label>
-          <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
-            darkMode ? 'bg-slate-800/50 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
-          }`}>
-            <input
-              type="text"
-              value={recipientQuery}
-              onChange={(e) => setRecipientQuery(e.target.value.toUpperCase())}
-              placeholder="e.g. MBS54754"
-              style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-              className="w-full bg-transparent text-sm font-mono font-black uppercase tracking-wider outline-none pr-24 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
-            />
-            <button
-              type="button"
-              onClick={handlePasteId}
-              className={`absolute right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-xs ${
-                pastedFeedback
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border border-purple-500/25'
-              }`}
-            >
-              {pastedFeedback ? <Check size={13} strokeWidth={3} /> : <Clipboard size={13} strokeWidth={2.5} />}
-              <span>{pastedFeedback ? (lang === 'bn' ? 'পেস্ট হয়েছে' : 'Pasted') : (lang === 'bn' ? 'পেস্ট' : 'Paste')}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* LIVE RECIPIENT PREVIEW CARD (Profile Pic + Name + UID + Verified/Unverified on Right) */}
-        <div className="relative z-10">
-          {lookupLoading ? (
-            <div className={`p-3.5 rounded-2xl border flex items-center gap-3 ${
-              darkMode ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50 border-slate-200/80'
-            }`}>
-              <Loader2 size={18} className="animate-spin text-purple-500 shrink-0" />
-              <span className="text-xs font-bold text-slate-400">
-                {lang === 'bn' ? 'অ্যাকাউন্ট খোঁজা হচ্ছে...' : 'Searching account...'}
-              </span>
-            </div>
-          ) : recipientInfo ? (
-            <div className={`p-3.5 rounded-2xl border transition-all animate-in zoom-in-95 duration-200 flex items-center justify-between gap-3 ${
-              recipientInfo.isSelf
-                ? 'bg-rose-500/10 border-rose-500/30'
-                : darkMode
-                ? 'bg-gradient-to-r from-slate-800/90 via-slate-800/70 to-indigo-950/50 border-purple-500/40'
-                : 'bg-gradient-to-r from-purple-50/80 via-indigo-50/50 to-white border-purple-200'
-            }`}>
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="relative shrink-0">
-                  <UserAvatarBox
-                    userId={recipientInfo.userId}
-                    avatarDataUrl={recipientInfo.avatarDataUrl}
-                    photoUrl={recipientInfo.photoUrl}
-                    name={recipientInfo.name}
-                    sizeClass="w-11 h-11 rounded-2xl text-base"
-                  />
-                  {recipientInfo.isVerified && (
-                    <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[9px] text-white font-bold">
-                      ✓
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white truncate leading-tight">
-                    {recipientInfo.name}
-                  </h4>
-                  <p className="text-[11px] font-mono font-bold text-purple-600 dark:text-purple-400 truncate mt-0.5">
-                    ID: {recipientInfo.mbsId} • UID: {recipientInfo.userId}
-                  </p>
-                  {recipientInfo.isSelf && (
-                    <p className="text-[10px] font-bold text-rose-500 mt-0.5">
-                      {lang === 'bn' ? '⚠️ এটি আপনার নিজের অ্যাকাউন্ট!' : '⚠️ This is your own account!'}
-                    </p>
-                  )}
-                </div>
+    <div className="space-y-3 pb-24 max-w-md mx-auto animate-in fade-in duration-300">
+      {/* ==================================================================== */}
+      {/* SCREEN 1: SEARCH & SELECT RECIPIENT                                   */}
+      {/* ==================================================================== */}
+      {!selectedRecipient ? (
+        <div className="space-y-3">
+          {/* Top Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
+                <ChevronRight size={16} className="rotate-180" strokeWidth={2.5} />
+              </button>
+              <div>
+                <h2 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                  {lang === 'bn' ? 'মানি ট্রান্সফার (P2P Transfer)' : 'P2P Money Transfer'}
+                </h2>
+                <p className="text-[10px] text-slate-400 font-medium leading-none">
+                  {lang === 'bn' ? 'প্রাপক নির্বাচন করুন' : 'Select Recipient'}
+                </p>
               </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[9.5px] font-bold text-slate-400 block leading-tight">{lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}</span>
+              <span className="text-xs font-black font-mono text-purple-600 dark:text-purple-400">৳{Number(balance || 0).toFixed(2)}</span>
+            </div>
+          </div>
 
-              {/* Right-Side Verified / Unverified Badge */}
-              <div className="shrink-0">
-                {recipientInfo.isVerified ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-black shadow-2xs">
-                    <CheckCircle2 size={12} />
-                    <span>{lang === 'bn' ? 'ভেরিফাইড' : 'Verified'}</span>
-                  </span>
+          {/* 1. Clean Standalone Search Bar (NO outer wrapper card) */}
+          <div className="space-y-1.5">
+            <div className={`relative flex items-center rounded-2xl border transition-all px-3.5 h-[48px] shadow-2xs ${
+              darkMode 
+                ? 'bg-slate-900/90 border-slate-800 focus-within:border-purple-500 backdrop-blur-md' 
+                : 'bg-white/95 border-slate-200/90 focus-within:border-purple-500 backdrop-blur-md'
+            }`}>
+              <Search size={18} className="text-purple-500 dark:text-purple-400 mr-2.5 shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder={lang === 'bn' ? 'TrustPay ID দিন...' : 'Enter TrustPay ID...'}
+                style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                className="w-full bg-transparent text-xs sm:text-sm font-bold outline-none pr-16 placeholder:text-slate-400 placeholder:font-normal"
+              />
+
+              <div className="absolute right-2 flex items-center gap-1">
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 flex items-center justify-center text-xs hover:bg-slate-200 cursor-pointer transition-colors"
+                  >
+                    <X size={13} strokeWidth={2.5} />
+                  </button>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[10px] font-black shadow-2xs">
-                    <AlertCircle size={12} />
-                    <span>{lang === 'bn' ? 'আন-ভেরিফাইড' : 'Unverified'}</span>
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handlePasteSearch}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-[10.5px] font-black transition-all cursor-pointer border-b-[2px] active:translate-y-[2px] active:border-b-0 shadow-2xs ${
+                      pastedFeedback
+                        ? 'bg-emerald-600 text-white border-emerald-800'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white border-[#3730a3]'
+                    }`}
+                  >
+                    {pastedFeedback ? (
+                      <>
+                        <Check size={11} strokeWidth={3} />
+                        <span>{lang === 'bn' ? 'পেস্ট!' : 'Pasted!'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Clipboard size={11} />
+                        <span>{lang === 'bn' ? 'পেস্ট' : 'Paste'}</span>
+                      </>
+                    )}
+                  </button>
                 )}
               </div>
             </div>
-          ) : lookupError ? (
-            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center gap-2 text-xs font-bold text-rose-500">
-              <AlertCircle size={15} className="shrink-0" />
-              <span>{lookupError}</span>
-            </div>
-          ) : null}
-        </div>
 
-        {/* 2. Transfer Amount Input */}
-        <div className="relative z-10">
-          <label className="text-xs font-black uppercase tracking-wider block mb-1.5 text-slate-600 dark:text-slate-400">
-            {lang === 'bn' ? 'টাকার পরিমাণ (BDT) • সর্বনিম্ন ১০ টাকা' : 'Transfer Amount (Min. 10 BDT)'}
-          </label>
-          <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
-            darkMode ? 'bg-slate-800/50 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
-          }`}>
-            <span className="text-purple-600 dark:text-purple-400 font-black text-xl mr-2">৳</span>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="10 - 5000"
-              style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-              className="w-full bg-transparent text-xl font-black font-mono tracking-tight outline-none pr-14 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
-            />
-            <span className="absolute right-3.5 font-black text-xs text-slate-400">BDT</span>
-          </div>
-
-          {/* Quick Amount Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mt-2">
-            {[20, 50, 100, 500, 1000].map((val) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => setAmount(String(val))}
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
-                  amount === String(val)
-                    ? 'bg-purple-500/15 border-purple-500 text-purple-600 dark:text-purple-400 font-black'
-                    : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                ৳{val}
-              </button>
-            ))}
-            {balance > 0 && (
-              <button
-                type="button"
-                onClick={() => setAmount(String(Math.min(5000, Math.floor(balance))))}
-                className="px-2.5 py-1 rounded-xl text-xs font-black border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 cursor-pointer active:scale-95"
-              >
-                MAX
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* 3. Optional Comment / Note Input */}
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400">
-              {lang === 'bn' ? 'মন্তব্য / নোট (ঐচ্ছিক - Optional)' : 'Comment / Note (Optional)'}
-            </label>
-            <span className="text-[10px] font-mono font-bold text-slate-400">
-              {comment.length}/80
-            </span>
-          </div>
-          <div className={`relative flex items-center rounded-2xl border transition-all px-3 py-2.5 ${
-            darkMode ? 'bg-slate-800/50 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
-          }`}>
-            <FileText size={16} className="text-purple-500 mr-2 shrink-0" />
-            <input
-              type="text"
-              maxLength={80}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder={lang === 'bn' ? 'যেমন: গিফট 🎁 / পেমেন্ট / না লিখলেও চলবে...' : 'e.g. Gift 🎁 / Payment (Optional)...'}
-              style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-              className="w-full bg-transparent text-xs font-bold outline-none placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
-            />
-            {comment && (
-              <button
-                type="button"
-                onClick={() => setComment('')}
-                className="text-slate-400 hover:text-rose-500 ml-1.5 cursor-pointer"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {/* Quick Optional Comment Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mt-1.5">
-            {[
-              lang === 'bn' ? '🎁 গিফট' : '🎁 Gift',
-              lang === 'bn' ? '💸 পেমেন্ট' : '💸 Payment',
-              lang === 'bn' ? '🎉 সালামি' : '🎉 Bonus',
-              lang === 'bn' ? '🤝 ধার শোধ' : '🤝 Repayment'
-            ].map((chip) => (
-              <button
-                key={chip}
-                type="button"
-                onClick={() => setComment(chip)}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
-                  comment === chip
-                    ? 'bg-purple-500/15 border-purple-500 text-purple-600 dark:text-purple-400 font-black'
-                    : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
-                }`}
-              >
-                {chip}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Summary Row */}
-        <div className={`p-3 rounded-2xl border text-xs space-y-1.5 ${
-          darkMode ? 'bg-slate-800/30 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200/80 text-slate-600'
-        }`}>
-          <div className="flex justify-between">
-            <span>{lang === 'bn' ? 'ট্রান্সফার ফি:' : 'Transfer Fee:'}</span>
-            <span className="font-black text-emerald-500">{lang === 'bn' ? 'ফ্রি (৳০.০০)' : 'FREE (৳0.00)'}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span>{lang === 'bn' ? 'সিকিউরিটি:' : 'Security:'}</span>
-            {twoStepEnabled ? (
-              <span className="font-bold text-purple-600 dark:text-purple-400">🔒 2-Step PIN Protected</span>
-            ) : (
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">⚡ Instant Direct Transfer</span>
-            )}
-          </div>
-        </div>
-
-        {/* Submit Transfer Button (Works both with and without 2-Step!) */}
-        <button
-          type="button"
-          onClick={handleInitiateTransfer}
-          disabled={!recipientInfo || recipientInfo.isSelf || !amount || parseFloat(amount) < 10 || isSubmitting}
-          className="w-full h-[52px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
-          <span>{lang === 'bn' ? 'নিরাপদে ট্রান্সফার করুন' : 'Transfer Money Now'}</span>
-        </button>
-      </div>
-
-      {/* Confirmation Modal when 2-Step is OFF */}
-      {showConfirmModal && recipientInfo && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className={`relative w-full max-w-[345px] p-5 rounded-3xl shadow-2xl border space-y-4 animate-in zoom-in-95 duration-200 overflow-hidden ${
-            darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
-          }`}>
-            <div className="text-center space-y-1">
-              <div className="w-12 h-12 mx-auto rounded-2xl bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2">
-                <Send size={22} />
+            {/* Direct lookup error banner */}
+            {directLookupError && (
+              <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-2xl p-2.5 flex items-start gap-2 shadow-2xs">
+                <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-red-700 dark:text-red-300 font-medium leading-tight">{directLookupError}</p>
               </div>
-              <span className="inline-block px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-300 text-[10px] font-black uppercase tracking-wider">
-                {lang === 'bn' ? 'ট্রান্সফার নিশ্চিতকরণ' : 'CONFIRM TRANSFER'}
-              </span>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                {lang === 'bn' ? 'মানি ট্রান্সফার কনফার্ম করুন' : 'Confirm Money Transfer'}
-              </h3>
-            </div>
+            )}
+          </div>
 
-            <div className={`p-3.5 rounded-2xl border space-y-2.5 text-xs ${
-              darkMode ? 'bg-slate-800/70 border-slate-700' : 'bg-slate-50 border-slate-200/80'
-            }`}>
-              <div className="flex items-center gap-3 pb-2.5 border-b border-slate-200/80 dark:border-slate-700/80">
-                <UserAvatarBox
-                  userId={recipientInfo.userId}
-                  avatarDataUrl={recipientInfo.avatarDataUrl}
-                  photoUrl={recipientInfo.photoUrl}
-                  name={recipientInfo.name}
-                  sizeClass="w-10 h-10 rounded-xl text-sm"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="font-black text-slate-900 dark:text-white truncate">{recipientInfo.name}</div>
-                  <div className="text-[11px] font-mono text-purple-600 dark:text-purple-400 font-bold">
-                    {recipientInfo.mbsId} • UID: {recipientInfo.userId}
+          {/* 2. Natural User List Header */}
+          <div className="flex items-center justify-between px-1 pt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                {searchQuery ? (lang === 'bn' ? 'অনুসন্ধানের ফলাফল' : 'Search Results') : (lang === 'bn' ? 'সক্রিয় ইউজার তালিকা' : 'Active Users')}
+              </span>
+              {searchResults.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                  {visibleUsers.length} / {searchResults.length} {lang === 'bn' ? 'জন' : 'users'}
+                </span>
+              )}
+            </div>
+            {isSearching && (
+              <span className="flex items-center gap-1.5 text-[10.5px] text-purple-600 dark:text-purple-400 font-bold">
+                <Loader2 size={12} className="animate-spin" />
+                <span>{lang === 'bn' ? 'খোঁজা হচ্ছে...' : 'Searching...'}</span>
+              </span>
+            )}
+          </div>
+
+          {/* 3. User Items in Natural Flow (With Real Batch Skeleton Loading Animation) */}
+          <div className="space-y-2.5">
+            {/* Keyframe animation for serial top-to-bottom entrance */}
+            <style>{`
+              @keyframes slideDownIn {
+                0% { opacity: 0; transform: translateY(-7px); }
+                100% { opacity: 1; transform: translateY(0); }
+              }
+            `}</style>
+
+            {(isSearching || isBatchLoading) && searchResults.length === 0 ? (
+              // Initial/Search Skeleton Loading: 5 Skeleton Cards
+              Array.from({ length: 5 }).map((_, idx) => (
+                <UserProfileSkeletonCard key={`init-skel-${idx}`} darkMode={darkMode} />
+              ))
+            ) : isBatchLoading && searchResults.length > 0 ? (
+              // Batch is preloading avatars in background: show 5 Skeleton Cards together
+              Array.from({ length: 5 }).map((_, idx) => (
+                <UserProfileSkeletonCard key={`batch-skel-${idx}`} darkMode={darkMode} />
+              ))
+            ) : visibleUsers.length > 0 ? (
+              <>
+                {visibleUsers.map((u, idx) => (
+                  <UserRecipientCard
+                    key={u.userId}
+                    u={u}
+                    index={idx}
+                    onSelect={(sel) => {
+                      playAppSound('tap');
+                      if (window.Telegram?.WebApp?.HapticFeedback) {
+                        window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                      }
+                      setSelectedRecipient(sel);
+                    }}
+                    darkMode={darkMode}
+                    lang={lang}
+                  />
+                ))}
+
+                {/* When scrolling down to load next 5 users: render 5 Skeleton Cards at bottom */}
+                {isLoadingMore && (
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <UserProfileSkeletonCard key={`more-skel-${idx}`} darkMode={darkMode} />
+                  ))
+                )}
+              </>
+            ) : !isSearching ? (
+              <div className="py-10 px-4 text-center space-y-2 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/40">
+                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto text-xl">
+                  🔍
+                </div>
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                  {searchQuery
+                    ? (lang === 'bn' ? 'এই নামে কোনো অ্যাকাউন্ট পাওয়া যায়নি' : 'No account found with this search')
+                    : (lang === 'bn' ? 'ইউজারের নাম বা আইডি লিখে খুঁজুন' : 'Search by name or ID')}
+                </p>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={handleDirectLookup}
+                    className="mt-2 px-3 py-1.5 rounded-xl bg-purple-600 text-white font-black text-xs inline-flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
+                  >
+                    <Search size={12} />
+                    <span>{lang === 'bn' ? 'সরাসরি আইডি দিয়ে খুঁজুন' : 'Direct Lookup by ID'}</span>
+                  </button>
+                )}
+              </div>
+            ) : null}
+
+            {/* 4. Infinite Scroll Sentinel & 5-user Lazy Load Status */}
+            {hasMore && !isLoadingMore && (
+              <div ref={sentinelRef} className="pt-2">
+                <button
+                  type="button"
+                  onClick={loadMoreUsers}
+                  className="w-full py-2.5 rounded-2xl border border-dashed border-purple-300 dark:border-purple-800/80 bg-purple-50/50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100/60 dark:hover:bg-purple-950/60 text-xs font-bold transition-all active:scale-[0.99] cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                >
+                  <span>{lang === 'bn' ? `স্ক্রোল করুন অথবা আরো ৫ জন লোড করুন (${visibleUsers.length}/${searchResults.length})` : `Load 5 more (${visibleUsers.length}/${searchResults.length})`}</span>
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+            )}
+            {hasMore && isLoadingMore && (
+              <div ref={sentinelRef} className="h-4" />
+            )}
+          </div>
+        </div>
+      ) : (
+        /* ==================================================================== */
+        /* SCREEN 2: TRANSFER DETAILS (AMOUNT, GIFT & NOTE)                    */
+        /* ==================================================================== */
+        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  playAppSound('tap');
+                  setSelectedRecipient(null);
+                }}
+                className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
+                <ChevronRight size={16} className="rotate-180" strokeWidth={2.5} />
+              </button>
+              <div>
+                <h2 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                  {lang === 'bn' ? 'টাকা পাঠান' : 'Send Money'}
+                </h2>
+                <p className="text-[10px] text-slate-400 font-medium leading-none">
+                  {lang === 'bn' ? 'পরিমাণ ও শুভেচ্ছা নির্বাচন করুন' : 'Amount & Note Details'}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[9.5px] font-bold text-slate-400 block leading-tight">{lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}</span>
+              <span className="text-xs font-black font-mono text-purple-600 dark:text-purple-400">৳{Number(balance || 0).toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Form Card */}
+          <div className={`p-5 rounded-[28px] border shadow-sm space-y-4 relative overflow-hidden ${
+            darkMode ? 'bg-slate-900/95 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+          }`}>
+            {/* 1. Centered Recipient Profile & Small Name Underneath */}
+            {(() => {
+              const isSelectedBoss = Boolean(selectedRecipient.isOwner || selectedRecipient.userId === '8799135330' || selectedRecipient.mbsId === 'MT999999');
+              return (
+                <div className="relative flex flex-col items-center justify-center pt-1 pb-1">
+                  {/* Top-Right Change Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playAppSound('tap');
+                      setSelectedRecipient(null);
+                    }}
+                    className={`absolute right-0 top-0 px-2.5 py-1 rounded-full text-[10px] font-black border cursor-pointer active:scale-95 transition-all ${
+                      isSelectedBoss
+                        ? 'bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 text-amber-800 dark:text-amber-300 border-amber-300/80 dark:border-amber-700/70'
+                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    {lang === 'bn' ? 'পরিবর্তন' : 'Change'}
+                  </button>
+
+                  {/* Centered Profile Avatar */}
+                  <div className="relative flex items-center justify-center mb-2.5">
+                    {isSelectedBoss ? (
+                      <div className="relative flex items-center justify-center w-16 h-16 my-1.5">
+                        <div className="absolute -inset-2 rounded-full bg-amber-400/20 blur-md pointer-events-none" />
+                        <UserAvatarBox
+                          userId={selectedRecipient.userId}
+                          photoUrl={selectedRecipient.photoUrl}
+                          name={selectedRecipient.name}
+                          sizeClass="w-16 h-16 rounded-full text-xl shadow-md overflow-hidden"
+                        />
+                        <img
+                          src={marufFrameImg}
+                          alt="Royal Crown Frame"
+                          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[96px] h-[96px] max-w-none pointer-events-none z-20 drop-shadow-[0_4px_12px_rgba(245,158,11,0.55)]"
+                        />
+                        <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] text-slate-950 font-black shadow-xs z-30">
+                          ✓
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="relative flex items-center justify-center">
+                        <div className="p-1 rounded-full bg-gradient-to-tr from-purple-500/20 via-indigo-500/20 to-pink-500/20 border border-purple-300/40 dark:border-purple-700/40 shadow-sm">
+                          <UserAvatarBox
+                            userId={selectedRecipient.userId}
+                            photoUrl={selectedRecipient.photoUrl}
+                            name={selectedRecipient.name}
+                            sizeClass="w-16 h-16 rounded-full text-xl shadow-sm overflow-hidden"
+                          />
+                        </div>
+                        <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] text-white font-black shadow-xs">
+                          ✓
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Small Centered Recipient Name & TrustPay ID Underneath */}
+                  <div className="flex flex-col items-center text-center leading-tight">
+                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                      <h3 className={`font-black text-xs sm:text-sm tracking-tight ${
+                        isSelectedBoss ? 'text-amber-900 dark:text-amber-200' : 'text-slate-800 dark:text-slate-100'
+                      }`}>
+                        {selectedRecipient.name}
+                      </h3>
+                      {isSelectedBoss && (
+                        <span className="text-[8px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-slate-950 px-1.5 py-0.5 rounded-full shadow-2xs">
+                          👑 FOUNDER
+                        </span>
+                      )}
+                    </div>
+                    <span className={`mt-1 text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                      isSelectedBoss
+                        ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-400/40'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                    }`}>
+                      {selectedRecipient.mbsId}
+                    </span>
                   </div>
                 </div>
+              );
+            })()}
+
+            {/* 2. Borderless Centered Amount Entry (NO Box Around Input) */}
+            <div className="py-2 text-center">
+              <div className="flex items-baseline justify-center gap-1">
+                <span className={`text-3xl sm:text-4xl font-black select-none transition-colors ${
+                  amount ? 'text-purple-600 dark:text-purple-400' : 'text-slate-300 dark:text-slate-600'
+                }`}>
+                  ৳
+                </span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={e => {
+                    setAmount(e.target.value);
+                    if (errorMessage) setErrorMessage('');
+                  }}
+                  placeholder="0"
+                  style={{
+                    color: darkMode ? '#ffffff' : '#0f172a',
+                    width: `${Math.max(2, String(amount || '0').length + 0.6)}ch`,
+                    maxWidth: '220px'
+                  }}
+                  className="bg-transparent border-0 outline-none focus:outline-none focus:ring-0 text-center text-4xl sm:text-5xl font-black font-mono tracking-tight placeholder:text-slate-300 dark:placeholder:text-slate-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-slate-400 font-bold">{lang === 'bn' ? 'পাঠানো টাকা:' : 'Transfer Amount:'}</span>
-                <span className="font-mono font-black text-base text-emerald-600 dark:text-emerald-400">৳{ parseFloat(amount || 0).toFixed(2) } BDT</span>
+
+              <div className="mt-1 flex items-center justify-center gap-1.5">
+                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                  {lang === 'bn' ? 'পরিমাণ লিখুন (৳১০ - ৳৫,০০০)' : 'Enter amount (৳10 - ৳5,000)'}
+                </span>
+                <span className="text-[9.5px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
+                  {lang === 'bn' ? '০% ফি' : '0% Fee'}
+                </span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-slate-400 font-bold">{lang === 'bn' ? 'ট্রান্সফার ফি:' : 'Transfer Fee:'}</span>
-                <span className="font-bold text-emerald-500">{lang === 'bn' ? 'ফ্রি (৳০.০০)' : 'FREE (৳0.00)'}</span>
+
+              {/* Subtle Quick Amount Pills */}
+              <div className="flex items-center justify-center flex-wrap gap-1.5 mt-3">
+                {quickAmounts.map(val => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => {
+                      playAppSound('tap');
+                      setAmount(val.toString());
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer active:scale-95 ${
+                      amount === val.toString()
+                        ? 'bg-purple-600 text-white border-purple-600 font-black shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800/70 border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-purple-300'
+                    }`}
+                  >
+                    ৳{val}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playAppSound('tap');
+                    const maxVal = Math.min(5000, Math.floor(balance || 0));
+                    setAmount(maxVal.toString());
+                    if (errorMessage) setErrorMessage('');
+                  }}
+                  className="px-2.5 py-1 rounded-full text-[11px] font-black border border-purple-300/80 dark:border-purple-800 bg-purple-500/10 text-purple-600 dark:text-purple-300 cursor-pointer active:scale-95"
+                >
+                  {lang === 'bn' ? 'সব' : 'Max'}
+                </button>
               </div>
-              {comment.trim() && (
-                <div className="pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 flex justify-between items-start gap-2">
-                  <span className="text-slate-500 dark:text-slate-400 font-bold shrink-0">{lang === 'bn' ? 'মন্তব্য:' : 'Comment:'}</span>
-                  <span className="font-bold text-purple-600 dark:text-purple-300 text-right break-words">"{comment.trim()}"</span>
+            </div>
+
+            {/* 3. Third Section: Gift Option & Luxury 3D Gift Artworks */}
+            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playAppSound('tap');
+                    setTransferType('direct');
+                  }}
+                  className={`p-2.5 rounded-2xl border flex items-center gap-2.5 transition-all cursor-pointer text-left ${
+                    transferType === 'direct'
+                      ? 'bg-purple-500/12 border-purple-500 text-purple-700 dark:text-purple-300 font-black shadow-xs ring-1 ring-purple-500/30'
+                      : 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-400 font-bold'
+                  }`}
+                >
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    transferType === 'direct'
+                      ? 'bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-xs'
+                      : 'bg-slate-200/70 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
+                  }`}>
+                    <Zap size={17} fill="currentColor" />
+                  </div>
+                  <div className="leading-tight min-w-0">
+                    <span className="text-xs block font-black truncate">{lang === 'bn' ? 'সাধারণ পেমেন্ট' : 'Direct Send'}</span>
+                    <span className="text-[9.5px] text-slate-400 block truncate">{lang === 'bn' ? 'সরাসরি ব্যালেন্স জমা' : 'Instant Credit'}</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    playAppSound('tap');
+                    setTransferType(transferType === 'gift' ? 'direct' : 'gift');
+                  }}
+                  className={`p-2 rounded-2xl border flex items-center gap-2 transition-all cursor-pointer text-left relative overflow-hidden ${
+                    transferType === 'gift'
+                      ? 'bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-500/15 border-amber-400 text-amber-800 dark:text-amber-200 font-black shadow-sm ring-1 ring-amber-400/40'
+                      : 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-400 font-bold hover:border-amber-300/60'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
+                    <PremiumGiftArtwork theme={giftTheme} size={38} animated={transferType === 'gift'} />
+                  </div>
+                  <div className="leading-tight min-w-0">
+                    <span className="text-xs block font-black truncate">{lang === 'bn' ? 'গিফট পাঠান' : 'Send Gift'}</span>
+                    <span className="text-[9.5px] text-amber-600 dark:text-amber-400 block font-bold truncate">
+                      {lang === 'bn' ? '3D গিফট ও অ্যানিমেশন' : '3D Gift & Animation'}
+                    </span>
+                  </div>
+                </button>
+              </div>
+
+              {/* IF GIFT SELECTED: Luxury 3D Gift Artwork Selector & Message Box */}
+              {transferType === 'gift' ? (
+                <div className={`p-3.5 rounded-2xl border space-y-3 animate-in fade-in zoom-in-95 duration-200 ${
+                  darkMode
+                    ? 'bg-gradient-to-b from-slate-800/80 to-slate-900 border-amber-500/30 shadow-inner'
+                    : 'bg-gradient-to-b from-amber-50/70 via-white to-rose-50/40 border-amber-200/90 shadow-2xs'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10.5px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                      <Sparkles size={12} className="text-amber-500" />
+                      <span>{lang === 'bn' ? 'প্রিমিয়াম 3D গিফট বাছুন' : 'Choose 3D Luxury Gift'}</span>
+                    </span>
+                    <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-400/30">
+                      {GIFT_THEME_META[giftTheme]?.labelBn}
+                    </span>
+                  </div>
+
+                  {/* 5 Custom 3D SVG Gift Cards */}
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {giftThemes.map(th => {
+                      const isSelected = giftTheme === th.id;
+                      return (
+                        <button
+                          key={th.id}
+                          type="button"
+                          onClick={() => {
+                            playAppSound('tap');
+                            setGiftTheme(th.id);
+                          }}
+                          className={`group relative py-2 px-1 rounded-2xl border flex flex-col items-center justify-between transition-all cursor-pointer active:scale-95 ${
+                            isSelected
+                              ? darkMode
+                                ? 'bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-amber-400 shadow-[0_6px_18px_rgba(245,158,11,0.28)] -translate-y-0.5'
+                                : 'bg-white border-2 border-amber-500 shadow-[0_6px_18px_rgba(245,158,11,0.22)] -translate-y-0.5'
+                              : darkMode
+                                ? 'bg-slate-800/50 border-slate-700/70 opacity-75 hover:opacity-100'
+                                : 'bg-white/80 border-slate-200/80 opacity-80 hover:opacity-100'
+                          }`}
+                        >
+                          {isSelected && (
+                            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 text-slate-950 text-[8px] font-black flex items-center justify-center shadow-xs z-20">
+                              ✓
+                            </span>
+                          )}
+                          <div className="w-11 h-11 flex items-center justify-center my-0.5">
+                            <PremiumGiftArtwork theme={th.id} size={44} animated={isSelected} />
+                          </div>
+                          <span className={`text-[8.5px] font-extrabold leading-tight text-center line-clamp-1 w-full px-0.5 ${
+                            isSelected ? 'text-amber-700 dark:text-amber-300 font-black' : 'text-slate-600 dark:text-slate-400'
+                          }`}>
+                            {th.labelBn}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Gift Message Note Input */}
+                  <div>
+                    <textarea
+                      rows={2}
+                      value={comment}
+                      onChange={e => setComment(e.target.value)}
+                      placeholder={lang === 'bn' ? 'গিফট কার্ডের ভেতরে আপনার শুভেচ্ছা বার্তা লিখুন (ঐচ্ছিক)...' : 'Write a warm gift message (optional)...'}
+                      style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                      className={`w-full p-2.5 rounded-xl border text-xs font-medium outline-none transition-all resize-none ${
+                        darkMode ? 'bg-slate-900/90 border-slate-700 focus:border-amber-400' : 'bg-white border-amber-200 focus:border-amber-500'
+                      }`}
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* IF DIRECT: Compact Optional Note Input */
+                <div className={`flex items-center rounded-xl border px-3 h-[40px] ${
+                  darkMode ? 'bg-slate-800/40 border-slate-700/80' : 'bg-slate-50/80 border-slate-200/80'
+                }`}>
+                  <input
+                    type="text"
+                    value={comment}
+                    onChange={e => setComment(e.target.value)}
+                    placeholder={lang === 'bn' ? 'মন্তব্য বা নোট লিখুন (ঐচ্ছিক)...' : 'Add a note (optional)...'}
+                    style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                    className="w-full bg-transparent text-xs font-bold outline-none placeholder:text-slate-400 placeholder:font-normal"
+                  />
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
+            {/* Error Banner */}
+            {errorMessage && (
+              <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2.5 flex items-start gap-2">
+                <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
+              </div>
+            )}
+
+            {/* Submit 3D Purple Action Button */}
+            <button
+              type="button"
+              onClick={handleInitiateTransfer}
+              disabled={isSubmitting}
+              className="w-full h-[50px] rounded-2xl bg-gradient-to-b from-purple-500 via-purple-600 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-t border-t-purple-300/60 border-b-[5px] border-b-[#3b0764] shadow-[0_6px_18px_rgba(126,34,206,0.38),inset_0_1px_1px_rgba(255,255,255,0.35)] active:translate-y-[4px] active:border-b-[1px] active:shadow-xs transition-all duration-100 cursor-pointer disabled:opacity-60"
+            >
+              {transferType === 'gift' ? (
+                <>
+                  <Sparkles size={16} className="drop-shadow-xs" />
+                  <span className="drop-shadow-xs">{lang === 'bn' ? `${GIFT_THEME_META[giftTheme]?.labelBn || 'গিফট'} হিসেবে পাঠান` : 'Send Luxury Gift'}</span>
+                </>
+              ) : (
+                <>
+                  <Send size={15} className="drop-shadow-xs" />
+                  <span className="drop-shadow-xs">{lang === 'bn' ? 'নিরাপদে ট্রান্সফার করুন' : 'Transfer Money Securely'}</span>
+                  <Zap size={15} fill="currentColor" className="drop-shadow-xs" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* CONFIRMATION MODAL                                                    */}
+      {/* ==================================================================== */}
+      {showConfirmModal && selectedRecipient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className={`w-full max-w-sm rounded-[28px] p-5 border shadow-2xl text-center space-y-3.5 animate-in zoom-in-95 duration-200 ${
+            darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+          }`}>
+            {transferType === 'gift' ? (
+              <div className="w-16 h-16 mx-auto flex items-center justify-center">
+                <PremiumGiftArtwork theme={giftTheme} size={64} animated={true} />
+              </div>
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto text-xl shadow-xs">
+                💸
+              </div>
+            )}
+
+            <div>
+              <h3 className="text-base font-black">
+                {lang === 'bn' ? 'ট্রান্সফার নিশ্চিত করুন' : 'Confirm Money Transfer'}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {transferType === 'gift'
+                  ? (lang === 'bn' ? `প্রাপক একটি প্রিমিয়াম 3D "${GIFT_THEME_META[giftTheme]?.labelBn}" অ্যানিমেশন পাবেন` : 'Recipient will receive an animated 3D gift')
+                  : (lang === 'bn' ? 'টাকাটি অবিলম্বে প্রাপকের ব্যালেন্সে জমা হবে' : 'Immediate balance credit to recipient')}
+              </p>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2 text-left text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-bold">প্রাপক:</span>
+                <span className="font-black text-slate-900 dark:text-white">{selectedRecipient.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-bold">TrustPay ID:</span>
+                <span className="font-mono font-bold text-purple-600 dark:text-purple-400">{selectedRecipient.mbsId}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-bold">পরিমাণ:</span>
+                <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">৳{parseFloat(amount).toFixed(2)}</span>
+              </div>
+              {transferType === 'gift' && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 font-bold">গিফট থিম:</span>
+                  <span className="font-black text-amber-600 dark:text-amber-400">{GIFT_THEME_META[giftTheme]?.labelBn}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-bold">ফি:</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">ফ্রি (৳০.০০)</span>
+              </div>
+              {comment && (
+                <div className="pt-1 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">বার্তা / নোট:</span>
+                  <span className="font-serif italic font-bold text-purple-600 dark:text-purple-300 block break-words">"{comment}"</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 type="button"
-                disabled={isSubmitting}
                 onClick={() => setShowConfirmModal(false)}
-                className="h-[44px] rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black text-xs active:scale-95 transition-all cursor-pointer"
+                className="h-[42px] rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs cursor-pointer active:scale-95"
               >
-                {lang === 'bn' ? 'বাতিল করুন' : 'Cancel'}
+                {lang === 'bn' ? 'বাতিল' : 'Cancel'}
               </button>
               <button
                 type="button"
-                disabled={isSubmitting}
                 onClick={() => handleConfirmPinAndTransfer('')}
-                className="h-[44px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs shadow-md flex items-center justify-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                disabled={isSubmitting}
+                className="h-[42px] rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs flex items-center justify-center gap-1.5 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 cursor-pointer shadow-md disabled:opacity-50"
               >
-                {isSubmitting ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-                <span>{lang === 'bn' ? 'কনফার্ম করুন' : 'Confirm'}</span>
+                {isSubmitting ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <span>{lang === 'bn' ? 'হ্যাঁ, পাঠিয়ে দিন' : 'Confirm & Send'}</span>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 2-Step PIN Modal (Only shown if user has enabled 2-Step) */}
+      {/* 2-Step PIN Modal */}
       <TwoStepPinModal
         isOpen={showPinModal}
         onClose={() => setShowPinModal(false)}
         onConfirmPin={handleConfirmPinAndTransfer}
-        pinLength={twoStepLength}
         isSubmitting={isSubmitting}
-        errorText={pinError}
-        titleBn="ট্রান্সফার পিন কনফার্মেশন"
-        titleEn="Confirm Transfer PIN"
-        subtitleBn={`${recipientInfo?.name || 'User'}-কে ৳${amount || 0} পাঠাতে আপনার ২-স্টেপ পিন দিন`}
-        subtitleEn={`Enter your 2-Step PIN to send ৳${amount || 0} to ${recipientInfo?.name || 'User'}`}
-        darkMode={darkMode}
+        errorMessage={pinError}
         lang={lang}
+        darkMode={darkMode}
+        pinLength={twoStepLength}
+        titleBn="ট্রান্সফার কনফার্ম করতে PIN দিন"
+        titleEn="Enter PIN to Confirm Transfer"
       />
 
-      {/* Transfer Success Receipt Modal */}
+      {/* ==================================================================== */}
+      {/* TRANSFER SUCCESS RECEIPT MODAL                                       */}
+      {/* ==================================================================== */}
       {transferSuccessData && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className={`relative w-full max-w-[350px] p-6 rounded-[30px] shadow-2xl border text-center space-y-4 animate-in zoom-in-95 duration-300 overflow-hidden ${
-            darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className={`w-full max-w-sm rounded-[32px] p-6 border shadow-2xl text-center space-y-4 animate-in zoom-in-95 duration-300 relative overflow-hidden ${
+            darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
           }`}>
-            {/* Ambient Emerald Glow + Corner Botanical Accent */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
-            <img
-              src={sakuraBranchArt}
-              alt=""
-              className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
-                darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
-              }`}
-            />
+            {transferSuccessData.isGift ? (
+              <div className="flex flex-col items-center justify-center pt-1">
+                <div className="w-20 h-20 flex items-center justify-center">
+                  <PremiumGiftArtwork theme={transferSuccessData.giftTheme || 'surprise'} size={78} animated={true} />
+                </div>
+                <span className="mt-1 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-400/30">
+                  {GIFT_THEME_META[transferSuccessData.giftTheme || 'surprise']?.labelBn} পাঠানো হয়েছে
+                </span>
+              </div>
+            ) : (
+              <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'ট্রান্সফার সফল' : 'TRANSFER SUCCESSFUL'} />
+            )}
 
-            <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'ট্রান্সফার সফল' : 'TRANSFER COMPLETED'} />
-
-            <div className="relative z-10">
-              <h3 className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-                ৳{Number(transferSuccessData.amount).toFixed(2)} BDT
+            <div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                {lang === 'bn' ? 'টাকা সফলভাবে পাঠানো হয়েছে!' : 'Money Sent Successfully!'}
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {lang === 'bn'
-                  ? `${transferSuccessData.recipientName} (${transferSuccessData.recipientMbsId})-এর অ্যাকাউন্টে সাথে সাথে টাকা জমা হয়েছে!`
-                  : `Successfully sent to ${transferSuccessData.recipientName} (${transferSuccessData.recipientMbsId})!`}
+              <div className="text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">
+                ৳{Number(transferSuccessData.amount).toFixed(2)} BDT
+              </div>
+              <p className="text-xs text-slate-400 mt-1">
+                {transferSuccessData.isGift
+                  ? (lang === 'bn' ? `${transferSuccessData.recipientName}-কে প্রিমিয়াম 3D গিফট পাঠানো হয়েছে ✨` : `Luxury 3D gift sent to ${transferSuccessData.recipientName}`)
+                  : (lang === 'bn' ? `${transferSuccessData.recipientName}-এর অ্যাকাউন্টে সরাসরি জমা হয়েছে` : `Successfully sent to ${transferSuccessData.recipientName}`)}
               </p>
             </div>
-            <div className={`p-3.5 rounded-2xl border text-left text-xs space-y-2 relative z-10 ${
-              darkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200/80'
-            }`}>
-              <div className="flex justify-between">
-                <span className="text-slate-400">{lang === 'bn' ? 'প্রাপক:' : 'Recipient:'}</span>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 text-left space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-bold">প্রাপক:</span>
                 <span className="font-black">{transferSuccessData.recipientName}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Profile ID:</span>
-                <span className="font-mono font-bold text-purple-500">{transferSuccessData.recipientMbsId}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-bold">TrustPay ID:</span>
+                <span className="font-mono font-bold text-purple-600 dark:text-purple-400">{transferSuccessData.recipientMbsId}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Transfer ID:</span>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-bold">ট্রান্সফার ট্রানজেকশন ID:</span>
                 <span className="font-mono font-bold">{transferSuccessData.transferId}</span>
               </div>
               {transferSuccessData.comment && (
-                <div className="flex justify-between items-start gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-                  <span className="text-slate-400 shrink-0">{lang === 'bn' ? 'মন্তব্য:' : 'Comment:'}</span>
-                  <span className="font-bold text-purple-600 dark:text-purple-300 text-right break-words">"{transferSuccessData.comment}"</span>
+                <div className="pt-1.5 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-[10px] text-slate-400 font-bold block mb-0.5">বার্তা / চিঠি:</span>
+                  <p className="font-serif italic font-bold text-purple-600 dark:text-purple-300 break-words">"{transferSuccessData.comment}"</p>
                 </div>
               )}
             </div>
+
             <button
               type="button"
               onClick={() => {
+                playAppSound('tap');
                 setTransferSuccessData(null);
+                setSelectedRecipient(null);
                 onBack();
               }}
-              className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-xs shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all cursor-pointer relative z-10"
+              className="w-full h-[46px] rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 cursor-pointer shadow-md"
             >
-              {lang === 'bn' ? 'সম্পন্ন (Done)' : 'Done'}
+              <CheckCircle2 size={16} />
+              <span>{lang === 'bn' ? 'ঠিক আছে (Done)' : 'Done'}</span>
             </button>
           </div>
         </div>
@@ -4641,11 +5674,11 @@ export default function App() {
       const cachedBuy = localStorage.getItem('maruf_buyer_rates');
       const cachedSell = localStorage.getItem('maruf_seller_rates');
       return {
-        buyRates: cachedBuy ? JSON.parse(cachedBuy).rates : { GRAM: 160, USDT: 130 },
+        buyRates: cachedBuy ? JSON.parse(cachedBuy).rates : { GRAM: 145, USDT: 130 },
         sellRates: cachedSell ? JSON.parse(cachedSell).rates : { GRAM: 115, USDT: 118 }
       };
     } catch(e) {
-      return { buyRates: { GRAM: 160, USDT: 130 }, sellRates: { GRAM: 115, USDT: 118 } };
+      return { buyRates: { GRAM: 145, USDT: 130 }, sellRates: { GRAM: 115, USDT: 118 } };
     }
   });
 
@@ -4656,7 +5689,7 @@ export default function App() {
         if (!isMounted || !data) return;
         setAppMarketRates({
           buyRates: {
-            GRAM: Number(data.buyRates?.GRAM) || 160,
+            GRAM: Number(data.buyRates?.GRAM) || 145,
             USDT: Number(data.buyRates?.USDT) || 130
           },
           sellRates: {
@@ -5310,7 +6343,6 @@ export default function App() {
 
           <div className={activeTab === 'profile' ? 'block' : 'hidden'}>
               <ProfilePage 
-                  onGoToVipLevels={() => setActiveTab('vip-levels')}
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
                   user={user} 
                   balance={balance} 
@@ -5388,17 +6420,6 @@ export default function App() {
               )
           )}
           
-          {activeTab === 'vip-levels' && (
-              <VipLevelsPage 
-                  user={user} 
-                  lang={lang} 
-                  darkMode={darkMode} 
-                  onBack={() => setActiveTab('profile')}
-                  onGoToAddMoney={() => setActiveTab('add-money')}
-                  onGoToTrade={() => setActiveTab('home')}
-              />
-          )}
-
           {activeTab === 'history' && <HistoryPage user={user} lang={lang} t={t} onBack={() => setActiveTab('profile')} />}
           {activeTab === 'referral' && (
               <ReferralPage
@@ -5513,7 +6534,7 @@ export default function App() {
         </div>
 
         {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
-        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral'  && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && activeTab !== 'vip-levels' && (() => {
+        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral'  && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (() => {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             return (
@@ -5929,7 +6950,7 @@ function CryptoAssetSelectModal({
   if (!isOpen) return null;
 
   const isBuy = mode === 'buy';
-  const gramRate = isBuy ? (liveRates?.GRAM || 160) : (sellRates?.GRAM || 115);
+  const gramRate = isBuy ? (liveRates?.GRAM || 145) : (sellRates?.GRAM || 115);
   const usdtRate = isBuy ? (liveRates?.USDT || 130) : (sellRates?.USDT || 118);
   const flowerImg = isBuy ? sakuraBranchArt : wisteriaCascadeArt;
 
@@ -6157,7 +7178,7 @@ function HomePage({
         if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates?.USDT) return parsed.rates;
       }
     } catch (_) {}
-    return { USDT: 130, GRAM: 160, sellRates: { USDT: 118, GRAM: 115 } };
+    return { USDT: 130, GRAM: 145, sellRates: { USDT: 118, GRAM: 115 } };
   });
 
   useEffect(() => {
@@ -6301,7 +7322,7 @@ function HomePage({
   // ---- Supported coins (only what the bot trades: GRAM and USDT) ----
   const coins = [
     { symbol: 'USDT', name: 'Tether USD • TRC20 / TON', Logo: TetherLogo, buy: marketRates.USDT || 130, sell: marketRates.sellRates?.USDT || 118 },
-    { symbol: 'GRAM', name: 'Gram • The Open Network', Logo: GramTokenLogo, buy: marketRates.GRAM || 160, sell: marketRates.sellRates?.GRAM || 115 },
+    { symbol: 'GRAM', name: 'Gram • The Open Network', Logo: GramTokenLogo, buy: marketRates.GRAM || 145, sell: marketRates.sellRates?.GRAM || 115 },
   ];
   const q = searchQuery.trim().toLowerCase();
   const visibleCoins = q ? coins.filter(c => c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : coins;
@@ -6419,14 +7440,6 @@ function HomePage({
         <div className="relative z-10 max-w-[64%]">
           <p className={`text-[12px] font-medium ${darkMode ? 'text-violet-200/75' : 'text-[#7C3AED]/80'}`}>
             {greeting} <span className="font-semibold">{user?.first_name ? user.first_name : (lang === 'bn' ? 'গেস্ট' : 'Guest')}</span>
-            {(() => {
-              const vip = getUserVipLevel(user);
-              return (
-                <span onClick={() => { playAppSound("tap"); setActiveTab("vip-levels"); }} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-black tracking-wide ml-1.5 select-none bg-purple-50 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA] shadow-2xs cursor-pointer active:scale-95 transition-transform" title="View VIP Levels">
-                  {vip.label}
-                </span>
-              );
-            })()}
           </p>
 
           <div className="flex items-center gap-1 mt-3">
@@ -6872,6 +7885,7 @@ function AddMoneyPage({
     const [isMethodDropdownOpen, setIsMethodDropdownOpen] = useState(false);
     const [trxId, setTrxId] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isTransitioning, setIsTransitioning] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [copied, setCopied] = useState(false);
     const [pastedFeedback, setPastedFeedback] = useState(false);
@@ -6897,13 +7911,15 @@ function AddMoneyPage({
             navigator.clipboard.writeText(adminNumber);
         }
         setCopied(true);
+        playAppSound('tap');
         if (window.Telegram?.WebApp?.HapticFeedback) {
             window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         }
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const quickAmounts = [20, 50, 100, 500, 1000, 2000, 5000];
+    // Quick amounts strictly up to 1000 per user specification (2000 and 5000 removed)
+    const quickAmounts = [20, 50, 100, 500, 1000];
 
     const extractCleanTrxId = (raw) => {
         if (!raw) return '';
@@ -6920,6 +7936,7 @@ function AddMoneyPage({
             if (clean) {
                 setTrxId(clean);
                 setPastedFeedback(true);
+                playAppSound('tap');
                 if (errorMessage) setErrorMessage('');
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
@@ -6928,7 +7945,6 @@ function AddMoneyPage({
             }
         };
 
-        // 1. First priority: Telegram WebApp official clipboard reader (triggers native Telegram permission prompt)
         if (window.Telegram?.WebApp?.readTextFromClipboard) {
             try {
                 window.Telegram.WebApp.readTextFromClipboard((clip) => {
@@ -6947,7 +7963,6 @@ function AddMoneyPage({
         fallbackStandard();
 
         async function fallbackStandard() {
-            // 2. Browser standard navigator.clipboard.readText()
             if (navigator.clipboard?.readText) {
                 try {
                     const text = await navigator.clipboard.readText();
@@ -6960,7 +7975,6 @@ function AddMoneyPage({
                 }
             }
 
-            // 3. Fallback: prompt dialog so the user can easily paste without being blocked by browser sandbox
             const manual = window.prompt(lang === 'bn' ? 'আপনার TrxID এখানে পেস্ট করুন:' : 'Paste your TrxID here:');
             if (manual && manual.trim()) {
                 applyText(manual);
@@ -6968,11 +7982,33 @@ function AddMoneyPage({
         }
     };
 
+    // Single-click transition with spin animation
+    const handleGoToStep2 = () => {
+        if (isTransitioning) return; // Prevent multiple clicks!
+        const cleanAmt = parseFloat(String(amount || '').replace(/,/g, '').trim());
+        if (!cleanAmt || isNaN(cleanAmt) || cleanAmt < 20) {
+            setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে নূন্যতম ২০ টাকা বা তার বেশি দিন' : 'Please enter at least 20 BDT');
+            playAppSound('error');
+            return;
+        }
+        setErrorMessage('');
+        setIsTransitioning(true);
+        playAppSound('tap');
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+        }
+        setTimeout(() => {
+            setStep(2);
+            setIsTransitioning(false);
+        }, 350);
+    };
+
     const handleSubmit = async () => {
         const cleanAmt = parseFloat(String(amount || '').replace(/,/g, '').trim());
         if (!cleanAmt || isNaN(cleanAmt) || cleanAmt < 20) {
             setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে নূন্যতম ২০ টাকা বা তার বেশি দিন' : 'Please enter at least 20 BDT');
             playAppSound('error');
+            setStep(1);
             return;
         }
 
@@ -7016,271 +8052,495 @@ function AddMoneyPage({
     if (step === 3) {
         return (
             <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-400 p-2 text-center pb-24 max-w-sm mx-auto">
-                <div className={`relative p-6 text-center space-y-4 rounded-[30px] border shadow-2xl w-full overflow-hidden ${
-                    darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+                <div className={`relative w-full rounded-3xl p-6 border shadow-xl ${
+                    darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
                 }`}>
-                    {/* Ambient Emerald Glow + Corner Botanical Accent */}
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
-                    <img
-                        src={sakuraBranchArt}
-                        alt=""
-                        className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
-                            darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
-                        }`}
-                    />
-
-                    <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'অটো-ভেরিফাইড সফল' : 'AUTO-VERIFIED'} />
-
-                    <div className="relative z-10">
-                        <h2 className="text-2xl font-black tracking-tight mb-1 text-emerald-600 dark:text-emerald-400 font-mono">
-                            +৳{amount} BDT Added!
-                        </h2>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs max-w-[280px] mx-auto leading-relaxed">
-                            {lang === 'bn' 
-                                ? 'আপনার পেমেন্ট SMS দ্বারা সাথে সাথে অটো-ভেরিফাই হয়েছে এবং ব্যালেন্সে যোগ হয়েছে।' 
-                                : 'Your payment has been auto-verified via SMS and credited to your balance.'}
-                        </p>
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center mx-auto mb-4 text-emerald-500 shadow-md">
+                        <Check size={36} strokeWidth={3} />
                     </div>
 
-                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-3.5 border border-slate-200/80 dark:border-slate-800 text-left space-y-2 text-xs relative z-10">
-                        <div className="flex justify-between items-center">
-                            <span className="text-slate-400 font-medium">Transaction ID</span>
-                            <span className="font-mono font-bold bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">{trxId}</span>
+                    <h2 className="text-xl font-black mb-1">
+                        {lang === 'bn' ? 'ডিপোজিট সফল হয়েছে!' : 'Deposit Successful!'}
+                    </h2>
+                    <p className="text-xs text-slate-400 mb-5">
+                        {lang === 'bn' ? 'আপনার অ্যাকাউন্টে টাকা যোগ করা হয়েছে' : 'Funds have been credited to your balance'}
+                    </p>
+
+                    <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/40 mb-5 space-y-2 text-left">
+                        <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-400 font-bold">{lang === 'bn' ? 'পরিমাণ' : 'Amount'}</span>
+                            <span className="font-mono font-black text-purple-600 dark:text-purple-400 text-base">
+                                +৳{Number(depositResult?.amount || amount).toLocaleString()}
+                            </span>
                         </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-slate-400 font-medium">Payment Method</span>
+                        <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-400 font-bold">{lang === 'bn' ? 'মেথড' : 'Method'}</span>
                             <span className="font-bold">{paymentMethod}</span>
                         </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-slate-400 font-medium">Amount Deposited</span>
-                            <span className="font-black text-emerald-600 dark:text-emerald-400 text-sm">৳{amount} BDT</span>
+                        <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-400 font-bold">TrxID</span>
+                            <span className="font-mono font-bold">{trxId}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-400 font-bold">{lang === 'bn' ? 'নতুন ব্যালেন্স' : 'New Balance'}</span>
+                            <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">
+                                ৳{Number(depositResult?.newBalance || (Number(balance || 0) + Number(amount))).toFixed(2)}
+                            </span>
                         </div>
                     </div>
 
-                    <div className="space-y-2.5 pt-2 relative z-10">
-                        <button
-                            type="button"
-                            onClick={onGoToBuyCrypto}
-                            className="w-full h-[50px] rounded-2xl text-white font-black text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-95 transition-all"
-                            style={{
-                                background: 'linear-gradient(135deg, #7C3AED 0%, #6366F1 50%, #4338CA 100%)'
-                            }}
-                        >
-                            <Coins size={16} />
-                            <span>{t?.buyCrypto || (lang === 'bn' ? 'ক্রিপ্টো কিনুন' : 'BUY CRYPTO NOW')}</span>
-                        </button>
+                    <div className="space-y-2">
                         <button
                             type="button"
                             onClick={() => {
-                                setStep(1);
-                                setAmount('');
-                                setTrxId('');
-                                setErrorMessage('');
+                                playAppSound('tap');
                                 onDone();
                             }}
-                            className="w-full h-[46px] rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-all cursor-pointer"
+                            className="w-full h-[46px] rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-sm flex items-center justify-center gap-2 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 cursor-pointer shadow-md"
                         >
-                            {lang === 'bn' ? 'হোমে ফিরে যান' : 'BACK TO HOME'}
+                            <span>{lang === 'bn' ? 'হোমে ফিরে যান' : 'Go to Home'}</span>
+                            <ChevronRight size={16} strokeWidth={3} />
                         </button>
+                        {onGoToBuyCrypto && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    playAppSound('tap');
+                                    onGoToBuyCrypto();
+                                }}
+                                className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 cursor-pointer"
+                            >
+                                {lang === 'bn' ? '⚡ এখনই ক্রিপ্টো কিনুন' : '⚡ Buy Crypto Now'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
         );
     }
 
-    // SINGLE STEP EXECUTIVE ADD MONEY CARD
-    return (
-        <div className="space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-300 pb-32 max-w-md mx-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2.5">
+    // STEP 1: SELECT METHOD & AMOUNT
+    if (step === 1) {
+        const numAmt = parseFloat(amount) || 0;
+        const isValidAmt = numAmt >= 20;
+
+        return (
+            <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-20 max-w-md mx-auto">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={onDone}
+                            className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
+                        >
+                            <ChevronRight size={16} className="rotate-180" strokeWidth={2.5} />
+                        </button>
+                        <div>
+                            <h2 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                                {lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money'}
+                            </h2>
+                            <p className="text-[10px] text-slate-400 font-medium leading-none">
+                                {lang === 'bn' ? 'ধাপ ১: মেথড ও পরিমাণ নির্বাচন' : 'Step 1: Method & Amount'}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="text-right">
+                        <span className="text-[9.5px] font-bold text-slate-400 block leading-tight">{lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}</span>
+                        <span className="text-xs font-black font-mono text-purple-600 dark:text-purple-400">৳{Number(balance || 0).toFixed(2)}</span>
+                    </div>
+                </div>
+
+                {/* Modern Unified 2-Step Progress Tracker */}
+                <div className="bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 flex items-center gap-1.5 shadow-2xs">
+                    <div className="flex-1 flex items-center gap-2 py-1.5 px-3 rounded-xl bg-white dark:bg-slate-900 shadow-xs border border-purple-200/80 dark:border-purple-800/80 text-purple-600 dark:text-purple-400 font-black">
+                        <span className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-2xs">১</span>
+                        <span className="text-[11px] font-black truncate">{lang === 'bn' ? 'পরিমাণ ও মেথড' : 'Amount & Method'}</span>
+                    </div>
+
+                    <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 shrink-0" strokeWidth={2.5} />
+
+                    <div className="flex-1 flex items-center gap-2 py-1.5 px-3 rounded-xl text-slate-400 font-bold opacity-60">
+                        <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center justify-center text-[10px] font-black shrink-0">২</span>
+                        <span className="text-[11px] truncate">{lang === 'bn' ? 'পেমেন্ট ও TrxID' : 'Pay & TrxID'}</span>
+                    </div>
+                </div>
+
+                {/* Step 1 Card */}
+                <div className={`p-4 rounded-[24px] border shadow-xs space-y-3 ${
+                    darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+                }`}>
+                    {/* Method Dropdown */}
+                    <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider block mb-1.5 text-slate-500 dark:text-slate-400">
+                            {lang === 'bn' ? 'পেমেন্ট মেথড বাছুন' : 'Payment Method'}
+                        </label>
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    playAppSound('tap');
+                                    setIsMethodDropdownOpen(!isMethodDropdownOpen);
+                                }}
+                                className={`w-full py-2 px-3 rounded-xl border transition-all flex items-center justify-between cursor-pointer active:scale-[0.99] ${
+                                    darkMode 
+                                        ? 'bg-slate-800/50 border-slate-700 text-white' 
+                                        : 'bg-slate-50 border-slate-200 text-slate-900'
+                                }`}
+                            >
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-lg bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+                                        <img
+                                            src={getPaymentLogo(paymentMethod)}
+                                            alt={paymentMethod}
+                                            className="w-full h-full object-contain select-none"
+                                        />
+                                    </div>
+                                    <div className="text-left leading-none">
+                                        <span className="font-black text-xs block">{paymentMethod}</span>
+                                        <span className="text-[9px] text-slate-400 font-medium block mt-0.5">Personal Send Money</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                                        Send Money
+                                    </span>
+                                    <ChevronDown 
+                                        size={16} 
+                                        className={`text-slate-400 transition-transform duration-200 ${isMethodDropdownOpen ? 'rotate-180 text-purple-600' : ''}`} 
+                                    />
+                                </div>
+                            </button>
+
+                            {/* Dropdown Options */}
+                            {isMethodDropdownOpen && (
+                                <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border z-50 p-1.5 space-y-1 shadow-xl animate-in fade-in zoom-in-95 duration-150 ${
+                                    darkMode
+                                        ? 'bg-slate-800 border-slate-600 shadow-[0_16px_35px_rgba(0,0,0,0.85)] text-white'
+                                        : 'bg-white border-slate-200 shadow-[0_10px_25px_rgba(0,0,0,0.12)] text-slate-900'
+                                }`}>
+                                    {['bKash', 'Nagad'].map(m => (
+                                        <button
+                                            key={m}
+                                            type="button"
+                                            onClick={() => {
+                                                playAppSound('tap');
+                                                setPaymentMethod(m);
+                                                setIsMethodDropdownOpen(false);
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
+                                                paymentMethod === m
+                                                    ? 'bg-purple-500/15 text-purple-600 dark:text-purple-300 font-black border border-purple-500/30'
+                                                    : 'hover:bg-slate-100 dark:hover:bg-slate-700/60 text-slate-700 dark:text-slate-200 font-bold'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="w-8 h-8 rounded-lg bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+                                                    <img
+                                                        src={getPaymentLogo(m)}
+                                                        alt={m}
+                                                        className="w-full h-full object-contain select-none"
+                                                    />
+                                                </div>
+                                                <div className="text-left leading-none">
+                                                    <span className="text-xs font-black block">{m}</span>
+                                                    <span className="text-[9.5px] text-slate-400 font-medium block mt-0.5">Send Money</span>
+                                                </div>
+                                            </div>
+                                            {paymentMethod === m && <Check size={16} className="text-purple-600 dark:text-purple-300" />}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Amount Input */}
+                    <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                {lang === 'bn' ? 'টাকার পরিমাণ (BDT)' : 'Amount (BDT)'}
+                            </label>
+                            <span className="text-[9.5px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800/50">
+                                {lang === 'bn' ? 'নূন্যতম ২০ টাকা' : 'Min. 20 BDT'}
+                            </span>
+                        </div>
+
+                        <div className={`relative flex items-center rounded-xl border-2 transition-all px-3 h-[44px] ${
+                            darkMode ? 'bg-slate-800/40 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
+                        }`}>
+                            <span className="text-base font-black text-purple-600 dark:text-purple-400 mr-2 select-none">
+                                ৳
+                            </span>
+                            <input
+                                type="number"
+                                inputMode="decimal"
+                                value={amount}
+                                onChange={e => {
+                                    setAmount(e.target.value);
+                                    if (errorMessage) setErrorMessage('');
+                                }}
+                                placeholder="0.00"
+                                style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
+                                className="w-full bg-transparent text-base font-black font-mono outline-none pr-12 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <span className="absolute right-3 font-black text-xs text-slate-400 select-none">
+                                BDT
+                            </span>
+                        </div>
+
+                        {/* Single-row Quick Chips (Strictly 20, 50, 100, 500, 1000) */}
+                        <div className="grid grid-cols-5 gap-1.5 mt-2.5">
+                            {quickAmounts.map(val => (
+                                <button
+                                    key={val}
+                                    type="button"
+                                    onClick={() => {
+                                        playAppSound('tap');
+                                        setAmount(val.toString());
+                                        if (errorMessage) setErrorMessage('');
+                                    }}
+                                    className={`py-1.5 px-0.5 rounded-lg text-xs font-bold border transition-all cursor-pointer active:scale-95 text-center ${
+                                        amount === val.toString()
+                                            ? 'bg-purple-600 text-white border-purple-600 font-black shadow-xs'
+                                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-purple-300'
+                                    }`}
+                                >
+                                    ৳{val.toLocaleString()}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Micro Benefits Banner */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/40 text-[10.5px] text-purple-700 dark:text-purple-300">
+                        <Sparkles size={14} className="text-amber-500 shrink-0" />
+                        <span className="leading-tight font-medium">
+                            {lang === 'bn' ? '০% ফি • সাথে সাথে অ্যাকাউন্টে ব্যালেন্স যোগ হবে' : '0% Fee • Instant automatic deposit'}
+                        </span>
+                    </div>
+
+                    {errorMessage && (
+                        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2 flex items-start gap-2">
+                            <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                            <p className="text-xs text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
+                        </div>
+                    )}
+
+                    {/* 3D Action Button */}
                     <button
                         type="button"
-                        onClick={onDone}
-                        className="w-9 h-9 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
+                        onClick={handleGoToStep2}
+                        disabled={!isValidAmt || isTransitioning}
+                        className="w-full h-[46px] rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-t border-white/30 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 transition-all duration-100 cursor-pointer disabled:opacity-50 disabled:border-b-0 disabled:translate-y-0 disabled:cursor-not-allowed shadow-md"
                     >
-                        <ChevronRight size={18} className="rotate-180" strokeWidth={2.5} />
+                        {isTransitioning ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin" />
+                                <span>{lang === 'bn' ? 'পরবর্তী ধাপে যাওয়া হচ্ছে...' : 'Loading...'}</span>
+                            </>
+                        ) : (
+                            <>
+                                <span>{lang === 'bn' ? 'পরবর্তী ধাপ (পেমেন্ট ও TrxID)' : 'Next (Payment & TrxID)'}</span>
+                                <ChevronRight size={16} strokeWidth={3} />
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // STEP 2: PAYMENT & TRXID
+    return (
+        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-20 max-w-md mx-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            playAppSound('tap');
+                            setStep(1);
+                        }}
+                        className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
+                    >
+                        <ChevronRight size={16} className="rotate-180" strokeWidth={2.5} />
                     </button>
                     <div>
-                        <h2 className="text-base font-black text-slate-900 dark:text-white leading-tight">
+                        <h2 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
                             {lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money'}
                         </h2>
-                        <p className="text-[10.5px] text-slate-400 font-medium leading-none">
-                            {lang === 'bn' ? 'ইনস্ট্যান্ট ব্যালেন্স রিচার্জ (bKash / Nagad)' : 'Instant Balance Top-up'}
+                        <p className="text-[10px] text-slate-400 font-medium leading-none">
+                            {lang === 'bn' ? 'ধাপ ২: পেমেন্ট ও TrxID দিন' : 'Step 2: Pay & Enter TrxID'}
                         </p>
                     </div>
                 </div>
                 <div className="text-right">
-                    <span className="text-[10px] font-bold text-slate-400 block">{lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}</span>
+                    <span className="text-[9.5px] font-bold text-slate-400 block leading-tight">{lang === 'bn' ? 'ব্যালেন্স' : 'Balance'}</span>
                     <span className="text-xs font-black font-mono text-purple-600 dark:text-purple-400">৳{Number(balance || 0).toFixed(2)}</span>
                 </div>
             </div>
 
-            {/* Unified Single Executive Card */}
-            <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs space-y-4 ${
+            {/* Modern Unified 2-Step Progress Tracker */}
+            <div className="bg-slate-100/90 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 flex items-center gap-1.5 shadow-2xs">
+                {/* Step 1 (Clickable to go back) */}
+                <button
+                    type="button"
+                    onClick={() => {
+                        playAppSound('tap');
+                        setStep(1);
+                    }}
+                    className="flex-1 flex items-center gap-2 py-1.5 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold transition-all cursor-pointer active:scale-95"
+                >
+                    <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-2xs">
+                        <Check size={11} strokeWidth={3} />
+                    </span>
+                    <div className="text-left leading-none min-w-0">
+                        <span className="text-[10.5px] font-black block truncate">৳{Number(amount).toLocaleString()}</span>
+                        <span className="text-[9px] text-slate-400 font-medium block truncate mt-0.5">{paymentMethod}</span>
+                    </div>
+                </button>
+
+                <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 shrink-0" strokeWidth={2.5} />
+
+                {/* Step 2 (Active) */}
+                <div className="flex-1 flex items-center gap-2 py-1.5 px-3 rounded-xl bg-white dark:bg-slate-900 shadow-xs border border-purple-200/80 dark:border-purple-800/80 text-purple-600 dark:text-purple-400 font-black">
+                    <span className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-2xs">২</span>
+                    <div className="text-left leading-none min-w-0">
+                        <span className="text-[11px] font-black block truncate">{lang === 'bn' ? 'পেমেন্ট ও TrxID' : 'Pay & TrxID'}</span>
+                        <span className="text-[9px] text-slate-400 font-medium block truncate mt-0.5">{lang === 'bn' ? 'যাচাই ও জমা' : 'Verify'}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Step 2 Form Card */}
+            <div className={`p-4 rounded-[24px] border shadow-xs space-y-3.5 ${
                 darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
             }`}>
-                {/* 1. Payment Method Dropdown Selector */}
-                <div>
-                    <label className="text-xs font-black uppercase tracking-wider block mb-1.5 text-slate-600 dark:text-slate-400">
-                        {lang === 'bn' ? 'পেমেন্ট মেথড বাছুন' : 'Select Payment Method'}
-                    </label>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setIsMethodDropdownOpen(!isMethodDropdownOpen)}
-                            className={`w-full p-3 rounded-2xl border transition-all flex items-center justify-between cursor-pointer ${
-                                darkMode ? 'bg-slate-800/40 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-                            }`}
-                        >
-                            <div className="flex items-center gap-2.5">
-                                <div
-                                    style={{ backgroundColor: '#ffffff' }}
-                                    className="w-9 h-9 rounded-xl tp-payment-logo-box bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm"
-                                >
-                                    <img
-                                        src={getPaymentLogo(paymentMethod)}
-                                        alt={paymentMethod}
-                                        className="w-full h-full object-contain"
-                                    />
-                                </div>
-                                <span className="font-black text-sm">{paymentMethod}</span>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
-                                    Personal Send Money
+                {/* 1. Receiver Account Number with Brand Logo & 3D Copy Button */}
+                <div className={`p-3 sm:p-3.5 rounded-2xl border transition-all ${
+                    darkMode ? 'bg-slate-800/40 border-slate-700/80 shadow-xs' : 'bg-gradient-to-br from-purple-50/70 via-white to-indigo-50/50 border-purple-100 shadow-2xs'
+                }`}>
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-purple-100/70 dark:border-slate-700/60">
+                        <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                                {paymentMethod} Personal Send Money
+                            </span>
+                        </div>
+                        <div className="px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 font-mono font-black text-xs">
+                            পাঠাবেন: ৳{Number(amount).toLocaleString()}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                            {/* Payment Method Logo Box */}
+                            <div className="w-10 h-10 rounded-xl bg-white p-1.5 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-xs">
+                                <img
+                                    src={getPaymentLogo(paymentMethod)}
+                                    alt={paymentMethod}
+                                    className="w-full h-full object-contain select-none"
+                                />
+                            </div>
+
+                            {/* Number & Tag */}
+                            <div className="min-w-0">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block leading-none mb-1">
+                                    {paymentMethod} একাউন্ট নাম্বার
+                                </span>
+                                <span className="text-base sm:text-lg font-black font-mono tracking-wider text-slate-900 dark:text-white select-all block leading-tight">
+                                    {adminNumber}
                                 </span>
                             </div>
-                            <ChevronDown size={18} className={`text-slate-400 transition-transform ${isMethodDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+
+                        {/* 3D Copy Button */}
+                        <button
+                            type="button"
+                            onClick={handleCopy}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border-b-[3px] active:translate-y-[3px] active:border-b-0 shrink-0 shadow-xs ${
+                                copied
+                                    ? 'bg-emerald-600 text-white border-emerald-800'
+                                    : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border-[#3730a3]'
+                            }`}
+                        >
+                            {copied ? (
+                                <>
+                                    <Check size={13} strokeWidth={3} />
+                                    <span>{lang === 'bn' ? 'কপি!' : 'Copied!'}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Copy size={13} />
+                                    <span>{lang === 'bn' ? 'কপি' : 'Copy'}</span>
+                                </>
+                            )}
                         </button>
+                    </div>
 
-                        {/* Dropdown Options */}
-                        {isMethodDropdownOpen && (
-                            <div className={`absolute left-0 right-0 top-full mt-1.5 rounded-2xl border z-40 p-1.5 space-y-1 ${
-                                darkMode
-                                    ? 'bg-slate-800 border-slate-600/90 shadow-[0_18px_40px_rgba(0,0,0,0.85)]'
-                                    : 'bg-white border-slate-200 shadow-xl'
-                            }`}>
-                                {['bKash', 'Nagad'].map(method => (
-                                    <button
-                                        key={method}
-                                        type="button"
-                                        onClick={() => {
-                                            setPaymentMethod(method);
-                                            setIsMethodDropdownOpen(false);
-                                        }}
-                                        className={`w-full p-2.5 rounded-xl flex items-center justify-between transition-all cursor-pointer ${
-                                            paymentMethod === method
-                                                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-300 font-black border border-purple-500/30'
-                                                : 'hover:bg-slate-100 dark:hover:bg-slate-700/70 text-slate-700 dark:text-slate-200 font-bold'
-                                        }`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                style={{ backgroundColor: '#ffffff' }}
-                                                className="w-8 h-8 rounded-xl tp-payment-logo-box bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm"
-                                            >
-                                                <img
-                                                    src={getPaymentLogo(method)}
-                                                    alt={method}
-                                                    className="w-full h-full object-contain"
-                                                />
-                                            </div>
-                                            <span className="text-sm">{method}</span>
-                                        </div>
-                                        {paymentMethod === method && <Check size={16} className="text-purple-600 dark:text-purple-300" />}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                    <div className="mt-2.5 pt-2 border-t border-purple-100/60 dark:border-slate-700/60 text-[10px] text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-1.5">
+                        <AlertCircle size={13} className="shrink-0 text-amber-600 dark:text-amber-400" />
+                        <span>{lang === 'bn' ? 'শুধুমাত্র Personal Send Money করবেন (Cash In বা Payment গ্রহণযোগ্য নয়)' : 'Only Personal Send Money accepted'}</span>
                     </div>
                 </div>
 
-                {/* 2. Receiver Account Number with One-Click Copy */}
-                <div className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
-                    darkMode ? 'bg-slate-800/30 border-slate-700/80' : 'bg-indigo-50/50 border-indigo-100'
-                }`}>
-                    <div>
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                            <span>{paymentMethod} {lang === 'bn' ? 'নাম্বার (Send Money):' : 'Number:'}</span>
-                        </div>
-                        <div className="text-base sm:text-lg font-black font-mono tracking-wider mt-0.5 text-slate-900 dark:text-white">
-                            {adminNumber}
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={handleCopy}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs ${
-                            copied
-                                ? 'bg-emerald-600 text-white shadow-emerald-500/25'
-                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:opacity-95'
-                        }`}
-                    >
-                        {copied ? (
-                            <>
-                                <Check size={13} />
-                                <span>{lang === 'bn' ? 'কপি হয়েছে!' : 'Copied!'}</span>
-                            </>
-                        ) : (
-                            <>
-                                <Copy size={13} />
-                                <span>{lang === 'bn' ? 'কপি করুন' : 'Copy'}</span>
-                            </>
-                        )}
-                    </button>
-                </div>
-
-                {/* 3. Deposit Amount Input & Quick Pills (Minimum 20 BDT) */}
-                <div>
-                    <label className="text-xs font-black uppercase tracking-wider block mb-1.5 text-slate-600 dark:text-slate-400">
-                        {lang === 'bn' ? 'টাকার পরিমাণ (BDT) • নূন্যতম ২০ টাকা' : 'Deposit Amount (Min. 20 BDT)'}
-                    </label>
-                    <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
-                        darkMode ? 'bg-slate-800/40 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
-                    }`}>
-                        <input
-                            type="number"
-                            value={amount}
-                            onChange={e => {
-                                setAmount(e.target.value);
-                                if (errorMessage) setErrorMessage('');
-                            }}
-                            placeholder="Min. 20 BDT"
-                            style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-                            className="w-full bg-transparent text-xl font-black font-mono tracking-tight outline-none pr-14 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
-                        />
-                        <span className="absolute right-3.5 font-black text-xs text-slate-400">
-                            BDT
+                {/* 2. Visual 3-Step Guide */}
+                <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-0.5">
+                        <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            {lang === 'bn' ? 'সহজ ৩ ধাপে পেমেন্ট করুন:' : '3 Easy Steps to Pay:'}
+                        </span>
+                        <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                            {paymentMethod} Send Money
                         </span>
                     </div>
 
-                    {/* Quick Amount Pills */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mt-2">
-                        {quickAmounts.map(val => (
-                            <button
-                                key={val}
-                                type="button"
-                                onClick={() => {
-                                    setAmount(val.toString());
-                                    if (errorMessage) setErrorMessage('');
-                                }}
-                                className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer whitespace-nowrap active:scale-95 ${
-                                    amount === val.toString()
-                                        ? 'bg-purple-500/15 border-purple-500 text-purple-600 dark:text-purple-400 font-black'
-                                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-purple-300'
-                                }`}
-                            >
-                                ৳{val}
-                            </button>
-                        ))}
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className={`p-2.5 rounded-xl border text-center transition-all ${
+                            darkMode ? 'bg-slate-800/30 border-slate-800' : 'bg-slate-50/90 border-slate-200/80 shadow-2xs'
+                        }`}>
+                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] mx-auto flex items-center justify-center mb-1 shadow-xs">১</span>
+                            <span className="font-black text-[10.5px] text-slate-800 dark:text-slate-200 block leading-tight truncate">
+                                {paymentMethod} অ্যাপ
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-medium block mt-0.5">Send Money</span>
+                        </div>
+
+                        <div className={`p-2.5 rounded-xl border text-center transition-all ${
+                            darkMode ? 'bg-slate-800/30 border-slate-800' : 'bg-slate-50/90 border-slate-200/80 shadow-2xs'
+                        }`}>
+                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] mx-auto flex items-center justify-center mb-1 shadow-xs">২</span>
+                            <span className="font-black text-[10.5px] text-slate-800 dark:text-slate-200 block leading-tight truncate">
+                                টাকা পাঠান
+                            </span>
+                            <span className="text-[9.5px] text-purple-600 dark:text-purple-400 font-black block mt-0.5">৳{Number(amount).toLocaleString()}</span>
+                        </div>
+
+                        <div className={`p-2.5 rounded-xl border text-center transition-all ${
+                            darkMode ? 'bg-slate-800/30 border-slate-800' : 'bg-slate-50/90 border-slate-200/80 shadow-2xs'
+                        }`}>
+                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] mx-auto flex items-center justify-center mb-1 shadow-xs">৩</span>
+                            <span className="font-black text-[10.5px] text-slate-800 dark:text-slate-200 block leading-tight truncate">
+                                TrxID দিন
+                            </span>
+                            <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">নিচে পেস্ট</span>
+                        </div>
                     </div>
                 </div>
 
-                {/* 4. TrxID Input & Sleek Paste Button with Telegram Permission */}
+                {/* 3. TrxID Input Box */}
                 <div>
-                    <label className="text-xs font-black uppercase tracking-wider block mb-1.5 text-slate-600 dark:text-slate-400">
-                        Transaction ID (TrxID)
-                    </label>
-                    <div className={`relative flex items-center rounded-2xl border transition-all p-3 ${
+                    <div className="flex items-center justify-between mb-1 px-0.5">
+                        <label className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                            {lang === 'bn' ? 'ট্রানজেকশন আইডি (TrxID)' : 'Transaction ID (TrxID)'}
+                        </label>
+                        <span className="text-[9.5px] text-slate-400 font-medium">
+                            {lang === 'bn' ? 'মেসেজে পাওয়া কোড' : 'Received via SMS'}
+                        </span>
+                    </div>
+                    <div className={`relative flex items-center rounded-xl border-2 transition-all px-3 h-[44px] ${
                         darkMode ? 'bg-slate-800/40 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
                     }`}>
                         <input
@@ -7292,26 +8552,25 @@ function AddMoneyPage({
                             }}
                             placeholder="e.g. 9J26XYZ789"
                             style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-                            className="w-full bg-transparent text-sm font-mono font-bold uppercase tracking-wider outline-none pr-24 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
+                            className="w-full bg-transparent text-sm font-mono font-black uppercase tracking-wider outline-none pr-20 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
                         />
                         <button
                             type="button"
                             onClick={handlePasteTrxId}
-                            className={`absolute right-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-xs select-none ${
+                            className={`absolute right-1.5 flex items-center gap-1 px-3 py-1.5 rounded-lg font-black text-xs transition-all cursor-pointer border-b-[2px] active:translate-y-[2px] active:border-b-0 ${
                                 pastedFeedback
-                                    ? 'bg-emerald-500 text-white shadow-emerald-500/25'
-                                    : 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border border-purple-500/25'
+                                    ? 'bg-emerald-600 text-white border-emerald-800'
+                                    : 'bg-purple-600 hover:bg-purple-700 text-white border-[#3730a3]'
                             }`}
-                            title={lang === 'bn' ? 'ক্লিপবোর্ড থেকে পেস্ট করুন' : 'Paste from clipboard'}
                         >
                             {pastedFeedback ? (
                                 <>
-                                    <Check size={13} strokeWidth={3} className="animate-in zoom-in" />
-                                    <span>{lang === 'bn' ? 'পেস্ট হয়েছে!' : 'Pasted!'}</span>
+                                    <Check size={12} strokeWidth={3} />
+                                    <span>{lang === 'bn' ? 'পেস্ট!' : 'Pasted!'}</span>
                                 </>
                             ) : (
                                 <>
-                                    <Clipboard size={13} strokeWidth={2.5} />
+                                    <Clipboard size={12} />
                                     <span>{lang === 'bn' ? 'পেস্ট' : 'Paste'}</span>
                                 </>
                             )}
@@ -7319,47 +8578,72 @@ function AddMoneyPage({
                     </div>
                 </div>
 
-                {/* Quick Guidance */}
-                <div className={`p-2.5 rounded-xl border text-[11px] leading-relaxed ${
-                    darkMode ? 'bg-slate-800/20 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200/80 text-slate-600'
-                }`}>
-                    <p className="font-bold text-slate-700 dark:text-slate-300">
-                        {lang === 'bn' ? 'সহজ নিয়ম:' : 'Simple steps:'}
-                    </p>
-                    <p>
-                        {lang === 'bn' 
-                            ? `১. ${paymentMethod} অ্যাপ থেকে উপরের নাম্বারে Send Money করুন। ২. প্রাপ্ত TrxID এখানে দিয়ে নিচে কনফার্ম করুন।` 
-                            : `1. Send Money from ${paymentMethod} to number above. 2. Enter TrxID and confirm.`}
-                    </p>
-                </div>
-
                 {/* Error Banner */}
                 {errorMessage && (
                     <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2.5 flex items-start gap-2">
                         <AlertCircle size={15} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                        <p className="text-[11px] text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
+                        <p className="text-xs text-red-700 dark:text-red-300 font-medium leading-tight">{errorMessage}</p>
                     </div>
                 )}
 
-                {/* 5. Sleek 3D Purple Button (Standard h-[50px] height) */}
-                <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={loading || !amount || !trxId}
-                    className="w-full h-[50px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.35)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                    {loading ? (
-                        <>
-                            <Loader2 size={18} className="animate-spin" />
-                            <span>{lang === 'bn' ? 'ভেরিফাই করা হচ্ছে...' : 'Verifying...'}</span>
-                        </>
-                    ) : (
-                        <>
-                            <Zap size={18} fill="currentColor" />
-                            <span>{lang === 'bn' ? 'কনফার্ম ডিপোজিট' : 'Confirm Deposit'}</span>
-                        </>
-                    )}
-                </button>
+                {/* Dual 3D Buttons: Back & Confirm */}
+                <div className="grid grid-cols-3 gap-2.5 pt-1">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            playAppSound('tap');
+                            setStep(1);
+                        }}
+                        className="col-span-1 h-[44px] rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-black text-xs flex items-center justify-center gap-1 border-b-[3px] border-slate-300 dark:border-slate-700 active:translate-y-[3px] active:border-b-0 transition-all cursor-pointer shadow-xs"
+                    >
+                        <ChevronRight size={15} className="rotate-180" strokeWidth={3} />
+                        <span>{lang === 'bn' ? 'আগের ধাপ' : 'Back'}</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={loading || !amount || !trxId}
+                        className="col-span-2 h-[44px] rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-t border-white/30 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 transition-all duration-100 cursor-pointer disabled:opacity-50 disabled:border-b-0 disabled:translate-y-0 disabled:cursor-not-allowed shadow-md"
+                    >
+                        {loading ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin" />
+                                <span>{lang === 'bn' ? 'ভেরিফাই হচ্ছে...' : 'Verifying...'}</span>
+                            </>
+                        ) : (
+                            <>
+                                <Zap size={16} fill="currentColor" />
+                                <span>{lang === 'bn' ? 'কনফার্ম ডিপোজিট' : 'Confirm Deposit'}</span>
+                            </>
+                        )}
+                    </button>
+                </div>
+
+                {/* Instant Auto-Verification & Security Guarantee Card (Fills empty space beautifully) */}
+                <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition-all ${
+                    darkMode 
+                        ? 'bg-purple-950/25 border-purple-900/40 text-purple-300' 
+                        : 'bg-purple-50/70 border-purple-100 text-purple-900'
+                }`}>
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400">
+                        <ShieldCheck size={18} />
+                    </div>
+                    <div className="min-w-0 leading-tight">
+                        <span className="text-[11px] font-black block">
+                            {lang === 'bn' ? '১০০% অটোমেটিক ইনস্ট্যান্ট ডিপোজিট' : '100% Automatic Instant Deposit'}
+                        </span>
+                        <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-medium block mt-0.5">
+                            {lang === 'bn' ? 'TrxID সাবমিট করার সাথে সাথেই আপনার অ্যাকাউন্টে ব্যালেন্স যোগ হবে।' : 'Balance will be credited to your account instantly upon TrxID verification.'}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom Helper Info */}
+            <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-slate-400 dark:text-slate-500 font-medium pt-1">
+                <Clock size={12} className="text-purple-500 shrink-0" />
+                <span>{lang === 'bn' ? 'ডিপোজিট প্রসেসিং সময়: সাধারণত ৫-২০ সেকেন্ড' : 'Deposit processing time: usually 5-20 seconds'}</span>
             </div>
         </div>
     );
@@ -9496,7 +10780,7 @@ function HistoryPage({ user, lang = 'bn', t, onBack }) {
     );
 }
 
-function ProfilePage({ onGoToVipLevels, onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToSupport, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
+function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, onSetLang, darkMode = false, onToggleDarkMode, fiatWallet, fiatWithdrawPending, twoStepEnabled = false, twoStepLength = 4, onGoToTwoStep, onGoToSupport, onGoToTransfer, onGoToWithdraw, onGoToHistory, onGoToReferral, onGoToSpin, setFiatWallet, setIsModalOpen, reloadData }) {
   const [withdrawing, setWithdrawing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const displayId = mbsId || user?.mbsId || (user?.id ? 'MBS' + String(user.id).slice(-5) : 'MBS00000');
@@ -9588,14 +10872,6 @@ function ProfilePage({ onGoToVipLevels, onGoToLeaderboard, user, balance, mbsId,
                 <h2 className="text-base font-black leading-tight truncate text-slate-900 dark:text-white">
                   {user?.first_name || 'User'}
                 </h2>
-                {(() => {
-                  const vip = getUserVipLevel(user);
-                  return (
-                    <span onClick={() => { playAppSound("tap"); onGoToVipLevels && onGoToVipLevels(); }} className="px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide bg-purple-50 dark:bg-purple-950/60 text-[#8B5CF6] dark:text-[#A78BFA] border border-purple-200/80 dark:border-purple-800/60 select-none shadow-2xs cursor-pointer active:scale-95 transition-transform" title="View VIP Levels">
-                      {vip.label}
-                    </span>
-                  );
-                })()}
               </div>
               <p className="text-slate-400 text-xs font-medium truncate mt-0.5">
                 @{user?.username || 'user'}
@@ -9843,44 +11119,7 @@ function ProfilePage({ onGoToVipLevels, onGoToLeaderboard, user, balance, mbsId,
           ? 'bg-slate-900/95 border-slate-800 text-white' 
           : 'bg-white border-slate-200/90 text-slate-900'
       }`}>
-        
-                {/* VIP Level Club Row */}
-        <div 
-          onClick={() => {
-            playAppSound('tap');
-            onGoToVipLevels && onGoToVipLevels();
-          }} 
-          className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/50 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shrink-0 border border-purple-100 dark:border-purple-800/60 shadow-2xs">
-              <Award size={17} className="group-hover:scale-110 transition-transform duration-300" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight">
-                  {lang === 'bn' ? 'ভিআইপি লেভেল ক্লাব' : 'VIP Level Club'}
-                </span>
-                {(() => {
-                  const vip = getUserVipLevel(user);
-                  return (
-                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black border bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30">
-                      {vip.label}
-                    </span>
-                  );
-                })()}
-              </div>
-              <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium block truncate">
-                {lang === 'bn' ? '১ থেকে MAX লেভেলের কার্ড ও সুবিধাসমূহ' : 'VIP 1 to MAX Cards & Exclusive Benefits'}
-              </span>
-            </div>
-          </div>
-          <ChevronRight size={16} className="text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors shrink-0" />
-        </div>
-
-        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
-
-{/* 2-Step Security Verification Row */}
+        {/* 2-Step Security Verification Row */}
         <div 
           onClick={onGoToTwoStep} 
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
@@ -10092,251 +11331,6 @@ function ProfilePage({ onGoToVipLevels, onGoToLeaderboard, user, balance, mbsId,
 }
 
 
-
-
-// ============================================================================
-// VIP LEVELS CLUB PAGE (VIP 1 TO VIP MAX CARDS IN SERIAL ORDER)
-// ============================================================================
-function VipLevelsPage({ user, lang = 'bn', darkMode = false, onBack, onGoToAddMoney, onGoToTrade }) {
-  const sellBdt = Number(user?.totalCryptoSellBdt) || 0;
-  const addBdt = Number(user?.totalAddMoneyBdt) || 0;
-  const buyBdt = Number(user?.totalBuyBdt) || 0;
-  const totalLifetimeVolume = Math.round((sellBdt + addBdt + buyBdt) * 100) / 100;
-  const currentVip = getUserVipLevel(user);
-
-  const vipTiers = [
-    {
-      level: 1,
-      badgeLabel: 'VIP 1',
-      titleBn: 'ব্রোঞ্জ স্টার VIP',
-      titleEn: 'Bronze Star VIP',
-      rangeBn: '৳১০০ - ৳১,০০০',
-      rangeEn: '৳100 - ৳1,000',
-      minBdt: 100,
-      maxBdt: 1000,
-      badgeClass: 'bg-purple-100/90 dark:bg-purple-950/80 border border-purple-300/70 dark:border-purple-700/60 text-[#8B5CF6] dark:text-[#A78BFA]',
-      cardBg: 'bg-gradient-to-br from-purple-500/10 via-white to-purple-50/40 dark:from-purple-950/40 dark:via-slate-900 dark:to-purple-900/20 border-purple-200 dark:border-purple-800/60',
-      glowColor: 'rgba(139,92,246,0.25)',
-      wingEmoji: '🪽',
-      wingsTheme: 'অ্যামেথিস্ট পার্পল উইংস (Amethyst Purple Wings)',
-      featuresBn: ['বেসিক ট্রেডার প্রিভিলেজ', 'বটের ইনস্ট্যান্ট নোটিফিকেশন', '২৪/৭ অটোমেটিক ক্যাশ ইন']
-    },
-    {
-      level: 2,
-      badgeLabel: 'VIP 2',
-      titleBn: 'সিলভার উইং VIP',
-      titleEn: 'Silver Wing VIP',
-      rangeBn: '৳১,০০১ - ৳৩,০০০',
-      rangeEn: '৳1,001 - ৳3,000',
-      minBdt: 1001,
-      maxBdt: 3000,
-      badgeClass: 'bg-sky-100/90 dark:bg-sky-950/80 border border-sky-300/70 dark:border-sky-700/60 text-[#0284C7] dark:text-[#38BDF8]',
-      cardBg: 'bg-gradient-to-br from-sky-500/10 via-white to-sky-50/40 dark:from-sky-950/40 dark:via-slate-900 dark:to-sky-900/20 border-sky-200 dark:border-sky-800/60',
-      glowColor: 'rgba(2,132,199,0.25)',
-      wingEmoji: '🪽',
-      wingsTheme: 'আইস সায়ান অ্যাঞ্জেলিক উইংস (Ice Cyan Wings)',
-      featuresBn: ['উইথড্র দ্রুত প্রক্রিয়াকরণ', 'স্পেশাল রিওয়ার্ড বোনাস', 'এক্সক্লুসিভ সিলভার ব্যাজ']
-    },
-    {
-      level: 3,
-      badgeLabel: 'VIP 3',
-      titleBn: 'গোল্ডেন ভালকিরি VIP',
-      titleEn: 'Golden Valkyrie VIP',
-      rangeBn: '৳৩,০০১ - ৳৫,০০০',
-      rangeEn: '৳3,001 - ৳5,000',
-      minBdt: 3001,
-      maxBdt: 5000,
-      badgeClass: 'bg-amber-100/90 dark:bg-amber-950/80 border border-amber-300/70 dark:border-amber-700/60 text-[#D97706] dark:text-[#FBBF24]',
-      cardBg: 'bg-gradient-to-br from-amber-500/15 via-white to-amber-50/40 dark:from-amber-950/40 dark:via-slate-900 dark:to-amber-900/20 border-amber-300 dark:border-amber-700/60',
-      glowColor: 'rgba(217,119,6,0.3)',
-      wingEmoji: '🪽',
-      wingsTheme: 'রয়্যাল গোল্ড ভালকিরি উইংস (Royal Gold Wings)',
-      featuresBn: ['০% ট্রান্সফার ফি (Free Transfers)', 'উচ্চ লিমিট ইনস্ট্যান্ট ক্রিপ্টো সেল', 'প্রায়োরিটি কাস্টমার সাপোর্ট']
-    },
-    {
-      level: 4,
-      badgeLabel: 'VIP 4',
-      titleBn: 'ডায়মন্ড সাইবার VIP',
-      titleEn: 'Diamond Cyber VIP',
-      rangeBn: '৳৫,০০১ - ৳১০,০০০',
-      rangeEn: '৳5,001 - ৳10,000',
-      minBdt: 5001,
-      maxBdt: 10000,
-      badgeClass: 'bg-indigo-100/90 dark:bg-indigo-950/80 border border-indigo-300/70 dark:border-indigo-700/60 text-[#4F46E5] dark:text-[#818CF8]',
-      cardBg: 'bg-gradient-to-br from-indigo-500/15 via-white to-indigo-50/40 dark:from-indigo-950/40 dark:via-slate-900 dark:to-indigo-900/20 border-indigo-300 dark:border-indigo-700/60',
-      glowColor: 'rgba(79,70,229,0.3)',
-      wingEmoji: '🪽',
-      wingsTheme: 'সাইবার ডায়মন্ড মেক উইংস (Cyber Diamond Wings)',
-      featuresBn: ['ইনস্ট্যান্ট উইথড্র প্রায়োরিটি কিউ', 'উচ্চ ট্রানজ্যাকশন ভলিউম লিমিট', 'এক্সক্লুসিভ ডায়মন্ড স্ট্যাটাস']
-    },
-    {
-      level: 5,
-      isMax: true,
-      badgeLabel: 'VIP MAX',
-      titleBn: 'সুপ্রিম ফিনিক্স VIP (MAX)',
-      titleEn: 'Supreme Phoenix VIP (MAX)',
-      rangeBn: '৳১৫,০০০+ (আনলিমিটেড)',
-      rangeEn: '৳15,000+ (Unlimited)',
-      minBdt: 15000,
-      maxBdt: Infinity,
-      badgeClass: 'bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 border border-rose-400/60 text-[#E11D48] dark:text-[#FB7185] shadow-xs',
-      cardBg: 'bg-gradient-to-br from-rose-500/20 via-amber-500/10 to-purple-900/20 dark:from-rose-950/50 dark:via-slate-900 dark:to-purple-950/40 border-rose-400/80 dark:border-rose-500/60 shadow-[0_10px_35px_rgba(225,29,72,0.2)]',
-      glowColor: 'rgba(225,29,72,0.35)',
-      wingEmoji: '👑🪽',
-      wingsTheme: 'গড-টিয়ার ফিনিক্স উইংস ও ইম্পেরিয়াল ক্রাউন (Supreme God-Tier Wings & Crown)',
-      featuresBn: ['বটের সর্বোচ্চ ভিআইপি প্রিভিলেজ', 'আনলিমিটেড ক্যাশআউট ও ইনস্ট্যান্ট হ্যান্ডলিং', '১-অন-১ ডেডিকেটেড ভিআইপি ম্যানেজার', 'সর্বোচ্চ স্টাইলিশ উইং ফ্রেম']
-    }
-  ];
-
-  return (
-    <div className="pb-36 pt-1 animate-fadeIn space-y-4">
-      {/* Top Header */}
-      <div className="flex items-center justify-between mb-2">
-        <button
-          type="button"
-          onClick={() => {
-            playAppSound('tap');
-            onBack();
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition-all active:scale-95 shadow-xs cursor-pointer"
-        >
-          <ArrowLeft size={14} />
-          <span>{lang === 'bn' ? 'ফিরে যান' : 'Back'}</span>
-        </button>
-
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/60 text-[#8B5CF6] dark:text-[#A78BFA] text-[11px] font-black">
-          <Award size={13} />
-          <span>VIP লেভেল ক্লাব</span>
-        </div>
-      </div>
-
-      {/* User Current VIP Progress Hero Card */}
-      <div className="rounded-[26px] p-4 bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-950 text-white shadow-[0_12px_36px_rgba(79,70,229,0.3)] border border-indigo-500/30 relative overflow-hidden">
-        <div className="absolute -top-10 -right-10 w-36 h-36 bg-purple-500/25 rounded-full blur-2xl pointer-events-none" />
-        <div className="relative z-10 flex items-center justify-between gap-3 mb-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-purple-200 font-bold">আপনার বর্তমান স্ট্যাটাস:</span>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide bg-white/20 border border-white/30 text-amber-300 shadow-xs">
-                {currentVip.label}
-              </span>
-            </div>
-            <h2 className="text-base font-black text-white mt-1">
-              মোট লাইফটাইম লেনদেন: ৳{totalLifetimeVolume.toLocaleString()}
-            </h2>
-          </div>
-        </div>
-
-        <p className="text-[11px] text-purple-200/90 font-medium leading-relaxed">
-          বাই, সেল এবং ক্যাশ ইন এর মোট লেনদেন যোগ হয়ে আপনার ভিআইপি লেভেল স্বয়ংক্রিয়ভাবে আপগ্রেড হয়।
-        </p>
-      </div>
-
-      {/* Title */}
-      <div className="px-1 flex items-center justify-between">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          সকল ভিআইপি লেভেল কার্ড (১ থেকে MAX)
-        </h3>
-        <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">
-          ৫টি লেভেল
-        </span>
-      </div>
-
-      {/* 5 VIP LEVEL CARDS LIST IN SERIAL ORDER */}
-      <div className="space-y-3.5">
-        {vipTiers.map((tier) => {
-          const isCurrent = currentVip.level === tier.level;
-          const isUnlocked = totalLifetimeVolume >= tier.minBdt;
-          const isNextTarget = !isUnlocked && (tier.level === currentVip.level + 1 || (currentVip.level === 0 && tier.level === 1));
-
-          return (
-            <div
-              key={tier.level}
-              className={`rounded-[24px] p-4 border transition-all duration-300 relative overflow-hidden shadow-xs ${tier.cardBg} ${
-                isCurrent ? 'ring-2 ring-purple-500/70 shadow-md' : ''
-              }`}
-            >
-              {/* Card Header: VIP Badge + Status */}
-              <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
-                {/* The exact VIP pill badge matching user's screenshot */}
-                <div className="flex items-center gap-2">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11.5px] font-black tracking-wide select-none shadow-2xs ${tier.badgeClass}`}>
-                    {tier.badgeLabel}
-                  </span>
-                  <span className="text-xs font-black text-slate-800 dark:text-white">
-                    {lang === 'bn' ? tier.titleBn : tier.titleEn}
-                  </span>
-                </div>
-
-                {/* Status Pill */}
-                {isCurrent ? (
-                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-black bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
-                    ✓ বর্তমান লেভেল
-                  </span>
-                ) : isUnlocked ? (
-                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-black bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400">
-                    ✓ আনলকড
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-black bg-slate-200/80 dark:bg-slate-800 text-slate-500 border border-slate-300/60 dark:border-slate-700">
-                    🔒 লকড
-                  </span>
-                )}
-              </div>
-
-              {/* Requirement Box */}
-              <div className="my-2.5 p-2.5 rounded-2xl bg-white/70 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/70 flex items-center justify-between gap-2 text-xs">
-                <span className="text-slate-500 dark:text-slate-400 font-bold">
-                  প্রয়োজনীয় লেনদেন:
-                </span>
-                <span className="font-mono font-black text-slate-900 dark:text-white">
-                  {tier.rangeBn}
-                </span>
-              </div>
-
-              {/* Winged Theme & Perks */}
-              <div className="space-y-1.5 pt-1">
-                <div className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <span>{tier.wingEmoji}</span>
-                  <span className="text-[10.5px] font-semibold text-purple-700 dark:text-purple-300">
-                    {tier.wingsTheme}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-1 pt-1">
-                  {tier.featuresBn.map((feat, idx) => (
-                    <div key={idx} className="flex items-center gap-1.5 text-[10.5px] text-slate-600 dark:text-slate-400">
-                      <span className="w-1 h-1 rounded-full bg-purple-500 shrink-0" />
-                      <span>{feat}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Progress if this is the next level */}
-              {isNextTarget && (
-                <div className="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-800">
-                  <div className="flex items-center justify-between text-[10.5px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                    <span>লেভেল আনলক প্রগ্রেস</span>
-                    <span className="text-purple-600 dark:text-purple-400 font-mono">
-                      ৳{totalLifetimeVolume.toLocaleString()} / ৳{tier.minBdt.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(100, (totalLifetimeVolume / tier.minBdt) * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 
 function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData }) {

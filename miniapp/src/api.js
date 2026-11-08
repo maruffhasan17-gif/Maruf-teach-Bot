@@ -445,6 +445,18 @@ export const setupTwoStepPin = async (payload) => {
     }
 };
 
+export const searchUsers = async (query, callerId) => {
+    try {
+        const res = await axios.get(`${API_URL}/api/miniapp/search-users`, {
+            params: { q: query || '', callerId: callerId || '', _t: Date.now() },
+            timeout: 8000
+        });
+        return res.data?.users || [];
+    } catch (e) {
+        return [];
+    }
+};
+
 export const lookupRecipientUser = async (query, callerId) => {
     try {
         const cleanQuery = String(query || '').trim();

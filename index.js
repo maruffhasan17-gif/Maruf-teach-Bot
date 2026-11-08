@@ -2816,8 +2816,8 @@ function isAdminTestAccount(userId, item = {}) {
     const rawId = String(userId || item.userId || item.chatId || '').trim();
     const mbs = String(item.mbsId || item.userMbsId || '').toUpperCase().trim();
     if (rawId === '8799135330' || rawId.endsWith('8799135330')) return true;
-    if (mbs === 'MBS35330' || mbs.includes('35330')) return true;
-    if (item.username === 'maruf' || item.username === 'maruf_teach') return true;
+    if (mbs === 'MT999999' || mbs === 'MBS35330' || mbs.includes('999999') || mbs.includes('35330')) return true;
+    if (item.username === 'maruf' || item.username === 'maruff666' || item.username === 'maruf_teach') return true;
     return false;
 }
 
@@ -4119,7 +4119,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
                 data = {
                     balance: 111,
                     status: 'verified',
-                    mbsId: 'MBS35330',
+                    mbsId: 'MT999999',
                     firstName: 'Maruf',
                     fiatWallet: { name: 'Maruf', method: 'bKash', number: '01752561935' },
                     tonAddress: 'UQDaMgqOpvhdqNXHicYl_muvjEHVkDjJRn3-2iUFKhZPn4Ck',
@@ -4238,7 +4238,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
         if (String(userId) === '8799135330') {
             return res.json({
                 balance: 111,
-                mbsId: 'MBS35330',
+                mbsId: 'MT999999',
                 fiatWallet: { name: 'Maruf', method: 'bKash', number: '01752561935' },
                 status: 'verified',
                 isBanned: false,
@@ -4535,6 +4535,24 @@ async function resolveUserByMbsOrUid(rawQuery) {
     const upper = clean.toUpperCase();
     const cleanUname = clean.replace(/^@/, '').toLowerCase();
 
+    // Fast resolution for Founder / Admin Maruf:
+    if (upper === 'MT999999' || clean === '999999' || clean === '8799135330' || cleanUname === 'maruff666') {
+        const u = allUsersMasterData['8799135330'] || {};
+        return {
+            id: '8799135330',
+            data: {
+                ...u,
+                id: '8799135330',
+                userId: '8799135330',
+                mbsId: 'MT999999',
+                firstName: u.firstName || 'Maruf',
+                username: u.username || 'maruff666',
+                isOwner: true,
+                isVerified: true
+            }
+        };
+    }
+
     // 1. FAST IN-MEMORY CHECK (Zero Quota / Resilient):
     for (const [uid, u] of Object.entries(allUsersMasterData)) {
         if (!u) continue;
@@ -4542,7 +4560,7 @@ async function resolveUserByMbsOrUid(rawQuery) {
         const derivedMbs = ('MBS' + String(uid).slice(-5)).toUpperCase();
         const storedUname = String(u.username || '').replace(/^@/, '').toLowerCase();
 
-        if (upper.startsWith('MBS')) {
+        if (upper.startsWith('MBS') || upper.startsWith('MT')) {
             const suffix = upper.replace(/^MBS/, '');
             if (storedMbs === upper || derivedMbs === upper || (suffix.length >= 4 && String(uid).endsWith(suffix))) {
                 return { id: uid, data: { ...u, mbsId: u.mbsId || upper } };
@@ -4559,7 +4577,7 @@ async function resolveUserByMbsOrUid(rawQuery) {
     }
 
     // 2. Direct query by mbsId in Firestore (Limit 1)
-    if (upper.startsWith('MBS')) {
+    if (upper.startsWith('MBS') || upper.startsWith('MT')) {
         try {
             const snap = await db.collection('users').where('mbsId', '==', upper).limit(1).get();
             if (!snap.empty) {
@@ -4620,10 +4638,44 @@ app.get('/api/miniapp/search-users', async (req, res) => {
 
         const results = [];
         const seenIds = new Set();
-        if (callerId) seenIds.add(String(callerId));
+        const OWNER_ID = '8799135330';
+        if (callerId && callerId !== OWNER_ID) seenIds.add(String(callerId));
+
+        // Always pin Owner / Founder account at top if matching or on default empty search
+        const ownerMaster = allUsersMasterData[OWNER_ID] || {};
+        const ownerObj = {
+            userId: OWNER_ID,
+            mbsId: 'MT999999',
+            name: ownerMaster.firstName || ownerMaster.first_name || 'Maruf',
+            username: ownerMaster.username ? String(ownerMaster.username).replace(/^@/, '') : 'maruff666',
+            photoUrl: ownerMaster.photoUrl || ownerMaster.photo_url || `/api/miniapp/user-avatar/${OWNER_ID}`,
+            isVerified: true,
+            isOwner: true,
+            isVipFounder: true,
+            balance: parseFloat(ownerMaster.balance) || 0,
+            hasActivity: true
+        };
+
+        let ownerMatches = false;
+        if (!query) {
+            ownerMatches = true;
+        } else {
+            if ('maruf'.includes(qLower) ||
+                'maruff666'.includes(qLower) ||
+                OWNER_ID.includes(query) ||
+                'MT999999'.includes(qUpper) ||
+                '999999'.includes(query)) {
+                ownerMatches = true;
+            }
+        }
+
+        if (ownerMatches) {
+            seenIds.add(OWNER_ID);
+            results.push(ownerObj);
+        }
 
         for (const [uid, u] of Object.entries(allUsersMasterData)) {
-            if (!u || seenIds.has(String(uid))) continue;
+            if (!u || seenIds.has(String(uid)) || String(uid) === OWNER_ID) continue;
 
             const name = String(u.firstName || u.first_name || u.name || '').trim();
             const username = String(u.username || '').replace(/^@/, '').toLowerCase();
@@ -4631,11 +4683,10 @@ app.get('/api/miniapp/search-users', async (req, res) => {
             const uIdStr = String(uid);
 
             let matched = false;
+            const hasActivity = Boolean(parseFloat(u.totalAddMoneyBdt) > 0 || parseFloat(u.totalCryptoSellBdt) > 0 || parseFloat(u.balance) > 0);
+            
             if (!query) {
-                // Return top users with activity when query is empty
-                if (parseFloat(u.totalAddMoneyBdt) > 0 || parseFloat(u.totalCryptoSellBdt) > 0 || parseFloat(u.balance) > 0) {
-                    matched = true;
-                }
+                matched = true;
             } else {
                 if (name.toLowerCase().includes(qLower) || 
                     username.includes(qLower) || 
@@ -4654,11 +4705,19 @@ app.get('/api/miniapp/search-users', async (req, res) => {
                     username,
                     photoUrl: u.photoUrl || u.photo_url || `/api/miniapp/user-avatar/${uIdStr}`,
                     isVerified: Boolean(u.isVerified || u.verified || (parseFloat(u.totalAddMoneyBdt) > 0)),
-                    balance: parseFloat(u.balance) || 0
+                    balance: parseFloat(u.balance) || 0,
+                    hasActivity
                 });
-                if (results.length >= 20) break;
+                if (results.length >= 100) break;
             }
         }
+
+        // Prioritize active users first
+        results.sort((a, b) => {
+            if (a.isOwner) return -1;
+            if (b.isOwner) return 1;
+            return (b.hasActivity ? 1 : 0) - (a.hasActivity ? 1 : 0);
+        });
 
         return res.json({ success: true, users: results });
     } catch (e) {
@@ -7022,35 +7081,17 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             throw new Error(`Daily withdrawal limit (${dailyLimit}) reached. Try again tomorrow.`);
         }
 
-        // Calculate user VIP tier for Send Money fee discounts
-        const sellBdt = Number(userData.totalCryptoSellBdt) || 0;
-        const addBdt = Number(userData.totalAddMoneyBdt) || 0;
-        const buyBdt = Number(userData.totalBuyBdt) || 0;
-        const totalLifetimeVolume = Math.round((sellBdt + addBdt + buyBdt) * 100) / 100;
-        let userVipLvl = 1;
-        if (totalLifetimeVolume >= 50001) userVipLvl = 5;
-        else if (totalLifetimeVolume >= 20001) userVipLvl = 4;
-        else if (totalLifetimeVolume >= 6001) userVipLvl = 3;
-        else if (totalLifetimeVolume >= 3001) userVipLvl = 2;
-
         // Strict Server-Side Send Money Fee Calculation (Never trust client fee/receiveAmount)
         // 25-100 TK => 5 TK | 101-500 TK => 10 TK | 501-1000 TK => 15 TK | 1001-5000 TK => 20 TK
-        // VIP Perks: VIP 2 (-1 TK), VIP 3 (-2 TK), VIP 4 (-3 TK), VIP MAX (0 fee / Free)
-        const calculateSendMoneyFee = (amt, vipLvl = 1) => {
+        const calculateSendMoneyFee = (amt) => {
             const a = parseFloat(amt) || 0;
             if (a <= 0) return 0;
-            let baseFee = 20;
-            if (a <= 100) baseFee = 5;
-            else if (a <= 500) baseFee = 10;
-            else if (a <= 1000) baseFee = 15;
-
-            if (vipLvl >= 5) return 0; // VIP MAX: Free!
-            if (vipLvl === 4) return Math.max(0, baseFee - 3); // VIP 4: 3 TK discount
-            if (vipLvl === 3) return Math.max(0, baseFee - 2); // VIP 3: 2 TK discount
-            if (vipLvl === 2) return Math.max(0, baseFee - 1); // VIP 2: 1 TK discount
-            return baseFee;
+            if (a <= 100) return 5;
+            if (a <= 500) return 10;
+            if (a <= 1000) return 15;
+            return 20;
         };
-        const calcFee = calculateSendMoneyFee(amount, userVipLvl);
+        const calcFee = calculateSendMoneyFee(amount);
         const calcReceive = Number((amount - calcFee).toFixed(2));
         if (calcReceive <= 0) {
             throw new Error("সেন্ড মানি ফি বাদ দিলে প্রাপ্য টাকার পরিমাণ শূন্য বা কম হয়।");
@@ -10226,8 +10267,8 @@ app.post('/api/admin/broadcast/send', requireAdminAuth, async (req, res) => {
 // Serve Admin Frontend
 
 // Serve MiniApp on /app with anti-cache headers for HTML
-app.use(['/vip-cards', '/app/vip-cards'], express.static(path.join(__dirname, 'miniapp/public/vip-cards')));
-app.use(['/vip-frames', '/app/vip-frames'], express.static(path.join(__dirname, 'miniapp/public/vip-frames')));
+app.get(['/banner-maruf.png', '/app/banner-maruf.png'], (req, res) => res.sendFile(path.join(__dirname, 'miniapp/public/banner-maruf.png')));
+app.get(['/frame-maruf.png', '/app/frame-maruf.png'], (req, res) => res.sendFile(path.join(__dirname, 'miniapp/public/frame-maruf.png')));
 
 app.use('/app', (req, res, next) => {
     if (req.path === '/' || req.path === '' || req.path.endsWith('.html')) {
