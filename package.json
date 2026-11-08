@@ -33,6 +33,7 @@
     "ethers": "^6.17.0",
     "express": "^5.2.1",
     "firebase-admin": "^14.5.0",
-    "node-telegram-bot-api": "^0.66.0"
+    "node-telegram-bot-api": "^0.66.0",
+    "sharp": "^0.35.5"
   }
 }

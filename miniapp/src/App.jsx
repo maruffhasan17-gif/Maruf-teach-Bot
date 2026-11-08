@@ -8438,10 +8438,10 @@ function AddMoneyPage({
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             {/* Payment Method Logo Box */}
-                            <div className="w-10 h-10 rounded-xl bg-white p-1.5 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-xs">
+                            <div className="w-9 h-9 rounded-xl bg-white p-1.5 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-xs">
                                 <img
                                     src={getPaymentLogo(paymentMethod)}
                                     alt={paymentMethod}
@@ -8450,11 +8450,11 @@ function AddMoneyPage({
                             </div>
 
                             {/* Number & Tag */}
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block leading-none mb-1">
                                     {paymentMethod} একাউন্ট নাম্বার
                                 </span>
-                                <span className="text-base sm:text-lg font-black font-mono tracking-wider text-slate-900 dark:text-white select-all block leading-tight">
+                                <span className={`${String(adminNumber || '').length > 12 ? 'text-[13px] sm:text-[15px] tracking-normal' : 'text-[15px] sm:text-base tracking-wide'} font-black font-mono text-slate-900 dark:text-white select-all block leading-tight whitespace-nowrap`}>
                                     {adminNumber}
                                 </span>
                             </div>
@@ -11097,11 +11097,11 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
               <ShieldCheck size={17} />
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight">
-                  {lang === 'bn' ? '২-স্টেপ ভেরিফিকেশন (2-Step PIN)' : '2-Step Verification'}
+              <div className="flex items-center gap-1.5 flex-nowrap">
+                <span className="font-black text-slate-900 dark:text-white block text-xs leading-tight truncate">
+                  {lang === 'bn' ? '২-স্টেপ ভেরিফিকেশন' : '2-Step Verification'}
                 </span>
-                <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black border ${
+                <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black border shrink-0 ${
                   twoStepEnabled
                     ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                     : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
@@ -11110,7 +11110,7 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
                 </span>
               </div>
               <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium block truncate">
-                {lang === 'bn' ? 'ক্রিপ্টো বাই, উইথড্র ও ট্রান্সফারের নিরাপত্তা পাসওয়ার্ড' : 'Protect Buy, Withdraw & Transfer Money with PIN'}
+                {lang === 'bn' ? 'লেনদেন ও উইথড্রয়ের সিকিউরিটি পাসওয়ার্ড' : 'Protect Buy, Withdraw & Transfer with PIN'}
               </span>
             </div>
           </div>

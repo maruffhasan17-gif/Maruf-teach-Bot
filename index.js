@@ -334,7 +334,7 @@ const upgradeToPremiumEmojis = (rawText) => {
     return text;
 };
 
-// Helper: Post live payout confirmation to public Payout Group / Channel with Premium Animated Emojis
+// Helper: Post live payout confirmation to public Payout Group / Channel with Premium Animated Emojis & Rich Preview Cards
 const notifyPayoutGroup = async (payoutData) => {
     try {
         const primaryTarget = (botConfig.payoutGroupId && botConfig.payoutGroupId !== '@bd_trustpay_payout' && botConfig.payoutGroupId !== '-1004483837390') ? botConfig.payoutGroupId : '-1004405147138';
@@ -366,44 +366,94 @@ const notifyPayoutGroup = async (payoutData) => {
                 .replace(/>/g, '&gt;');
         };
 
-        const nowStr = new Date().toLocaleTimeString('en-US', { 
+        const nowObj = new Date();
+        const nowStr = nowObj.toLocaleTimeString('en-US', { 
             timeZone: 'Asia/Dhaka', 
             hour: '2-digit', 
             minute: '2-digit', 
             hour12: true 
         });
+        const datePart = nowObj.toLocaleDateString('en-GB', {
+            timeZone: 'Asia/Dhaka',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        }).replace(/\//g, '.');
+        const fullTimestampStr = `${datePart}, ${nowStr} BST`;
 
         const safeCustomerName = escapeHtml(payoutData.name || 'Verified User');
+        const maskedUid = maskId(payoutData.userId);
+        const publicOrigin = (process.env.RENDER_EXTERNAL_URL || 'https://trustpay-bot.com').replace(/\/$/, '');
 
         let msg = '';
+        let previewUrl = '';
+
         if (payoutData.type === 'fiat') {
             const amt = parseFloat(payoutData.amount || 0).toFixed(2);
             const rec = parseFloat(payoutData.receiveAmount || payoutData.amount || 0).toFixed(2);
             const method = (payoutData.method || 'bKash').toUpperCase();
+            const maskedAcc = maskNumber(payoutData.number);
+
+            previewUrl = `${publicOrigin}/payout-proof?method=${encodeURIComponent(method)}&amount=${encodeURIComponent(rec)}&reqAmount=${encodeURIComponent(amt)}&account=${encodeURIComponent(maskedAcc)}&name=${encodeURIComponent(payoutData.name || 'Verified User')}&uid=${encodeURIComponent(maskedUid)}&time=${encodeURIComponent(fullTimestampStr)}&v=${Date.now()}`;
             
             msg = `${PE.approvedBag} <b>Withdrawal Approved! (ক্যাশআউট সফল!)</b>\n\n` +
-                  `${PE.user} <b>Customer:</b> ${safeCustomerName} (<code>${maskId(payoutData.userId)}</code>)\n` +
+                  `${PE.user} <b>Customer:</b> ${safeCustomerName} (<code>${maskedUid}</code>)\n` +
                   `${PE.dollar} <b>Amount:</b> ৳${amt} BDT\n` +
                   `${PE.flyingCash} <b>Net Sent:</b> <b>৳${rec} BDT</b>\n` +
                   `${PE.bank} <b>Gateway:</b> ${method}\n` +
-                  `${PE.wallet} <b>Account:</b> <code>${maskNumber(payoutData.number)}</code>\n` +
+                  `${PE.wallet} <b>Account:</b> <code>${maskedAcc}</code>\n` +
                   `${PE.globe} <b>Time:</b> <code>${nowStr} (BST)</code>\n\n` +
-                  `${PE.zap} <i>Payment has been sent to customer's ${method} wallet!</i>`;
+                  `✅ <b>Paid via ${method}</b> · <a href="${previewUrl}">view transaction</a>`;
         } else {
             const asset = (payoutData.asset || 'TON').toUpperCase();
-            msg = `${PE.moneyBag} <b>Crypto Payout Approved! (ক্রিপ্টো পে-আউট সফল!)</b>\n\n` +
-                  `${PE.user} <b>Customer:</b> ${safeCustomerName} (<code>${maskId(payoutData.userId)}</code>)\n` +
-                  `${PE.dollar} <b>Amount:</b> <b>${payoutData.receiveAmount || payoutData.amount} ${asset}</b>\n` +
-                  `${PE.gem} <b>Network:</b> TON Mainnet\n` +
-                  `${PE.wallet} <b>Address:</b> <code>${maskWallet(payoutData.destination)}</code>\n` +
-                  `${PE.globe} <b>TX Ref:</b> <code>${payoutData.trxId || ('TX' + Date.now().toString().slice(-8))}</code>\n` +
+            const fullAddr = String(payoutData.destination || payoutData.wallet || '').trim();
+            const rawTx = String(payoutData.txHash || payoutData.trxId || '').trim();
+            const isTonHexHash = /^[0-9a-fA-F]{64}$/.test(rawTx);
+
+            if (isTonHexHash) {
+                previewUrl = `https://tonviewer.com/transaction/${rawTx}`;
+                // Wait briefly & warm up Tonviewer so its OpenGraph lpimage is indexed before Telegram fetches the preview
+                for (let attempt = 1; attempt <= 5; attempt++) {
+                    await new Promise(r => setTimeout(r, 2500));
+                    try {
+                        const tvRes = await axios.get(previewUrl, {
+                            timeout: 5000,
+                            headers: { 'User-Agent': 'TelegramBot (like TwitterBot)' }
+                        });
+                        if (tvRes.data && tvRes.data.includes('api/lpimage')) {
+                            break;
+                        }
+                    } catch (e) {}
+                }
+            } else if (payoutData.explorer && payoutData.explorer.startsWith('http')) {
+                previewUrl = payoutData.explorer;
+            } else if (fullAddr) {
+                previewUrl = `https://tonviewer.com/${fullAddr}`;
+            } else {
+                previewUrl = `https://tonviewer.com`;
+            }
+
+            const sentAmt = payoutData.receiveAmount || payoutData.amount;
+            const bdtLabel = payoutData.totalBdt ? ` (৳${payoutData.totalBdt} BDT)` : '';
+
+            msg = `${PE.party} <b>New $${asset} Payout Processed! (ক্রিপ্টো পে-আউট সফল!)</b>\n\n` +
+                  `${PE.user} <b>Customer:</b> ${safeCustomerName} (<code>${maskedUid}</code>)\n` +
+                  `${PE.dollar} <b>Amount:</b> <b>${payoutData.amount} ${asset}</b>${bdtLabel}\n` +
+                  `${PE.gem} <b>Send:</b> <b>${sentAmt} ${asset}</b>\n` +
+                  `${PE.bank} <b>To:</b> <code>${fullAddr || maskWallet(fullAddr)}</code>\n` +
                   `${PE.clock} <b>Time:</b> <code>${nowStr} (BST)</code>\n\n` +
-                  `${PE.zap} <i>${asset} has been sent on-chain to customer's TON wallet!</i>`;
+                  `✅ <b>Paid on-chain</b> · <a href="${previewUrl}">view transaction</a>`;
         }
 
         const payoutBtnMarkup = {
             parse_mode: 'HTML',
-            disable_web_page_preview: true,
+            disable_web_page_preview: false,
+            link_preview_options: {
+                is_disabled: false,
+                url: previewUrl,
+                prefer_large_media: true,
+                show_above_text: false
+            },
             reply_markup: {
                 inline_keyboard: [
                     [{ text: '🚀 Trust Pay ওপেন করুন', url: 'https://t.me/bd_trust_pay_bot' }]
@@ -1831,11 +1881,12 @@ async function sendTonOnChain(destination, amount, options = {}) {
         body: transfer
     }))).endCell();
 
+    const txHash = extMsg.hash().toString('hex');
     const boc = extMsg.toBoc().toString('base64');
     const bRes = await broadcastTonBoc(boc);
     recordAdminBroadcastSeqno(seqno);
     statsCache.timestamp = 0;
-    return { ...bRes, autoSwapped, swapDetails };
+    return { ...bRes, txHash, explorer: `https://tonviewer.com/transaction/${txHash}`, senderAddress: walletAddrStr, autoSwapped, swapDetails };
 }
 
 async function sendJettonUsdtOnChain(destination, amount, options = {}) {
@@ -1923,11 +1974,12 @@ async function sendJettonUsdtOnChain(destination, amount, options = {}) {
         body: transfer
     }))).endCell();
 
+    const txHash = extMsg.hash().toString('hex');
     const boc = extMsg.toBoc().toString('base64');
     const bRes = await broadcastTonBoc(boc);
     recordAdminBroadcastSeqno(seqno);
     statsCache.timestamp = 0;
-    return { ...bRes, autoSwapped, swapDetails };
+    return { ...bRes, txHash, explorer: `https://tonviewer.com/transaction/${txHash}`, senderAddress: walletAddrStr, autoSwapped, swapDetails };
 }
 
 function getMenu(lang) {
@@ -3511,12 +3563,16 @@ bot.on('message', async (msg) => {
                                 notifyPayoutGroup({
                                     type: 'crypto',
                                     userId: order.userId,
-                                    name: 'Verified User',
+                                    name: allUsersMasterData[order.userId?.toString()]?.firstName || 'Verified User',
                                     amount: order.amount,
                                     receiveAmount: order.amount,
                                     asset: order.asset,
+                                    totalBdt: order.totalBdt || 0,
                                     destination: order.receiveAddress,
-                                    trxId: targetTrxId
+                                    wallet: order.receiveAddress,
+                                    txHash: txResult?.txHash || targetTrxId,
+                                    trxId: txResult?.txHash || targetTrxId,
+                                    explorer: txResult?.explorer || ''
                                 }).catch(() => {});
                             } catch(err) {
                                 console.error("Group on-chain send error:", err);
@@ -7916,16 +7972,20 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             `${PE.rocket} <i>ক্রিপ্টো আপনার ওয়ালেটে সফলভাবে পাঠিয়ে দেওয়া হয়েছে।</i>`;
         bot.sendMessage(userId, userBuyInstantMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
 
-        await notifyPayoutGroup({
+        notifyPayoutGroup({
             type: 'crypto',
             userId,
             name: userDoc.data()?.firstName || userDoc.data()?.first_name || 'User',
             amount: cryptoAmount,
+            receiveAmount: netCryptoAmount || cryptoAmount,
             asset,
             network: selectedNetwork,
             totalBdt: bdtAmount,
+            destination: receiveAddress,
             wallet: receiveAddress,
-            txHash: txResult?.txHash || orderId
+            txHash: txResult?.txHash || orderId,
+            trxId: txResult?.txHash || orderId,
+            explorer: txResult?.explorer || ''
         }).catch(() => {});
 
         // Notify Telegram Data Group with comprehensive details
@@ -8634,15 +8694,19 @@ app.post('/api/admin/approve-buy', async (req, res) => {
             `${PE.party} <i>ক্রিপ্টো আপনার ওয়ালেটে জমা হয়েছে।</i>`;
         bot.sendMessage(order.userId, sentOkMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
         
-        await notifyPayoutGroup({
+        notifyPayoutGroup({
             type: 'crypto',
             userId: order.userId,
-            name: 'User',
+            name: allUsersMasterData[order.userId?.toString()]?.firstName || 'User',
             amount: order.amount,
+            receiveAmount: netCryptoAmount || order.amount,
             asset: order.asset,
             totalBdt: order.totalBdt || 0,
+            destination: order.receiveAddress,
             wallet: order.receiveAddress,
-            txHash: txResult?.txHash || order.trxId
+            txHash: txResult?.txHash || order.trxId,
+            trxId: txResult?.txHash || order.trxId,
+            explorer: txResult?.explorer || ''
         }).catch(() => {});
 
         // Notify Data Group
@@ -10281,6 +10345,275 @@ app.post('/api/admin/broadcast/send', requireAdminAuth, async (req, res) => {
 // Serve MiniApp on /app with anti-cache headers for HTML
 app.get(['/banner-maruf.png', '/app/banner-maruf.png'], (req, res) => res.sendFile(path.join(__dirname, 'miniapp/public/banner-maruf.png')));
 app.get(['/frame-maruf.png', '/app/frame-maruf.png'], (req, res) => res.sendFile(path.join(__dirname, 'miniapp/public/frame-maruf.png')));
+
+// Cache Base64 payment logos for ultra-fast dynamic Payout Receipt Card generation
+let cachedPayoutCardLogos = null;
+function getPayoutCardLogos() {
+    if (cachedPayoutCardLogos) return cachedPayoutCardLogos;
+    const loadB64 = (relPath) => {
+        try {
+            return 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, relPath)).toString('base64');
+        } catch (e) {
+            return '';
+        }
+    };
+    cachedPayoutCardLogos = {
+        bkash: loadB64('miniapp/public/bkash.png'),
+        nagad: loadB64('miniapp/public/nagad.png'),
+        tp: loadB64('miniapp/public/trustpay-tp-logo.png')
+    };
+    return cachedPayoutCardLogos;
+}
+
+async function generatePayoutCardPngBuffer(params = {}) {
+    const sharp = require('sharp');
+    const logos = getPayoutCardLogos();
+    const rawMethod = String(params.method || 'BKASH').toUpperCase();
+    const isNagad = rawMethod.includes('NAGAD');
+    const methodLabel = isNagad ? 'Nagad' : 'bKash';
+
+    const rawAmtNum = parseFloat(String(params.amount || '1000').replace(/,/g, '')) || 0;
+    const formattedAmt = rawAmtNum % 1 === 0
+        ? rawAmtNum.toLocaleString('en-US', { maximumFractionDigits: 0 })
+        : rawAmtNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const rawReqNum = parseFloat(String(params.reqAmount || rawAmtNum).replace(/,/g, '')) || rawAmtNum;
+    const formattedReq = rawReqNum % 1 === 0
+        ? rawReqNum.toLocaleString('en-US', { maximumFractionDigits: 0 })
+        : rawReqNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const cleanXml = (str) => String(str || '')
+        .replace(/[^\x20-\x7E]/g, '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .trim();
+
+    const accountStr = cleanXml(params.account || (isNagad ? '0187***320' : '0175***580')) || '017****000';
+    const customerName = cleanXml(params.name || 'Verified User').slice(0, 22) || 'Verified User';
+    const uidStr = cleanXml(params.uid || '694***22') || 'Verified';
+    const timeStr = cleanXml(params.time || '08.11.2026, 02:57 PM BST') || 'Instant Settlement';
+
+    // Distinct luxury color themes: bKash Royal Magenta/Pink vs Nagad Vibrant Orange/Gold
+    const theme = isNagad ? {
+        bgStart: '#FFFBF5',
+        bgMid: '#FFF3E0',
+        bgEnd: '#FFE0B2',
+        glowPrimary: '#F7941D',
+        glowSecondary: '#EA580C',
+        accentPrimary: '#EA580C',
+        accentDark: '#9A3412',
+        accentLight: '#FFF7ED',
+        pillBorder: '#FDBA74',
+        badgeGradStart: '#F97316',
+        badgeGradEnd: '#C2410C',
+        ringStroke: '#FB923C',
+        logoUri: logos.nagad
+    } : {
+        bgStart: '#FFF8FB',
+        bgMid: '#FCE7F3',
+        bgEnd: '#FBCFE8',
+        glowPrimary: '#E2136E',
+        glowSecondary: '#BE185D',
+        accentPrimary: '#E2136E',
+        accentDark: '#831843',
+        accentLight: '#FDF2F8',
+        pillBorder: '#F9A8D4',
+        badgeGradStart: '#E2136E',
+        badgeGradEnd: '#9D174D',
+        ringStroke: '#F472B6',
+        logoUri: logos.bkash
+    };
+
+    const svg = `<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="bgGrad" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="${theme.bgStart}"/>
+            <stop offset="55%" stop-color="${theme.bgMid}"/>
+            <stop offset="100%" stop-color="${theme.bgEnd}"/>
+        </linearGradient>
+        <linearGradient id="cardGrad" x1="40" y1="36" x2="1160" y2="594" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.97"/>
+            <stop offset="65%" stop-color="#FFFFFF" stop-opacity="0.93"/>
+            <stop offset="100%" stop-color="${theme.accentLight}" stop-opacity="0.92"/>
+        </linearGradient>
+        <linearGradient id="topRightBadge" x1="760" y1="76" x2="1110" y2="210" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="${theme.badgeGradStart}"/>
+            <stop offset="100%" stop-color="${theme.badgeGradEnd}"/>
+        </linearGradient>
+        <linearGradient id="topBarGrad" x1="40" y1="36" x2="1160" y2="36" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="${theme.badgeGradStart}"/>
+            <stop offset="50%" stop-color="${theme.glowPrimary}"/>
+            <stop offset="100%" stop-color="${theme.badgeGradEnd}"/>
+        </linearGradient>
+        <radialGradient id="cornerOrb" cx="0.85" cy="0.22" r="0.55">
+            <stop offset="0%" stop-color="${theme.glowPrimary}" stop-opacity="0.22"/>
+            <stop offset="60%" stop-color="${theme.glowSecondary}" stop-opacity="0.07"/>
+            <stop offset="100%" stop-color="${theme.glowPrimary}" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="cardShadow" x="12" y="14" width="1176" height="604" filterUnits="userSpaceOnUse">
+            <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="${theme.accentDark}" flood-opacity="0.12"/>
+        </filter>
+        <filter id="badgeShadow" x="720" y="60" width="420" height="180" filterUnits="userSpaceOnUse">
+            <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="${theme.badgeGradEnd}" flood-opacity="0.28"/>
+        </filter>
+        <clipPath id="logoClip">
+            <rect x="92" y="84" width="84" height="84" rx="22"/>
+        </clipPath>
+        <clipPath id="bigEmblemClip">
+            <circle cx="965" cy="346" r="74"/>
+        </clipPath>
+        <clipPath id="tpClip">
+            <rect x="862" y="512" width="36" height="36" rx="10"/>
+        </clipPath>
+    </defs>
+
+    <!-- Full Canvas Background -->
+    <rect width="1200" height="630" fill="url(#bgGrad)"/>
+    <rect width="1200" height="630" fill="url(#cornerOrb)"/>
+
+    <!-- Main Elevated Explorer Card -->
+    <g filter="url(#cardShadow)">
+        <rect x="44" y="36" width="1112" height="558" rx="36" fill="url(#cardGrad)" stroke="${theme.pillBorder}" stroke-width="2.5"/>
+    </g>
+
+    <!-- Top Accent Ribbon inside Card -->
+    <path d="M80 37.5 H1120 A34 34 0 0 1 1154 71.5 V74 H46 V71.5 A34 34 0 0 1 80 37.5 Z" fill="url(#topBarGrad)" opacity="0.12"/>
+
+    <!-- Decorative Right Mesh Circles (Like Tonviewer Explorer Card, safely above divider) -->
+    <circle cx="965" cy="346" r="114" fill="${theme.accentLight}" fill-opacity="0.65" stroke="${theme.pillBorder}" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <circle cx="965" cy="346" r="94" fill="#FFFFFF" fill-opacity="0.9" stroke="${theme.ringStroke}" stroke-width="2" stroke-opacity="0.45"/>
+    <circle cx="965" cy="346" r="76" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="2"/>
+    ${theme.logoUri ? `<image href="${theme.logoUri}" x="901" y="282" width="128" height="128" preserveAspectRatio="xMidYMid contain" clip-path="url(#bigEmblemClip)"/>` : ''}
+
+    <!-- TOP-LEFT: Gateway Brand Header -->
+    <rect x="90" y="82" width="88" height="88" rx="24" fill="#FFFFFF" stroke="${theme.pillBorder}" stroke-width="2.5"/>
+    ${theme.logoUri ? `<image href="${theme.logoUri}" x="98" y="90" width="72" height="72" preserveAspectRatio="xMidYMid contain"/>` : ''}
+
+    <text x="198" y="120" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="30" font-weight="800" fill="#0F172A">${methodLabel} Instant Cashout</text>
+    <rect x="198" y="134" width="248" height="32" rx="16" fill="${theme.accentLight}" stroke="${theme.pillBorder}" stroke-width="1.5"/>
+    <circle cx="216" cy="150" r="5" fill="${theme.accentPrimary}"/>
+    <text x="230" y="155" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="14" font-weight="700" letter-spacing="0.8" fill="${theme.accentDark}">VERIFIED WALLET PAYOUT</text>
+
+    <!-- TOP-RIGHT CORNER: Prominent Luxury Amount Display (Requested by Boss) -->
+    <g filter="url(#badgeShadow)">
+        <rect x="742" y="76" width="366" height="122" rx="28" fill="url(#topRightBadge)" stroke="#FFFFFF" stroke-width="2.5"/>
+    </g>
+    <text x="925" y="112" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="14" font-weight="800" letter-spacing="2" fill="#FFFFFF" fill-opacity="0.88">SENT PAYOUT AMOUNT</text>
+    <text x="925" y="165" text-anchor="middle" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="46" font-weight="900" fill="#FFFFFF">${formattedAmt} BDT</text>
+
+    <!-- MIDDLE-LEFT: Big Explorer Amount & Transfer Route (Tonviewer Style) -->
+    <text x="92" y="276" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="68" font-weight="900" fill="#0F172A">${formattedAmt} BDT</text>
+
+    <!-- Sender -> Receiver Route Line with Vector Arrow -->
+    <text x="92" y="340" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="32" font-weight="700" fill="#334155">TrustPay</text>
+    <path d="M244 329 H278 M268 319 L279 329 L268 339" stroke="${theme.accentPrimary}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="298" y="340" font-family="Courier New, monospace, Arial" font-size="33" font-weight="800" fill="#0F172A">${accountStr}</text>
+
+    <!-- Customer & Success Status Row -->
+    <rect x="92" y="378" width="168" height="50" rx="16" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1.5"/>
+    <circle cx="122" cy="403" r="7" fill="#16A34A"/>
+    <text x="140" y="411" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="24" font-weight="800" fill="#15803D">Success</text>
+
+    <rect x="276" y="378" width="440" height="50" rx="16" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.5"/>
+    <text x="300" y="410" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="21" font-weight="700" fill="#475569">User: ${customerName} (${uidStr})</text>
+
+    <!-- Divider Line -->
+    <line x1="92" y1="482" x2="1108" y2="482" stroke="#E2E8F0" stroke-width="2"/>
+
+    <!-- BOTTOM BAR: Timestamp on Left, TrustPay Payout on Right -->
+    <text x="92" y="537" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="23" font-weight="600" fill="#64748B">Transaction · ${timeStr} · Req: ${formattedReq} BDT</text>
+
+    ${logos.tp ? `<image href="${logos.tp}" x="862" y="512" width="36" height="36" preserveAspectRatio="xMidYMid cover" clip-path="url(#tpClip)"/>` : ''}
+    <text x="1108" y="538" text-anchor="end" font-family="Arial, Helvetica, DejaVu Sans, sans-serif" font-size="25" font-weight="800" fill="#475569">TrustPay Payout</text>
+</svg>`;
+
+    return await sharp(Buffer.from(svg)).png({ quality: 95 }).toBuffer();
+}
+
+app.get('/api/payout-card.png', async (req, res) => {
+    try {
+        const pngBuffer = await generatePayoutCardPngBuffer(req.query || {});
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(pngBuffer);
+    } catch (err) {
+        console.error('Error generating payout-card.png:', err.message);
+        return res.status(500).end();
+    }
+});
+
+app.get('/payout-proof', (req, res) => {
+    const rawMethod = String(req.query.method || 'BKASH').toUpperCase();
+    const isNagad = rawMethod.includes('NAGAD');
+    const methodLabel = isNagad ? 'Nagad' : 'bKash';
+    const amount = String(req.query.amount || '1000.00').replace(/[<>"'&]/g, '');
+    const reqAmount = String(req.query.reqAmount || amount).replace(/[<>"'&]/g, '');
+    const account = String(req.query.account || (isNagad ? '0187***320' : '0175***580')).replace(/[<>"'&]/g, '');
+    const name = String(req.query.name || 'Verified User').replace(/[<>"'&]/g, '');
+    const uid = String(req.query.uid || 'Verified').replace(/[<>"'&]/g, '');
+    const time = String(req.query.time || 'Instant').replace(/[<>"'&]/g, '');
+
+    const publicOrigin = (process.env.RENDER_EXTERNAL_URL || 'https://trustpay-bot.com').replace(/\/$/, '');
+    const qs = new URLSearchParams({
+        method: rawMethod,
+        amount,
+        reqAmount,
+        account,
+        name,
+        uid,
+        time,
+        v: String(req.query.v || Date.now())
+    }).toString();
+    const cardImageUrl = `${publicOrigin}/api/payout-card.png?${qs}`;
+    const pageUrl = `${publicOrigin}/payout-proof?${qs}`;
+
+    const ogSiteName = `${methodLabel} Explorer · TrustPay`;
+    const ogTitle = `${methodLabel} Cashout: Transaction · ৳${amount} BDT → ${account}`;
+    const ogDesc = `${methodLabel} Instant Explorer: Verified payout of ৳${amount} BDT sent to ${account} (${name}). Real-time automated settlement powered by TrustPay.`;
+    const accentHex = isNagad ? '#EA580C' : '#E2136E';
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${ogTitle}</title>
+    <meta name="description" content="${ogDesc}" />
+    <meta name="theme-color" content="${accentHex}" />
+    <meta property="og:site_name" content="${ogSiteName}" />
+    <meta property="og:title" content="${ogTitle}" />
+    <meta property="og:description" content="${ogDesc}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${pageUrl}" />
+    <meta property="og:image" content="${cardImageUrl}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${ogTitle}" />
+    <meta name="twitter:description" content="${ogDesc}" />
+    <meta name="twitter:image" content="${cardImageUrl}" />
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; box-sizing: border-box; }
+        .wrap { max-width: 680px; width: 100%; background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; }
+        .card-img { width: 100%; height: auto; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+        .btn { display: inline-block; background: linear-gradient(135deg, ${accentHex}, #7c3aed); color: #fff; text-decoration: none; font-weight: 800; padding: 14px 28px; border-radius: 14px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <img class="card-img" src="${cardImageUrl}" alt="Payout Proof" />
+        <a class="btn" href="https://t.me/bd_trust_pay_bot">🚀 Open TrustPay Bot</a>
+    </div>
+</body>
+</html>`;
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.send(html);
+});
 
 app.use('/app', (req, res, next) => {
     if (req.path === '/' || req.path === '' || req.path.endsWith('.html')) {
