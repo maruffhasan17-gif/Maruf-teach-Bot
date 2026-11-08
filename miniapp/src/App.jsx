@@ -8434,7 +8434,7 @@ function AddMoneyPage({
                             </span>
                         </div>
                         <div className="px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 font-mono font-black text-xs">
-                            পাঠাবেন: ৳{Number(amount).toLocaleString()}
+                            {lang === 'bn' ? 'পাঠাবেন:' : 'Send:'} ৳{Number(amount).toLocaleString()}
                         </div>
                     </div>
 
@@ -8452,7 +8452,7 @@ function AddMoneyPage({
                             {/* Number & Tag */}
                             <div className="min-w-0 flex-1">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block leading-none mb-1">
-                                    {paymentMethod} একাউন্ট নাম্বার
+                                    {paymentMethod} {lang === 'bn' ? 'একাউন্ট নাম্বার' : 'Account Number'}
                                 </span>
                                 <span className={`${String(adminNumber || '').length > 12 ? 'text-[13px] sm:text-[15px] tracking-normal' : 'text-[15px] sm:text-base tracking-wide'} font-black font-mono text-slate-900 dark:text-white select-all block leading-tight whitespace-nowrap`}>
                                     {adminNumber}
@@ -8505,9 +8505,9 @@ function AddMoneyPage({
                         <div className={`p-2.5 rounded-xl border text-center transition-all ${
                             darkMode ? 'bg-slate-800/30 border-slate-800' : 'bg-slate-50/90 border-slate-200/80 shadow-2xs'
                         }`}>
-                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] mx-auto flex items-center justify-center mb-1 shadow-xs">১</span>
+                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] mx-auto flex items-center justify-center mb-1 shadow-xs">{lang === 'bn' ? '১' : '1'}</span>
                             <span className="font-black text-[10.5px] text-slate-800 dark:text-slate-200 block leading-tight truncate">
-                                {paymentMethod} অ্যাপ
+                                {paymentMethod} {lang === 'bn' ? 'অ্যাপ' : 'App'}
                             </span>
                             <span className="text-[9px] text-slate-400 font-medium block mt-0.5">Send Money</span>
                         </div>
@@ -8515,9 +8515,9 @@ function AddMoneyPage({
                         <div className={`p-2.5 rounded-xl border text-center transition-all ${
                             darkMode ? 'bg-slate-800/30 border-slate-800' : 'bg-slate-50/90 border-slate-200/80 shadow-2xs'
                         }`}>
-                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] mx-auto flex items-center justify-center mb-1 shadow-xs">২</span>
+                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] mx-auto flex items-center justify-center mb-1 shadow-xs">{lang === 'bn' ? '২' : '2'}</span>
                             <span className="font-black text-[10.5px] text-slate-800 dark:text-slate-200 block leading-tight truncate">
-                                টাকা পাঠান
+                                {lang === 'bn' ? 'টাকা পাঠান' : 'Send Amount'}
                             </span>
                             <span className="text-[9.5px] text-purple-600 dark:text-purple-400 font-black block mt-0.5">৳{Number(amount).toLocaleString()}</span>
                         </div>
@@ -8525,11 +8525,11 @@ function AddMoneyPage({
                         <div className={`p-2.5 rounded-xl border text-center transition-all ${
                             darkMode ? 'bg-slate-800/30 border-slate-800' : 'bg-slate-50/90 border-slate-200/80 shadow-2xs'
                         }`}>
-                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] mx-auto flex items-center justify-center mb-1 shadow-xs">৩</span>
+                            <span className="w-5 h-5 rounded-full bg-purple-600 text-white font-black text-[10px] mx-auto flex items-center justify-center mb-1 shadow-xs">{lang === 'bn' ? '৩' : '3'}</span>
                             <span className="font-black text-[10.5px] text-slate-800 dark:text-slate-200 block leading-tight truncate">
-                                TrxID দিন
+                                {lang === 'bn' ? 'TrxID দিন' : 'Enter TrxID'}
                             </span>
-                            <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">নিচে পেস্ট</span>
+                            <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold block mt-0.5">{lang === 'bn' ? 'নিচে পেস্ট' : 'Paste below'}</span>
                         </div>
                     </div>
                 </div>
