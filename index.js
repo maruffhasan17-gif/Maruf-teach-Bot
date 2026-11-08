@@ -425,7 +425,7 @@ const notifyPayoutGroup = async (payoutData) => {
                   `${PE.user} ${clickableCustomerHtml} (${maskedUid})\n` +
                   `${PE.dollar} Amount: ৳${amt} BDT\n` +
                   `${PE.flyingCash} Send (after ৳${feeStr} fee): ৳${rec} BDT\n` +
-                  `${PE.bank} To: ${maskedAcc} (${methodTitle} Verified Wallet)\n\n` +
+                  `${PE.bank} To: ${maskedAcc} (${methodTitle})\n\n` +
                   `✅ Paid via ${methodTitle} · <a href="${previewUrl}">view transaction</a>`;
         } else {
             const asset = (payoutData.asset || 'TON').toUpperCase();
@@ -10575,8 +10575,8 @@ app.get('/payout-proof', (req, res) => {
     const pageUrl = `${publicOrigin}/payout-proof?${qs}`;
 
     const ogSiteName = `${methodLabel} Explorer`;
-    const ogTitle = `${methodLabel} Explorer: Transaction · ৳${amount} BDT → ${account}`;
-    const ogDesc = `${methodLabel} Explorer: Track real-time mobile financial payouts, verified wallet transfers, and automated instant settlements on TrustPay.`;
+    const ogTitle = `Transaction · ৳${amount} BDT → ${account}`;
+    const ogDesc = `Track verified mobile financial payouts and instant automated wallet settlements on TrustPay.`;
     const accentHex = isNagad ? '#EA580C' : '#E2136E';
 
     const html = `<!DOCTYPE html>
