@@ -35,7 +35,7 @@ Format exactly like this (use code blocks for copy-pasting):
 💵 Crypto Buy Sell Bot Link:
 👉 https://t.me/maruf_teach/94
 
-📢 সব অফারের আপডেট আগে পেতে আমাদের টেলিগ্রাম চ্যানেলে জয়েন করুন:
+📢 সবার আগে সব আপডেট পেতে টেলিগ্রাম চ্যানেল:
 👉 https://t.me/maruf_teach
 ━━━━━━━━━━━━━━━━━━━━━
 

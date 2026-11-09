@@ -179,22 +179,8 @@ function usePendingCounts() {
     };
 
     fetchCounts();
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      fetchCounts();
-    }, 15000);
-
-    const handleFocus = () => {
-      if (typeof document !== 'undefined' && !document.hidden) fetchCounts();
-    };
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleFocus);
-
     return () => {
       isMounted = false;
-      clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleFocus);
     };
   }, []);
 
@@ -251,6 +237,7 @@ function useBotData() {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const fetchData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -272,6 +259,7 @@ function useBotData() {
           json.gramBalance = json.tonNativeBalance || json.tonBalance || '0.00';
         }
         setData(json);
+        setLastUpdated(new Date());
       }
     } catch (err) {
       console.error("Error fetching stats:", err);
@@ -282,26 +270,11 @@ function useBotData() {
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      fetchData(false);
-    }, 8000);
-
-    const handleFocus = () => {
-      if (typeof document !== 'undefined' && !document.hidden) fetchData(true);
-    };
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleFocus);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleFocus);
-    };
+    fetchData(false);
+    // On-Demand Only: Loads once upon navigation, zero auto-polling to preserve Firestore read limits
   }, []);
 
-  return { data, loading, refreshing, refresh: () => fetchData(true) };
+  return { data, loading, refreshing, lastUpdated, refresh: () => fetchData(true) };
 }
 
 // Route-aware Lazy Orders Hook (loads ONLY requested tab: 'buys', 'sells', 'withdrawals', or full)
@@ -309,18 +282,21 @@ function useOrdersData(filterType = null) {
   const [orders, setOrders] = useState({ buys: [], sells: [], withdrawals: [], deposits: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const fetchOrders = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const typeParam = filterType ? `?type=${filterType}&_t=${Date.now()}` : `?_t=${Date.now()}`;
+      const typeParam = filterType ? `?type=${filterType}` : '?';
+      const refreshParam = isManual ? '&refresh=true' : '';
+      const url = `${API_BASE}/api/admin/orders${typeParam}&_t=${Date.now()}${refreshParam}`;
       let res;
       try {
-        res = await fetch(`${API_BASE}/api/admin/orders${typeParam}`);
+        res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       } catch (err) {
         if (API_BASE !== 'https://maruf-teach-bot.onrender.com') {
-          res = await fetch(`https://maruf-teach-bot.onrender.com/api/admin/orders${typeParam}`);
+          res = await fetch(`https://maruf-teach-bot.onrender.com/api/admin/orders${typeParam}&_t=${Date.now()}${refreshParam}`);
         } else {
           throw err;
         }
@@ -333,6 +309,7 @@ function useOrdersData(filterType = null) {
           withdrawals: Array.isArray(json.withdrawals) ? json.withdrawals : (filterType && filterType !== 'withdrawals' ? prev.withdrawals : []),
           deposits: Array.isArray(json.deposits) ? json.deposits : (filterType && filterType !== 'deposits' ? prev.deposits : [])
         }));
+        setLastUpdated(new Date());
       }
     } catch (err) {
       console.error("Error fetching orders:", err);
@@ -343,26 +320,11 @@ function useOrdersData(filterType = null) {
   };
 
   useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      fetchOrders(false);
-    }, 10000);
-
-    const handleFocus = () => {
-      if (typeof document !== 'undefined' && !document.hidden) fetchOrders(true);
-    };
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleFocus);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleFocus);
-    };
+    fetchOrders(false);
+    // On-Demand Only: Loads only the specific page's data when entering the page. Zero background burn!
   }, [filterType]);
 
-  return { orders, loading, refreshing, refresh: () => fetchOrders(true) };
+  return { orders, loading, refreshing, lastUpdated, refresh: () => fetchOrders(true) };
 }
 
 // Toast notification component
@@ -1581,8 +1543,8 @@ function Dashboard() {
 // 2. BOT WALLET / TREASURY COMPONENT (FULL TONKEEPER DEPOSIT & ON-CHAIN WITHDRAW)
 // =========================================================================
 function BotWallet() {
-  const { data, refresh, refreshing } = useBotData();
-  const { orders, refresh: refreshOrders } = useOrdersData();
+  const { data, refresh, refreshing, lastUpdated } = useBotData();
+  const { orders, refresh: refreshOrders, refreshing: ordersRefreshing } = useOrdersData('buys');
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const navigate = useNavigate();
@@ -2027,12 +1989,12 @@ function BotWallet() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Live Auto-Sync Status Indicator */}
+          {/* On-Demand Data Status Indicator (Quota Protected) */}
           <div className={`px-3 py-1.5 rounded-2xl border text-xs font-bold flex items-center gap-1.5 shadow-sm ${
-            isDark ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-          }`} title="Live On-Chain Auto-Sync every 8 seconds">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-            <span>Live Sync: <b>8s</b></span>
+            isDark ? 'bg-purple-950/40 border-purple-500/30 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-800'
+          }`} title="Firestore quota safe: Data loads on-demand">
+            <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+            <span>{lastUpdated ? `আপডেট: ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'অন-ডিমান্ড'}</span>
           </div>
 
           {/* Live Auto-Swap Engine Status */}
@@ -2091,12 +2053,13 @@ function BotWallet() {
 
           <button
             onClick={() => { refresh(); refreshOrders(); }}
-            className={`px-3 py-2 rounded-2xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              isDark ? 'bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-900/40' : 'bg-white border-slate-200 text-slate-700 shadow-sm'
-            }`}
+            disabled={refreshing || ordersRefreshing}
+            className={`px-3.5 py-2 rounded-2xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              isDark ? 'bg-purple-950/50 border-purple-700/60 text-purple-200 hover:bg-purple-900/60' : 'bg-white border-purple-200 text-purple-800 hover:bg-purple-50 shadow-sm'
+            } active:scale-95`}
           >
-            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-            Refresh
+            <RefreshCw size={13} className={(refreshing || ordersRefreshing) ? 'animate-spin text-purple-400' : ''} />
+            <span>{(refreshing || ordersRefreshing) ? 'লোড হচ্ছে...' : 'রিফ্রেশ (Live Refresh)'}</span>
           </button>
         </div>
       </div>
