@@ -8225,7 +8225,7 @@ function AddMoneyPage({
                                 }`}
                             >
                                 <div className="flex items-center gap-2.5">
-                                    <div className="w-8 h-8 rounded-lg bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+                                    <div style={{ backgroundColor: '#ffffff' }} className="w-8 h-8 rounded-lg bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
                                         <img
                                             src={getPaymentLogo(paymentMethod)}
                                             alt={paymentMethod}
@@ -8271,7 +8271,7 @@ function AddMoneyPage({
                                             }`}
                                         >
                                             <div className="flex items-center gap-2.5">
-                                                <div className="w-8 h-8 rounded-lg bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+                                                <div style={{ backgroundColor: '#ffffff' }} className="w-8 h-8 rounded-lg bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
                                                     <img
                                                         src={getPaymentLogo(m)}
                                                         alt={m}
