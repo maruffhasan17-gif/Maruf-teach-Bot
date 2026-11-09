@@ -8225,11 +8225,12 @@ function AddMoneyPage({
                                 }`}
                             >
                                 <div className="flex items-center gap-2.5">
-                                    <div style={{ backgroundColor: '#ffffff' }} className="w-8 h-8 rounded-lg bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+                                    <div className="w-9 h-9 rounded-xl p-1.5 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm tp-payment-logo-box tp-logo-tile overflow-hidden" style={{ backgroundColor: '#ffffff', minWidth: '36px', minHeight: '36px' }}>
                                         <img
                                             src={getPaymentLogo(paymentMethod)}
                                             alt={paymentMethod}
                                             className="w-full h-full object-contain select-none"
+                                            style={{ filter: 'none', opacity: 1 }}
                                         />
                                     </div>
                                     <div className="text-left leading-none">
@@ -8271,11 +8272,12 @@ function AddMoneyPage({
                                             }`}
                                         >
                                             <div className="flex items-center gap-2.5">
-                                                <div style={{ backgroundColor: '#ffffff' }} className="w-8 h-8 rounded-lg bg-white p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+                                                <div className="w-9 h-9 rounded-xl p-1.5 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm tp-payment-logo-box tp-logo-tile overflow-hidden" style={{ backgroundColor: '#ffffff', minWidth: '36px', minHeight: '36px' }}>
                                                     <img
                                                         src={getPaymentLogo(m)}
                                                         alt={m}
                                                         className="w-full h-full object-contain select-none"
+                                                        style={{ filter: 'none', opacity: 1 }}
                                                     />
                                                 </div>
                                                 <div className="text-left leading-none">
@@ -8473,11 +8475,12 @@ function AddMoneyPage({
                     <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             {/* Payment Method Logo Box */}
-                            <div className="w-9 h-9 rounded-xl bg-white p-1.5 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-xs">
+                            <div className="w-9 h-9 rounded-xl p-1.5 border border-slate-200 flex items-center justify-center shrink-0 shadow-sm tp-payment-logo-box tp-logo-tile overflow-hidden" style={{ backgroundColor: '#ffffff', minWidth: '36px', minHeight: '36px' }}>
                                 <img
                                     src={getPaymentLogo(paymentMethod)}
                                     alt={paymentMethod}
                                     className="w-full h-full object-contain select-none"
+                                    style={{ filter: 'none', opacity: 1 }}
                                 />
                             </div>
 
