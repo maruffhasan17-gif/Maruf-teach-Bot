@@ -182,10 +182,19 @@ function usePendingCounts() {
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchCounts();
-    }, 180000);
+    }, 15000);
+
+    const handleFocus = () => {
+      if (typeof document !== 'undefined' && !document.hidden) fetchCounts();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
     };
   }, []);
 
@@ -277,8 +286,19 @@ function useBotData() {
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchData(false);
-    }, 180000);
-    return () => clearInterval(interval);
+    }, 8000);
+
+    const handleFocus = () => {
+      if (typeof document !== 'undefined' && !document.hidden) fetchData(true);
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
   }, []);
 
   return { data, loading, refreshing, refresh: () => fetchData(true) };
@@ -327,8 +347,19 @@ function useOrdersData(filterType = null) {
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       fetchOrders(false);
-    }, 180000);
-    return () => clearInterval(interval);
+    }, 10000);
+
+    const handleFocus = () => {
+      if (typeof document !== 'undefined' && !document.hidden) fetchOrders(true);
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
   }, [filterType]);
 
   return { orders, loading, refreshing, refresh: () => fetchOrders(true) };
@@ -1357,7 +1388,7 @@ function Dashboard() {
               <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
                 isDark ? 'text-white' : 'text-slate-900'
               }`}>
-                {data.tonNativeBalance || data.gramBalance || '0.00'}
+                {parseFloat(data.tonNativeBalance || data.gramBalance || 0).toFixed(3)}
               </span>
               <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
                 GRAM
@@ -1996,6 +2027,14 @@ function BotWallet() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Live Auto-Sync Status Indicator */}
+          <div className={`px-3 py-1.5 rounded-2xl border text-xs font-bold flex items-center gap-1.5 shadow-sm ${
+            isDark ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`} title="Live On-Chain Auto-Sync every 8 seconds">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>Live Sync: <b>8s</b></span>
+          </div>
+
           {/* Live Auto-Swap Engine Status */}
           <div className={`px-3.5 py-2 rounded-2xl border text-xs font-bold flex items-center gap-2 shadow-sm ${
             isDark ? 'bg-[#121036] border-purple-500/30 text-purple-300' : 'bg-white border-purple-200 text-purple-800'
@@ -2181,7 +2220,7 @@ function BotWallet() {
               <div className="flex flex-wrap items-center gap-3 pt-1 text-xs font-bold">
                 <div className="flex items-center gap-1.5 text-purple-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                  <span>GRAM Pool: <b>{gramBalanceVal.toFixed(2)}</b> (৳{gramBdtVal.toFixed(0)} @ ৳170)</span>
+                  <span>GRAM Pool: <b>{gramBalanceVal.toFixed(3)}</b> (৳{gramBdtVal.toFixed(0)} @ ৳170)</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-emerald-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
@@ -2394,7 +2433,7 @@ function BotWallet() {
               <span className={`text-5xl md:text-6xl font-black tracking-tight font-mono ${
                 isDark ? 'text-white' : 'text-slate-900'
               }`}>
-                {gramBalanceVal.toFixed(2)}
+                {gramBalanceVal.toFixed(3)}
               </span>
               <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
                 GRAM

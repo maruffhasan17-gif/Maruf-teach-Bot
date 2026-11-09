@@ -725,7 +725,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               id: 'GRAM',
               title: 'GRAM / TON Reserve',
               subtitle: 'Direct User Payout Pool + Backed by On-Chain USDT Auto-Swap',
-              balance: `${gramBalanceVal.toFixed(2)} GRAM`,
+              balance: `${gramBalanceVal.toFixed(3)} GRAM`,
               bdt: `≈ ৳${(gramBalanceVal * liveGramBdt).toFixed(0)} BDT`,
               tag: 'TON MAINNET • INSTANT DISPATCH',
               activeClass: isDark

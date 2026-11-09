@@ -5759,6 +5759,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
 
         invalidateUserHistoryCache(userId);
         invalidateOrdersCache();
+        statsCache.timestamp = 0;
         res.json({ success: true, orderId: savedOrderId, newBalance, creditedTk: verifiedTk });
     } catch(e) {
         console.error("Sell order error:", e);
@@ -6894,7 +6895,7 @@ async function fetchMultiChainEvmBalances(evmAddr) {
 app.get('/api/stats', async (req, res) => {
     const now = Date.now();
     const forceRefresh = req.query.refresh === 'true' || req.query.force === '1';
-    if (!forceRefresh && statsCache.data && (now - statsCache.timestamp < 120000)) {
+    if (!forceRefresh && statsCache.data && (now - statsCache.timestamp < 8000)) {
         return res.json(statsCache.data);
     }
 
@@ -6969,7 +6970,7 @@ app.get('/api/stats', async (req, res) => {
         ]);
 
         if (tonTreasuryRes.status === 'fulfilled' && tonTreasuryRes.value) {
-            tonNativeBalance = tonTreasuryRes.value.ton.toFixed(2);
+            tonNativeBalance = tonTreasuryRes.value.ton.toFixed(3);
             tonUsdtBalance = tonTreasuryRes.value.usdt.toFixed(2);
             tonBalance = tonNativeBalance;
             gramBalance = tonNativeBalance;
@@ -7676,6 +7677,7 @@ app.post('/api/miniapp/add-money', async (req, res) => {
 
         invalidateUserHistoryCache(userId);
         invalidateOrdersCache();
+        statsCache.timestamp = 0;
         res.json({
             success: true,
             message: `৳${amount} BDT সফলভাবে আপনার ব্যালেন্সে যোগ হয়েছে!`,
@@ -8078,6 +8080,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
         invalidateUserHistoryCache(userId);
         invalidateOrdersCache();
+        statsCache.timestamp = 0;
         res.json({
             success: true,
             message: `সফলভাবে ${cryptoAmount} ${asset} (${selectedNetwork}) আপনার ওয়ালেটে পাঠানো হয়েছে!`,
@@ -8616,7 +8619,8 @@ app.get('/api/admin/users', async (req, res) => {
 app.get('/api/admin/orders', async (req, res) => {
     const reqType = req.query.type; // 'buys' | 'sells' | 'withdrawals' | 'deposits'
     const now = Date.now();
-    if (ordersCache.data && (now - ordersCache.timestamp < 60000)) {
+    const forceRefresh = req.query.refresh === 'true' || req.query.force === '1';
+    if (!forceRefresh && ordersCache.data && (now - ordersCache.timestamp < 8000)) {
         if (reqType && ordersCache.data[reqType]) {
             return res.json({ [reqType]: ordersCache.data[reqType] });
         }
@@ -8806,6 +8810,8 @@ app.post('/api/admin/approve-buy', async (req, res) => {
             bot.sendMessage(config.adminGroupId, `${PE.check} <b>Buy Order Completed!</b>\nUser: <code>${order.userId}</code>\nAsset: <b>${order.amount} ${order.asset}</b>\nWallet: <code>${order.receiveAddress}</code>\nTrxID: <code>${order.trxId}</code>`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
 
+        statsCache.timestamp = 0;
+        invalidateOrdersCache();
         res.json({ success: true, message: `Successfully transferred ${order.amount} ${order.asset} and completed order.` });
     } catch(e) {
         console.error("Approve buy error:", e);
@@ -8865,6 +8871,8 @@ app.post('/api/admin/reject-buy', async (req, res) => {
             bot.sendMessage(config.adminGroupId, `${PE.cross} <b>Buy Order Rejected!</b>\nUser: <code>${order.userId}</code>\nTrxID: <code>${order.trxId}</code>\nRefunded: <b>৳${refundBdt} BDT</b> to user balance.`, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
 
+        statsCache.timestamp = 0;
+        invalidateOrdersCache();
         res.json({ success: true, message: `Order rejected. ৳${refundBdt} BDT refunded to user ${order.userId}'s balance.` });
     } catch(e) {
         console.error("Reject buy error:", e);
