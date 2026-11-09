@@ -129,12 +129,13 @@ function normalizeTrxId(raw) {
 async function getVerifiedTrxRecord(trxId) {
     const cleanId = normalizeTrxId(trxId);
     if (!cleanId) return null;
+    const defaultRef = db.collection('verified_trx').doc(cleanId);
 
     if (inMemoryVerifiedTrx.has(cleanId)) {
         return {
             isInMemory: true,
             data: inMemoryVerifiedTrx.get(cleanId),
-            ref: null
+            ref: defaultRef
         };
     }
     for (const [k, v] of inMemoryVerifiedTrx.entries()) {
@@ -142,13 +143,13 @@ async function getVerifiedTrxRecord(trxId) {
             return {
                 isInMemory: true,
                 data: v,
-                ref: null
+                ref: defaultRef
             };
         }
     }
 
     try {
-        const snap = await db.collection('verified_trx').doc(cleanId).get();
+        const snap = await defaultRef.get();
         if (snap.exists) {
             return {
                 isInMemory: false,
@@ -178,23 +179,29 @@ async function markVerifiedTrxClaimed(recordInfo, trxId, userId) {
     if (recordInfo?.isInMemory || inMemoryVerifiedTrx.has(cleanId)) {
         const memData = inMemoryVerifiedTrx.get(cleanId) || recordInfo?.data;
         if (memData) {
+            if (memData.claimed) {
+                throw new Error('এই Transaction ID টি ইতিমধ্যে ব্যবহার করা হয়েছে!');
+            }
             memData.claimed = true;
-            memData.claimedBy = userId;
+            memData.claimedBy = String(userId);
             memData.claimedAt = new Date();
             inMemoryVerifiedTrx.set(cleanId, memData);
         }
     }
-    if (recordInfo?.ref) {
-        try {
-            await recordInfo.ref.update({
-                claimed: true,
-                claimedBy: userId,
-                claimedAt: FieldValue.serverTimestamp()
-            });
-        } catch (err) {
-            console.warn("Firestore mark claimed error:", err.message);
+    const targetRef = recordInfo?.ref || db.collection('verified_trx').doc(cleanId);
+    await db.runTransaction(async (t) => {
+        const docSnap = await t.get(targetRef);
+        if (docSnap.exists && docSnap.data()?.claimed) {
+            throw new Error('এই Transaction ID টি ইতিমধ্যে ব্যবহার করা হয়েছে!');
         }
-    }
+        t.set(targetRef, {
+            id: cleanId,
+            trxId: cleanId,
+            claimed: true,
+            claimedBy: String(userId),
+            claimedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+    });
 }
 
 let botConfig = {
@@ -757,22 +764,54 @@ const REAL_404_HTML = `<html>
 
 
 // --- FORT-KNOX SECURITY FIREWALL: CLIENT IP & IP BLACKLIST ---
+function isLoopbackOrPrivateIp(ipStr) {
+    if (!ipStr) return true;
+    const s = String(ipStr).trim().toLowerCase();
+    if (!s || s === 'localhost' || s === '127.0.0.1' || s === '::1' || s === '0.0.0.0') return true;
+    if (s.startsWith('127.') || s.startsWith('10.') || s.startsWith('192.168.') || s.startsWith('169.254.')) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(s)) return true;
+    return false;
+}
+
 function getClientIp(req) {
-    const cfIp = req.headers['cf-connecting-ip'];
-    if (cfIp) return String(cfIp).trim();
-    const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded) {
-        const parts = String(forwarded).split(',');
-        if (parts.length > 0 && parts[0].trim()) return parts[0].trim();
+    const forwardedRaw = String(req.headers['x-forwarded-for'] || '');
+    const forwardedParts = forwardedRaw
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p && !isLoopbackOrPrivateIp(p));
+
+    // Only trust CF-Connecting-IP if Cloudflare headers exist AND the IP is not private/loopback AND appears in the forwarded chain
+    const cfIp = String(req.headers['cf-connecting-ip'] || '').trim();
+    const cfRay = req.headers['cf-ray'];
+    if (cfIp && cfRay && !isLoopbackOrPrivateIp(cfIp)) {
+        if (forwardedParts.length === 0 || forwardedParts.includes(cfIp)) {
+            return cfIp;
+        }
     }
-    const realIp = req.headers['x-real-ip'];
-    if (realIp) return String(realIp).trim();
+
+    const trueClientIp = String(req.headers['true-client-ip'] || '').trim();
+    if (trueClientIp && !isLoopbackOrPrivateIp(trueClientIp)) {
+        if (forwardedParts.length === 0 || forwardedParts.includes(trueClientIp)) {
+            return trueClientIp;
+        }
+    }
+
+    if (forwardedParts.length > 0) {
+        return forwardedParts[0];
+    }
+
     const socketIp = req.socket?.remoteAddress;
     if (socketIp) {
-        if (socketIp.startsWith('::ffff:')) return socketIp.slice(7);
-        return socketIp;
+        const cleanSocket = socketIp.startsWith('::ffff:') ? socketIp.slice(7) : socketIp;
+        // Only allow loopback if NO proxy forwarding headers were sent at all (true local process connection)
+        if (!forwardedRaw && !cfIp && !req.headers['x-real-ip']) {
+            return cleanSocket;
+        }
+        if (!isLoopbackOrPrivateIp(cleanSocket)) {
+            return cleanSocket;
+        }
     }
-    return '127.0.0.1';
+    return '0.0.0.0';
 }
 
 const bannedIps = new Set();
@@ -931,17 +970,19 @@ function verifyTelegramInitData(initDataString, botToken) {
     try {
         const urlParams = new URLSearchParams(initDataString);
         const hash = urlParams.get('hash');
-        if (!hash) return null;
+        if (!hash || !/^[0-9a-f]{64}$/i.test(hash)) return null;
         urlParams.delete('hash');
         const params = Array.from(urlParams.entries());
         params.sort((a, b) => a[0].localeCompare(b[0]));
         const dataCheckString = params.map(([k, v]) => `${k}=${v}`).join('\n');
         const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
         const calcHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-        if (calcHash !== hash) return null;
+        const bufA = Buffer.from(calcHash, 'hex');
+        const bufB = Buffer.from(hash.toLowerCase(), 'hex');
+        if (bufA.length !== bufB.length || !crypto.timingSafeEqual(bufA, bufB)) return null;
         const authDate = parseInt(urlParams.get('auth_date') || '0', 10);
         const now = Math.floor(Date.now() / 1000);
-        if (now - authDate > 86400 * 7) return null;
+        if (!authDate || authDate > now + 300 || now - authDate > 86400 * 7) return null;
         const userJson = urlParams.get('user');
         return userJson ? JSON.parse(userJson) : null;
     } catch (_) {
@@ -954,15 +995,18 @@ const inFlightTrxClaims = new Set();
 // Helper: Zero-Trust Caller Identity Verification (Telegram WebApp HMAC + Forgery Protection)
 function verifyRequestCallerIdentity(req, userId) {
     if (!userId) return false;
-    const initDataRaw = req.headers['x-telegram-init-data'];
-    if (initDataRaw && String(initDataRaw).trim().length > 0 && bot?.token) {
-        const verifiedUser = verifyTelegramInitData(String(initDataRaw).trim(), bot.token);
-        if (!verifiedUser || !verifiedUser.id) {
-            return false; // Reject forged/tampered Telegram initData signature
-        }
-        if (String(verifiedUser.id) !== String(userId)) {
-            return false; // Reject cross-user spoofing
-        }
+    const initDataRaw = req.headers['x-telegram-init-data'] || req.body?.initData || req.query?.initData;
+    const activeToken = bot?.token || process.env.BOT_TOKEN;
+    if (!activeToken) return false;
+    if (!initDataRaw || String(initDataRaw).trim().length === 0) {
+        return false; // Fail-closed: Reject unauthenticated requests missing Telegram WebApp HMAC signature
+    }
+    const verifiedUser = verifyTelegramInitData(String(initDataRaw).trim(), activeToken);
+    if (!verifiedUser || !verifiedUser.id) {
+        return false; // Reject forged/tampered Telegram initData signature
+    }
+    if (String(verifiedUser.id) !== String(userId).trim()) {
+        return false; // Reject cross-user spoofing (IDOR blocked)
     }
     return true;
 }
@@ -1364,12 +1408,13 @@ async function getAdminTreasuryBalances() {
     try {
         const jettonRes = await axios.get(`https://tonapi.io/v2/accounts/${adminAddress}/jettons?_t=${cacheBuster}`, { timeout: 4500 });
         if (jettonRes.data && Array.isArray(jettonRes.data.balances)) {
-            const usdtItem = jettonRes.data.balances.find(j => 
-                j.jetton?.symbol === 'USD₮' || 
-                j.jetton?.symbol === 'USDT' || 
-                j.jetton?.address?.includes('EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs') ||
-                j.jetton?.address?.includes('0:b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe')
-            );
+            const usdtItem = jettonRes.data.balances.find(j => {
+                const jAddr = String(j.jetton?.address || '');
+                return (
+                    jAddr.includes('EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs') ||
+                    jAddr.toLowerCase().includes('0:b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe')
+                );
+            });
             if (usdtItem && usdtItem.balance) {
                 const decimals = usdtItem.jetton?.decimals || 6;
                 usdtBalance = parseFloat(usdtItem.balance) / Math.pow(10, decimals);
@@ -5220,26 +5265,41 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
 
 app.post('/api/miniapp/task', async (req, res) => {
     try {
-        const { userId, name, username, address } = req.body;
-        
+        const { userId, name, username, address } = req.body || {};
+        if (!userId || !address) {
+            return res.status(400).json({ error: 'User ID and address are required' });
+        }
+        if (!checkRateLimit(`task_${userId}`, 5, 60000)) {
+            return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+        }
+        if (!verifyRequestCallerIdentity(req, userId)) {
+            return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+        }
+
+        const safeName = escapeHtml(String(name || 'User').slice(0, 80));
+        const safeUsername = escapeHtml(String(username || '').slice(0, 60));
+        const safeAddress = escapeHtml(String(address || '').slice(0, 120));
+
         const docRef = await db.collection('miniapp_tasks').add({
-            userId,
-            name,
-            username,
-            address,
+            userId: String(userId),
+            name: String(name || 'User').slice(0, 80),
+            username: String(username || '').slice(0, 60),
+            address: String(address || '').slice(0, 120),
             status: 'pending',
             timestamp: FieldValue.serverTimestamp()
         });
 
         // Send to Admin Group
-        const msg = `🎁 <b>New MiniApp Task Submission</b>\n\n👤 User: <a href="tg://user?id=${userId}">${name}</a>\n🆔 ID: ${userId}\n💰 Type: Free TON (VIC)\n📍 Address: \`${address}\`\n\nReply with 'Ok' to approve or 'Wrong' to reject.`;
+        const msg = `🎁 <b>New MiniApp Task Submission</b>\n\n👤 User: <a href="tg://user?id=${encodeURIComponent(String(userId))}">${safeName}</a>\n🆔 ID: <code>${escapeHtml(String(userId))}</code>\n💰 Type: Free TON (VIC)\n📍 Address: <code>${safeAddress}</code>\n\nReply with 'Ok' to approve or 'Wrong' to reject.`;
         
         const sentMsg = await bot.sendMessage(adminGroupId, msg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         
         // Save msgId for reply tracking
-        await db.collection('miniapp_tasks').doc(docRef.id).update({
-            messageId: sentMsg.message_id
-        });
+        if (sentMsg?.message_id) {
+            await db.collection('miniapp_tasks').doc(docRef.id).update({
+                messageId: sentMsg.message_id
+            });
+        }
 
         res.json({ success: true });
     } catch(e) {
@@ -5249,6 +5309,7 @@ app.post('/api/miniapp/task', async (req, res) => {
 
 // In-memory store for active 10-to-15 character crypto sell verification codes (e.g. "WHIO65GTN9")
 const inMemorySellCodes = new Map();
+const inFlightSellCodes = new Set();
 
 // Generates a 100% unique 10-to-15 character uppercase alphanumeric code (never repeats across any user)
 async function generateUniqueSellCommentCode(preferredLength = 10) {
@@ -5311,17 +5372,18 @@ async function generateUniqueSellCommentCode(preferredLength = 10) {
 app.post('/api/miniapp/build-tx', async (req, res) => {
     try {
         let { asset, amount, userAddress, userId } = req.body;
-        if (userId) {
-            if (!verifyRequestCallerIdentity(req, userId)) {
-                return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
-            }
-            if (!checkRateLimit(`build_tx_${userId}`, 30, 60000)) {
-                return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে কিছুক্ষণ অপেক্ষা করুন।' });
-            }
-            const statusCheck = await checkUserAccountActive(userId);
-            if (!statusCheck.ok) {
-                return res.status(403).json({ error: statusCheck.error });
-            }
+        if (!userId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+        if (!verifyRequestCallerIdentity(req, userId)) {
+            return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+        }
+        if (!checkRateLimit(`build_tx_${userId}`, 30, 60000)) {
+            return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে কিছুক্ষণ অপেক্ষা করুন।' });
+        }
+        const statusCheck = await checkUserAccountActive(userId);
+        if (!statusCheck.ok) {
+            return res.status(403).json({ error: statusCheck.error });
         }
         amount = parseFloat(amount) || 0;
         asset = (asset || 'GRAM').toUpperCase();
@@ -5429,160 +5491,180 @@ async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, u
         return { verified: false, error: 'ভেরিফিকেশন কোড পাওয়া যায়নি। দয়া করে আবার চেষ্টা করুন।' };
     }
 
-    // Check if this 10-to-15 character code was already claimed in memory or Firestore
-    const memEntry = inMemorySellCodes.get(cleanSellCode);
-    if (memEntry && memEntry.claimed) {
-        return { verified: false, error: 'এই ট্রানজেকশনটি ইতিমধ্যে ব্যবহৃত হয়েছে!' };
+    if (inFlightSellCodes.has(cleanSellCode)) {
+        return { verified: false, error: 'এই ট্রানজেকশন কোডটি বর্তমানে যাচাই করা হচ্ছে। অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।' };
     }
-    if (memEntry && memEntry.userId && userId && String(memEntry.userId) !== String(userId)) {
-        return { verified: false, error: 'ভেরিফিকেশন কোডটি আপনার অ্যাকাউন্টের সাথে মিলছে না!' };
-    }
+    inFlightSellCodes.add(cleanSellCode);
 
-    const existingCodeDoc = await db.collection('claimed_sell_codes').doc(cleanSellCode).get();
-    if (existingCodeDoc.exists) {
-        return { verified: false, error: 'এই ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Blocked)!' };
-    }
-
-    const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
-    let adminRaw = '';
-    let userRaw = '';
     try {
-        adminRaw = Address.parse(adminWallet).toRawString().toLowerCase();
-        if (userWallet && userWallet !== 'Manual' && userWallet !== 'Direct') {
-            userRaw = Address.parse(userWallet).toRawString().toLowerCase();
+        // Check if this 10-to-15 character code was already claimed in memory or Firestore
+        const memEntry = inMemorySellCodes.get(cleanSellCode);
+        if (memEntry && memEntry.claimed) {
+            return { verified: false, error: 'এই ট্রানজেকশনটি ইতিমধ্যে ব্যবহৃত হয়েছে!' };
         }
-    } catch(e) {
-        return { verified: false, error: 'ওয়ালেট অ্যাড্রেস পার্স করতে ব্যর্থ হয়েছে: ' + e.message };
-    }
+        if (memEntry && memEntry.userId && userId && String(memEntry.userId) !== String(userId)) {
+            return { verified: false, error: 'ভেরিফিকেশন কোডটি আপনার অ্যাকাউন্টের সাথে মিলছে না!' };
+        }
 
-    const normAsset = (asset || 'TON').toUpperCase();
-    const targetAmt = parseFloat(amount) || 0;
-    if (targetAmt <= 0) return { verified: false, error: 'অবৈধ অ্যামাউন্ট।' };
+        const existingCodeDoc = await db.collection('claimed_sell_codes').doc(cleanSellCode).get();
+        if (existingCodeDoc.exists) {
+            return { verified: false, error: 'এই ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Blocked)!' };
+        }
 
-    // Retry loop: Tonkeeper / blockchain indexing can take 2-10 seconds to appear in TonAPI events
-    const maxRetries = 6;
-    const retryDelayMs = 1500;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+        let adminRaw = '';
+        let userRaw = '';
         try {
-            const tonApiRes = await axios.get(`https://tonapi.io/v2/accounts/${adminRaw}/events?limit=30`, { timeout: 7000 });
-            const events = tonApiRes.data?.events || [];
-            const nowSec = Math.floor(Date.now() / 1000);
+            adminRaw = Address.parse(adminWallet).toRawString().toLowerCase();
+            if (userWallet && userWallet !== 'Manual' && userWallet !== 'Direct') {
+                userRaw = Address.parse(userWallet).toRawString().toLowerCase();
+            }
+        } catch(e) {
+            return { verified: false, error: 'ওয়ালেট অ্যাড্রেস পার্স করতে ব্যর্থ হয়েছে: ' + e.message };
+        }
 
-            for (const ev of events) {
-                // Ignore events older than 30 minutes
-                if (ev.timestamp && (nowSec - ev.timestamp > 1800)) continue;
-                if (ev.in_progress) continue;
+        const normAsset = (asset || 'TON').toUpperCase();
+        const targetAmt = parseFloat(amount) || 0;
+        if (targetAmt <= 0) return { verified: false, error: 'অবৈধ অ্যামাউন্ট।' };
 
-                for (const act of (ev.actions || [])) {
-                    if (act.status !== 'ok') continue;
+        // Retry loop: Tonkeeper / blockchain indexing can take 2-10 seconds to appear in TonAPI events
+        const maxRetries = 6;
+        const retryDelayMs = 1500;
 
-                    if (normAsset === 'USDT' && act.type === 'JettonTransfer') {
-                        const jt = act.JettonTransfer;
-                        const senderRaw = jt.sender?.address ? Address.parse(jt.sender.address).toRawString().toLowerCase() : '';
-                        const recipRaw = jt.recipient?.address ? Address.parse(jt.recipient.address).toRawString().toLowerCase() : '';
-                        const jettonAmt = Number(jt.amount) / 1e6;
-                        const txComment = String(jt.comment || '').trim().toUpperCase();
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const tonApiRes = await axios.get(`https://tonapi.io/v2/accounts/${adminRaw}/events?limit=30`, { timeout: 7000 });
+                const events = tonApiRes.data?.events || [];
+                const nowSec = Math.floor(Date.now() / 1000);
 
-                        const isUsdt = jt.jetton?.symbol?.includes('USD') || jt.jetton?.address?.includes('b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe');
+                for (const ev of events) {
+                    // Ignore events older than 30 minutes
+                    if (ev.timestamp && (nowSec - ev.timestamp > 1800)) continue;
+                    if (ev.in_progress) continue;
 
-                        // Match admin wallet recipient + exact 10-char comment code + amount
-                        if (isUsdt && recipRaw === adminRaw && txComment === cleanSellCode && jettonAmt >= (targetAmt * 0.99)) {
-                            const [eventDoc, codeDoc] = await Promise.all([
-                                db.collection('claimed_onchain_events').doc(ev.event_id).get(),
-                                db.collection('claimed_sell_codes').doc(cleanSellCode).get()
-                            ]);
-                            if (eventDoc.exists || codeDoc.exists) {
-                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                    for (const act of (ev.actions || [])) {
+                        if (act.status !== 'ok') continue;
+
+                        if (normAsset === 'USDT' && act.type === 'JettonTransfer') {
+                            const jt = act.JettonTransfer;
+                            const senderRaw = jt.sender?.address ? Address.parse(jt.sender.address).toRawString().toLowerCase() : '';
+                            const recipRaw = jt.recipient?.address ? Address.parse(jt.recipient.address).toRawString().toLowerCase() : '';
+                            const jettonAmt = Number(jt.amount) / 1e6;
+                            const txComment = String(jt.comment || '').trim().toUpperCase();
+
+                            // STRICT CONTRACT CHECK: Verify exact official Tether USDT Master Contract on TON (never trust jetton.symbol!)
+                            const jAddr = String(jt.jetton?.address || '');
+                            const isUsdt = jAddr.toLowerCase().includes('b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe') ||
+                                           jAddr.includes('EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs');
+
+                            // Match admin wallet recipient + exact 10-char comment code + amount
+                            if (isUsdt && recipRaw === adminRaw && txComment === cleanSellCode && jettonAmt >= (targetAmt * 0.99)) {
+                                const eventRef = db.collection('claimed_onchain_events').doc(ev.event_id);
+                                const codeRef = db.collection('claimed_sell_codes').doc(cleanSellCode);
+
+                                let alreadyClaimedTx = false;
+                                await db.runTransaction(async (t) => {
+                                    const [eventDoc, codeDoc] = await Promise.all([t.get(eventRef), t.get(codeRef)]);
+                                    if (eventDoc.exists || codeDoc.exists) {
+                                        alreadyClaimedTx = true;
+                                        return;
+                                    }
+                                    t.set(eventRef, {
+                                        eventId: ev.event_id,
+                                        sellCode: cleanSellCode,
+                                        userId: String(userId || ''),
+                                        asset: normAsset,
+                                        amount: jettonAmt,
+                                        userWallet: userWallet || senderRaw,
+                                        userRaw: senderRaw || userRaw,
+                                        adminRaw,
+                                        claimedAt: FieldValue.serverTimestamp()
+                                    });
+                                    t.set(codeRef, {
+                                        sellCode: cleanSellCode,
+                                        eventId: ev.event_id,
+                                        userId: String(userId || ''),
+                                        asset: normAsset,
+                                        amount: jettonAmt,
+                                        userWallet: userWallet || senderRaw,
+                                        claimedAt: FieldValue.serverTimestamp()
+                                    });
+                                });
+
+                                if (alreadyClaimedTx) {
+                                    return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                                }
+
+                                if (memEntry) memEntry.claimed = true;
+                                return { verified: true, eventId: ev.event_id, amount: jettonAmt, sellCode: cleanSellCode, timestamp: ev.timestamp };
                             }
+                        } else if ((normAsset === 'TON' || normAsset === 'GRAM') && act.type === 'TonTransfer') {
+                            const tt = act.TonTransfer;
+                            const senderRaw = tt.sender?.address ? Address.parse(tt.sender.address).toRawString().toLowerCase() : '';
+                            const recipRaw = tt.recipient?.address ? Address.parse(tt.recipient.address).toRawString().toLowerCase() : '';
+                            const tonAmt = Number(tt.amount) / 1e9;
+                            const txComment = String(tt.comment || '').trim().toUpperCase();
 
-                            if (memEntry) memEntry.claimed = true;
+                            // Match admin wallet recipient + exact 10-char comment code + amount
+                            if (recipRaw === adminRaw && txComment === cleanSellCode && tonAmt >= (targetAmt * 0.99)) {
+                                const eventRef = db.collection('claimed_onchain_events').doc(ev.event_id);
+                                const codeRef = db.collection('claimed_sell_codes').doc(cleanSellCode);
 
-                            await Promise.all([
-                                db.collection('claimed_onchain_events').doc(ev.event_id).set({
-                                    eventId: ev.event_id,
-                                    sellCode: cleanSellCode,
-                                    userId: String(userId || ''),
-                                    asset: normAsset,
-                                    amount: jettonAmt,
-                                    userWallet: userWallet || senderRaw,
-                                    userRaw: senderRaw || userRaw,
-                                    adminRaw,
-                                    claimedAt: FieldValue.serverTimestamp()
-                                }),
-                                db.collection('claimed_sell_codes').doc(cleanSellCode).set({
-                                    sellCode: cleanSellCode,
-                                    eventId: ev.event_id,
-                                    userId: String(userId || ''),
-                                    asset: normAsset,
-                                    amount: jettonAmt,
-                                    userWallet: userWallet || senderRaw,
-                                    claimedAt: FieldValue.serverTimestamp()
-                                })
-                            ]);
+                                let alreadyClaimedTx = false;
+                                await db.runTransaction(async (t) => {
+                                    const [eventDoc, codeDoc] = await Promise.all([t.get(eventRef), t.get(codeRef)]);
+                                    if (eventDoc.exists || codeDoc.exists) {
+                                        alreadyClaimedTx = true;
+                                        return;
+                                    }
+                                    t.set(eventRef, {
+                                        eventId: ev.event_id,
+                                        sellCode: cleanSellCode,
+                                        userId: String(userId || ''),
+                                        asset: normAsset,
+                                        amount: tonAmt,
+                                        userWallet: userWallet || senderRaw,
+                                        userRaw: senderRaw || userRaw,
+                                        adminRaw,
+                                        claimedAt: FieldValue.serverTimestamp()
+                                    });
+                                    t.set(codeRef, {
+                                        sellCode: cleanSellCode,
+                                        eventId: ev.event_id,
+                                        userId: String(userId || ''),
+                                        asset: normAsset,
+                                        amount: tonAmt,
+                                        userWallet: userWallet || senderRaw,
+                                        claimedAt: FieldValue.serverTimestamp()
+                                    });
+                                });
 
-                            return { verified: true, eventId: ev.event_id, amount: jettonAmt, sellCode: cleanSellCode, timestamp: ev.timestamp };
-                        }
-                    } else if ((normAsset === 'TON' || normAsset === 'GRAM') && act.type === 'TonTransfer') {
-                        const tt = act.TonTransfer;
-                        const senderRaw = tt.sender?.address ? Address.parse(tt.sender.address).toRawString().toLowerCase() : '';
-                        const recipRaw = tt.recipient?.address ? Address.parse(tt.recipient.address).toRawString().toLowerCase() : '';
-                        const tonAmt = Number(tt.amount) / 1e9;
-                        const txComment = String(tt.comment || '').trim().toUpperCase();
+                                if (alreadyClaimedTx) {
+                                    return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                                }
 
-                        // Match admin wallet recipient + exact 10-char comment code + amount
-                        if (recipRaw === adminRaw && txComment === cleanSellCode && tonAmt >= (targetAmt * 0.99)) {
-                            const [eventDoc, codeDoc] = await Promise.all([
-                                db.collection('claimed_onchain_events').doc(ev.event_id).get(),
-                                db.collection('claimed_sell_codes').doc(cleanSellCode).get()
-                            ]);
-                            if (eventDoc.exists || codeDoc.exists) {
-                                return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                                if (memEntry) memEntry.claimed = true;
+                                return { verified: true, eventId: ev.event_id, amount: tonAmt, sellCode: cleanSellCode, timestamp: ev.timestamp };
                             }
-
-                            if (memEntry) memEntry.claimed = true;
-
-                            await Promise.all([
-                                db.collection('claimed_onchain_events').doc(ev.event_id).set({
-                                    eventId: ev.event_id,
-                                    sellCode: cleanSellCode,
-                                    userId: String(userId || ''),
-                                    asset: normAsset,
-                                    amount: tonAmt,
-                                    userWallet: userWallet || senderRaw,
-                                    userRaw: senderRaw || userRaw,
-                                    adminRaw,
-                                    claimedAt: FieldValue.serverTimestamp()
-                                }),
-                                db.collection('claimed_sell_codes').doc(cleanSellCode).set({
-                                    sellCode: cleanSellCode,
-                                    eventId: ev.event_id,
-                                    userId: String(userId || ''),
-                                    asset: normAsset,
-                                    amount: tonAmt,
-                                    userWallet: userWallet || senderRaw,
-                                    claimedAt: FieldValue.serverTimestamp()
-                                })
-                            ]);
-
-                            return { verified: true, eventId: ev.event_id, amount: tonAmt, sellCode: cleanSellCode, timestamp: ev.timestamp };
                         }
                     }
                 }
+            } catch(err) {
+                console.warn(`[verifyOnChainSellPayment] attempt ${attempt} TonAPI error:`, err.message);
             }
-        } catch(err) {
-            console.warn(`[verifyOnChainSellPayment] attempt ${attempt} TonAPI error:`, err.message);
+
+            if (attempt < maxRetries) {
+                await new Promise(r => setTimeout(r, retryDelayMs));
+            }
         }
 
-        if (attempt < maxRetries) {
-            await new Promise(r => setTimeout(r, retryDelayMs));
-        }
+        return { 
+            verified: false, 
+            error: 'ব্লকচেইনে কোনো ডিপোজিট ট্রানজেকশন পাওয়া যায়নি! আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা এবং পেমেন্ট সম্পন্ন হয়েছে কিনা চেক করুন।' 
+        };
+    } finally {
+        inFlightSellCodes.delete(cleanSellCode);
     }
-
-    return { 
-        verified: false, 
-        error: 'ব্লকচেইনে কোনো ডিপোজিট ট্রানজেকশন পাওয়া যায়নি! আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা এবং পেমেন্ট সম্পন্ন হয়েছে কিনা চেক করুন।' 
-    };
 }
 
 app.post('/api/miniapp/sell', async (req, res) => {
@@ -5774,8 +5856,10 @@ app.post('/api/miniapp/sell', async (req, res) => {
 // =======================================================
 function getUserEvmDepositAddress(userId) {
     if (!userId) return null;
+    const cleanUid = String(userId).trim();
+    if (!/^\d+$/.test(cleanUid)) return null;
     const masterSecret = process.env.BOT_EVM_PRIVATE_KEY || 'maruf-teach-bot-evm-master-key-2026';
-    const userPrivKey = ethers.keccak256(ethers.toUtf8Bytes(masterSecret + ":user_deposit:" + userId));
+    const userPrivKey = ethers.keccak256(ethers.toUtf8Bytes(masterSecret + ":user_deposit:" + cleanUid));
     const userWallet = new ethers.Wallet(userPrivKey);
     return userWallet.address;
 }
@@ -5785,15 +5869,23 @@ app.get('/api/miniapp/deposit-address/:userId', (req, res) => {
         const { userId } = req.params;
         if (!userId) return res.status(400).json({ error: 'User ID required' });
         const address = getUserEvmDepositAddress(userId);
-        return res.json({ success: true, address, userId });
+        return res.json({ success: true, address, userId: String(userId).trim() });
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }
 });
 
 app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
-    const { userId, network } = req.body;
-    if (!userId) return res.status(400).json({ error: 'User ID required' });
+    const { userId: rawUserId, network } = req.body || {};
+    if (!rawUserId) return res.status(400).json({ error: 'User ID required' });
+    const userId = String(rawUserId).trim();
+
+    if (!checkRateLimit(`evm_dep_${userId}`, 12, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    }
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+    }
 
     const cleanNet = (network === 'ARBITRUM' || network === 'ARB') ? 'ARBITRUM' : 'BEP20';
     const netCfg = EVM_NETWORKS_CONFIG[cleanNet];
@@ -5828,9 +5920,8 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
             });
         }
 
-        // Check already credited amount
+        // Check already credited amount strictly by deposit wallet address + network (immune to Number vs String userId type-juggling!)
         const checkPrev = await db.collection('miniapp_sells')
-            .where('userId', '==', userId)
             .where('wallet', '==', userEvmAddress)
             .where('network', '==', cleanNet)
             .where('status', '==', 'completed')
@@ -6213,9 +6304,14 @@ function isMobileRequest(req) {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Telegram/i.test(ua);
 }
 
+function getAdminPasswordVersion() {
+    return crypto.createHash('sha256').update(String(cachedAdminCreds.password || '')).digest('hex').slice(0, 16);
+}
+
 function createAdminToken(email) {
     const payload = Buffer.from(JSON.stringify({
         email,
+        pwdVer: getAdminPasswordVersion(),
         iat: Date.now(),
         exp: Date.now() + 7 * 24 * 60 * 60 * 1000
     })).toString('base64url');
@@ -6231,10 +6327,14 @@ function verifyAdminToken(req) {
             : (req.headers['x-admin-token'] || req.query?.token || '');
         if (!token || !token.includes('.')) return null;
         const [payloadB64, sig] = token.split('.');
+        if (!payloadB64 || !sig) return null;
         const expectedSig = crypto.createHmac('sha256', ADMIN_TOKEN_SECRET).update(payloadB64).digest('base64url');
-        if (sig !== expectedSig) return null;
+        const bufA = Buffer.from(sig);
+        const bufB = Buffer.from(expectedSig);
+        if (bufA.length !== bufB.length || !crypto.timingSafeEqual(bufA, bufB)) return null;
         const data = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
         if (!data || !data.exp || Date.now() > data.exp) return null;
+        if (data.pwdVer && data.pwdVer !== getAdminPasswordVersion()) return null;
         return data;
     } catch (_) {
         return null;
@@ -6380,8 +6480,8 @@ app.post('/api/admin/login', async (req, res) => {
             // Success Step 1: Reset failed attempts for this IP
             resetFailedLogin(clientIp);
 
-            // Generate 6-digit OTP and secure session tempToken
-            const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+            // Generate cryptographically random 6-digit OTP and secure session tempToken
+            const otpCode = crypto.randomInt(100000, 1000000).toString();
             const tempToken = crypto.randomBytes(24).toString('hex');
             
             pendingAdmin2FASessions.set(tempToken, {
@@ -6391,6 +6491,7 @@ app.post('/api/admin/login', async (req, res) => {
                 userAgent,
                 failedAttempts: 0,
                 maxAttempts: 3,
+                resendCount: 0,
                 expiresAt: Date.now() + 5 * 60 * 1000
             });
 
@@ -6459,6 +6560,10 @@ app.post('/api/admin/verify-2fa', async (req, res) => {
         const session = pendingAdmin2FASessions.get(tempToken);
         if (!session) {
             return res.status(400).json({ error: 'সেশন পাওয়া যায়নি অথবা মেয়াদ শেষ হয়েছে। দয়া করে আবার লগইন করুন।' });
+        }
+        if (session.clientIp && session.clientIp !== clientIp) {
+            pendingAdmin2FASessions.delete(tempToken);
+            return res.status(403).json({ error: 'আইপি পরিবর্তন শনাক্ত হয়েছে! নিরাপত্তার স্বার্থে আবার লগইন করুন।' });
         }
         if (Date.now() > session.expiresAt) {
             pendingAdmin2FASessions.delete(tempToken);
@@ -6531,9 +6636,17 @@ app.post('/api/admin/resend-2fa', async (req, res) => {
         if (!session) {
             return res.status(400).json({ error: 'সেশনের মেয়াদ শেষ হয়েছে। দয়া করে আবার লগইন করুন।' });
         }
-        const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+        if (session.clientIp && session.clientIp !== clientIp) {
+            pendingAdmin2FASessions.delete(tempToken);
+            return res.status(403).json({ error: 'আইপি পরিবর্তন শনাক্ত হয়েছে! আবার লগইন করুন।' });
+        }
+        if ((session.resendCount || 0) >= 3) {
+            return res.status(429).json({ error: 'সর্বোচ্চ ৩ বার কোড পুনরায় পাঠানো হয়েছে। দয়া করে আবার লগইন করুন।' });
+        }
+        const newCode = crypto.randomInt(100000, 1000000).toString();
         session.otpCode = newCode;
-        session.failedAttempts = 0; // reset attempts for new code
+        session.resendCount = (session.resendCount || 0) + 1;
+        // Do NOT reset session.failedAttempts to prevent OTP brute-force via resend
         session.expiresAt = Date.now() + 5 * 60 * 1000;
         pendingAdmin2FASessions.set(tempToken, session);
         await sendAdmin2FACode(newCode, clientIp, session.userAgent);
@@ -8115,12 +8228,18 @@ app.post('/api/miniapp/buy', async (req, res) => {
         return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে কয়েক সেকেন্ড অপেক্ষা করুন।' });
     }
 
+    // 1.5 Zero-Trust Caller Identity Verification
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+    }
+
     // 2. Concurrency Mutex Lock
     const hasLock = acquireUserFinancialLock(userId);
     if (!hasLock) {
         return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
     }
 
+    let claimedLockKey = null;
     try {
         // 3. Account Active Check (Ban/Restriction check only; never block deposit with balance audit)
         const statusCheck = await checkUserAccountActive(userId);
@@ -8132,6 +8251,12 @@ app.post('/api/miniapp/buy', async (req, res) => {
         if (!trxId || trxId.length < 4) {
             return res.status(400).json({ error: 'সঠিক Transaction ID (TrxID) দিন' });
         }
+        if (inFlightTrxClaims.has(trxId)) {
+            return res.status(429).json({ error: 'এই Transaction ID টি বর্তমানে যাচাই করা হচ্ছে। অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।' });
+        }
+        inFlightTrxClaims.add(trxId);
+        claimedLockKey = trxId;
+
         amount = parseFloat(String(amount || totalBdt || '').replace(/,/g, '').trim());
         totalBdt = parseFloat(String(totalBdt || amount || '').replace(/,/g, '').trim());
         if (!Number.isFinite(totalBdt) || totalBdt <= 0) {
@@ -8250,6 +8375,7 @@ app.post('/api/miniapp/buy', async (req, res) => {
         console.error("Buy submission error:", e);
         res.status(500).json({ error: e.message });
     } finally {
+        if (claimedLockKey) inFlightTrxClaims.delete(claimedLockKey);
         releaseUserFinancialLock(userId);
     }
 });
@@ -8278,24 +8404,32 @@ function parsePaymentSms(msg, rawSenderList) {
     const senderCombined = senders.join(' ');
 
     // Authentic verification check for bKash and Nagad
-    // Note: Standard bKash SMS bodies ("You have received Tk 500.00... TrxID ...") contain "TrxID" without the word "bKash" in the body.
     let provider = null;
     const isBkashSender = senderCombined.includes('bkash') || senderCombined.includes('16247');
     const isNagadSender = senderCombined.includes('nagad') || senderCombined.includes('16167');
-    
-    const isNagadBody = textLower.includes('nagad') || textLower.includes('txnid') || textLower.includes('txn id');
-    const isBkashBody = textLower.includes('bkash') || textLower.includes('trxid') || textLower.includes('trx id') || textLower.includes('transaction id');
 
-    if (isNagadSender || isNagadBody) {
+    // Require explicit authentic sender tag (bKash/16247 or NAGAD/16167) from MacroDroid
+    if (isNagadSender) {
         provider = 'nagad';
-    } else if (isBkashSender || isBkashBody) {
+    } else if (isBkashSender) {
         provider = 'bKash';
     } else {
-        // Untrusted source - blocked as fraud
         return { isFraud: true };
     }
 
-    const trxMatch = text.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|Transaction\s*ID|TrxID\s*is|TxnID\s*is)[\s:.\-_=]*([A-Za-z0-9]{4,25})/i);
+    // Require authentic bKash/Nagad SMS structural fields:
+    // 1. Valid 11-digit BD sender phone (01[3-9]xxxxxxxx)
+    // 2. Post-transaction account Balance field ("Balance Tk ..." or "Balance: Tk ...")
+    // 3. Official SMS timestamp ("DD/MM/YYYY HH:MM")
+    const phoneMatch = text.match(/(?:from|by|sender|account)[\s:]*(01[3-9]\d{8})/i);
+    const hasBalanceField = /\b(?:balance|bal)\b[\s:]*(?:tk|bdt|টাকা|৳)?[\s.:]*[\d,]+(?:\.\d+)?/i.test(text);
+    const hasOfficialTimestamp = /\b\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}\b/.test(text);
+
+    if (!phoneMatch || !hasBalanceField || !hasOfficialTimestamp) {
+        return { isFraud: true };
+    }
+
+    const trxMatch = text.match(/(?:TrxID|TxnId|TxnID|TrxId|Txn\s*ID|Trx\s*ID|Transaction\s*ID|TrxID\s*is|TxnID\s*is)[\s:.\-_=]*([A-Za-z0-9]{6,20})/i);
     if (!trxMatch) return null;
     const trxId = normalizeTrxId(trxMatch[1]);
 
@@ -8314,23 +8448,46 @@ function parsePaymentSms(msg, rawSenderList) {
         amount = parseFloat(recvMatch[1].replace(/,/g, ''));
     }
 
-    let senderPhone = '';
-    const phoneMatch = text.match(/(?:from|by|sender|account)[\s:]*(01[3-9]\d{8})/i);
-    if (phoneMatch) {
-        senderPhone = phoneMatch[1];
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 200000) {
+        return { isFraud: true };
     }
+
+    const senderPhone = phoneMatch[1];
 
     return { trxId, amount, provider, senderPhone, rawMessage: text };
 }
 
 async function handleIncomingSmsWebhook(req, res) {
     try {
+        const clientIp = getClientIp(req);
+        const ua = String(req.headers['user-agent'] || '').trim();
+        const providedSecret = String(req.headers['x-webhook-secret'] || req.query?.secret || req.body?.secret || '').trim();
+        const expectedSecret = String(process.env.WEBHOOK_SECRET || '').trim();
+
+        // STRICT WEBHOOK ORIGIN GUARD:
+        // Must come from authentic MacroDroid Android client ("macrodroid/...") OR carry valid WEBHOOK_SECRET.
+        // Immediately block & alert if called from Browser (Mozilla), Postman, curl, Python, Axios, etc.
+        const isAuthenticMacroDroidUa = /^macrodroid\/[0-9.]+/i.test(ua) && !/Mozilla|Chrome|Safari|Postman|curl|python|axios|node-fetch|insomnia/i.test(ua);
+        const hasValidSecret = Boolean(expectedSecret && providedSecret && providedSecret === expectedSecret);
+
+        if (!isAuthenticMacroDroidUa && !hasValidSecret) {
+            console.warn(`[WebhookSecurity] 🚨 Blocked unauthorized SMS webhook injection attempt from IP ${clientIp} (UA: ${ua})`);
+            sendSecurityAlert(
+                `🚨 <b>FAKE SMS WEBHOOK INJECTION BLOCKED!</b>\n\n` +
+                `কেউ একজন বাইরে থেকে ভুয়া বিকাশ/নগদ SMS ওয়েবহুক পুশ করার চেষ্টা করেছে!\n\n` +
+                `🌐 <b>আক্রমণকারীর আইপি:</b> <code>${escapeHtml(clientIp)}</code>\n` +
+                `🖥 <b>User-Agent:</b> <code>${escapeHtml(ua.slice(0, 100))}</code>\n` +
+                `🛡 <b>স্ট্যাটাস:</b> ফায়ারওয়াল দ্বারা সম্পূর্ণ ব্লক করা হয়েছে।`
+            ).catch(() => {});
+            return res.status(404).send(REAL_404_HTML);
+        }
+
         try {
             db.collection('debug_logs').add({
                 method: req.method || 'UNKNOWN',
                 body: JSON.parse(JSON.stringify(req.body || {})),
                 query: JSON.parse(JSON.stringify(req.query || {})),
-                userAgent: req.headers['user-agent'] || '',
+                userAgent: ua,
                 contentType: req.headers['content-type'] || '',
                 timestamp: FieldValue.serverTimestamp()
             }).catch(e => console.warn("debug_logs add error:", e.message));
@@ -8370,7 +8527,7 @@ async function handleIncomingSmsWebhook(req, res) {
         const parsed = parsePaymentSms(rawMessage, senderSources);
         if (parsed?.isFraud) {
             console.warn("Blocked untrusted SMS attempt:", senderSources, rawMessage);
-            return res.status(403).json({ error: "Fraud attempt blocked! Sender must be bKash or Nagad" });
+            return res.status(403).json({ error: "Fraud attempt blocked! Authentic bKash/Nagad SMS required." });
         }
         if (!parsed || !parsed.trxId) {
             console.warn("Could not extract TrxID from SMS:", rawMessage);
@@ -8504,14 +8661,11 @@ async function handleIncomingSmsWebhook(req, res) {
     }
 }
 
+// Allow POST only for SMS webhooks (GET disabled to block CSRF / link-triggered fake SMS injection)
 app.post('/api/macrodroid/webhook', handleIncomingSmsWebhook);
-app.get('/api/macrodroid/webhook', handleIncomingSmsWebhook);
 app.post('/api/webhook', handleIncomingSmsWebhook);
-app.get('/api/webhook', handleIncomingSmsWebhook);
 app.post('/webhook', handleIncomingSmsWebhook);
-app.get('/webhook', handleIncomingSmsWebhook);
 app.post('/api/sms', handleIncomingSmsWebhook);
-app.get('/api/sms', handleIncomingSmsWebhook);
 
 
 
@@ -9118,67 +9272,37 @@ app.post('/api/admin/user/status', async (req, res) => {
     }
 });
 
-// In-memory cache for user avatars to protect Telegram API rate limits
-const adminAvatarCache = new Map();
-
-// Admin User Management: Fetch Telegram Profile Photo (JSON)
+// Admin User Management: Fetch Telegram Profile Photo (Safe Base64 DataURL — NEVER leaks BOT_TOKEN)
 app.get('/api/admin/user-photo/:userId', async (req, res) => {
     try {
-        const { userId } = req.params;
-        if (!userId || userId === '12345' || userId === '123456789' || !bot) {
+        const rawUserId = String(req.params.userId || '').trim();
+        if (!rawUserId || rawUserId === '12345' || rawUserId === '123456789') {
             return res.json({ photoUrl: null });
         }
-        
-        const now = Date.now();
-        if (adminAvatarCache.has(userId)) {
-            const cached = adminAvatarCache.get(userId);
-            if (cached.expireAt > now) {
-                return res.json({ photoUrl: cached.url });
-            }
+        const av = await getOrFetchUserAvatar(rawUserId);
+        if (av && av.dataUrl) {
+            return res.json({ photoUrl: av.dataUrl });
         }
-
-        const photos = await bot.getUserProfilePhotos(userId, { limit: 1 }).catch(() => null);
-        if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
-            const bestPhoto = photos.photos[0][photos.photos[0].length - 1];
-            const fileLink = await bot.getFileLink(bestPhoto.file_id).catch(() => null);
-            if (fileLink) {
-                adminAvatarCache.set(userId, { url: fileLink, expireAt: now + 3600000 });
-                return res.json({ photoUrl: fileLink });
-            }
-        }
-        adminAvatarCache.set(userId, { url: null, expireAt: now + 600000 });
-        res.json({ photoUrl: null });
+        return res.json({ photoUrl: null });
     } catch (e) {
-        res.json({ photoUrl: null });
+        return res.json({ photoUrl: null });
     }
 });
 
-// Admin User Management: Direct Image Avatar Redirect for <img> tags
+// Admin User Management: Direct Binary Avatar Stream for <img> tags (NEVER redirects to api.telegram.org/file/bot<TOKEN>)
 app.get('/api/admin/user-avatar/:userId', async (req, res) => {
     try {
-        const { userId } = req.params;
-        if (!userId || userId === '12345' || userId === '123456789' || !bot) {
+        const rawUserId = String(req.params.userId || '').trim();
+        if (!rawUserId || rawUserId === '12345' || rawUserId === '123456789') {
             return res.status(404).send('No avatar');
         }
-
-        const now = Date.now();
-        if (adminAvatarCache.has(userId)) {
-            const cached = adminAvatarCache.get(userId);
-            if (cached.expireAt > now && cached.url) {
-                return res.redirect(cached.url);
-            }
+        const av = await getOrFetchUserAvatar(rawUserId);
+        if (av && av.buffer) {
+            res.setHeader('Content-Type', av.contentType || 'image/jpeg');
+            res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+            res.setHeader('Cache-Control', 'public, max-age=3600');
+            return res.send(av.buffer);
         }
-
-        const photos = await bot.getUserProfilePhotos(userId, { limit: 1 }).catch(() => null);
-        if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
-            const bestPhoto = photos.photos[0][photos.photos[0].length - 1];
-            const fileLink = await bot.getFileLink(bestPhoto.file_id).catch(() => null);
-            if (fileLink) {
-                adminAvatarCache.set(userId, { url: fileLink, expireAt: now + 3600000 });
-                return res.redirect(fileLink);
-            }
-        }
-        adminAvatarCache.set(userId, { url: null, expireAt: now + 600000 });
         return res.status(404).send('No avatar');
     } catch (e) {
         return res.status(404).send('No avatar');
@@ -9188,8 +9312,15 @@ app.get('/api/admin/user-avatar/:userId', async (req, res) => {
 // MiniApp Profile Sync Endpoint (syncs telegram name, username, photo, device fingerprint, tonAddress & referral to db)
 app.post('/api/miniapp/sync-profile', async (req, res) => {
     try {
-        const { userId, username, firstName, lastName, photoUrl, tonAddress, startParam, themeMode } = req.body;
+        const { userId, username, firstName, lastName, photoUrl, tonAddress, startParam, themeMode } = req.body || {};
         if (!userId || Number(userId) === 123456789) return res.json({ success: true });
+
+        if (!checkRateLimit(`sync_profile_${userId}`, 30, 60000)) {
+            return res.status(429).json({ error: 'Too many requests' });
+        }
+        if (!verifyRequestCallerIdentity(req, userId)) {
+            return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+        }
 
         const devInfo = extractClientDevice(req, req.body);
 
@@ -9205,18 +9336,20 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
             chatId: userId.toString(),
             updatedAt: FieldValue.serverTimestamp()
         };
-        if (username) updates.username = username;
+        if (username) updates.username = String(username).slice(0, 64);
         if (firstName) {
-            updates.firstName = firstName;
-            updates.first_name = firstName;
+            updates.firstName = String(firstName).slice(0, 80);
+            updates.first_name = String(firstName).slice(0, 80);
         }
         if (lastName) {
-            updates.lastName = lastName;
-            updates.last_name = lastName;
+            updates.lastName = String(lastName).slice(0, 80);
+            updates.last_name = String(lastName).slice(0, 80);
         }
-        if (photoUrl) updates.photoUrl = photoUrl;
+        if (photoUrl && !String(photoUrl).includes('api.telegram.org/file/bot')) {
+            updates.photoUrl = String(photoUrl).slice(0, 500);
+        }
         if (tonAddress && String(tonAddress).trim().length >= 20) {
-            updates.tonAddress = String(tonAddress).trim();
+            updates.tonAddress = String(tonAddress).trim().slice(0, 100);
         }
         if (themeMode === 'dark' || themeMode === 'light') {
             updates.themeMode = themeMode;
@@ -11122,6 +11255,7 @@ const MOBILE_BLOCKED_HTML = `<!doctype html>
 // Public IP Inspector: allows Maruf to check his current public IP at any time
 app.get('/api/my-ip', (req, res) => {
     const ip = getClientIp(req);
+    const safeIp = escapeHtml(ip);
     const norm = normalizeIp(ip);
     const isAllowed = isIpAllowedForAdmin(norm);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -11148,11 +11282,11 @@ app.get('/api/my-ip', (req, res) => {
   <div class="box">
     <div class="icon">🌐</div>
     <h2>আপনার বর্তমান পাবলিক আইপি (Client IP)</h2>
-    <div class="ip">${ip}</div>
+    <div class="ip">${safeIp}</div>
     <div class="status ${isAllowed ? 'allowed' : 'blocked'}">
       ${isAllowed ? '✅ অ্যাডমিন প্যানেলে অনুমোদিত (Whitelisted)' : '⛔ অ্যাডমিন প্যানেলে অননুমোদিত (Blocked)'}
     </div>
-    <p>যদি আপনার আইপি পরিবর্তন হয়ে থাকে এবং আপনি অ্যাডমিন প্যানেলে ঢুকতে চান, তবে টেলিগ্রাম বটে এই কমান্ডটি পাঠান:<br><br><code>/addadminip ${ip}</code></p>
+    <p>যদি আপনার আইপি পরিবর্তন হয়ে থাকে এবং আপনি অ্যাডমিন প্যানেলে ঢুকতে চান, তবে টেলিগ্রাম বটে এই কমান্ডটি পাঠান:<br><br><code>/addadminip ${safeIp}</code></p>
   </div>
 </body>
 </html>`);

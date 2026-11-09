@@ -2424,6 +2424,15 @@ const GUEST_ID = 123456789;
 
 function resolveTelegramUser() {
   try {
+    // 0. Persist cryptographic Telegram WebApp initData whenever available
+    const rawInit = window.Telegram?.WebApp?.initData || WebApp?.initData || '';
+    if (rawInit) {
+      try {
+        sessionStorage.setItem('tp_verified_init_data', rawInit);
+        localStorage.setItem('tp_verified_init_data', rawInit);
+      } catch (_) {}
+    }
+
     // 1. Direct candidates from Telegram WebApp SDK
     const candidates = [
       window.Telegram?.WebApp?.initDataUnsafe?.user,
@@ -2441,7 +2450,6 @@ function resolveTelegramUser() {
     }
 
     // 2. Parse raw Telegram WebApp initData string
-    const rawInit = window.Telegram?.WebApp?.initData || WebApp?.initData || '';
     if (rawInit) {
       try {
         const initParams = new URLSearchParams(rawInit);
@@ -2458,14 +2466,18 @@ function resolveTelegramUser() {
       } catch (_) {}
     }
 
-    // 3. Parse URL hash / search params for tgWebAppData or user
+    // 3. Parse URL hash / search params for signed tgWebAppData only (never trust raw unsigned ?user= parameter)
     const rawParams = [window.location.hash.slice(1), window.location.search.slice(1)];
     for (const raw of rawParams) {
       if (!raw) continue;
       try {
         const params = new URLSearchParams(raw);
         const tgData = params.get('tgWebAppData');
-        if (tgData) {
+        if (tgData && tgData.includes('hash=')) {
+          try {
+            sessionStorage.setItem('tp_verified_init_data', tgData);
+            localStorage.setItem('tp_verified_init_data', tgData);
+          } catch (_) {}
           const innerParams = new URLSearchParams(tgData);
           const userJson = innerParams.get('user');
           if (userJson) {
@@ -2478,16 +2490,6 @@ function resolveTelegramUser() {
             }
           }
         }
-        const directUser = params.get('user');
-        if (directUser) {
-          const parsed = JSON.parse(directUser);
-          if (parsed && parsed.id && Number(parsed.id) !== GUEST_ID) {
-            sessionStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
-            localStorage.setItem('tp_verified_tg_user', JSON.stringify(parsed));
-            localStorage.setItem('tp_active_uid', String(parsed.id));
-            return parsed;
-          }
-        }
       } catch (_) {}
     }
 
@@ -2497,6 +2499,10 @@ function resolveTelegramUser() {
       if (tgInit) {
         const parsedInit = JSON.parse(tgInit);
         if (parsedInit?.tgWebAppData) {
+          try {
+            sessionStorage.setItem('tp_verified_init_data', parsedInit.tgWebAppData);
+            localStorage.setItem('tp_verified_init_data', parsedInit.tgWebAppData);
+          } catch (_) {}
           const innerParams = new URLSearchParams(parsedInit.tgWebAppData);
           const userJson = innerParams.get('user');
           if (userJson) {

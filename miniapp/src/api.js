@@ -9,10 +9,41 @@ const API_URL = isLocal
 // Default axios config with timeout to prevent hanging on mobile networks
 axios.defaults.timeout = 12000;
 
+function getCurrentInitData() {
+    let initData = window.Telegram?.WebApp?.initData || WebApp?.initData || '';
+    if (!initData) {
+        try {
+            const hashParams = new URLSearchParams(window.location.hash.slice(1));
+            const searchParams = new URLSearchParams(window.location.search.slice(1));
+            initData = hashParams.get('tgWebAppData') || searchParams.get('tgWebAppData') || '';
+        } catch (_) {}
+    }
+    if (!initData) {
+        try {
+            const tgInit = sessionStorage.getItem('__telegram__initParams');
+            if (tgInit) {
+                const parsedInit = JSON.parse(tgInit);
+                if (parsedInit?.tgWebAppData) initData = parsedInit.tgWebAppData;
+            }
+        } catch (_) {}
+    }
+    if (initData) {
+        try {
+            sessionStorage.setItem('tp_verified_init_data', initData);
+            localStorage.setItem('tp_verified_init_data', initData);
+        } catch (_) {}
+    } else {
+        try {
+            initData = sessionStorage.getItem('tp_verified_init_data') || localStorage.getItem('tp_verified_init_data') || '';
+        } catch (_) {}
+    }
+    return initData;
+}
+
 // Automatically attach Telegram WebApp cryptographic initData + Zero-Trust Device Fingerprint headers to every outgoing API request
 axios.interceptors.request.use((config) => {
     try {
-        const initData = window.Telegram?.WebApp?.initData || '';
+        const initData = getCurrentInitData();
         if (initData) {
             config.headers['X-Telegram-Init-Data'] = initData;
         }
@@ -23,6 +54,27 @@ axios.interceptors.request.use((config) => {
     } catch (_) {}
     return config;
 });
+
+if (typeof window !== 'undefined' && !window.__tpMiniappFetchWrapped) {
+    window.__tpMiniappFetchWrapped = true;
+    const origFetch = window.fetch.bind(window);
+    window.fetch = async (input, init = {}) => {
+        try {
+            const urlStr = typeof input === 'string' ? input : (input?.url || '');
+            if (urlStr.includes('/api/')) {
+                const initData = getCurrentInitData();
+                if (initData) {
+                    const headers = new Headers(init.headers || (typeof input !== 'string' ? input?.headers : undefined) || {});
+                    if (!headers.has('X-Telegram-Init-Data')) {
+                        headers.set('X-Telegram-Init-Data', initData);
+                    }
+                    init = { ...init, headers };
+                }
+            }
+        } catch (_) {}
+        return origFetch(input, init);
+    };
+}
 
 // Simple fast deterministic string hash (FNV-1a 64-bit style hex)
 function hashString(str) {
