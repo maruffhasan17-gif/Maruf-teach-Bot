@@ -6544,11 +6544,15 @@ export default function App() {
             const activeIndex = navTabs.indexOf(activeTab);
             return (
             <div className={`fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none transition-transform duration-300 ${isKeyboardVisible ? 'opacity-0 translate-y-32 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
-                <div className="w-full max-w-[360px] bg-white/98 backdrop-blur-md rounded-[28px] relative flex justify-between items-center p-1.5 shadow-[0_12px_36px_rgba(15,23,42,0.08)] border border-slate-200/80 pointer-events-auto overflow-hidden">
+                <div className={`w-full max-w-[360px] backdrop-blur-md rounded-[28px] relative flex justify-between items-center p-1.5 pointer-events-auto overflow-hidden transition-colors duration-300 ${
+                  darkMode 
+                    ? 'bg-slate-900/95 border border-slate-800 shadow-[0_12px_36px_rgba(0,0,0,0.5)] text-white' 
+                    : 'bg-white/98 border border-slate-200/80 shadow-[0_12px_36px_rgba(15,23,42,0.08)] text-slate-900'
+                }`}>
                     
                     {/* Delicate floral line art in navigation bar corner */}
                     <svg 
-                      className="absolute -right-2 -top-2 w-14 h-14 text-indigo-900/10 pointer-events-none select-none" 
+                      className={`absolute -right-2 -top-2 w-14 h-14 pointer-events-none select-none ${darkMode ? 'text-purple-400/10' : 'text-indigo-900/10'}`} 
                       viewBox="0 0 100 100" 
                       fill="none" 
                       xmlns="http://www.w3.org/2000/svg"
@@ -6562,7 +6566,11 @@ export default function App() {
                     {/* SMOOTH GPU-ACCELERATED SLIDING ACTIVE PILL */}
                     {activeIndex !== -1 && (
                       <div 
-                        className="absolute top-1.5 bottom-1.5 left-1.5 rounded-[20px] bg-indigo-50 border border-indigo-100/90 shadow-xs transition-transform duration-300 ease-out will-change-transform pointer-events-none"
+                        className={`absolute top-1.5 bottom-1.5 left-1.5 rounded-[20px] transition-transform duration-300 ease-out will-change-transform pointer-events-none ${
+                          darkMode 
+                            ? 'bg-purple-950/70 border border-purple-500/30 shadow-[0_0_15px_rgba(147,51,234,0.2)]' 
+                            : 'bg-indigo-50 border border-indigo-100/90 shadow-xs'
+                        }`}
                         style={{
                           width: 'calc((100% - 12px) / 3)',
                           transform: `translate3d(${activeIndex * 100}%, 0, 0)`,
@@ -6570,7 +6578,7 @@ export default function App() {
                       >
                         {/* Micro floral line art in active pill */}
                         <svg 
-                          className="absolute -right-1 -bottom-1 w-8 h-8 text-indigo-900/15 pointer-events-none select-none" 
+                          className={`absolute -right-1 -bottom-1 w-8 h-8 pointer-events-none select-none ${darkMode ? 'text-purple-400/20' : 'text-indigo-900/15'}`} 
                           viewBox="0 0 100 100" 
                           fill="none" 
                           xmlns="http://www.w3.org/2000/svg"
@@ -6579,7 +6587,7 @@ export default function App() {
                           <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1.5" />
                           <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1.5" />
                         </svg>
-                        <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-3.5 h-1 bg-indigo-600 rounded-full" />
+                        <div className={`absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-3.5 h-1 rounded-full ${darkMode ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'bg-indigo-600'}`} />
                       </div>
                     )}
 
@@ -6595,8 +6603,16 @@ export default function App() {
                         className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-transform duration-200 group active:scale-95 z-10 cursor-pointer"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${activeTab === 'home' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${activeTab === 'home' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.home}</span>
+                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${
+                              activeTab === 'home' 
+                                ? (darkMode ? 'text-purple-400 scale-105' : 'text-indigo-600 scale-105') 
+                                : (darkMode ? 'text-slate-500 group-hover:text-slate-300' : 'text-slate-400 group-hover:text-slate-600')
+                            }`} />
+                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${
+                              activeTab === 'home' 
+                                ? (darkMode ? 'text-purple-300 font-black' : 'text-indigo-950 font-black') 
+                                : (darkMode ? 'text-slate-500 font-bold group-hover:text-slate-300' : 'text-slate-400 font-bold group-hover:text-slate-600')
+                            }`}>{t.home}</span>
                         </div>
                     </button>
   
@@ -6613,8 +6629,16 @@ export default function App() {
                         className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-transform duration-200 group active:scale-95 z-10 cursor-pointer"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${activeTab === 'add-money' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${activeTab === 'add-money' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.addMoney}</span>
+                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${
+                              activeTab === 'add-money' 
+                                ? (darkMode ? 'text-purple-400 scale-105' : 'text-indigo-600 scale-105') 
+                                : (darkMode ? 'text-slate-500 group-hover:text-slate-300' : 'text-slate-400 group-hover:text-slate-600')
+                            }`} />
+                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${
+                              activeTab === 'add-money' 
+                                ? (darkMode ? 'text-purple-300 font-black' : 'text-indigo-950 font-black') 
+                                : (darkMode ? 'text-slate-500 font-bold group-hover:text-slate-300' : 'text-slate-400 font-bold group-hover:text-slate-600')
+                            }`}>{t.addMoney}</span>
                         </div>
                     </button>
   
@@ -6630,8 +6654,16 @@ export default function App() {
                         className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-transform duration-200 group active:scale-95 z-10 cursor-pointer"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${activeTab === 'profile' ? 'text-indigo-600 scale-105' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${activeTab === 'profile' ? 'text-indigo-950 font-black' : 'text-slate-400 font-bold group-hover:text-slate-600'}`}>{t.profile}</span>
+                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${
+                              activeTab === 'profile' 
+                                ? (darkMode ? 'text-purple-400 scale-105' : 'text-indigo-600 scale-105') 
+                                : (darkMode ? 'text-slate-500 group-hover:text-slate-300' : 'text-slate-400 group-hover:text-slate-600')
+                            }`} />
+                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${
+                              activeTab === 'profile' 
+                                ? (darkMode ? 'text-purple-300 font-black' : 'text-indigo-950 font-black') 
+                                : (darkMode ? 'text-slate-500 font-bold group-hover:text-slate-300' : 'text-slate-400 font-bold group-hover:text-slate-600')
+                            }`}>{t.profile}</span>
                         </div>
                     </button>
                 </div>
