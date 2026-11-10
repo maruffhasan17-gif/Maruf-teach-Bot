@@ -381,6 +381,17 @@ export const checkTreasuryAvailability = async (asset, amount, network = 'TON') 
     }
 };
 
+export const notifyAdminRefuel = async (payload) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/notify-refuel`, payload, {
+            timeout: 6000
+        });
+        return res.data;
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+};
+
 export const fetchMarketRates = async () => {
     try {
         const res = await axios.get(`${API_URL}/api/miniapp/rates?_t=${Date.now()}`, { timeout: 7000 });

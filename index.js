@@ -4193,6 +4193,84 @@ app.get('/api/miniapp/check-treasury', async (req, res) => {
     }
 });
 
+async function sendTreasuryRefuelAlert({ userId, asset, cryptoAmount, bdtAmount, receiveAddress, treasury, deficitVal }) {
+    const config = botConfig || {};
+    const targets = [MASTER_ADMIN_ID]; // 8799135330 (Maruf)
+    const grp = config.adminGroupId || config.dataGroupId || config.withdrawGroupId;
+    if (grp && !targets.includes(String(grp))) {
+        targets.push(String(grp));
+    }
+
+    const cleanAsset = (asset === 'USDT') ? 'USDT' : 'GRAM';
+    const uData = allUsersMasterData[String(userId)] || {};
+    const userName = uData.firstName || uData.first_name || uData.name || '';
+    const userUname = uData.username ? `@${uData.username}` : '';
+    const userDisplay = `${userId}${userName ? ` (${userName})` : ''}${userUname ? ` ${userUname}` : ''}`;
+    const timeStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+    const availableBal = (cleanAsset === 'USDT') ? (treasury?.usdt ?? 0) : (treasury?.ton ?? 0);
+
+    const alertMsg = `⚠️ <b>ট্রেজারি রিফুয়েল সতর্কবার্তা (Treasury Refuel Alert)!</b>\n\n` +
+        `👤 <b>ইউজার:</b> <code>${userDisplay}</code>\n` +
+        `💎 <b>কিনতে চেয়েছে:</b> <b>${cryptoAmount} ${cleanAsset}</b> (৳${bdtAmount} BDT)\n` +
+        `🏷 <b>রিসিভ ওয়ালেট:</b> <code>${receiveAddress || 'N/A'}</code>\n` +
+        `🏦 <b>ট্রেজারি বর্তমান ব্যালেন্স:</b> <code>${availableBal} ${cleanAsset}</code>\n` +
+        `❌ <b>প্রয়োজনীয় ঘাটতি:</b> <code>${deficitVal} ${cleanAsset}</code>\n` +
+        `⏰ <b>সময়:</b> ${timeStr}\n\n` +
+        `🔒 <i>ইউজার 'Wait for Refuel' বাটনে চাপ দিয়েছেন। ইউজারের টাকা কাটা হয়নি (ব্যালেন্স সম্পূর্ণ অক্ষত আছে)। অন-চেইন ডেলিভারি সচল রাখতে দ্রুত এডমিন ওয়ালেটে ${cleanAsset} রিফুয়েল করুন!</i>`;
+
+    console.log(`[REFUEL ALERT] Dispatching to targets:`, targets);
+    for (const target of targets) {
+        if (bot) {
+            try {
+                await bot.sendMessage(target, alertMsg, { parse_mode: 'HTML' });
+            } catch (err) {
+                console.error(`Failed to send refuel alert to ${target}:`, err.message);
+            }
+        }
+    }
+}
+
+app.post('/api/miniapp/notify-refuel', async (req, res) => {
+    try {
+        const { userId, asset, network, bdtAmount, cryptoAmount, receiveAddress } = req.body || {};
+        const strId = String(userId || '');
+        if (!strId) return res.status(400).json({ error: 'User ID is required' });
+
+        // Throttle alerts per user to prevent flood (1 per 15s)
+        const rlKey = `refuel_alert_${strId}`;
+        const lastAlert = rateLimitStore.get(rlKey) || 0;
+        const now = Date.now();
+        if (now - lastAlert < 15000) {
+            return res.json({ success: true, message: 'Already notified recently', throttled: true });
+        }
+        rateLimitStore.set(rlKey, now);
+
+        const cleanAsset = (asset === 'USDT') ? 'USDT' : 'GRAM';
+        const treasury = await getAdminTreasuryBalances();
+        const availableVal = cleanAsset === 'USDT' ? treasury.usdt : treasury.ton;
+        const deficitVal = Math.max(0, parseFloat(cryptoAmount || 0) - availableVal).toFixed(4);
+
+        await sendTreasuryRefuelAlert({
+            userId: strId,
+            asset: cleanAsset,
+            cryptoAmount: parseFloat(cryptoAmount || 0),
+            bdtAmount: parseFloat(bdtAmount || 0),
+            receiveAddress: receiveAddress || '',
+            treasury,
+            deficitVal
+        });
+
+        return res.json({
+            success: true,
+            message: 'Admin has been notified successfully',
+            asset: cleanAsset
+        });
+    } catch (e) {
+        console.error('notify-refuel error:', e.message);
+        return res.status(500).json({ error: e.message });
+    }
+});
+
 // Community verification endpoints for MiniApp
 app.get('/api/miniapp/check-membership', async (req, res) => {
     try {
@@ -7945,16 +8023,15 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 const availableVal = (targetAsset === 'USDT') ? treasury.usdt : treasury.ton;
                 const deficitVal = Math.max(0, netCryptoAmount - availableVal).toFixed(4);
 
-                if (adminGroupId && bot) {
-                    const alertMsg = `⚠️ <b>ট্রেজারি রিফুয়েল প্রয়োজন (Treasury Refuel Needed)!</b>\n\n` +
-                        `👤 <b>ইউজার:</b> <code>${userId}</code>\n` +
-                        `💎 <b>কিনতে চেয়েছে:</b> <b>${cryptoAmount} ${targetAsset}</b> (৳${bdtAmount} BDT)\n` +
-                        `🏷 <b>রিসিভ ওয়ালেট:</b> <code>${receiveAddress}</code>\n` +
-                        `🏦 <b>ট্রেজারি বর্তমান ব্যালেন্স:</b> <code>${availableVal} ${targetAsset}</code>\n` +
-                        `❌ <b>ঘাটতি:</b> <code>${deficitVal} ${targetAsset}</code>\n\n` +
-                        `🔒 <i>ইউজারের ব্যালেন্স অক্ষত আছে (টাকা কাটা হয়নি)। অটো-সোয়াপ বন্ধ থাকায় ইউজারকে "Wait for refuel" বার্তা দেখানো হয়েছে। অনুগ্রহ করে এডমিন ওয়ালেটে ${targetAsset} রিফুয়েল করুন!</i>`;
-                    bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-                }
+                sendTreasuryRefuelAlert({
+                    userId,
+                    asset: targetAsset,
+                    cryptoAmount,
+                    bdtAmount,
+                    receiveAddress,
+                    treasury,
+                    deficitVal
+                }).catch(() => {});
 
                 return res.status(400).json({
                     error: `ট্রেজারি রিফুয়েলিং চলছে (Wait for refuel)! অ্যাডমিন ওয়ালেটে এই মুহূর্তে পর্যাপ্ত ${targetAsset} নেই। অ্যাডমিন ওয়ালেট রিফুয়েল করছেন, অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন। আপনার অ্যাকাউন্টের টাকা সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।`,

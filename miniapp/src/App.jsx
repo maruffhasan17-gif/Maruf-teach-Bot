@@ -4,7 +4,7 @@ import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Aw
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, checkTreasuryAvailability, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, searchUsers, lookupRecipientUser, submitTransferMoney } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, checkTreasuryAvailability, notifyAdminRefuel, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, searchUsers, lookupRecipientUser, submitTransferMoney } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/trustpay-official-banner.jpg';
@@ -8090,58 +8090,70 @@ function AddMoneyPage({
         }
     };
 
-    // STEP 3: SUCCESS RECEIPT
+    // STEP 3: ANIMATED LUXURY POPUP MODAL (IDENTICAL TO IMAGE 2)
     if (step === 3) {
         return (
-            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-400 p-2 text-center pb-24 max-w-sm mx-auto">
-                <div className={`relative w-full rounded-3xl p-6 border shadow-xl ${
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-md animate-in fade-in duration-200">
+                <div className={`relative w-full max-w-[350px] p-6 text-center rounded-[30px] shadow-2xl border transition-all animate-in zoom-in-95 duration-300 overflow-hidden ${
                     darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
                 }`}>
-                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center mx-auto mb-4 text-emerald-500 shadow-md">
-                        <Check size={36} strokeWidth={3} />
-                    </div>
+                    {/* Ambient Emerald Glow + Corner Botanical Accent */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
+                    <img
+                        src={sakuraBranchArt}
+                        alt=""
+                        className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
+                            darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
+                        }`}
+                    />
 
-                    <h2 className="text-xl font-black mb-1">
+                    {/* Luxury Animated Checkmark Emblem */}
+                    <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'ডিপোজিট সফল হয়েছে' : 'DEPOSIT SUCCESSFUL'} />
+
+                    <h3 className="text-[20px] font-black leading-tight mt-1 mb-1">
                         {lang === 'bn' ? 'ডিপোজিট সফল হয়েছে!' : 'Deposit Successful!'}
-                    </h2>
-                    <p className="text-xs text-slate-400 mb-5">
-                        {lang === 'bn' ? 'আপনার অ্যাকাউন্টে টাকা যোগ করা হয়েছে' : 'Funds have been credited to your balance'}
+                    </h3>
+                    <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-4 leading-relaxed">
+                        {lang === 'bn' ? 'আপনার অ্যাকাউন্টে টাকা সফলভাবে যোগ করা হয়েছে।' : 'Funds have been credited to your balance.'}
                     </p>
 
-                    <div className="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/40 mb-5 space-y-2 text-left">
-                        <div className="flex justify-between items-center text-xs">
-                            <span className="text-slate-400 font-bold">{lang === 'bn' ? 'পরিমাণ' : 'Amount'}</span>
-                            <span className="font-mono font-black text-purple-600 dark:text-purple-400 text-base">
-                                +৳{Number(depositResult?.amount || amount).toLocaleString()}
+                    {/* Breakdown Card */}
+                    <div className={`rounded-2xl p-3.5 border mb-4 text-left space-y-2 text-[12px] relative z-10 ${
+                        darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50/90 border-slate-200/80'
+                    }`}>
+                        <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                            <span>{lang === 'bn' ? 'পরিমাণ:' : 'Amount:'}</span>
+                            <span className="font-bold text-slate-900 dark:text-white font-mono text-[13px]">
+                                + ৳ {parseFloat(depositResult?.amount || amount || 0).toLocaleString()}
                             </span>
                         </div>
-                        <div className="flex justify-between items-center text-xs">
-                            <span className="text-slate-400 font-bold">{lang === 'bn' ? 'মেথড' : 'Method'}</span>
-                            <span className="font-bold">{paymentMethod}</span>
+                        <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                            <span>{lang === 'bn' ? 'পেমেন্ট মেথড:' : 'Method:'}</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{paymentMethod}</span>
                         </div>
-                        <div className="flex justify-between items-center text-xs">
-                            <span className="text-slate-400 font-bold">TrxID</span>
-                            <span className="font-mono font-bold">{trxId}</span>
+                        <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                            <span>TrxID:</span>
+                            <span className="font-mono font-bold text-slate-900 dark:text-white">{trxId}</span>
                         </div>
-                        <div className="flex justify-between items-center text-xs">
-                            <span className="text-slate-400 font-bold">{lang === 'bn' ? 'নতুন ব্যালেন্স' : 'New Balance'}</span>
-                            <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">
-                                ৳{Number(depositResult?.newBalance || (Number(balance || 0) + Number(amount))).toFixed(2)}
+                        <div className="h-px bg-slate-200 dark:bg-slate-700 w-full my-1" />
+                        <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                            <span className="font-bold">{lang === 'bn' ? 'নতুন ব্যালেন্স:' : 'New Balance:'}</span>
+                            <span className="font-black font-mono text-[14px]">
+                                ৳ {parseFloat(depositResult?.newBalance || (Number(balance || 0) + Number(amount))).toFixed(2)}
                             </span>
                         </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 relative z-10">
                         <button
                             type="button"
                             onClick={() => {
                                 playAppSound('tap');
                                 onDone();
                             }}
-                            className="w-full h-[46px] rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-sm flex items-center justify-center gap-2 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 cursor-pointer shadow-md"
+                            className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-xs shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all cursor-pointer"
                         >
-                            <span>{lang === 'bn' ? 'হোমে ফিরে যান' : 'Go to Home'}</span>
-                            <ChevronRight size={16} strokeWidth={3} />
+                            {lang === 'bn' ? 'ঠিক আছে (Done)' : 'Done'}
                         </button>
                         {onGoToBuyCrypto && (
                             <button
@@ -8150,7 +8162,7 @@ function AddMoneyPage({
                                     playAppSound('tap');
                                     onGoToBuyCrypto();
                                 }}
-                                className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-200 cursor-pointer"
+                                className="w-full py-2.5 rounded-xl text-slate-500 dark:text-slate-400 font-bold text-[11px] hover:text-slate-800 dark:hover:text-white cursor-pointer active:scale-95 transition-all"
                             >
                                 {lang === 'bn' ? '⚡ এখনই ক্রিপ্টো কিনুন' : '⚡ Buy Crypto Now'}
                             </button>
@@ -9360,6 +9372,35 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         }
     };
 
+    const handleWaitRefuelClick = async () => {
+        const targetAddress = destMode === 'connected' ? (userTonAddress || receiveAddress) : receiveAddress;
+        playAppSound('tap');
+        setIsCheckingTreasury(true);
+
+        try {
+            await notifyAdminRefuel({
+                userId: user?.id || 123456789,
+                asset: selectedAsset,
+                network: selectedNetwork,
+                bdtAmount: numBdt || 0,
+                cryptoAmount: parseFloat(calculatedCrypto) || 0,
+                receiveAddress: (targetAddress || '').trim()
+            });
+        } catch (_) {}
+        setIsCheckingTreasury(false);
+
+        const refuelMsg = lang === 'bn'
+            ? `⚠️ অ্যাডমিন ওয়ালেটে পর্যাপ্ত ${selectedAsset} ব্যালেন্স নেই!\n\nরিফুয়েল করার জন্য অ্যাডমিনকে টেলিগ্রামে মেসেজ পাঠানো হয়েছে। অ্যাডমিন ওয়ালেট রিফুয়েল করা মাত্রই আপনি কিনতে পারবেন। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।\n\nআপনার ব্যালেন্স সম্পূর্ণ অক্ষত রয়েছে।`
+            : `⚠️ Insufficient ${selectedAsset} in admin treasury wallet!\n\nAdmin has been notified to refuel the wallet. Please wait a few moments and try again.\n\nYour balance is completely safe.`;
+
+        if (window.Telegram?.WebApp?.showAlert) {
+            window.Telegram.WebApp.showAlert(refuelMsg);
+        } else {
+            alert(refuelMsg);
+        }
+        setErrorMessage(refuelMsg);
+    };
+
     const handleConfirmBuy = async () => {
         const targetAddress = destMode === 'connected' ? (userTonAddress || receiveAddress) : receiveAddress;
         if (!numBdt || isNaN(numBdt) || numBdt < 20) {
@@ -9384,9 +9425,20 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
             setIsCheckingTreasury(false);
             if (treasuryCheck && treasuryCheck.hasEnough === false) {
                 playAppSound('error');
+
+                // Send Telegram refuel alert to Admin immediately
+                notifyAdminRefuel({
+                    userId: user?.id || 123456789,
+                    asset: selectedAsset,
+                    network: selectedNetwork,
+                    bdtAmount: numBdt || 0,
+                    cryptoAmount: parseFloat(calculatedCrypto) || 0,
+                    receiveAddress: (targetAddress || '').trim()
+                }).catch(() => {});
+
                 const refuelMsg = lang === 'bn'
-                    ? `⚠️ ট্রেজারি রিফুয়েলিং চলছে (Wait for refuel)!\n\nঅ্যাডমিন ওয়ালেটে এই মুহূর্তে পর্যাপ্ত ${selectedAsset} রিজার্ভ নেই। অ্যাডমিন ওয়ালেট রিফুয়েল করছেন, অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন।\n\nআপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।`
-                    : `⚠️ Wait for refuel!\n\nInsufficient ${selectedAsset} in admin treasury wallet. Refueling is currently in progress, please wait a moment and try again.\n\nYour balance is completely safe.`;
+                    ? `⚠️ অ্যাডমিন ওয়ালেটে পর্যাপ্ত ${selectedAsset} ব্যালেন্স নেই!\n\nরিফুয়েল করার জন্য অ্যাডমিনকে টেলিগ্রামে মেসেজ পাঠানো হয়েছে। অ্যাডমিন ওয়ালেট রিফুয়েল করা মাত্রই আপনি কিনতে পারবেন। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।\n\nআপনার ব্যালেন্স সম্পূর্ণ অক্ষত রয়েছে।`
+                    : `⚠️ Insufficient ${selectedAsset} in admin treasury wallet!\n\nAdmin has been notified to refuel the wallet. Please wait a few moments and try again.\n\nYour balance is completely safe.`;
                 if (window.Telegram?.WebApp?.showAlert) {
                     window.Telegram.WebApp.showAlert(refuelMsg);
                 } else {
@@ -9782,7 +9834,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
 
                     <button
                         type="button"
-                        onClick={hasInsufficientBalance ? onGoToAddMoney : handleConfirmBuy}
+                        onClick={hasInsufficientBalance ? onGoToAddMoney : isTreasuryLow ? handleWaitRefuelClick : handleConfirmBuy}
                         disabled={isCheckingTreasury || (!hasInsufficientBalance && (!numBdt || numBdt < 20))}
                         className={`px-7 py-3 rounded-2xl font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 ${
                             isTreasuryLow 
