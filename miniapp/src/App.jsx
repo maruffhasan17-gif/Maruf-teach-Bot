@@ -4269,6 +4269,48 @@ function TransferMoneyPage({
   const [isBatchLoading, setIsBatchLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const sentinelRef = useRef(null);
+  const topRef = useRef(null);
+
+  // Auto-scroll to top helper that unfocuses keyboard and resets scroll across all viewport containers
+  const scrollToPageTop = useCallback(() => {
+    // 1. Unfocus any active input/keyboard immediately
+    try {
+      if (document.activeElement && typeof document.activeElement.blur === 'function') {
+        document.activeElement.blur();
+      }
+    } catch (_) {}
+
+    // 2. Perform scroll reset across window and document
+    const performScroll = () => {
+      try {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      } catch (_) {
+        window.scrollTo(0, 0);
+      }
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+      if (topRef.current) {
+        try {
+          topRef.current.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' });
+        } catch (_) {
+          try {
+            topRef.current.scrollIntoView();
+          } catch (_) {}
+        }
+      }
+    };
+
+    performScroll();
+    requestAnimationFrame(performScroll);
+    setTimeout(performScroll, 50);
+    setTimeout(performScroll, 120);
+    setTimeout(performScroll, 250);
+  }, []);
+
+  // When switching between recipient list (Screen 1) and transfer details (Screen 2), guarantee view starts at the very top
+  useEffect(() => {
+    scrollToPageTop();
+  }, [selectedRecipient, scrollToPageTop]);
 
   // When search query or results change, preload the first 5 avatars so all 5 reveal simultaneously in order
   useEffect(() => {
@@ -4440,6 +4482,7 @@ function TransferMoneyPage({
 
       if (res?.success && res?.found && found) {
         playAppSound('tap');
+        scrollToPageTop();
         setSelectedRecipient(found);
       } else {
         setDirectLookupError(res?.error || (lang === 'bn' ? 'এই আইডিতে কোনো অ্যাকাউন্ট পাওয়া যায়নি' : 'No account found with this ID'));
@@ -4547,6 +4590,8 @@ function TransferMoneyPage({
 
   return (
     <div className="space-y-3 pb-24 max-w-md mx-auto animate-in fade-in duration-300">
+      {/* Scroll to Top Anchor */}
+      <div ref={topRef} id="transfer-page-top-anchor" className="h-0 w-0 pointer-events-none opacity-0 m-0 p-0" />
       {/* ==================================================================== */}
       {/* SCREEN 1: SEARCH & SELECT RECIPIENT                                   */}
       {/* ==================================================================== */}
@@ -4699,6 +4744,7 @@ function TransferMoneyPage({
                       if (window.Telegram?.WebApp?.HapticFeedback) {
                         window.Telegram.WebApp.HapticFeedback.selectionChanged();
                       }
+                      scrollToPageTop();
                       setSelectedRecipient(sel);
                     }}
                     darkMode={darkMode}
@@ -4766,6 +4812,7 @@ function TransferMoneyPage({
                 type="button"
                 onClick={() => {
                   playAppSound('tap');
+                  scrollToPageTop();
                   setSelectedRecipient(null);
                 }}
                 className="w-8 h-8 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-xs border border-slate-200 dark:border-slate-800 active:scale-95 transition-transform text-slate-700 dark:text-slate-300 cursor-pointer"
@@ -4801,6 +4848,7 @@ function TransferMoneyPage({
                     type="button"
                     onClick={() => {
                       playAppSound('tap');
+                      scrollToPageTop();
                       setSelectedRecipient(null);
                     }}
                     className={`absolute right-0 top-0 px-2.5 py-1 rounded-full text-[10px] font-black border cursor-pointer active:scale-95 transition-all ${
