@@ -55,118 +55,142 @@ function playAppSound(type = 'success') {
   try {
     const ctx = getAppAudioContext();
     if (!ctx) return;
-    const now = ctx.currentTime;
 
-    // Master warm low-pass filter so all tones sound silky, warm & never harsh on mobile speakers
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(type === 'tap' ? 1400 : 2400, now);
-    filter.Q.setValueAtTime(0.7, now);
-    filter.connect(ctx.destination);
+    const playNotes = () => {
+      try {
+        const now = ctx.currentTime;
 
-    if (type === 'tap') {
-      // Whisper-soft iOS / Telegram style tactile page-transition tap (24ms warm droplet)
-      const osc = ctx.createOscillator();
-      const gainNode = ctx.createGain();
+        // Master warm low-pass filter so all tones sound silky, warm & never harsh on mobile speakers
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(type === 'tap' ? 1400 : 2400, now);
+        filter.Q.setValueAtTime(0.7, now);
+        filter.connect(ctx.destination);
 
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(540, now);
-      osc.frequency.exponentialRampToValueAtTime(210, now + 0.024);
+        if (type === 'tap') {
+          // Whisper-soft iOS / Telegram style tactile page-transition tap (24ms warm droplet)
+          const osc = ctx.createOscillator();
+          const gainNode = ctx.createGain();
 
-      gainNode.gain.setValueAtTime(0.0001, now);
-      gainNode.gain.linearRampToValueAtTime(0.035, now + 0.004);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.026);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(540, now);
+          osc.frequency.exponentialRampToValueAtTime(210, now + 0.024);
 
-      osc.connect(gainNode);
-      gainNode.connect(filter);
+          gainNode.gain.setValueAtTime(0.0001, now);
+          gainNode.gain.linearRampToValueAtTime(0.035, now + 0.004);
+          gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.026);
 
-      osc.start(now);
-      osc.stop(now + 0.03);
-      return;
-    }
+          osc.connect(gainNode);
+          gainNode.connect(filter);
 
-    if (type === 'success') {
-      // Silky Apple-Pay / iOS Wallet style 2-note crystal bell chime (F5 -> C6 with warm fifth resonance)
-      // Pure sine waves only (no harsh triangle/square buzz)
-      const bellNotes = [
-        { freq: 698.46, shimmer: 1396.91, start: 0.0, dur: 0.22, gain: 0.075 },
-        { freq: 1046.50, shimmer: 2093.00, start: 0.095, dur: 0.52, gain: 0.095 }
-      ];
-      bellNotes.forEach(({ freq, shimmer, start, dur, gain }) => {
-        const mainOsc = ctx.createOscillator();
-        const overtoneOsc = ctx.createOscillator();
-        const mainGain = ctx.createGain();
-        const overtoneGain = ctx.createGain();
+          osc.start(now);
+          osc.stop(now + 0.03);
+          return;
+        }
 
-        mainOsc.type = 'sine';
-        mainOsc.frequency.setValueAtTime(freq, now + start);
+        if (type === 'success') {
+          // Silky Apple-Pay / iOS Wallet style 2-note crystal bell chime (F5 -> C6 with warm fifth resonance)
+          // Pure sine waves only (no harsh triangle/square buzz)
+          const bellNotes = [
+            { freq: 698.46, shimmer: 1396.91, start: 0.0, dur: 0.22, gain: 0.085 },
+            { freq: 1046.50, shimmer: 2093.00, start: 0.095, dur: 0.55, gain: 0.11 }
+          ];
+          bellNotes.forEach(({ freq, shimmer, start, dur, gain }) => {
+            const mainOsc = ctx.createOscillator();
+            const overtoneOsc = ctx.createOscillator();
+            const mainGain = ctx.createGain();
+            const overtoneGain = ctx.createGain();
 
-        overtoneOsc.type = 'sine';
-        overtoneOsc.frequency.setValueAtTime(shimmer, now + start);
+            mainOsc.type = 'sine';
+            mainOsc.frequency.setValueAtTime(freq, now + start);
 
-        mainGain.gain.setValueAtTime(0.0001, now + start);
-        mainGain.gain.linearRampToValueAtTime(gain, now + start + 0.014);
-        mainGain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+            overtoneOsc.type = 'sine';
+            overtoneOsc.frequency.setValueAtTime(shimmer, now + start);
 
-        overtoneGain.gain.setValueAtTime(0.0001, now + start);
-        overtoneGain.gain.linearRampToValueAtTime(gain * 0.16, now + start + 0.01);
-        overtoneGain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur * 0.55);
+            mainGain.gain.setValueAtTime(0.0001, now + start);
+            mainGain.gain.linearRampToValueAtTime(gain, now + start + 0.014);
+            mainGain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
 
-        mainOsc.connect(mainGain);
-        overtoneOsc.connect(overtoneGain);
-        mainGain.connect(filter);
-        overtoneGain.connect(filter);
+            overtoneGain.gain.setValueAtTime(0.0001, now + start);
+            overtoneGain.gain.linearRampToValueAtTime(gain * 0.18, now + start + 0.01);
+            overtoneGain.gain.exponentialRampToValueAtTime(0.0001, now + start + dur * 0.55);
 
-        mainOsc.start(now + start);
-        overtoneOsc.start(now + start);
-        mainOsc.stop(now + start + dur + 0.03);
-        overtoneOsc.stop(now + start + dur + 0.03);
-      });
-    } else if (type === 'error') {
-      // Soft, muted warm double marimba knock (pure sine, zero buzz)
-      const errNotes = [
-        { freq: 293.66, endFreq: 261.63, start: 0.0, dur: 0.13, gain: 0.075 },
-        { freq: 220.00, endFreq: 185.00, start: 0.135, dur: 0.22, gain: 0.08 }
-      ];
-      errNotes.forEach(({ freq, endFreq, start, dur, gain }) => {
-        const osc = ctx.createOscillator();
-        const gainNode = ctx.createGain();
+            mainOsc.connect(mainGain);
+            overtoneOsc.connect(overtoneGain);
+            mainGain.connect(filter);
+            overtoneGain.connect(filter);
 
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + start);
-        osc.frequency.exponentialRampToValueAtTime(endFreq, now + start + dur);
+            mainOsc.start(now + start);
+            overtoneOsc.start(now + start);
+            mainOsc.stop(now + start + dur + 0.03);
+            overtoneOsc.stop(now + start + dur + 0.03);
+          });
+        } else if (type === 'error') {
+          // Soft, muted warm double marimba knock (pure sine, zero buzz)
+          const errNotes = [
+            { freq: 293.66, endFreq: 261.63, start: 0.0, dur: 0.13, gain: 0.075 },
+            { freq: 220.00, endFreq: 185.00, start: 0.135, dur: 0.22, gain: 0.08 }
+          ];
+          errNotes.forEach(({ freq, endFreq, start, dur, gain }) => {
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
 
-        gainNode.gain.setValueAtTime(0.0001, now + start);
-        gainNode.gain.linearRampToValueAtTime(gain, now + start + 0.012);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + start);
+            osc.frequency.exponentialRampToValueAtTime(endFreq, now + start + dur);
 
-        osc.connect(gainNode);
-        gainNode.connect(filter);
+            gainNode.gain.setValueAtTime(0.0001, now + start);
+            gainNode.gain.linearRampToValueAtTime(gain, now + start + 0.012);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
 
-        osc.start(now + start);
-        osc.stop(now + start + dur + 0.02);
-      });
-    } else if (type === 'confirm') {
-      // Gentle soft glass pop for confirmation modals
-      const promptNotes = [
-        { freq: 659.25, start: 0.0, dur: 0.08, gain: 0.05 },
-        { freq: 880.00, start: 0.065, dur: 0.18, gain: 0.06 }
-      ];
-      promptNotes.forEach(({ freq, start, dur, gain }) => {
-        const osc = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now + start);
-        gainNode.gain.setValueAtTime(0.0001, now + start);
-        gainNode.gain.linearRampToValueAtTime(gain, now + start + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
-        osc.connect(gainNode);
-        gainNode.connect(filter);
-        osc.start(now + start);
-        osc.stop(now + start + dur + 0.02);
-      });
+            osc.connect(gainNode);
+            gainNode.connect(filter);
+
+            osc.start(now + start);
+            osc.stop(now + start + dur + 0.02);
+          });
+        } else if (type === 'confirm') {
+          // Gentle soft glass pop for confirmation modals
+          const promptNotes = [
+            { freq: 659.25, start: 0.0, dur: 0.08, gain: 0.05 },
+            { freq: 880.00, start: 0.065, dur: 0.18, gain: 0.06 }
+          ];
+          promptNotes.forEach(({ freq, start, dur, gain }) => {
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + start);
+            gainNode.gain.setValueAtTime(0.0001, now + start);
+            gainNode.gain.linearRampToValueAtTime(gain, now + start + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+            osc.connect(gainNode);
+            gainNode.connect(filter);
+            osc.start(now + start);
+            osc.stop(now + start + dur + 0.02);
+          });
+        }
+      } catch (_) {}
+    };
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(playNotes).catch(playNotes);
+    } else {
+      playNotes();
     }
   } catch (_) {}
+}
+
+if (typeof window !== 'undefined') {
+  const unlockAudio = () => {
+    try {
+      const ctx = getAppAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    } catch (_) {}
+  };
+  window.addEventListener('pointerdown', unlockAudio, { passive: true });
+  window.addEventListener('touchstart', unlockAudio, { passive: true });
 }
 
 const CrescentMoonIcon = ({ size = 18, isDark = false, className = '' }) => (
@@ -1219,6 +1243,89 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode =
                 <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{details.method} ({details.number})</span>
               </div>
             )}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-xs shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all cursor-pointer relative z-10"
+        >
+          {lang === 'bn' ? 'ঠিক আছে (Done)' : 'Done'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const DepositFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode = false }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    playAppSound('success');
+
+    // Automatically redirect to home page after 3 seconds as requested by admin
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-md animate-in fade-in duration-200">
+      <div className={`relative w-full max-w-[350px] p-6 text-center rounded-[30px] shadow-2xl border transition-all animate-in zoom-in-95 duration-300 overflow-hidden ${
+        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+      }`}>
+        {/* Ambient Emerald Glow + Corner Botanical Accent */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
+        <img
+          src={sakuraBranchArt}
+          alt=""
+          className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
+            darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
+          }`}
+        />
+
+        {/* Luxury Animated Checkmark Emblem */}
+        <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'ডিপোজিট সফল হয়েছে' : 'DEPOSIT SUCCESSFUL'} />
+
+        <h3 className="text-[19px] font-black leading-tight mt-1 mb-1">
+          {lang === 'bn' ? 'ডিপোজিট সফল হয়েছে!' : 'Deposit Successful!'}
+        </h3>
+        <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-4 leading-relaxed">
+          {lang === 'bn' ? 'আপনার অ্যাকাউন্টে টাকা সফলভাবে যোগ করা হয়েছে।' : 'Funds have been credited to your balance.'}
+        </p>
+
+        {/* Breakdown Card (Exact 1:1 Match to 2nd Image) */}
+        {details && (
+          <div className={`rounded-2xl p-3.5 border mb-4 text-left space-y-2 text-[12px] relative z-10 ${
+            darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50/90 border-slate-200/80'
+          }`}>
+            <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+              <span>{lang === 'bn' ? 'পরিমাণ:' : 'Amount:'}</span>
+              <span className="font-bold text-slate-900 dark:text-white font-mono">
+                + ৳ {parseFloat(details.amount || 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+              <span>{lang === 'bn' ? 'পেমেন্ট মেথড:' : 'Method:'}</span>
+              <span className="font-bold text-slate-900 dark:text-white">{details.method || 'bKash'}</span>
+            </div>
+            {details.trxId && (
+              <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 text-[11px] pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+                <span>{lang === 'bn' ? 'TrxID:' : 'TrxID:'}</span>
+                <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{details.trxId}</span>
+              </div>
+            )}
+            <div className="h-px bg-slate-200 dark:bg-slate-700 w-full my-1" />
+            <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+              <span className="font-bold">{lang === 'bn' ? 'নতুন ব্যালেন্স:' : 'New Balance:'}</span>
+              <span className="font-black text-[14px] font-mono">
+                ৳ {parseFloat(details.newBalance || 0).toFixed(2)}
+              </span>
+            </div>
           </div>
         )}
 
@@ -6356,13 +6463,16 @@ export default function App() {
                       lang={lang} 
                       t={t} 
                       darkMode={darkMode}
+                      setIsModalOpen={setIsModalOpen}
                       onStepChange={setAddMoneyStep}
                       onDone={() => {
                           setAddMoneyStep(1);
+                          setIsModalOpen(false);
                           setActiveTab('home');
                       }}
                       onGoToBuyCrypto={() => {
                           setAddMoneyStep(1);
+                          setIsModalOpen(false);
                           setActiveTab('buy');
                       }}
                       reloadData={() => loadData(user?.id || 123456789)}
@@ -7926,12 +8036,19 @@ function AddMoneyPage({
     lang = 'bn', 
     t, 
     darkMode = false,
+    setIsModalOpen,
     onStepChange,
     onDone, 
     onGoToBuyCrypto, 
     reloadData 
 }) {
     const [step, setStep] = useState(1);
+    const [showFlowerModal, setShowFlowerModal] = useState(false);
+    const [depositDetails, setDepositDetails] = useState(null);
+
+    useEffect(() => {
+        if (setIsModalOpen) setIsModalOpen(showFlowerModal);
+    }, [showFlowerModal, setIsModalOpen]);
 
     useEffect(() => {
         if (onStepChange) onStepChange(step);
@@ -7940,8 +8057,9 @@ function AddMoneyPage({
     useEffect(() => {
         return () => {
             if (onStepChange) onStepChange(1);
+            if (setIsModalOpen) setIsModalOpen(false);
         };
-    }, [onStepChange]);
+    }, [onStepChange, setIsModalOpen]);
     const [amount, setAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('bKash'); // 'bKash' | 'Nagad'
     const [isMethodDropdownOpen, setIsMethodDropdownOpen] = useState(false);
@@ -8093,11 +8211,17 @@ function AddMoneyPage({
             });
 
             if (res.success) {
-                setDepositResult(res);
-                if (reloadData) reloadData();
+                const calculatedNewBal = parseFloat(res.newBalance || (Number(balance || 0) + cleanAmt));
+                setDepositDetails({
+                    amount: cleanAmt,
+                    method: paymentMethod,
+                    trxId: cleanId,
+                    newBalance: calculatedNewBal
+                });
+                setShowFlowerModal(true);
+                if (setIsModalOpen) setIsModalOpen(true);
                 playAppSound('success');
-                setStep(3);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                if (reloadData) reloadData();
             } else {
                 setErrorMessage(res.error || (lang === 'bn' ? 'ভেরিফিকেশন ব্যর্থ হয়েছে' : 'Verification failed'));
                 playAppSound('error');
@@ -8109,89 +8233,6 @@ function AddMoneyPage({
             setLoading(false);
         }
     };
-
-    // STEP 3: ANIMATED LUXURY POPUP MODAL (IDENTICAL TO IMAGE 2)
-    if (step === 3) {
-        return (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-md animate-in fade-in duration-200">
-                <div className={`relative w-full max-w-[350px] p-6 text-center rounded-[30px] shadow-2xl border transition-all animate-in zoom-in-95 duration-300 overflow-hidden ${
-                    darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
-                }`}>
-                    {/* Ambient Emerald Glow + Corner Botanical Accent */}
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
-                    <img
-                        src={sakuraBranchArt}
-                        alt=""
-                        className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
-                            darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
-                        }`}
-                    />
-
-                    {/* Luxury Animated Checkmark Emblem */}
-                    <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'ডিপোজিট সফল হয়েছে' : 'DEPOSIT SUCCESSFUL'} />
-
-                    <h3 className="text-[20px] font-black leading-tight mt-1 mb-1">
-                        {lang === 'bn' ? 'ডিপোজিট সফল হয়েছে!' : 'Deposit Successful!'}
-                    </h3>
-                    <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-4 leading-relaxed">
-                        {lang === 'bn' ? 'আপনার অ্যাকাউন্টে টাকা সফলভাবে যোগ করা হয়েছে।' : 'Funds have been credited to your balance.'}
-                    </p>
-
-                    {/* Breakdown Card */}
-                    <div className={`rounded-2xl p-3.5 border mb-4 text-left space-y-2 text-[12px] relative z-10 ${
-                        darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50/90 border-slate-200/80'
-                    }`}>
-                        <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                            <span>{lang === 'bn' ? 'পরিমাণ:' : 'Amount:'}</span>
-                            <span className="font-bold text-slate-900 dark:text-white font-mono text-[13px]">
-                                + ৳ {parseFloat(depositResult?.amount || amount || 0).toLocaleString()}
-                            </span>
-                        </div>
-                        <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                            <span>{lang === 'bn' ? 'পেমেন্ট মেথড:' : 'Method:'}</span>
-                            <span className="font-bold text-slate-900 dark:text-white">{paymentMethod}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-                            <span>TrxID:</span>
-                            <span className="font-mono font-bold text-slate-900 dark:text-white">{trxId}</span>
-                        </div>
-                        <div className="h-px bg-slate-200 dark:bg-slate-700 w-full my-1" />
-                        <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
-                            <span className="font-bold">{lang === 'bn' ? 'নতুন ব্যালেন্স:' : 'New Balance:'}</span>
-                            <span className="font-black font-mono text-[14px]">
-                                ৳ {parseFloat(depositResult?.newBalance || (Number(balance || 0) + Number(amount))).toFixed(2)}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="space-y-2 relative z-10">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                playAppSound('tap');
-                                onDone();
-                            }}
-                            className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-xs shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all cursor-pointer"
-                        >
-                            {lang === 'bn' ? 'ঠিক আছে (Done)' : 'Done'}
-                        </button>
-                        {onGoToBuyCrypto && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    playAppSound('tap');
-                                    onGoToBuyCrypto();
-                                }}
-                                className="w-full py-2.5 rounded-xl text-slate-500 dark:text-slate-400 font-bold text-[11px] hover:text-slate-800 dark:hover:text-white cursor-pointer active:scale-95 transition-all"
-                            >
-                                {lang === 'bn' ? '⚡ এখনই ক্রিপ্টো কিনুন' : '⚡ Buy Crypto Now'}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     // STEP 1: SELECT METHOD & AMOUNT
     if (step === 1) {
@@ -8423,6 +8464,21 @@ function AddMoneyPage({
                         )}
                     </button>
                 </div>
+
+                <DepositFlowerModal 
+                    isOpen={showFlowerModal}
+                    onClose={() => {
+                        setShowFlowerModal(false);
+                        if (setIsModalOpen) setIsModalOpen(false);
+                        setStep(1);
+                        setAmount('');
+                        setTrxId('');
+                        if (onDone) onDone();
+                    }}
+                    details={depositDetails}
+                    lang={lang}
+                    darkMode={darkMode}
+                />
             </div>
         );
     }
@@ -8722,6 +8778,21 @@ function AddMoneyPage({
                 <Clock size={12} className="text-purple-500 shrink-0" />
                 <span>{lang === 'bn' ? 'ডিপোজিট প্রসেসিং সময়: সাধারণত ৫-২০ সেকেন্ড' : 'Deposit processing time: usually 5-20 seconds'}</span>
             </div>
+
+            <DepositFlowerModal 
+                isOpen={showFlowerModal}
+                onClose={() => {
+                    setShowFlowerModal(false);
+                    if (setIsModalOpen) setIsModalOpen(false);
+                    setStep(1);
+                    setAmount('');
+                    setTrxId('');
+                    if (onDone) onDone();
+                }}
+                details={depositDetails}
+                lang={lang}
+                darkMode={darkMode}
+            />
         </div>
     );
 }
