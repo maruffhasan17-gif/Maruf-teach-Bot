@@ -889,11 +889,13 @@ function Dashboard() {
   const isDark = theme === 'dark';
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  // Fixed Buy Rates & Profit Margins for Admin Dashboard
-  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 170.00);
+  // Live Buy Rates & Profit Margins for Admin Dashboard (Dynamic from User Buy Rates)
+  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 150.00);
   const liveUsdtBdt = parseFloat(data.buyRates?.USDT || data.realUsdtBdt || (data.marketRates?.buyRates?.USDT) || 130.00);
-  const gramProfitMargin = 40.00; // Buy 170 - Sell 130 = ৳40 Profit/Unit
-  const usdtProfitMargin = 12.00; // Buy 130 - Sell 118 = ৳12 Profit/Unit
+  const liveGramSellBdt = parseFloat(data.sellRates?.GRAM || (data.marketRates?.sellRates?.GRAM) || 115.00);
+  const liveUsdtSellBdt = parseFloat(data.sellRates?.USDT || (data.marketRates?.sellRates?.USDT) || 118.00);
+  const gramProfitMargin = Math.max(0, parseFloat(data.profitMargins?.GRAM || (liveGramBdt - liveGramSellBdt) || 35.00));
+  const usdtProfitMargin = Math.max(0, parseFloat(data.profitMargins?.USDT || (liveUsdtBdt - liveUsdtSellBdt) || 12.00));
 
   // Combined real-time activities for the top-right live ticker
   const recentActivities = useMemo(() => {
@@ -1340,7 +1342,7 @@ function Dashboard() {
                   Rate: ৳{liveGramBdt.toFixed(2)} / GRAM
                 </span>
                 <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  +৳40 প্রফিট
+                  +৳{gramProfitMargin.toFixed(0)} প্রফিট
                 </span>
               </div>
             </div>
@@ -1409,7 +1411,7 @@ function Dashboard() {
                   Rate: ৳{liveUsdtBdt.toFixed(2)} / USDT
                 </span>
                 <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  +৳12 প্রফিট
+                  +৳{usdtProfitMargin.toFixed(0)} প্রফিট
                 </span>
               </div>
             </div>
@@ -1711,11 +1713,13 @@ function BotWallet() {
   const tonGasVal = parseFloat(data.tonNativeBalance || data.tonBalance || 0);
   const liveTonUsdtRate = parseFloat(data.liveTonUsdtRate || data.realGramUsdt || 1.2365);
 
-  // Live market rates for Admin Treasury valuation (Fixed Buy Rates per Admin)
-  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 170.00);
+  // Live market rates for Admin Treasury valuation (Dynamically synced from User Panel Buy Rates)
+  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 150.00);
   const liveUsdtBdt = parseFloat(data.buyRates?.USDT || data.realUsdtBdt || (data.marketRates?.buyRates?.USDT) || 130.00);
-  const gramProfitMargin = 40.00; // Buy ৳170 - Sell ৳130 = ৳40 Profit/Unit
-  const usdtProfitMargin = 12.00; // Buy ৳130 - Sell ৳118 = ৳12 Profit/Unit
+  const liveGramSellBdt = parseFloat(data.sellRates?.GRAM || (data.marketRates?.sellRates?.GRAM) || 115.00);
+  const liveUsdtSellBdt = parseFloat(data.sellRates?.USDT || (data.marketRates?.sellRates?.USDT) || 118.00);
+  const gramProfitMargin = Math.max(0, parseFloat(data.profitMargins?.GRAM || (liveGramBdt - liveGramSellBdt) || 35.00));
+  const usdtProfitMargin = Math.max(0, parseFloat(data.profitMargins?.USDT || (liveUsdtBdt - liveUsdtSellBdt) || 12.00));
 
   const gramBdtVal = gramBalanceVal * liveGramBdt;
   const usdtBdtVal = usdtBalanceVal * liveUsdtBdt;
@@ -2094,9 +2098,9 @@ function BotWallet() {
             {/* Total Valuation */}
             <div>
               <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-between">
-                <span>COMBINED TREASURY LIQUIDITY (FIXED BUY RATES)</span>
+                <span>COMBINED TREASURY LIQUIDITY (LIVE USER BUY RATES)</span>
                 <span className="text-[10px] font-black uppercase text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                  FIXED: GRAM ৳170 • USDT ৳130
+                  LIVE BUY: GRAM ৳{liveGramBdt.toFixed(0)} • USDT ৳{liveUsdtBdt.toFixed(0)}
                 </span>
               </div>
               <div className="flex items-baseline gap-3">
@@ -2146,13 +2150,13 @@ function BotWallet() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <div className="px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 font-bold flex items-center gap-1.5" title="GRAM Buy: ৳170 vs Sell: ৳130 = ৳40 Profit/Unit">
+                  <div className="px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 font-bold flex items-center gap-1.5" title={`GRAM Buy: ৳${liveGramBdt.toFixed(0)} vs Sell: ৳${liveGramSellBdt.toFixed(0)} = ৳${gramProfitMargin.toFixed(0)} Profit/Unit`}>
                     <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                    <span>GRAM লাভ: <b>+৳40</b>/টি <span className="text-purple-400 font-mono">(+৳{gramInventoryProfit.toFixed(0)})</span></span>
+                    <span>GRAM লাভ: <b>+৳{gramProfitMargin.toFixed(0)}</b>/টি <span className="text-purple-400 font-mono">(+৳{gramInventoryProfit.toFixed(0)})</span></span>
                   </div>
-                  <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold flex items-center gap-1.5" title="USDT Buy: ৳130 vs Sell: ৳118 = ৳12 Profit/Unit">
+                  <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold flex items-center gap-1.5" title={`USDT Buy: ৳${liveUsdtBdt.toFixed(0)} vs Sell: ৳${liveUsdtSellBdt.toFixed(0)} = ৳${usdtProfitMargin.toFixed(0)} Profit/Unit`}>
                     <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    <span>USDT লাভ: <b>+৳12</b>/টি <span className="text-emerald-400 font-mono">(+৳{usdtInventoryProfit.toFixed(0)})</span></span>
+                    <span>USDT লাভ: <b>+৳{usdtProfitMargin.toFixed(0)}</b>/টি <span className="text-emerald-400 font-mono">(+৳{usdtInventoryProfit.toFixed(0)})</span></span>
                   </div>
                 </div>
               </div>
@@ -2183,15 +2187,15 @@ function BotWallet() {
               <div className="flex flex-wrap items-center gap-3 pt-1 text-xs font-bold">
                 <div className="flex items-center gap-1.5 text-purple-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                  <span>GRAM Pool: <b>{gramBalanceVal.toFixed(3)}</b> (৳{gramBdtVal.toFixed(0)} @ ৳170)</span>
+                  <span>GRAM Pool: <b>{gramBalanceVal.toFixed(3)}</b> (৳{gramBdtVal.toFixed(0)} @ ৳{liveGramBdt.toFixed(0)})</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-emerald-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                  <span>TON USDT: <b>${tonUsdtVal.toFixed(2)}</b> (৳{(tonUsdtVal * liveUsdtBdt).toFixed(0)} @ ৳130)</span>
+                  <span>TON USDT: <b>${tonUsdtVal.toFixed(2)}</b> (৳{(tonUsdtVal * liveUsdtBdt).toFixed(0)} @ ৳{liveUsdtBdt.toFixed(0)})</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-amber-300">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                  <span>EVM Chains USDT: <b>${evmUsdtVal.toFixed(2)}</b> (৳{(evmUsdtVal * liveUsdtBdt).toFixed(0)} @ ৳130)</span>
+                  <span>EVM Chains USDT: <b>${evmUsdtVal.toFixed(2)}</b> (৳{(evmUsdtVal * liveUsdtBdt).toFixed(0)} @ ৳{liveUsdtBdt.toFixed(0)})</span>
                 </div>
               </div>
             </div>
@@ -2387,7 +2391,7 @@ function BotWallet() {
                   Rate: ৳{liveGramBdt.toFixed(2)} / GRAM
                 </span>
                 <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  +৳40 প্রফিট
+                  +৳{gramProfitMargin.toFixed(0)} প্রফিট
                 </span>
               </div>
             </div>
@@ -2421,7 +2425,7 @@ function BotWallet() {
             }`}>
               <div className="flex flex-col">
                 <span className={`font-bold ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
-                  ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation (বাই রেট ৳১৭০)
+                  ≈ ৳{gramBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation (বাই রেট ৳{liveGramBdt.toFixed(0)})
                 </span>
                 <span className="text-[11px] font-mono text-emerald-400 font-bold">
                   স্টক নিট লাভ: +৳{gramInventoryProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
@@ -2485,7 +2489,7 @@ function BotWallet() {
                   Rate: ৳{liveUsdtBdt.toFixed(2)} / USDT
                 </span>
                 <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  +৳12 প্রফিট
+                  +৳{usdtProfitMargin.toFixed(0)} প্রফিট
                 </span>
               </div>
             </div>
@@ -2518,7 +2522,7 @@ function BotWallet() {
             }`}>
               <div className="flex flex-col">
                 <span className={`font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>
-                  ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation (বাই রেট ৳১৩০)
+                  ≈ ৳{usdtBdtVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT Valuation (বাই রেট ৳{liveUsdtBdt.toFixed(0)})
                 </span>
                 <span className="text-[11px] font-mono text-emerald-400 font-bold">
                   স্টক নিট লাভ: +৳{usdtInventoryProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
@@ -5273,8 +5277,8 @@ function BotSettings() {
               <span className="text-xs font-bold text-slate-400 uppercase">GRAM Buy Rate</span>
               <Gem size={18} className="text-purple-400" />
             </div>
-            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = {parseFloat(data.buyRates?.GRAM || data.realGramBdt || 170.00).toFixed(2)} ৳ BDT</div>
-            <p className="text-[11px] text-slate-400 mt-1">ফিক্সড বাই রেট (সেল রেট: ৳130.00 | প্রফিট: ৳40.00/টি)</p>
+            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = {parseFloat(data.buyRates?.GRAM || data.realGramBdt || 150.00).toFixed(2)} ৳ BDT</div>
+            <p className="text-[11px] text-slate-400 mt-1">লাইভ বাই রেট (সেল রেট: ৳{parseFloat(data.sellRates?.GRAM || 115.00).toFixed(2)} | প্রফিট: ৳{parseFloat(data.profitMargins?.GRAM || 35.00).toFixed(2)}/টি)</p>
           </div>
 
           {/* USDT Card */}

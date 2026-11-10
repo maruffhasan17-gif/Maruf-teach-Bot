@@ -5619,6 +5619,7 @@ export default function App() {
   };
 
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [addMoneyStep, setAddMoneyStep] = useState(1);
   useEffect(() => {
     let initialHeight = window.innerHeight;
 
@@ -5701,11 +5702,11 @@ export default function App() {
       const cachedBuy = localStorage.getItem('maruf_buyer_rates');
       const cachedSell = localStorage.getItem('maruf_seller_rates');
       return {
-        buyRates: cachedBuy ? JSON.parse(cachedBuy).rates : { GRAM: 145, USDT: 130 },
+        buyRates: cachedBuy ? JSON.parse(cachedBuy).rates : { GRAM: 150, USDT: 130 },
         sellRates: cachedSell ? JSON.parse(cachedSell).rates : { GRAM: 115, USDT: 118 }
       };
     } catch(e) {
-      return { buyRates: { GRAM: 145, USDT: 130 }, sellRates: { GRAM: 115, USDT: 118 } };
+      return { buyRates: { GRAM: 150, USDT: 130 }, sellRates: { GRAM: 115, USDT: 118 } };
     }
   });
 
@@ -5716,7 +5717,7 @@ export default function App() {
         if (!isMounted || !data) return;
         setAppMarketRates({
           buyRates: {
-            GRAM: Number(data.buyRates?.GRAM) || 145,
+            GRAM: Number(data.buyRates?.GRAM) || 150,
             USDT: Number(data.buyRates?.USDT) || 130
           },
           sellRates: {
@@ -6355,8 +6356,15 @@ export default function App() {
                       lang={lang} 
                       t={t} 
                       darkMode={darkMode}
-                      onDone={() => setActiveTab('home')}
-                      onGoToBuyCrypto={() => setActiveTab('buy')}
+                      onStepChange={setAddMoneyStep}
+                      onDone={() => {
+                          setAddMoneyStep(1);
+                          setActiveTab('home');
+                      }}
+                      onGoToBuyCrypto={() => {
+                          setAddMoneyStep(1);
+                          setActiveTab('buy');
+                      }}
                       reloadData={() => loadData(user?.id || 123456789)}
                   />
               )}
@@ -6548,8 +6556,9 @@ export default function App() {
         {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral'  && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (() => {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
+            const isNavHidden = isKeyboardVisible || (activeTab === 'add-money' && addMoneyStep === 2);
             return (
-            <div className={`fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none transition-transform duration-300 ${isKeyboardVisible ? 'opacity-0 translate-y-32 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+            <div className={`fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none transition-all duration-300 ease-out will-change-transform ${isNavHidden ? 'opacity-0 translate-y-32 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
                 <div className={`w-full max-w-[360px] backdrop-blur-md rounded-[28px] relative flex justify-between items-center p-1.5 pointer-events-auto overflow-hidden transition-colors duration-300 ${
                   darkMode 
                     ? 'bg-slate-900/95 border border-slate-800 shadow-[0_12px_36px_rgba(0,0,0,0.5)] text-white' 
@@ -6993,7 +7002,7 @@ function CryptoAssetSelectModal({
   if (!isOpen) return null;
 
   const isBuy = mode === 'buy';
-  const gramRate = isBuy ? (liveRates?.GRAM || 145) : (sellRates?.GRAM || 115);
+  const gramRate = isBuy ? (liveRates?.GRAM || 150) : (sellRates?.GRAM || 115);
   const usdtRate = isBuy ? (liveRates?.USDT || 130) : (sellRates?.USDT || 118);
   const flowerImg = isBuy ? sakuraBranchArt : wisteriaCascadeArt;
 
@@ -7220,7 +7229,7 @@ function HomePage({
         if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates?.USDT) return parsed.rates;
       }
     } catch (_) {}
-    return { USDT: 130, GRAM: 145, sellRates: { USDT: 118, GRAM: 115 } };
+    return { USDT: 130, GRAM: 150, sellRates: { USDT: 118, GRAM: 115 } };
   });
 
   useEffect(() => {
@@ -7230,11 +7239,11 @@ function HomePage({
         if (!isMounted || !data?.buyRates) return;
         setMarketRates({
           USDT: Number(data.buyRates.USDT) || 130,
-          GRAM: Number(data.buyRates.GRAM) || 170,
+          GRAM: Number(data.buyRates.GRAM) || 150,
           realGramUsdt: Number(data.realGramUsdt) || 1.23,
           sellRates: {
             USDT: Number(data.sellRates?.USDT) || 118,
-            GRAM: Number(data.sellRates?.GRAM) || 130
+            GRAM: Number(data.sellRates?.GRAM) || 115
           }
         });
       }).catch(() => {});
@@ -7364,7 +7373,7 @@ function HomePage({
   // ---- Supported coins (only what the bot trades: GRAM and USDT) ----
   const coins = [
     { symbol: 'USDT', name: 'Tether USD • TRC20 / TON', Logo: TetherLogo, buy: marketRates.USDT || 130, sell: marketRates.sellRates?.USDT || 118 },
-    { symbol: 'GRAM', name: 'Gram • The Open Network', Logo: GramTokenLogo, buy: marketRates.GRAM || 145, sell: marketRates.sellRates?.GRAM || 115 },
+    { symbol: 'GRAM', name: 'Gram • The Open Network', Logo: GramTokenLogo, buy: marketRates.GRAM || 150, sell: marketRates.sellRates?.GRAM || 115 },
   ];
   const q = searchQuery.trim().toLowerCase();
   const visibleCoins = q ? coins.filter(c => c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : coins;
@@ -7917,11 +7926,22 @@ function AddMoneyPage({
     lang = 'bn', 
     t, 
     darkMode = false,
+    onStepChange,
     onDone, 
     onGoToBuyCrypto, 
     reloadData 
 }) {
     const [step, setStep] = useState(1);
+
+    useEffect(() => {
+        if (onStepChange) onStepChange(step);
+    }, [step, onStepChange]);
+
+    useEffect(() => {
+        return () => {
+            if (onStepChange) onStepChange(1);
+        };
+    }, [onStepChange]);
     const [amount, setAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('bKash'); // 'bKash' | 'Nagad'
     const [isMethodDropdownOpen, setIsMethodDropdownOpen] = useState(false);
@@ -8409,7 +8429,7 @@ function AddMoneyPage({
 
     // STEP 2: PAYMENT & TRXID
     return (
-        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-20 max-w-md mx-auto">
+        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-8 max-w-md mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -9213,10 +9233,10 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
             const cached = localStorage.getItem('maruf_market_rates');
             if (cached) {
                 const parsed = JSON.parse(cached);
-                if (Date.now() - (parsed.timestamp || 0) < 30 * 1000) return parsed.rates || { GRAM: 165, USDT: 125 };
+                if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates) return parsed.rates;
             }
         } catch (_) {}
-        return { GRAM: 165, USDT: 125 };
+        return { GRAM: 150, USDT: 130 };
     });
 
     const [treasuryData, setTreasuryData] = useState(() => {
@@ -9234,10 +9254,15 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         const fetchRates = () => {
             fetchMarketRates().then(data => {
                 if (!isMounted || !data) return;
-                if (data.rates) {
-                    setRates(data.rates);
+                const r = data.buyRates || data.rates;
+                if (r) {
+                    const normRates = {
+                        GRAM: Number(r.GRAM) || 150,
+                        USDT: Number(r.USDT) || 130
+                    };
+                    setRates(normRates);
                     try {
-                        localStorage.setItem('maruf_market_rates', JSON.stringify({ rates: data.rates, timestamp: Date.now() }));
+                        localStorage.setItem('maruf_market_rates', JSON.stringify({ rates: normRates, timestamp: Date.now() }));
                     } catch (_) {}
                 }
                 if (data.treasury) {
@@ -9260,7 +9285,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     ];
 
     const activeNetworkObj = BUY_NETWORKS.find(n => n.id === selectedNetwork) || BUY_NETWORKS[0];
-    const cryptoRate = rates[selectedAsset] || (selectedAsset === 'GRAM' ? 165 : 125);
+    const cryptoRate = rates[selectedAsset] || (selectedAsset === 'GRAM' ? 150 : 130);
     const numBdt = parseFloat(bdtAmount) || 0;
     const calculatedCrypto = numBdt > 0 ? (numBdt / cryptoRate).toFixed(4) : '';
     const hasInsufficientBalance = numBdt > balance;

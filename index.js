@@ -2924,7 +2924,7 @@ async function getDailyProfitAudit(targetDateStr = null) {
     const endMs = new Date(dateKey + 'T23:59:59.999+06:00').getTime();
 
     // Dynamically retrieve current settings rates
-    const buyRates = cachedMarketRates?.buyRates || { USDT: 130, GRAM: 145, TON: 145 };
+    const buyRates = cachedMarketRates?.buyRates || { USDT: 130, GRAM: 150, TON: 150 };
     const sellRates = cachedMarketRates?.sellRates || { USDT: 118, GRAM: 115, TON: 115 };
 
     let depositOrdersCount = 0;
@@ -3022,7 +3022,7 @@ async function getDailyProfitAudit(targetDateStr = null) {
                     const crypto = parseFloat(b.amount || b.cryptoAmount || 0) || 0;
                     buyVolumeBdt += bdt;
 
-                    const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 145);
+                    const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 150);
                     const sRate = Number(sellRates[asset]) || (asset === 'USDT' ? 118 : 115);
                     const spread = Math.max(0, bRate - sRate);
 
@@ -3053,7 +3053,7 @@ async function getDailyProfitAudit(targetDateStr = null) {
                     const crypto = parseFloat(s.cryptoAmount || s.amount || 0) || 0;
                     sellVolumeBdt += bdt;
 
-                    const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 145);
+                    const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 150);
                     const sRate = Number(sellRates[asset]) || (asset === 'USDT' ? 118 : 115);
                     const spread = Math.max(0, bRate - sRate);
 
@@ -3169,9 +3169,9 @@ async function getDailyProfitAudit(targetDateStr = null) {
         referralBonusesCount,
         gasFeeAdminPocket: 0,
         ratesApplied: {
-            GRAM_BUY: buyRates.GRAM || 145,
+            GRAM_BUY: buyRates.GRAM || 150,
             GRAM_SELL: sellRates.GRAM || 115,
-            GRAM_SPREAD: (buyRates.GRAM || 145) - (sellRates.GRAM || 115),
+            GRAM_SPREAD: (buyRates.GRAM || 150) - (sellRates.GRAM || 115),
             USDT_BUY: buyRates.USDT || 130,
             USDT_SELL: sellRates.USDT || 118,
             USDT_SPREAD: (buyRates.USDT || 130) - (sellRates.USDT || 118)
@@ -4017,11 +4017,11 @@ const { ethers } = require('ethers');
 let cachedMarketRates = {
     realUsdtBdt: 130, // Fixed Buy Rate per Admin (130 BDT)
     realGramUsdt: 1.25,
-    realGramBdt: 145, // Fixed Buy Rate per Admin (145 BDT)
+    realGramBdt: 150, // Fixed Buy Rate per Admin (150 BDT)
     buyRates: {
         USDT: 130, // Fixed 130 BDT
-        GRAM: 145, // Fixed 145 BDT
-        TON: 145
+        GRAM: 150, // Fixed 150 BDT
+        TON: 150
     },
     sellRates: {
         USDT: 118, // Fixed 118 BDT
@@ -4029,9 +4029,9 @@ let cachedMarketRates = {
         TON: 115
     },
     profitMargins: {
-        GRAM: 30, // 145 - 115 = ৳30 TK Profit
+        GRAM: 35, // 150 - 115 = ৳35 TK Profit
         USDT: 12, // 130 - 118 = ৳12 TK Profit
-        TON: 30
+        TON: 35
     },
     lastUpdated: Date.now()
 };
@@ -4040,11 +4040,11 @@ async function updateMarketRates() {
     try {
         // PERMANENTLY FIXED RATES PER ADMIN SPECIFICATION (NO FLUCTUATION):
         // Sell Rates: GRAM = 115 TK, USDT = 118 TK, TON = 115 TK
-        // Buy Rates:  GRAM = 145 TK, USDT = 130 TK, TON = 145 TK
+        // Buy Rates:  GRAM = 150 TK, USDT = 130 TK, TON = 150 TK
         const sellUsdt = 118;
         const sellGram = 115;
         const buyUsdt = 130;
-        const buyGram = 145;
+        const buyGram = 150;
 
         let tonUsdt = 1.25;
         try {
@@ -4056,7 +4056,7 @@ async function updateMarketRates() {
 
         const realGramUsdt = Number(tonUsdt.toFixed(4));
         const liveUsdToBdt = 130.0; // Valuation at Fixed Buy Rate per Admin
-        const realLiveGramBdt = 145.0; // Valuation at Fixed Buy Rate per Admin
+        const realLiveGramBdt = 150.0; // Valuation at Fixed Buy Rate per Admin
 
         cachedMarketRates = {
             realUsdtBdt: liveUsdToBdt,
@@ -4064,16 +4064,16 @@ async function updateMarketRates() {
             realGramBdt: realLiveGramBdt,
             buyRates: {
                 USDT: buyUsdt, // Fixed 130 TK
-                GRAM: buyGram, // Fixed 170 TK
+                GRAM: buyGram, // Fixed 150 TK
                 TON: buyGram
             },
             sellRates: {
                 USDT: sellUsdt, // Fixed 118 TK
-                GRAM: sellGram, // Fixed 130 TK
+                GRAM: sellGram, // Fixed 115 TK
                 TON: sellGram
             },
             profitMargins: {
-                GRAM: buyGram - sellGram, // 40 TK
+                GRAM: buyGram - sellGram, // 35 TK
                 USDT: buyUsdt - sellUsdt, // 12 TK
                 TON: buyGram - sellGram
             },
@@ -4110,6 +4110,7 @@ app.get('/api/miniapp/rates', async (req, res) => {
     res.json({
         success: true,
         ...cachedMarketRates,
+        rates: cachedMarketRates.buyRates,
         treasury: {
             ton: treasury.ton,
             gram: treasury.ton,
@@ -7087,6 +7088,10 @@ app.get('/api/stats', async (req, res) => {
         return res.json(statsCache.data);
     }
 
+    if (forceRefresh || (now - cachedMarketRates.lastUpdated > 30 * 1000)) {
+        await safeUpdateMarketRates().catch(e => console.warn("Rate update warning in stats:", e.message));
+    }
+
     try {
         console.log("/api/stats called");
         
@@ -7197,13 +7202,14 @@ app.get('/api/stats', async (req, res) => {
             evmAddress: evmAddr,
             tonAddress: tonAddr,
             liveTonUsdtRate: cachedMarketRates?.realGramUsdt || 1.25,
-            realGramBdt: Number(cachedMarketRates?.buyRates?.GRAM) || 145.00,
+            realGramBdt: Number(cachedMarketRates?.buyRates?.GRAM) || 150.00,
             realUsdtBdt: Number(cachedMarketRates?.buyRates?.USDT) || 130.00,
             realGramUsdt: cachedMarketRates?.realGramUsdt || 1.25,
             marketRates: cachedMarketRates,
-            buyRates: cachedMarketRates?.buyRates || { USDT: 130, GRAM: 145, TON: 145 },
+            rates: cachedMarketRates?.buyRates || { USDT: 130, GRAM: 150, TON: 150 },
+            buyRates: cachedMarketRates?.buyRates || { USDT: 130, GRAM: 150, TON: 150 },
             sellRates: cachedMarketRates?.sellRates || { USDT: 118, GRAM: 115, TON: 115 },
-            profitMargins: cachedMarketRates?.profitMargins || { GRAM: 30, USDT: 12, TON: 30 }
+            profitMargins: cachedMarketRates?.profitMargins || { GRAM: 35, USDT: 12, TON: 35 }
         };
 
         statsCache = { data: resultData, timestamp: now };
@@ -7927,7 +7933,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         // Calculate cryptoAmount with ±3% rate lock protection for instant clicks
         const serverBuyRate = asset === 'USDT'
             ? (Number(cachedMarketRates?.buyRates?.USDT) || 130)
-            : (Number(cachedMarketRates?.buyRates?.GRAM) || 145);
+            : (Number(cachedMarketRates?.buyRates?.GRAM) || 150);
 
         let effectiveRate = serverBuyRate;
         const clientExpectedRate = parseFloat(req.body.expectedRate);
