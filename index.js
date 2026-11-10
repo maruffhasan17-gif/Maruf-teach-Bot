@@ -1380,7 +1380,14 @@ const t = {
     }
 };
 
-async function getAdminTreasuryBalances() {
+let cachedAdminTreasury = { data: null, timestamp: 0 };
+
+async function getAdminTreasuryBalances(force = false) {
+    const now = Date.now();
+    if (!force && cachedAdminTreasury.data && (now - cachedAdminTreasury.timestamp < 6000)) {
+        return cachedAdminTreasury.data;
+    }
+
     let tonBalance = 0;
     let usdtBalance = 0;
     const adminAddress = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
@@ -1427,12 +1434,14 @@ async function getAdminTreasuryBalances() {
         console.warn("Failed to fetch admin USDT balance:", e.message);
     }
 
-    return {
+    const result = {
         ton: Number(tonBalance.toFixed(4)),
         usdt: Number(usdtBalance.toFixed(4)),
         address: adminAddress,
         usdtJettonWallet: adminUsdtJettonWallet
     };
+    cachedAdminTreasury = { data: result, timestamp: now };
+    return result;
 }
 
 // ==================== RELIABLE SEQNO & ON-CHAIN AUTO-SWAP ENGINE ====================
@@ -1789,145 +1798,52 @@ async function swapAdminTonToUsdt(tonAmountToSwap) {
 
 /**
  * Ensures the Admin Treasury has enough of `asset` ('GRAM', 'TON', or 'USDT') to send `requiredCryptoAmount`.
- * If the requested asset is short, but the other asset has sufficient balance, automatically swaps on-chain first!
+ * AUTO-SWAP IS OFFICIALLY PERMANENTLY DISABLED PER ADMIN INSTRUCTION.
+ * Performs direct treasury reserve check without on-chain DEX auto-swaps.
  */
 async function ensureAdminTreasuryForOrder(asset, requiredCryptoAmount, meta = {}) {
     const cleanAsset = (asset || 'GRAM').toUpperCase();
     const isTonAsset = (cleanAsset === 'GRAM' || cleanAsset === 'TON');
     const reqAmount = parseFloat(requiredCryptoAmount);
 
-    // Wait if another auto-swap is currently running
-    let waitTicks = 0;
-    while (isAdminSwapInProgress && waitTicks < 16) {
-        await new Promise(r => setTimeout(r, 2000));
-        waitTicks++;
-    }
-
     let treasury = await getAdminTreasuryBalances();
     const MIN_TON_TRANSFER_GAS = 0.02;
-    const liveTonPrice = Number(cachedMarketRates?.realGramUsdt) || 1.32;
-    const config = botConfig || {};
-    const adminGroupId = config.adminGroupId || 8799135330;
 
     if (isTonAsset) {
         const requiredTon = reqAmount + MIN_TON_TRANSFER_GAS;
         if (treasury.ton >= requiredTon) {
             return { ok: true, treasury, autoSwapped: false };
         }
-
-        // Shortfall of GRAM/TON! Check if we can auto-swap USDT -> TON
-        const minShortfallTon = (requiredTon - treasury.ton) + 0.06;
-        // Ideal shortfall leaves ~0.30 TON gas reserve in the wallet after sending to the user so future swaps also have gas
-        const idealShortfallTon = (requiredTon - treasury.ton) + 0.30;
-
-        const minUsdtNeeded = Math.max(0.20, parseFloat((minShortfallTon * liveTonPrice * 1.05).toFixed(2)));
-        const idealUsdtNeeded = Math.max(0.35, parseFloat((idealShortfallTon * liveTonPrice * 1.06).toFixed(2)));
-
-        if (treasury.usdt >= minUsdtNeeded && treasury.ton >= 0.155) {
-            const usdtToSwap = parseFloat(Math.min(treasury.usdt, idealUsdtNeeded).toFixed(4));
-            isAdminSwapInProgress = true;
-            try {
-                const swapRes = await swapAdminUsdtToTon(usdtToSwap);
-                treasury = swapRes.afterTreasury || await getAdminTreasuryBalances();
-
-                if (treasury.ton >= reqAmount + 0.015) {
-                    if (adminGroupId && bot) {
-                        const swapMsg = `<blockquote><b>🔄 অটো-সোয়াপ সম্পন্ন (Auto-Swap USDT ➔ ${cleanAsset})!</b>\n\n` +
-                            `👤 <b>ইউজার অর্ডার:</b> <code>${meta.userId || 'Admin'}</code> — <b>${reqAmount} ${cleanAsset}</b>\n` +
-                            `💎 <b>পূর্বের ব্যালেন্স ছিল:</b> <code>${swapRes.beforeTreasury.ton} TON | ${swapRes.beforeTreasury.usdt} USDT</code>\n` +
-                            `⚡ <b>অটো-সোয়াপ:</b> <b>${swapRes.swappedUsdt} USDT ➔ +${swapRes.receivedTon} TON</b> (${swapRes.dex})\n` +
-                            `✅ <b>সোয়াপ পরবর্তী ব্যালেন্স:</b> <b>${treasury.ton} TON | ${treasury.usdt} USDT</b>\n\n` +
-                            `🚀 <i>এখন স্বয়ংক্রিয়ভাবে ইউজারের ওয়ালেটে ${reqAmount} ${cleanAsset} পাঠানো হচ্ছে...</i></blockquote>`;
-                        bot.sendMessage(adminGroupId, swapMsg, { parse_mode: 'HTML' }).catch(() => {});
-                    }
-                    return { ok: true, treasury, autoSwapped: true, swapDetails: swapRes };
-                }
-            } catch (swapErr) {
-                console.error("Auto-swap USDT -> TON error:", swapErr.message);
-                return {
-                    ok: false,
-                    treasury,
-                    reason: 'swap_failed',
-                    swapError: swapErr.message,
-                    requiredTon,
-                    minUsdtNeeded
-                };
-            } finally {
-                isAdminSwapInProgress = false;
-            }
-        }
-
-        const failReason = (treasury.usdt < minUsdtNeeded)
-            ? (treasury.usdt <= 0.001 ? 'zero_admin_usdt_balance' : 'insufficient_usdt_for_swap')
-            : (treasury.ton < 0.155 ? 'insufficient_ton_gas_for_swap' : 'insufficient_ton_and_usdt');
-
         return {
             ok: false,
             treasury,
-            reason: failReason,
-            requiredTon,
-            minUsdtNeeded
+            reason: 'insufficient_treasury_reserve',
+            asset: 'GRAM',
+            required: Number(requiredTon.toFixed(4)),
+            available: treasury.ton
         };
     } else if (cleanAsset === 'USDT') {
-        if (treasury.usdt >= reqAmount && treasury.ton >= 0.05) {
+        const MIN_TON_GAS_FOR_USDT = 0.04; // Jetton transfer gas fee
+        if (treasury.usdt >= reqAmount && treasury.ton >= MIN_TON_GAS_FOR_USDT) {
             return { ok: true, treasury, autoSwapped: false };
         }
-
-        // Case 1: Have enough USDT, but TON gas is < 0.05 (cannot even swap without TON gas)
-        if (treasury.usdt >= reqAmount && treasury.ton < 0.05) {
+        if (treasury.ton < MIN_TON_GAS_FOR_USDT) {
             return {
                 ok: false,
                 treasury,
                 reason: 'insufficient_ton_gas',
-                requiredUsdt: reqAmount
+                asset: 'TON Gas',
+                required: MIN_TON_GAS_FOR_USDT,
+                available: treasury.ton
             };
         }
-
-        // Case 2: Insufficient USDT, check if we have excess GRAM/TON to swap into USDT!
-        const shortfallUsdt = (reqAmount - treasury.usdt) + 0.15;
-        const tonNeededForSwap = Math.max(0.20, parseFloat(((shortfallUsdt / liveTonPrice) * 1.06).toFixed(4)));
-        // Need tonNeededForSwap + 0.26 TON (swap gas, mostly refunded) + 0.06 TON (for USDT transfer after swap)
-        const minTonRequiredTotal = parseFloat((tonNeededForSwap + 0.32).toFixed(4));
-
-        if (treasury.ton >= minTonRequiredTotal) {
-            isAdminSwapInProgress = true;
-            try {
-                const swapRes = await swapAdminTonToUsdt(tonNeededForSwap);
-                treasury = swapRes.afterTreasury || await getAdminTreasuryBalances();
-
-                if (treasury.usdt >= reqAmount && treasury.ton >= 0.05) {
-                    if (adminGroupId && bot) {
-                        const swapMsg = `<blockquote><b>🔄 অটো-সোয়াপ সম্পন্ন (Auto-Swap GRAM ➔ USDT)!</b>\n\n` +
-                            `👤 <b>ইউজার অর্ডার:</b> <code>${meta.userId || 'Admin'}</code> — <b>${reqAmount} USDT</b>\n` +
-                            `💵 <b>পূর্বের ব্যালেন্স ছিল:</b> <code>${swapRes.beforeTreasury.usdt} USDT | ${swapRes.beforeTreasury.ton} GRAM</code>\n` +
-                            `⚡ <b>অটো-সোয়াপ:</b> <b>${swapRes.swappedTon} GRAM ➔ +${swapRes.receivedUsdt} USDT</b> (${swapRes.dex})\n` +
-                            `✅ <b>সোয়াপ পরবর্তী ব্যালেন্স:</b> <b>${treasury.usdt} USDT | ${treasury.ton} GRAM</b>\n\n` +
-                            `🚀 <i>এখন স্বয়ংক্রিয়ভাবে ইউজারের ওয়ালেটে ${reqAmount} USDT পাঠানো হচ্ছে...</i></blockquote>`;
-                        bot.sendMessage(adminGroupId, swapMsg, { parse_mode: 'HTML' }).catch(() => {});
-                    }
-                    return { ok: true, treasury, autoSwapped: true, swapDetails: swapRes };
-                }
-            } catch (swapErr) {
-                console.error("Auto-swap GRAM -> USDT error:", swapErr.message);
-                return {
-                    ok: false,
-                    treasury,
-                    reason: 'swap_failed',
-                    swapError: swapErr.message,
-                    requiredUsdt: reqAmount,
-                    minTonRequiredTotal
-                };
-            } finally {
-                isAdminSwapInProgress = false;
-            }
-        }
-
         return {
             ok: false,
             treasury,
-            reason: 'insufficient_usdt_and_ton',
-            requiredUsdt: reqAmount,
-            minTonRequiredTotal
+            reason: 'insufficient_treasury_reserve',
+            asset: 'USDT',
+            required: reqAmount,
+            available: treasury.usdt
         };
     }
 
@@ -4190,10 +4106,91 @@ app.get('/api/miniapp/rates', async (req, res) => {
     if (Date.now() - cachedMarketRates.lastUpdated > 30 * 1000) {
         safeUpdateMarketRates().catch(e => console.error("Rate update error:", e.message));
     }
+    const treasury = await getAdminTreasuryBalances().catch(() => ({ ton: 0, usdt: 0 }));
     res.json({
         success: true,
-        ...cachedMarketRates
+        ...cachedMarketRates,
+        treasury: {
+            ton: treasury.ton,
+            gram: treasury.ton,
+            usdt: treasury.usdt,
+            autoSwap: false
+        }
     });
+});
+
+app.get('/api/miniapp/check-treasury', async (req, res) => {
+    try {
+        const rawAsset = String(req.query.asset || 'GRAM').toUpperCase().trim();
+        const asset = (rawAsset === 'TON') ? 'GRAM' : rawAsset;
+        const amount = parseFloat(req.query.amount || '0');
+        const network = String(req.query.network || 'TON').toUpperCase().trim();
+
+        const treasury = await getAdminTreasuryBalances();
+
+        if (asset === 'GRAM' || asset === 'TON') {
+            const requiredTon = amount + 0.02;
+            const hasEnough = treasury.ton >= requiredTon;
+            return res.json({
+                success: true,
+                hasEnough,
+                asset: 'GRAM',
+                network: 'TON',
+                required: Number(requiredTon.toFixed(4)),
+                available: treasury.ton,
+                refuelNeeded: !hasEnough,
+                message: !hasEnough ? 'Wait for refuel' : 'Treasury reserve ready'
+            });
+        }
+
+        if (asset === 'USDT') {
+            if (network === 'TON') {
+                const hasEnough = treasury.usdt >= amount && treasury.ton >= 0.04;
+                return res.json({
+                    success: true,
+                    hasEnough,
+                    asset: 'USDT',
+                    network: 'TON',
+                    required: amount,
+                    available: treasury.usdt,
+                    gasAvailable: treasury.ton,
+                    refuelNeeded: !hasEnough,
+                    message: !hasEnough ? 'Wait for refuel' : 'Treasury reserve ready'
+                });
+            } else {
+                const netCfg = EVM_NETWORKS_CONFIG[network];
+                const privKey = process.env.BOT_EVM_PRIVATE_KEY || process.env.EVM_PRIVATE_KEY;
+                if (!netCfg || !privKey) {
+                    return res.json({ success: true, hasEnough: false, refuelNeeded: true, message: 'Wait for refuel' });
+                }
+                const { ethers } = require('ethers');
+                const provider = new ethers.JsonRpcProvider(netCfg.rpc);
+                const wallet = new ethers.Wallet(privKey.trim(), provider);
+                const usdtContract = new ethers.Contract(
+                    netCfg.usdtContract,
+                    ['function balanceOf(address) view returns (uint256)'],
+                    wallet
+                );
+                const curBalUnits = await usdtContract.balanceOf(wallet.address).catch(() => 0n);
+                const curBalUsdt = parseFloat(ethers.formatUnits(curBalUnits, netCfg.usdtDecimals));
+                const hasEnough = curBalUsdt >= amount;
+                return res.json({
+                    success: true,
+                    hasEnough,
+                    asset: 'USDT',
+                    network,
+                    required: amount,
+                    available: curBalUsdt,
+                    refuelNeeded: !hasEnough,
+                    message: !hasEnough ? 'Wait for refuel' : 'Treasury reserve ready'
+                });
+            }
+        }
+
+        return res.json({ success: true, hasEnough: false, refuelNeeded: true, message: 'Unsupported asset' });
+    } catch (e) {
+        return res.json({ success: true, hasEnough: true });
+    }
 });
 
 // Community verification endpoints for MiniApp
@@ -7944,31 +7941,28 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 
             if (!ensureRes.ok) {
                 const treasury = ensureRes.treasury || { ton: 0, usdt: 0 };
-                if (adminGroupId && bot) {
-                    let reasonBn = 'এডমিন ওয়ালেটে পর্যাপ্ত ক্রিপ্টো নেই';
-                    if (ensureRes.reason === 'zero_admin_usdt_balance') {
-                        reasonBn = 'এডমিন ওয়ালেটে 0 USDT রয়েছে (সোয়াপ করার মতো কোনো USDT নেই)';
-                    } else if (ensureRes.reason === 'insufficient_ton_gas_for_swap') {
-                        reasonBn = `অটো-সোয়াপের গ্যাস ফির জন্য নূন্যতম 0.16 TON প্রয়োজন (বর্তমান: ${treasury.ton} TON)`;
-                    } else if (ensureRes.swapError) {
-                        reasonBn = `সোয়াপ ত্রুটি: ${ensureRes.swapError}`;
-                    }
+                const targetAsset = (asset === 'USDT') ? 'USDT' : 'GRAM';
+                const availableVal = (targetAsset === 'USDT') ? treasury.usdt : treasury.ton;
+                const deficitVal = Math.max(0, netCryptoAmount - availableVal).toFixed(4);
 
-                    const alertMsg = `⚠️ <b>এডমিন ওয়ালেটে ক্রিপ্টো বা গ্যাস ফি অপর্যাপ্ত (অটো-সোয়াপ সম্ভব হয়নি)!</b>\n\n` +
-                        `👤 ইউজার: <code>${userId}</code>\n` +
-                        `💎 কিনতে চেয়েছে: <b>${cryptoAmount} ${asset}</b> (৳${bdtAmount} BDT)\n` +
-                        `🏷 রিসিভ ওয়ালেট: <code>${receiveAddress}</code>\n` +
-                        `❓ কারণ: <i>${reasonBn}</i>\n\n` +
-                        `🏦 <b>বর্তমান এডমিন ওয়ালেট ব্যালেন্স:</b>\n` +
-                        `• <b>TON:</b> <code>${treasury.ton} TON</code>\n` +
-                        `• <b>USDT:</b> <code>${treasury.usdt} USDT</code>\n` +
-                        (ensureRes.swapError ? `• <b>সোয়াপ ত্রুটি:</b> <i>${ensureRes.swapError}</i>\n` : '') +
-                        `\n🔒 <i>ইউজারের ব্যালেন্স কাটা হয়নি (অক্ষত আছে)। স্বয়ংক্রিয় সোয়াপ ও ক্রিপ্টো ডেলিভারির জন্য এডমিন ওয়ালেটে TON অথবা USDT ডিপোজিট করুন!</i>`;
+                if (adminGroupId && bot) {
+                    const alertMsg = `⚠️ <b>ট্রেজারি রিফুয়েল প্রয়োজন (Treasury Refuel Needed)!</b>\n\n` +
+                        `👤 <b>ইউজার:</b> <code>${userId}</code>\n` +
+                        `💎 <b>কিনতে চেয়েছে:</b> <b>${cryptoAmount} ${targetAsset}</b> (৳${bdtAmount} BDT)\n` +
+                        `🏷 <b>রিসিভ ওয়ালেট:</b> <code>${receiveAddress}</code>\n` +
+                        `🏦 <b>ট্রেজারি বর্তমান ব্যালেন্স:</b> <code>${availableVal} ${targetAsset}</code>\n` +
+                        `❌ <b>ঘাটতি:</b> <code>${deficitVal} ${targetAsset}</code>\n\n` +
+                        `🔒 <i>ইউজারের ব্যালেন্স অক্ষত আছে (টাকা কাটা হয়নি)। অটো-সোয়াপ বন্ধ থাকায় ইউজারকে "Wait for refuel" বার্তা দেখানো হয়েছে। অনুগ্রহ করে এডমিন ওয়ালেটে ${targetAsset} রিফুয়েল করুন!</i>`;
                     bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
                 }
 
                 return res.status(400).json({
-                    error: 'এডমিন ওয়ালেটে লিকুইডিটি বা ব্লকচেইন ফি অপর্যাপ্ত থাকায় অর্ডারটি প্রক্রিয়াকরণ করা সম্ভব হয়নি। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে (কোনো টাকা কাটা হয়নি)। অনুগ্রহ করে কিছুক্ষণ পর চেষ্টা করুন অথবা সাপোর্টে যোগাযোগ করুন।'
+                    error: `ট্রেজারি রিফুয়েলিং চলছে (Wait for refuel)! অ্যাডমিন ওয়ালেটে এই মুহূর্তে পর্যাপ্ত ${targetAsset} নেই। অ্যাডমিন ওয়ালেট রিফুয়েল করছেন, অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন। আপনার অ্যাকাউন্টের টাকা সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।`,
+                    code: 'WAIT_FOR_REFUEL',
+                    asset: targetAsset,
+                    requiredAmount: netCryptoAmount,
+                    availableAmount: availableVal,
+                    refuelInProgress: true
                 });
             }
 
@@ -8060,17 +8054,21 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             // Check USDT Balance
             if (curBalUsdt < netCryptoAmount) {
                 if (adminGroupId && bot) {
-                    const alertMsg = `⚠️ <b>এডমিন EVM ওয়ালেটে (${netCfg.name}) USDT অপর্যাপ্ত!</b>\n\n` +
+                    const alertMsg = `⚠️ <b>এডমিন EVM ওয়ালেটে (${netCfg.name}) USDT অপর্যাপ্ত (রিফুয়েল প্রয়োজন)!</b>\n\n` +
                         `👤 <b>User:</b> <code>${userId}</code>\n` +
                         `💎 <b>অর্ডার:</b> <b>${cryptoAmount} USDT</b> (৳${bdtAmount} BDT)\n` +
                         `🌐 <b>Network:</b> <code>${netCfg.name}</code>\n` +
                         `🏷 <b>User Wallet:</b> <code>${receiveAddress}</code>\n` +
                         `🏦 <b>এডমিন ব্যালেন্স:</b> <code>${curBalUsdt.toFixed(2)} USDT</code>\n\n` +
-                        `🔒 <i>ইউজারের ব্যালেন্স অক্ষত আছে (টাকা কাটা হয়নি)। অটো-ট্রান্সফারের জন্য এডমিন ওয়ালেটে USDT ডিপোজিট করুন!</i>`;
+                        `🔒 <i>ইউজারের ব্যালেন্স অক্ষত আছে (টাকা কাটা হয়নি)। ইউজারকে "Wait for refuel" বার্তা দেওয়া হয়েছে। ওয়ালেটে USDT ডিপোজিট করুন!</i>`;
                     bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
                 }
                 return res.status(400).json({
-                    error: `এডমিন ওয়ালেটে ${netCfg.shortName} নেটওয়ার্কে পর্যাপ্ত USDT নেই (বর্তমান ব্যালেন্স: ${curBalUsdt.toFixed(2)} USDT)। আপনার ব্যালেন্স অক্ষত রয়েছে। অনুগ্রহ করে TON নেটওয়ার্কে চেষ্টা করুন অথবা এডমিন ফান্ড ডিপোজিট করা পর্যন্ত অপেক্ষা করুন।`
+                    error: `ট্রেজারি রিফুয়েলিং চলছে (Wait for refuel)! অ্যাডমিন ওয়ালেটে ${netCfg.shortName} নেটওয়ার্কে পর্যাপ্ত USDT নেই (বর্তমান ব্যালেন্স: ${curBalUsdt.toFixed(2)} USDT)। আপনার ব্যালেন্স সম্পূর্ণ অক্ষত রয়েছে। অনুগ্রহ করে কিছুক্ষণ পর চেষ্টা করুন।`,
+                    code: 'WAIT_FOR_REFUEL',
+                    asset: 'USDT',
+                    network: selectedNetwork,
+                    refuelInProgress: true
                 });
             }
 

@@ -4,7 +4,7 @@ import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Aw
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, searchUsers, lookupRecipientUser, submitTransferMoney } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, checkTreasuryAvailability, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, searchUsers, lookupRecipientUser, submitTransferMoney } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
 import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/trustpay-official-banner.jpg';
@@ -9207,19 +9207,37 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
         return { GRAM: 165, USDT: 125 };
     });
 
+    const [treasuryData, setTreasuryData] = useState(() => {
+        try {
+            const cached = localStorage.getItem('maruf_treasury_cache');
+            return cached ? JSON.parse(cached) : null;
+        } catch (_) {
+            return null;
+        }
+    });
+    const [isCheckingTreasury, setIsCheckingTreasury] = useState(false);
+
     useEffect(() => {
         let isMounted = true;
         const fetchRates = () => {
             fetchMarketRates().then(data => {
-                if (!isMounted || !data?.rates) return;
-                setRates(data.rates);
-                try {
-                    localStorage.setItem('maruf_market_rates', JSON.stringify({ rates: data.rates, timestamp: Date.now() }));
-                } catch (_) {}
+                if (!isMounted || !data) return;
+                if (data.rates) {
+                    setRates(data.rates);
+                    try {
+                        localStorage.setItem('maruf_market_rates', JSON.stringify({ rates: data.rates, timestamp: Date.now() }));
+                    } catch (_) {}
+                }
+                if (data.treasury) {
+                    setTreasuryData(data.treasury);
+                    try {
+                        localStorage.setItem('maruf_treasury_cache', JSON.stringify(data.treasury));
+                    } catch (_) {}
+                }
             }).catch(() => {});
         };
         fetchRates();
-        const interval = setInterval(fetchRates, 30000);
+        const interval = setInterval(fetchRates, 20000);
         return () => { isMounted = false; clearInterval(interval); };
     }, []);
 
@@ -9234,6 +9252,12 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     const numBdt = parseFloat(bdtAmount) || 0;
     const calculatedCrypto = numBdt > 0 ? (numBdt / cryptoRate).toFixed(4) : '';
     const hasInsufficientBalance = numBdt > balance;
+
+    const availableReserve = selectedAsset === 'USDT'
+        ? (treasuryData?.usdt ?? null)
+        : (treasuryData?.gram ?? treasuryData?.ton ?? null);
+    const numCryptoNeeded = parseFloat(calculatedCrypto) || 0;
+    const isTreasuryLow = treasuryData !== null && availableReserve !== null && numCryptoNeeded > 0 && numCryptoNeeded > (availableReserve - (selectedAsset === 'GRAM' ? 0.02 : 0));
 
     // Real-time Address Validation
     const validateAddress = (addr, net) => {
@@ -9352,6 +9376,29 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
             onGoToAddMoney();
             return;
         }
+
+        // Live Treasury Reserve & Refuel Check before proceeding
+        try {
+            setIsCheckingTreasury(true);
+            const treasuryCheck = await checkTreasuryAvailability(selectedAsset, parseFloat(calculatedCrypto) || 0, selectedNetwork);
+            setIsCheckingTreasury(false);
+            if (treasuryCheck && treasuryCheck.hasEnough === false) {
+                playAppSound('error');
+                const refuelMsg = lang === 'bn'
+                    ? `⚠️ ট্রেজারি রিফুয়েলিং চলছে (Wait for refuel)!\n\nঅ্যাডমিন ওয়ালেটে এই মুহূর্তে পর্যাপ্ত ${selectedAsset} রিজার্ভ নেই। অ্যাডমিন ওয়ালেট রিফুয়েল করছেন, অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন।\n\nআপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।`
+                    : `⚠️ Wait for refuel!\n\nInsufficient ${selectedAsset} in admin treasury wallet. Refueling is currently in progress, please wait a moment and try again.\n\nYour balance is completely safe.`;
+                if (window.Telegram?.WebApp?.showAlert) {
+                    window.Telegram.WebApp.showAlert(refuelMsg);
+                } else {
+                    alert(refuelMsg);
+                }
+                setErrorMessage(refuelMsg);
+                return;
+            }
+        } catch (_) {
+            setIsCheckingTreasury(false);
+        }
+
         if (twoStepEnabled) {
             playAppSound('confirm');
             setBuyPinError('');
@@ -9695,6 +9742,23 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                     </div>
                 </div>
 
+                {/* Refuel Notice Banner */}
+                {isTreasuryLow && !errorMessage && (
+                    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 rounded-2xl p-3 flex items-start gap-2.5 animate-in fade-in">
+                        <AlertCircle size={17} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-xs font-black text-amber-800 dark:text-amber-300">
+                                {lang === 'bn' ? 'ট্রেজারি রিফুয়েলিং চলছে (Wait for refuel)' : 'Treasury Refuel in Progress'}
+                            </p>
+                            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium leading-tight mt-0.5">
+                                {lang === 'bn' 
+                                    ? `অ্যাডমিন ওয়ালেটে এই মুহূর্তে পর্যাপ্ত ${selectedAsset} রিজার্ভ নেই। অ্যাডমিন ওয়ালেট রিফুয়েল করছেন, অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন।`
+                                    : `Insufficient ${selectedAsset} in admin treasury. Please wait for refuel and try again shortly.`}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Error Banner */}
                 {errorMessage && (
                     <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl p-2.5 flex items-start gap-2">
@@ -9719,12 +9783,24 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                     <button
                         type="button"
                         onClick={hasInsufficientBalance ? onGoToAddMoney : handleConfirmBuy}
-                        disabled={!hasInsufficientBalance && (!numBdt || numBdt < 20)}
-                        className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
+                        disabled={isCheckingTreasury || (!hasInsufficientBalance && (!numBdt || numBdt < 20))}
+                        className={`px-7 py-3 rounded-2xl font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 ${
+                            isTreasuryLow 
+                                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white' 
+                                : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white'
+                        }`}
                     >
-                        <Zap size={16} fill="currentColor" />
+                        {isCheckingTreasury ? (
+                            <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                            <Zap size={16} fill="currentColor" />
+                        )}
                         <span>
-                            {hasInsufficientBalance 
+                            {isCheckingTreasury
+                                ? (lang === 'bn' ? 'যাচাই হচ্ছে...' : 'Checking...')
+                                : isTreasuryLow
+                                ? (lang === 'bn' ? 'Wait for Refuel' : 'Wait for Refuel')
+                                : hasInsufficientBalance 
                                 ? (lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money') 
                                 : (lang === 'bn' ? 'উইথড্র / বাই' : 'Withdraw')}
                         </span>

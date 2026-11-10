@@ -1911,7 +1911,7 @@ function BotWallet() {
   };
 
   const handleApproveBuy = async (id) => {
-    if (!window.confirm("Approve this crypto order? Net crypto after gas fee will be sent automatically on-chain (with Auto-Swap if needed).")) return;
+    if (!window.confirm("Approve this crypto order? Net crypto after gas fee will be sent directly on-chain from available treasury reserve.")) return;
     try {
       const res = await fetch(`${API_BASE}/api/admin/approve-buy`, {
         method: 'POST',
@@ -1978,13 +1978,13 @@ function BotWallet() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">
-            <Wallet size={14} /> Bot Treasury • Auto-Swap & Multi-Chain Vault
+            <Wallet size={14} /> Bot Treasury • Multi-Chain Reserve Vault
           </div>
           <h2 className={`text-3xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
             Treasury & Crypto Reserves
           </h2>
           <p className={`text-xs mt-1 font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Autonomous USDT ⇄ GRAM on-chain auto-swap, multi-network exchange deposits (TON, BEP20, Arbitrum, AVAX-C) & instant settlements.
+            Direct on-chain treasury reserves, multi-network exchange deposits & instant user settlements (Auto-Swap: OFF).
           </p>
         </div>
 
@@ -1999,11 +1999,11 @@ function BotWallet() {
 
           {/* Live Auto-Swap Engine Status */}
           <div className={`px-3.5 py-2 rounded-2xl border text-xs font-bold flex items-center gap-2 shadow-sm ${
-            isDark ? 'bg-[#121036] border-purple-500/30 text-purple-300' : 'bg-white border-purple-200 text-purple-800'
+            isDark ? 'bg-[#121036] border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
           }`}>
-            <Repeat size={14} className="text-purple-400" />
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Auto-Swap: <b>ACTIVE</b></span>
+            <Repeat size={14} className="text-slate-400" />
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span>Auto-Swap: <b className="text-amber-500 dark:text-amber-400">OFF (Disabled)</b></span>
           </div>
 
           {/* Live Gas Reserve Status */}
@@ -2082,12 +2082,12 @@ function BotWallet() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400">
-                  TON + EVM MULTI-NETWORK • AUTO-SWAP ACTIVE
+                <span className="text-[11px] font-black uppercase tracking-wider text-purple-400">
+                  TON + EVM MULTI-NETWORK • DIRECT RESERVE MODE
                 </span>
               </div>
-              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1.5">
-                <ShieldCheck size={13} className="text-purple-400" /> USDT ⇄ GRAM SMART ROUTER
+              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
+                <ShieldCheck size={13} className="text-emerald-400" /> AUTO-SWAP OFF
               </span>
             </div>
 
@@ -2112,8 +2112,8 @@ function BotWallet() {
               <div className="text-xs font-bold text-slate-400 mt-1 flex flex-wrap items-center gap-2">
                 <span>≈ ${(totalVaultBdt / (liveUsdtBdt || 130.00)).toFixed(2)} USD</span>
                 <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-                <span className="text-emerald-400">
-                  Auto-Swappable Capacity: ~{(gramBalanceVal + Math.max(0, (tonUsdtVal / (liveTonUsdtRate || 1.25)) * 0.96)).toFixed(2)} GRAM
+                <span className="text-purple-300">
+                  Reserves: {gramBalanceVal.toFixed(2)} GRAM + {tonUsdtVal.toFixed(2)} USDT
                 </span>
               </div>
             </div>
@@ -2259,21 +2259,21 @@ function BotWallet() {
                 </div>
                 <div>
                   <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
-                    Gas & Auto-Swap Fuel
+                    Network Gas Reserve
                   </span>
                   <div className="text-[11px] font-bold text-slate-400">
-                    DeDust V2 + STON.fi Gas Engine
+                    On-Chain Blockchain Transfer Gas
                   </div>
                 </div>
               </div>
 
               <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${
-                tonGasVal >= 0.16 
+                tonGasVal >= 0.05 
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' 
                   : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
               }`}>
-                <span className={`w-2 h-2 rounded-full ${tonGasVal >= 0.16 ? 'bg-emerald-400' : 'bg-amber-400 animate-ping'}`}></span>
-                {tonGasVal >= 0.16 ? 'AUTO-SWAP READY' : 'REFILL NEEDED'}
+                <span className={`w-2 h-2 rounded-full ${tonGasVal >= 0.05 ? 'bg-emerald-400' : 'bg-amber-400 animate-ping'}`}></span>
+                {tonGasVal >= 0.05 ? 'GAS SUFFICIENT' : 'REFILL NEEDED'}
               </span>
             </div>
 
@@ -2376,7 +2376,7 @@ function BotWallet() {
                     GRAM Treasury Reserve
                   </span>
                   <div className="text-[11px] font-bold text-slate-400">
-                    On-Chain TON Pool + Auto-Swap Backed
+                    On-Chain TON Pool (Direct Reserve Only)
                   </div>
                 </div>
               </div>
@@ -2403,16 +2403,16 @@ function BotWallet() {
               </span>
             </div>
 
-            {/* Auto-Swap Backup Capacity Pill */}
+            {/* Direct Reserve Status Pill */}
             <div className={`px-3.5 py-2 rounded-2xl border flex items-center justify-between text-xs ${
               isDark ? 'bg-purple-950/50 border-purple-500/30' : 'bg-purple-50 border-purple-200'
             }`}>
               <span className={`font-bold flex items-center gap-1.5 ${isDark ? 'text-purple-200' : 'text-purple-800'}`}>
-                <Repeat size={13} className="text-emerald-500" />
-                USDT Auto-Swap Backup:
+                <ShieldCheck size={13} className="text-amber-400" />
+                Reserve Protection:
               </span>
-              <span className={`font-mono font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                +{Math.max(0, (tonUsdtVal / liveTonUsdtRate) * 0.96).toFixed(2)} GRAM Available
+              <span className={`font-mono font-bold ${isDark ? 'text-amber-300' : 'text-amber-600'}`}>
+                Wait for refuel if &lt; user order
               </span>
             </div>
 
@@ -2575,18 +2575,18 @@ function BotWallet() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className={`text-lg font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                      Smart Auto-Swap Engine (USDT ⇄ GRAM)
+                      Auto-Swap Engine (Status: OFF / Disabled)
                     </h3>
                   </div>
                   <p className="text-xs text-slate-400">
-                    DeDust V2 & STON.fi v2.2 Autonomous Liquidity Router
+                    Direct Treasury Liquidity & Manual Refuel Mode Active
                   </p>
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                AUTO-SWAP 24/7 ON
+              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                AUTO-SWAP OFF (MANUAL REFUEL)
               </span>
             </div>
 
@@ -2596,10 +2596,10 @@ function BotWallet() {
             }`}>
               <div className="font-black text-purple-300 flex items-center gap-1.5">
                 <Sparkles size={14} className="text-amber-400" />
-                অটোমেটিক ইউজার অর্ডার প্রটেকশন (উদাহরণ: 0.25 GRAM + 10 USDT):
+                ট্রেজারি রিজার্ভ পলিসি ও ইউজার রিফুয়েল নোটিফিকেশন:
               </div>
               <p className={`text-[11px] ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                যখন কোনো ইউজার <b>GRAM</b> কিনতে চায় (যেমন <b>2 GRAM</b>) কিন্তু এডমিন ওয়ালেটে কম GRAM থাকে (যেমন <b>0.25 GRAM</b>) এবং ওয়ালেটে <b>USDT</b> থাকে, তখন সিস্টেম <b>অটোমেটিক অন-চেইনে প্রয়োজনীয় USDT সোয়াপ করে GRAM বানিয়ে নেয়</b> এবং সাথে সাথেই ইউজারের ওয়ালেটে পাঠিয়ে দেয়! আবার USDT কম থাকলে অতিরিক্ত GRAM সোয়াপ করে USDT পাঠিয়ে দেয়।
+                এডমিন প্যানেলে স্বয়ংক্রিয় সোয়াপ স্থায়ীভাবে <b>OFF</b> রাখা হয়েছে। ইউজাররা <b>GRAM</b> বা <b>USDT</b> কেনার সময় সিস্টেম সরাসরি এডমিন ওয়ালেটের ব্যালেন্স যাচাই করবে। ওয়ালেটে পর্যাপ্ত ব্যালেন্স থাকলে সাথে সাথে অর্ডার ডেলিভারি হবে। ঘাটতি থাকলে কোনো অটো-সোয়াপ হবে না এবং ইউজারকে <b>"Wait for refuel"</b> বার্তা দিয়ে ব্যালেন্স সম্পূর্ণ অক্ষত রাখা হবে।
               </p>
               <div className="grid grid-cols-3 gap-2 pt-1">
                 <div className={`p-2 rounded-xl text-center border ${isDark ? 'bg-black/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
@@ -2949,18 +2949,18 @@ function BotWallet() {
             </div>
             <div>
               <div className="text-xs font-black uppercase text-slate-400">ON-CHAIN ENGINE</div>
-              <div className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Auto-Swap & Jetton Router</div>
+              <div className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Direct Reserve & Jetton Router</div>
             </div>
           </div>
 
           <div className="space-y-2.5 pt-2 text-xs">
             <div className="flex items-center justify-between font-bold">
-              <span className="text-slate-400">DEX Liquidity Pools:</span>
-              <span className="text-emerald-400 font-mono">DeDust V2 + STON.fi</span>
+              <span className="text-slate-400">Treasury Mode:</span>
+              <span className="text-amber-400 font-mono">Direct Wallet Reserves (No Auto-Swap)</span>
             </div>
             <div className="flex items-center justify-between font-bold">
-              <span className="text-slate-400">Auto-Rebalance:</span>
-              <span className="text-purple-300 font-mono font-black">USDT ⇄ GRAM Instant</span>
+              <span className="text-slate-400">Refuel Protection:</span>
+              <span className="text-purple-300 font-mono font-black">Wait For Refuel Alerts</span>
             </div>
             <div className="flex items-center justify-between font-bold">
               <span className="text-slate-400">Fail-Safe Refund:</span>
