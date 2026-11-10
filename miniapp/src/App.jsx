@@ -7337,7 +7337,25 @@ function HomePage({
   lang = 'bn', 
   t = {} 
 }) {
-  const [showBalance, setShowBalance] = useState(true);
+  const [showBalance, setShowBalance] = useState(() => {
+    try {
+      const saved = localStorage.getItem('trustpay_show_balance');
+      return saved === null ? true : saved !== 'false';
+    } catch (_) {
+      return true;
+    }
+  });
+
+  const toggleShowBalance = () => {
+    playAppSound('tap');
+    setShowBalance(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('trustpay_show_balance', String(next));
+      } catch (_) {}
+      return next;
+    });
+  };
   const [copiedId, setCopiedId] = useState(false);
   const displayId = mbsId || user?.mbsId || (user?.id ? 'MBS' + String(user.id).slice(-5) : 'MBS00000');
 
@@ -7631,11 +7649,11 @@ function HomePage({
             </p>
             <button
               type="button"
-              onClick={() => setShowBalance(!showBalance)}
+              onClick={toggleShowBalance}
               className={`w-7 h-7 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
                 darkMode ? 'text-violet-300 hover:bg-violet-500/15' : 'text-[#7C3AED] hover:bg-violet-100'
               }`}
-              title={showBalance ? 'Hide balance' : 'Show balance'}
+              title={showBalance ? (lang === 'bn' ? 'ব্যালেন্স লুকান' : 'Hide balance') : (lang === 'bn' ? 'ব্যালেন্স দেখুন' : 'Show balance')}
             >
               {showBalance ? <Eye size={15} /> : <EyeOff size={15} />}
             </button>
@@ -7673,7 +7691,11 @@ function HomePage({
                 <Copy size={11} />
               )}
             </button>
-            <span className="whitespace-nowrap">≈ <span className={`font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>${usdEquiv}</span> USD</span>
+            <span className="whitespace-nowrap">
+              ≈ <span className={`font-semibold ${darkMode ? 'text-slate-200' : 'text-slate-700'} ${!showBalance ? 'tracking-[0.16em]' : ''}`}>
+                {showBalance ? `$${usdEquiv}` : '$••••'}
+              </span> USD
+            </span>
           </div>
         </div>
 
