@@ -24,6 +24,7 @@ const stickerJsonCache = new Map();
 // Plays pleasant celebratory chimes on Success and distinct alert tones on Error
 // ============================================================================
 let sharedAudioCtx = null;
+let lastSuccessSoundTime = 0;
 function getAppAudioContext() {
   if (typeof window === 'undefined') return null;
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -38,6 +39,13 @@ function getAppAudioContext() {
 }
 
 function playAppSound(type = 'success') {
+  if (type === 'success') {
+    const nowMs = Date.now();
+    if (nowMs - lastSuccessSoundTime < 800) {
+      return; // Prevent duplicate sound playback within 800ms
+    }
+    lastSuccessSoundTime = nowMs;
+  }
   try {
     if (window.Telegram?.WebApp?.HapticFeedback) {
       if (type === 'success') {
@@ -1259,17 +1267,31 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode =
 };
 
 const DepositFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode = false }) => {
+  const hasPlayedSoundRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+
   useEffect(() => {
-    if (!isOpen) return;
-    playAppSound('success');
+    onCloseRef.current = onClose;
+  });
+
+  useEffect(() => {
+    if (!isOpen) {
+      hasPlayedSoundRef.current = false;
+      return;
+    }
+
+    if (!hasPlayedSoundRef.current) {
+      hasPlayedSoundRef.current = true;
+      playAppSound('success');
+    }
 
     // Automatically redirect to home page after 3 seconds as requested by admin
     const timer = setTimeout(() => {
-      onClose();
+      if (onCloseRef.current) onCloseRef.current();
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -8220,7 +8242,6 @@ function AddMoneyPage({
                 });
                 setShowFlowerModal(true);
                 if (setIsModalOpen) setIsModalOpen(true);
-                playAppSound('success');
                 if (reloadData) reloadData();
             } else {
                 setErrorMessage(res.error || (lang === 'bn' ? 'ভেরিফিকেশন ব্যর্থ হয়েছে' : 'Verification failed'));
