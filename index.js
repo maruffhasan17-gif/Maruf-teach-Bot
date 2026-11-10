@@ -36,9 +36,20 @@ function invalidateOrdersCache() {
     ordersCache = { data: null, timestamp: 0 };
 }
 const userHistoryMemoryCache = new Map();
+const userProfileMemoryCache = new Map();
+const USER_PROFILE_CACHE_TTL = 15000; // 15s memory cache to eliminate redundant Firestore reads
+
 function invalidateUserHistoryCache(userId) {
     if (!userId) return;
     const strUserId = String(userId).trim();
+    userHistoryMemoryCache.delete(strUserId);
+    userProfileMemoryCache.delete(strUserId);
+}
+
+function invalidateUserProfileCache(userId) {
+    if (!userId) return;
+    const strUserId = String(userId).trim();
+    userProfileMemoryCache.delete(strUserId);
     userHistoryMemoryCache.delete(strUserId);
 }
 
@@ -4102,21 +4113,14 @@ setInterval(safeUpdateMarketRates, 30 * 1000);
 
 // ==================== MINI APP APIs ====================
 app.get('/api/miniapp/rates', async (req, res) => {
-    // Refresh live rate if cache older than 30 seconds
-    if (Date.now() - cachedMarketRates.lastUpdated > 30 * 1000) {
+    // Refresh live rate if cache older than 60 seconds
+    if (Date.now() - cachedMarketRates.lastUpdated > 60 * 1000) {
         safeUpdateMarketRates().catch(e => console.error("Rate update error:", e.message));
     }
-    const treasury = await getAdminTreasuryBalances().catch(() => ({ ton: 0, usdt: 0 }));
     res.json({
         success: true,
         ...cachedMarketRates,
-        rates: cachedMarketRates.buyRates,
-        treasury: {
-            ton: treasury.ton,
-            gram: treasury.ton,
-            usdt: treasury.usdt,
-            autoSwap: false
-        }
+        rates: cachedMarketRates.buyRates
     });
 });
 
@@ -4334,9 +4338,14 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
         return res.json({ balance: 0, isGuest: true, status: 'active' });
     }
 
+    const strId = String(userId);
+    const cachedEntry = userProfileMemoryCache.get(strId);
+    if (cachedEntry && (Date.now() - cachedEntry.ts < USER_PROFILE_CACHE_TTL) && !req.query.force && !req.query.startParam) {
+        return res.json(cachedEntry.data);
+    }
+
     try {
         let data = {};
-        const strId = String(userId);
         let userRef = null;
 
         try {
@@ -4427,7 +4436,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
         const numBal = Number(data.balance);
         const finalBalance = Number.isFinite(numBal) ? numBal : 0;
 
-        res.json({ 
+        const clientProfileData = { 
             balance: finalBalance,
             fiatWallet: data.fiatWallet || null,
             fiatWithdrawPending: pendingWithdraw,
@@ -4450,7 +4459,10 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             isRestricted: isRestricted,
             restrictedUntil: data.restrictedUntil || null,
             restrictReason: data.restrictReason || 'আপনার অ্যাকাউন্টটি সাময়িকভাবে রেস্ট্রিক্ট করা রয়েছে।'
-        });
+        };
+
+        userProfileMemoryCache.set(strId, { data: clientProfileData, ts: Date.now() });
+        res.json(clientProfileData);
     } catch(e) {
         console.error('Fatal user endpoint error:', e.message);
         try {
@@ -8040,7 +8052,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 }).catch(() => {});
 
                 return res.status(400).json({
-                    error: `ট্রেজারি রিফুয়েলিং চলছে (Wait for refuel)! অ্যাডমিন ওয়ালেটে এই মুহূর্তে পর্যাপ্ত ${targetAsset} নেই। অ্যাডমিন ওয়ালেট রিফুয়েল করছেন, অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন। আপনার অ্যাকাউন্টের টাকা সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।`,
+                    error: `ট্রেজারি রিফুয়েলিং চলছে! অ্যাডমিন ওয়ালেটে এই মুহূর্তে পর্যাপ্ত ${targetAsset} ব্যালেন্স নেই। রিফুয়েল হওয়ার পর ক্রয় সম্পন্ন করা যাবে, অনুগ্রহ করে ১ থেকে ২ ঘণ্টা পর আবার চেষ্টা করুন বা ওয়ালেট রিফিল হওয়া পর্যন্ত অপেক্ষা করুন। আপনার অ্যাকাউন্টের টাকা সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।`,
                     code: 'WAIT_FOR_REFUEL',
                     asset: targetAsset,
                     requiredAmount: netCryptoAmount,
@@ -8147,7 +8159,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                     bot.sendMessage(adminGroupId, alertMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
                 }
                 return res.status(400).json({
-                    error: `ট্রেজারি রিফুয়েলিং চলছে (Wait for refuel)! অ্যাডমিন ওয়ালেটে ${netCfg.shortName} নেটওয়ার্কে পর্যাপ্ত USDT নেই (বর্তমান ব্যালেন্স: ${curBalUsdt.toFixed(2)} USDT)। আপনার ব্যালেন্স সম্পূর্ণ অক্ষত রয়েছে। অনুগ্রহ করে কিছুক্ষণ পর চেষ্টা করুন।`,
+                    error: `ট্রেজারি রিফুয়েলিং চলছে! অ্যাডমিন ওয়ালেটে ${netCfg.shortName} নেটওয়ার্কে পর্যাপ্ত USDT ব্যালেন্স নেই (বর্তমান ব্যালেন্স: ${curBalUsdt.toFixed(2)} USDT)। রিফুয়েল হওয়ার পর ক্রয় সম্পন্ন করা যাবে, অনুগ্রহ করে ১ থেকে ২ ঘণ্টা পর আবার চেষ্টা করুন বা ওয়ালেট রিফিল হওয়া পর্যন্ত অপেক্ষা করুন। আপনার ব্যালেন্স সম্পূর্ণ নিরাপদ ও অক্ষত রয়েছে।`,
                     code: 'WAIT_FOR_REFUEL',
                     asset: 'USDT',
                     network: selectedNetwork,
