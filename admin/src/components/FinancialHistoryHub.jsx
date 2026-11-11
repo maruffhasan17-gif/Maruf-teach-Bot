@@ -83,7 +83,7 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
     const withdrawalsTotalBdt = withdrawalsCompleted.reduce((sum, w) => sum + (parseFloat(w.amount || 0) || 0), 0);
 
     // Platform Net Estimated Revenue & Fixed Spread Profit
-    // Fixed Buy: GRAM ৳170, USDT ৳130 | Fixed Sell: GRAM ৳130, USDT ৳118
+    // Fixed Buy: GRAM ৳160, USDT ৳130 | Fixed Sell: GRAM ৳120, USDT ৳118
     // Profit per unit: GRAM ৳40 TK, USDT ৳12 TK | Cashout fee: ৳10 TK per withdrawal
     const buysProfitBdt = (buysGram * 40) + (buysUsdt * 12);
     const sellsProfitBdt = (sellsGram * 40) + (sellsUsdt * 12);

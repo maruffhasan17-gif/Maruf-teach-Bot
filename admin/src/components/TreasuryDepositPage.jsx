@@ -462,7 +462,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
   const evmUsdtVal = parseFloat(data.evmBalance || 0);
   const totalUsdtVal = tonUsdtVal + evmUsdtVal;
   const liveTonUsdtRate = parseFloat(data.liveTonUsdtRate || data.realGramUsdt || 1.2365);
-  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 170.00);
+  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 160.00);
   const liveUsdtBdt = parseFloat(data.buyRates?.USDT || data.realUsdtBdt || (data.marketRates?.buyRates?.USDT) || 130.00);
   const totalVaultBdt = gramBalanceVal * liveGramBdt + totalUsdtVal * liveUsdtBdt;
 

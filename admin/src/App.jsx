@@ -890,11 +890,11 @@ function Dashboard() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   // Live Buy Rates & Profit Margins for Admin Dashboard (Dynamic from User Buy Rates)
-  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 150.00);
+  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 160.00);
   const liveUsdtBdt = parseFloat(data.buyRates?.USDT || data.realUsdtBdt || (data.marketRates?.buyRates?.USDT) || 130.00);
-  const liveGramSellBdt = parseFloat(data.sellRates?.GRAM || (data.marketRates?.sellRates?.GRAM) || 115.00);
+  const liveGramSellBdt = parseFloat(data.sellRates?.GRAM || (data.marketRates?.sellRates?.GRAM) || 120.00);
   const liveUsdtSellBdt = parseFloat(data.sellRates?.USDT || (data.marketRates?.sellRates?.USDT) || 118.00);
-  const gramProfitMargin = Math.max(0, parseFloat(data.profitMargins?.GRAM || (liveGramBdt - liveGramSellBdt) || 35.00));
+  const gramProfitMargin = Math.max(0, parseFloat(data.profitMargins?.GRAM || (liveGramBdt - liveGramSellBdt) || 40.00));
   const usdtProfitMargin = Math.max(0, parseFloat(data.profitMargins?.USDT || (liveUsdtBdt - liveUsdtSellBdt) || 12.00));
 
   // Combined real-time activities for the top-right live ticker
@@ -1714,11 +1714,11 @@ function BotWallet() {
   const liveTonUsdtRate = parseFloat(data.liveTonUsdtRate || data.realGramUsdt || 1.2365);
 
   // Live market rates for Admin Treasury valuation (Dynamically synced from User Panel Buy Rates)
-  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 150.00);
+  const liveGramBdt = parseFloat(data.buyRates?.GRAM || data.realGramBdt || (data.marketRates?.buyRates?.GRAM) || 160.00);
   const liveUsdtBdt = parseFloat(data.buyRates?.USDT || data.realUsdtBdt || (data.marketRates?.buyRates?.USDT) || 130.00);
-  const liveGramSellBdt = parseFloat(data.sellRates?.GRAM || (data.marketRates?.sellRates?.GRAM) || 115.00);
+  const liveGramSellBdt = parseFloat(data.sellRates?.GRAM || (data.marketRates?.sellRates?.GRAM) || 120.00);
   const liveUsdtSellBdt = parseFloat(data.sellRates?.USDT || (data.marketRates?.sellRates?.USDT) || 118.00);
-  const gramProfitMargin = Math.max(0, parseFloat(data.profitMargins?.GRAM || (liveGramBdt - liveGramSellBdt) || 35.00));
+  const gramProfitMargin = Math.max(0, parseFloat(data.profitMargins?.GRAM || (liveGramBdt - liveGramSellBdt) || 40.00));
   const usdtProfitMargin = Math.max(0, parseFloat(data.profitMargins?.USDT || (liveUsdtBdt - liveUsdtSellBdt) || 12.00));
 
   const gramBdtVal = gramBalanceVal * liveGramBdt;
@@ -5277,8 +5277,8 @@ function BotSettings() {
               <span className="text-xs font-bold text-slate-400 uppercase">GRAM Buy Rate</span>
               <Gem size={18} className="text-purple-400" />
             </div>
-            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = {parseFloat(data.buyRates?.GRAM || data.realGramBdt || 150.00).toFixed(2)} ৳ BDT</div>
-            <p className="text-[11px] text-slate-400 mt-1">লাইভ বাই রেট (সেল রেট: ৳{parseFloat(data.sellRates?.GRAM || 115.00).toFixed(2)} | প্রফিট: ৳{parseFloat(data.profitMargins?.GRAM || 35.00).toFixed(2)}/টি)</p>
+            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = {parseFloat(data.buyRates?.GRAM || data.realGramBdt || 160.00).toFixed(2)} ৳ BDT</div>
+            <p className="text-[11px] text-slate-400 mt-1">লাইভ বাই রেট (সেল রেট: ৳{parseFloat(data.sellRates?.GRAM || 120.00).toFixed(2)} | প্রফিট: ৳{parseFloat(data.profitMargins?.GRAM || 40.00).toFixed(2)}/টি)</p>
           </div>
 
           {/* USDT Card */}
