@@ -5457,6 +5457,8 @@ async function generateUniqueSellCommentCode(preferredLength = 10) {
     return (randPart + timePart).slice(0, 15);
 }
 
+const MIN_SELL_CRYPTO_AMOUNT = 0.2;
+
 app.post('/api/miniapp/build-tx', async (req, res) => {
     try {
         let { asset, amount, userAddress, userId } = req.body;
@@ -5475,6 +5477,9 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
         }
         amount = parseFloat(amount) || 0;
         asset = (asset || 'GRAM').toUpperCase();
+        if (!Number.isFinite(amount) || amount < MIN_SELL_CRYPTO_AMOUNT) {
+            return res.status(400).json({ error: `নূন্যতম ০.২ ${asset} বিক্রি করা যাবে (Minimum sell: ${MIN_SELL_CRYPTO_AMOUNT} ${asset})` });
+        }
         const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
 
         // Generate a fresh, 100% unique 10-to-15 char comment code on the server for every single click
@@ -5780,6 +5785,10 @@ app.post('/api/miniapp/sell', async (req, res) => {
         const numAmount = parseFloat(amount) || 0;
         const cleanSellCode = String(sellCode || '').trim().toUpperCase();
 
+        if (!Number.isFinite(numAmount) || numAmount < MIN_SELL_CRYPTO_AMOUNT) {
+            return res.status(400).json({ error: `নূন্যতম বিক্রয় ০.২ ${normAsset} (Minimum sell: ${MIN_SELL_CRYPTO_AMOUNT} ${normAsset})` });
+        }
+
         // CRITICAL SECURITY FIX: Calculate BDT strictly on the server using live server sell rate!
         // Never trust client-supplied estimatedTk!
         const serverSellRate = normAsset === 'USDT'
@@ -5787,7 +5796,7 @@ app.post('/api/miniapp/sell', async (req, res) => {
             : (Number(cachedMarketRates?.sellRates?.GRAM) || 120);
         const serverExpectedTk = Math.floor(numAmount * serverSellRate);
         
-        if (!Number.isFinite(numAmount) || numAmount <= 0 || !Number.isFinite(serverExpectedTk) || serverExpectedTk < 1) {
+        if (!Number.isFinite(serverExpectedTk) || serverExpectedTk < 1) {
             return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা' });
         }
 

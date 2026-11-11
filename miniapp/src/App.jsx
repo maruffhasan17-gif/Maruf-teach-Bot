@@ -10073,9 +10073,10 @@ function SellCryptoPage({
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
     const depositTargetAddress = selectedNetwork === 'TON' ? (userTonAddress || botWalletAddress) : (userEvmAddress || '');
     const currentRate = asset === 'USDT' ? (liveRates?.USDT || 118) : (liveRates?.GRAM || 120);
+    const MIN_SELL_CRYPTO_AMOUNT = 0.2;
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
-    const quickAmounts = asset === 'GRAM' ? [0.1, 0.5, 1, 5, 10] : [5, 10, 25, 50, 100];
+    const quickAmounts = asset === 'GRAM' ? [0.2, 0.5, 1, 5, 10] : [5, 10, 25, 50, 100];
 
     const SELL_NETWORKS = [
         { id: 'TON', name: 'The Open Network (TON)', shortName: 'TON', gasFee: '~0.015 TON', disabled: false },
@@ -10173,10 +10174,10 @@ function SellCryptoPage({
             tonConnectUI.openModal();
             return;
         }
-        if (!numAmount || isNaN(numAmount) || numAmount < 0.01) {
+        if (!numAmount || isNaN(numAmount) || numAmount < MIN_SELL_CRYPTO_AMOUNT) {
             return window.Telegram?.WebApp?.showAlert 
-                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম ০.০১ পরিমাণ ক্রিপ্টো দিন" : "Minimum sell amount is 0.01") 
-                : alert("Minimum sell amount is 0.01");
+                ? window.Telegram.WebApp.showAlert(lang === 'bn' ? "নূন্যতম ০.২ পরিমাণ ক্রিপ্টো দিন" : `Minimum sell amount is ${MIN_SELL_CRYPTO_AMOUNT}`) 
+                : alert(`Minimum sell amount is ${MIN_SELL_CRYPTO_AMOUNT}`);
         }
         if (estimatedTk < 1) {
             return window.Telegram?.WebApp?.showAlert 
@@ -10616,7 +10617,7 @@ function SellCryptoPage({
                     </div>
                 </div>
 
-                {/* 4. AMOUNT FIELD (Min. 0.01 Placeholder) */}
+                {/* 4. AMOUNT FIELD (Min. 0.2 Placeholder) */}
                 <div>
                     <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
                         darkMode ? 'text-slate-300' : 'text-slate-700'
@@ -10628,9 +10629,11 @@ function SellCryptoPage({
                     }`}>
                         <input
                             type="number"
+                            min={MIN_SELL_CRYPTO_AMOUNT}
+                            step="any"
                             value={cryptoAmount}
                             onChange={e => setCryptoAmount(e.target.value)}
-                            placeholder={`Min. 0.01 ${asset}`}
+                            placeholder={`Min. ${MIN_SELL_CRYPTO_AMOUNT} ${asset}`}
                             style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
                             className="w-full bg-transparent text-lg sm:text-xl font-black font-mono tracking-tight outline-none pr-16 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
                         />
@@ -10638,6 +10641,12 @@ function SellCryptoPage({
                             {asset}
                         </span>
                     </div>
+
+                    {cryptoAmount !== '' && (!numAmount || numAmount < MIN_SELL_CRYPTO_AMOUNT) && (
+                        <p className="mt-1.5 text-[11px] font-bold text-rose-500 dark:text-rose-400">
+                            {lang === 'bn' ? `নূন্যতম ০.২ ${asset} বিক্রি করা যাবে` : `Minimum sell amount is ${MIN_SELL_CRYPTO_AMOUNT} ${asset}`}
+                        </p>
+                    )}
 
                     {/* Quick Amount Pills */}
                     <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar mt-2">
@@ -10695,7 +10704,7 @@ function SellCryptoPage({
                         <button
                             type="button"
                             onClick={handleDirectSell}
-                            disabled={!userTonAddress || !numAmount || numAmount < 0.01}
+                            disabled={!userTonAddress || !numAmount || numAmount < MIN_SELL_CRYPTO_AMOUNT}
                             className="px-7 py-3 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0"
                         >
                             <Zap size={16} fill="currentColor" />
