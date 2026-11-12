@@ -8087,7 +8087,7 @@ function HomePage({
       </div>
 
       {isHomeActive && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-x-0 bottom-[88px] z-40 pointer-events-none px-3.5">
+        <div className="fixed inset-x-0 bottom-[124px] z-40 pointer-events-none px-3.5">
           <div className="max-w-md mx-auto flex justify-end">
             <button
               type="button"
@@ -8098,21 +8098,21 @@ function HomePage({
               aria-label="Open TrustPay Giveaway"
               className="pointer-events-auto group relative flex flex-col items-center cursor-pointer active:scale-95 transition-transform focus:outline-none"
             >
-              <div className="tp-giveaway-float relative w-[56px] h-[52px] flex items-center justify-center rounded-xl overflow-visible">
-                <div className="relative w-full h-full rounded-xl overflow-hidden flex items-center justify-center">
+              <div className="tp-giveaway-float relative w-[68px] h-[64px] flex items-center justify-center rounded-2xl overflow-visible filter drop-shadow-[0_8px_20px_rgba(245,158,11,0.35)]">
+                <div className="relative w-full h-full rounded-2xl overflow-hidden flex items-center justify-center">
                   <img
                     src={giveawayBadgeImg}
                     alt="TrustPay Giveaway"
                     draggable={false}
-                    className="w-full h-full object-contain select-none"
+                    className="w-full h-full object-contain select-none transform group-hover:scale-105 transition-transform duration-300"
                   />
                   <span className="tp-giveaway-shine" />
                 </div>
-                <div className="absolute -top-2 -right-2 pointer-events-none">
-                  <TelegramAnimatedSticker src="tg-sparkles-sticker.json" size={20} />
+                <div className="absolute -top-2.5 -right-2.5 pointer-events-none">
+                  <TelegramAnimatedSticker src="tg-sparkles-sticker.json" size={24} />
                 </div>
               </div>
-              <span className="-mt-1.5 px-1.5 py-[1px] rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#1F1200] text-[8px] font-black tracking-wider uppercase shadow-[0_2px_8px_rgba(245,158,11,0.5)] border border-amber-200/90">
+              <span className="-mt-1 px-2.5 py-[2px] rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#1F1200] text-[9.5px] font-black tracking-wider uppercase shadow-[0_3px_10px_rgba(245,158,11,0.6)] border border-amber-200/90">
                 ৳50K
               </span>
             </button>

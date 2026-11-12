@@ -11928,18 +11928,21 @@ app.get('/api/miniapp/giveaway/status', async (req, res) => {
 
 // 2. MiniApp: Join Giveaway (Atomic ৳20 hold + server-verified 2 referrals & 1 trade)
 app.post('/api/miniapp/giveaway/join', async (req, res) => {
-    if (!checkRateLimit(req, res, 'giveaway_join', 10, 60000)) return;
     const { userId } = req.body || {};
-    const authValid = verifyRequestCallerIdentity(req, userId);
-    if (!authValid) {
-        return res.status(401).json({ error: 'নিরাপত্তা যাচাই ব্যর্থ! অনুগ্রহ করে টেলিগ্রাম অ্যাপ থেকে পুনরায় খুলুন।' });
-    }
-
     const cleanUserId = parseInt(userId, 10);
     if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
         return res.status(400).json({ error: 'Valid Telegram account required.' });
     }
     const strId = String(cleanUserId);
+
+    if (!checkRateLimit(`giveaway_join_${strId}`, 10, 60000)) {
+        return res.status(429).json({ error: 'অনুগ্রহ করে অপেক্ষা করুন, খুব দ্রুত চেষ্টা করছেন।' });
+    }
+
+    const authValid = verifyRequestCallerIdentity(req, userId);
+    if (!authValid) {
+        return res.status(401).json({ error: 'নিরাপত্তা যাচাই ব্যর্থ! অনুগ্রহ করে টেলিগ্রাম অ্যাপ থেকে পুনরায় খুলুন।' });
+    }
 
     if (!acquireUserFinancialLock(strId)) {
         return res.status(429).json({ error: 'অনুগ্রহ করে অপেক্ষা করুন, আরেকটি লেনদেন প্রক্রিয়াধীন আছে।' });
