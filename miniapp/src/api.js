@@ -629,7 +629,7 @@ export const joinGiveaway = async (userId) => {
     try {
         const res = await axios.post(`${API_URL}/api/miniapp/giveaway/join`, {
             userId
-        });
+        }, { timeout: 25000 });
         return res.data;
     } catch (e) {
         throw new Error(e.response?.data?.error || e.message || 'Giveaway join failed');

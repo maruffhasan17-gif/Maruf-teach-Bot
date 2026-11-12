@@ -200,7 +200,7 @@ function useUsersData() {
     try {
       let res;
       try {
-        res = await fetch(`${API_BASE}/api/admin/users?_t=${Date.now()}`);
+        res = await fetch(`${API_BASE}/api/admin/users?_t=${Date.now()}${isManual ? '&refresh=true' : ''}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       } catch (err) {
         res = await fetch(`${API_BASE}/api/stats?_t=${Date.now()}`);
@@ -7587,10 +7587,10 @@ function GiveawayManager() {
   const [nowMs, setNowMs] = useState(Date.now());
   const [customDays, setCustomDays] = useState('30');
 
-  const fetchGiveawayAdmin = async () => {
+  const fetchGiveawayAdmin = async (isManual = false) => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/giveaway?_t=${Date.now()}`);
+      const res = await fetch(`${API_BASE}/api/admin/giveaway?_t=${Date.now()}${isManual ? '&refresh=true' : ''}`);
       const json = await res.json();
       if (json && json.success) {
         setData(json);
@@ -7717,7 +7717,7 @@ function GiveawayManager() {
           </p>
         </div>
         <button
-          onClick={fetchGiveawayAdmin}
+          onClick={() => fetchGiveawayAdmin(true)}
           className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />

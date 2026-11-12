@@ -6091,6 +6091,7 @@ export default function App() {
   const loadSeqRef = useRef(0);
   const mountTimeRef = useRef(Date.now());
   const isFirstLoad = useRef(true);
+  const giveawayPreloadedRef = useRef(null);
 
   const loadData = async (rawUserId) => {
     const resolved = resolveTelegramUser();
@@ -6154,10 +6155,13 @@ export default function App() {
         setBalanceLoaded(true);
       }
       setGiveawayHoldBdt(roundBdt(data.giveawayHoldBdt || 0));
-      // Preload giveaway status in background so opening Giveaway tab is 0ms instant with zero stutter
-      fetchGiveawayStatus(targetId).then((gwRes) => {
-        if (gwRes) setGiveawayCache(gwRes);
-      }).catch(() => {});
+      // Preload giveaway status ONCE per session so opening Giveaway tab is 0ms instant without read spam
+      if (giveawayPreloadedRef.current !== String(targetId)) {
+        giveawayPreloadedRef.current = String(targetId);
+        fetchGiveawayStatus(targetId).then((gwRes) => {
+          if (gwRes) setGiveawayCache({ ...gwRes, _cachedAt: Date.now() });
+        }).catch(() => {});
+      }
       setFiatWallet(data.fiatWallet || null);
       const incomingWd = data.fiatWithdrawPending || null;
       if (incomingWd && (incomingWd.status === 'completed' || incomingWd.status === 'rejected')) {
@@ -6801,6 +6805,19 @@ export default function App() {
           {activeTab === 'giveaway' && (
               <GiveawayPage
                   cachedData={giveawayCache}
+                  onUpdateCache={setGiveawayCache}
+                  onJoinedBalanceUpdate={(newBal, newHold) => {
+                      if (Number.isFinite(Number(newBal))) {
+                          const balNum = Number(newBal);
+                          setBalance(balNum);
+                          try {
+                              if (user?.id) localStorage.setItem('tp_user_balance_' + user.id, String(balNum));
+                          } catch (_) {}
+                      }
+                      if (Number.isFinite(Number(newHold))) {
+                          setGiveawayHoldBdt(roundBdt(newHold));
+                      }
+                  }}
                   user={user}
                   balance={balance}
                   darkMode={darkMode}
@@ -13110,6 +13127,8 @@ function formatGiveawayCountdown(ms) {
 
 function GiveawayPage({
     cachedData = null,
+    onUpdateCache,
+    onJoinedBalanceUpdate,
     user,
     balance = 0,
     darkMode = false,
@@ -13136,7 +13155,9 @@ function GiveawayPage({
         try {
             const res = await fetchGiveawayStatus(user?.id || 123456789);
             if (res) {
-                setData(res);
+                const stamped = { ...res, _cachedAt: Date.now() };
+                setData(stamped);
+                if (onUpdateCache) onUpdateCache(stamped);
                 if (res.serverNow) {
                     setNowMs(res.serverNow);
                 }
@@ -13155,6 +13176,12 @@ function GiveawayPage({
     }, [cachedData]);
 
     useEffect(() => {
+        const isAlreadyJoined = Boolean(cachedData?.userStatus?.alreadyJoined || data?.userStatus?.alreadyJoined);
+        const cacheFresh = Boolean(cachedData?._cachedAt && (Date.now() - cachedData._cachedAt < 30000));
+        if (isAlreadyJoined || cacheFresh) {
+            setLoading(false);
+            return;
+        }
         loadGiveaway(Boolean(cachedData || data));
     }, [user?.id]);
 
@@ -13266,24 +13293,30 @@ function GiveawayPage({
             // 3. Audio celebration
             playAppSound('success');
 
-            // 4. Update data state immediately to joined view
-            setData(prev => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    userStatus: {
-                        ...prev.userStatus,
-                        alreadyJoined: true,
-                        canJoin: false
-                    }
-                };
-            });
-
-            // 5. Background re-sync
-            Promise.all([
-                loadGiveaway(true),
-                reloadData && reloadData()
-            ]).catch(() => {});
+            // 4. Update data & parent balance state immediately from join response (0 extra reads)
+            const updatedPayload = data ? {
+                ...data,
+                _cachedAt: Date.now(),
+                campaign: {
+                    ...data.campaign,
+                    totalParticipants: Number(res.totalParticipants ?? ((data.campaign?.totalParticipants || 0) + 1))
+                },
+                userStatus: {
+                    ...data.userStatus,
+                    balance: Number(res.balance ?? data.userStatus?.balance ?? 0),
+                    heldBdt: Number(res.giveawayHoldBdt ?? data.userStatus?.heldBdt ?? 20),
+                    alreadyJoined: true,
+                    joinedEntry: res.entry || data.userStatus?.joinedEntry || null,
+                    canJoin: false
+                }
+            } : null;
+            if (updatedPayload) {
+                setData(updatedPayload);
+                if (onUpdateCache) onUpdateCache(updatedPayload);
+            }
+            if (onJoinedBalanceUpdate) {
+                onJoinedBalanceUpdate(res.balance, res.giveawayHoldBdt);
+            }
 
             setTimeout(() => {
                 setJustJoinedAnimation(false);

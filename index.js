@@ -40,12 +40,22 @@ function invalidateOrdersCache() {
 const userHistoryMemoryCache = new Map();
 const userProfileMemoryCache = new Map();
 const USER_PROFILE_CACHE_TTL = 15000; // 15s memory cache to eliminate redundant Firestore reads
+const giveawayUserEligCache = new Map(); // Key: `${campaignId}:${strId}` -> { data, ts }
+
+function invalidateGiveawayEligCache(userId) {
+    if (!userId) return;
+    const suffix = `:${String(userId).trim()}`;
+    for (const key of giveawayUserEligCache.keys()) {
+        if (key.endsWith(suffix)) giveawayUserEligCache.delete(key);
+    }
+}
 
 function invalidateUserHistoryCache(userId) {
     if (!userId) return;
     const strUserId = String(userId).trim();
     userHistoryMemoryCache.delete(strUserId);
     userProfileMemoryCache.delete(strUserId);
+    invalidateGiveawayEligCache(strUserId);
 }
 
 function invalidateUserProfileCache(userId) {
@@ -53,6 +63,7 @@ function invalidateUserProfileCache(userId) {
     const strUserId = String(userId).trim();
     userProfileMemoryCache.delete(strUserId);
     userHistoryMemoryCache.delete(strUserId);
+    invalidateGiveawayEligCache(strUserId);
 }
 
 const ALL_USERS_BACKUP_FILE = path.join(__dirname, 'all_users_backup.json');
@@ -2389,6 +2400,9 @@ async function registerUserReferral(userId, rawReferrerId, userMeta = {}, device
         ];
 
         await Promise.all(batchPromises);
+        if (!isBlockedClone) {
+            invalidateGiveawayEligCache(cleanReferrerId);
+        }
 
         // Notify Referrer in Telegram if valid pending referral
         if (!isBlockedClone && bot) {
@@ -11653,28 +11667,45 @@ const GIVEAWAY_DEFAULT_PRIZES = [
     { rank: 4, label: '4th–10th Prize (Each)', amountBdt: 20, count: 7 }
 ];
 
-async function getOrCreateGiveawayCampaign() {
+const GIVEAWAY_CAMPAIGN_CACHE_TTL = 5 * 60 * 1000; // 5 min RAM cache for campaign metadata
+const GIVEAWAY_ELIG_UNJOINED_TTL = 3 * 60 * 1000; // 3 min RAM cache for unjoined eligibility scans
+const GIVEAWAY_ELIG_JOINED_TTL = 15 * 60 * 1000; // 15 min RAM cache once joined (never re-scans referrals/trades)
+const GIVEAWAY_ELIG_JOIN_GRACE_TTL = 10 * 60 * 1000; // 10 min grace cache when clicking Join so join avoids re-scanning 100+ docs
+const ADMIN_GIVEAWAY_CACHE_TTL = 3 * 60 * 1000; // 3 min RAM cache for Admin Giveaway panel
+
+let giveawayCampaignCache = { data: null, ts: 0 };
+let adminGiveawayCache = { data: null, ts: 0 };
+
+function normalizeGiveawayCampaign(d = {}) {
+    return {
+        campaignId: d.campaignId || 'season_1',
+        seasonNumber: Number(d.seasonNumber || 1),
+        title: d.title || 'TrustPay Monthly Mega Giveaway',
+        status: d.status || 'active',
+        startTime: Number(d.startTime || Date.now()),
+        endTime: Number(d.endTime || (Date.now() + GIVEAWAY_DURATION_MS)),
+        holdAmountBdt: Number(d.holdAmountBdt || GIVEAWAY_HOLD_BDT),
+        minReferrals: Number(d.minReferrals || GIVEAWAY_MIN_REFERRALS),
+        totalParticipants: Number(d.totalParticipants || 0),
+        holdsReleased: Boolean(d.holdsReleased),
+        winners: Array.isArray(d.winners) ? d.winners : [],
+        completedAt: d.completedAt || null,
+        prizes: GIVEAWAY_DEFAULT_PRIZES
+    };
+}
+
+async function getOrCreateGiveawayCampaign(forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && giveawayCampaignCache.data && (now - giveawayCampaignCache.ts < GIVEAWAY_CAMPAIGN_CACHE_TTL)) {
+        return giveawayCampaignCache.data;
+    }
     const ref = db.collection('settings').doc('giveaway_campaign');
     const snap = await ref.get();
     if (snap.exists) {
-        const d = snap.data() || {};
-        return {
-            campaignId: d.campaignId || 'season_1',
-            seasonNumber: Number(d.seasonNumber || 1),
-            title: d.title || 'TrustPay Monthly Mega Giveaway',
-            status: d.status || 'active',
-            startTime: Number(d.startTime || Date.now()),
-            endTime: Number(d.endTime || (Date.now() + GIVEAWAY_DURATION_MS)),
-            holdAmountBdt: Number(d.holdAmountBdt || GIVEAWAY_HOLD_BDT),
-            minReferrals: Number(d.minReferrals || GIVEAWAY_MIN_REFERRALS),
-            totalParticipants: Number(d.totalParticipants || 0),
-            holdsReleased: Boolean(d.holdsReleased),
-            winners: Array.isArray(d.winners) ? d.winners : [],
-            completedAt: d.completedAt || null,
-            prizes: GIVEAWAY_DEFAULT_PRIZES
-        };
+        const normalized = normalizeGiveawayCampaign(snap.data() || {});
+        giveawayCampaignCache = { data: normalized, ts: now };
+        return normalized;
     }
-    const now = Date.now();
     const initial = {
         campaignId: 'season_1',
         seasonNumber: 1,
@@ -11690,44 +11721,118 @@ async function getOrCreateGiveawayCampaign() {
         createdAt: now
     };
     await ref.set(initial);
-    return { ...initial, prizes: GIVEAWAY_DEFAULT_PRIZES };
+    const normalized = { ...initial, prizes: GIVEAWAY_DEFAULT_PRIZES };
+    giveawayCampaignCache = { data: normalized, ts: now };
+    return normalized;
 }
 
-async function computeUserGiveawayEligibility(cleanUserId, campaign) {
+async function getFreshUserBalanceAndData(strId) {
+    const cachedProfile = userProfileMemoryCache.get(strId);
+    if (cachedProfile && (Date.now() - cachedProfile.ts < USER_PROFILE_CACHE_TTL) && cachedProfile.data) {
+        return {
+            balance: roundBdt(parseFloat(cachedProfile.data.balance || 0)),
+            heldBdt: roundBdt(parseFloat(cachedProfile.data.giveawayHoldBdt || 0))
+        };
+    }
+    const userDoc = await db.collection('users').doc(strId).get().catch(() => null);
+    const uData = (userDoc && userDoc.exists) ? (userDoc.data() || {}) : {};
+    if (userDoc && userDoc.exists && typeof saveUserMasterData === 'function') {
+        saveUserMasterData(strId, uData);
+    }
+    return {
+        balance: roundBdt(parseFloat(uData.balance || 0)),
+        heldBdt: roundBdt(parseFloat(uData.giveawayHoldBdt || 0))
+    };
+}
+
+async function computeUserGiveawayEligibility(cleanUserId, campaign, options = {}) {
+    const { forceRefresh = false, forJoin = false } = options;
     const strId = String(cleanUserId);
+    const cacheKey = `${campaign.campaignId}:${strId}`;
+    const now = Date.now();
+
+    const cachedEntry = !forceRefresh ? giveawayUserEligCache.get(cacheKey) : null;
+    if (cachedEntry && cachedEntry.data) {
+        const ttl = cachedEntry.data.alreadyJoined
+            ? GIVEAWAY_ELIG_JOINED_TTL
+            : (forJoin ? GIVEAWAY_ELIG_JOIN_GRACE_TTL : GIVEAWAY_ELIG_UNJOINED_TTL);
+        if (now - cachedEntry.ts < ttl) {
+            const c = cachedEntry.data;
+            if (forJoin) {
+                return {
+                    ...c,
+                    balance: 0,
+                    heldBdt: 0,
+                    balanceOk: true,
+                    canJoin: !c.alreadyJoined && campaign.status === 'active' && now < campaign.endTime && c.referralOk && c.tradeOk
+                };
+            }
+            const balInfo = await getFreshUserBalanceAndData(strId);
+            const balanceOk = c.alreadyJoined ? true : (balInfo.balance >= (campaign.holdAmountBdt || GIVEAWAY_HOLD_BDT));
+            return {
+                ...c,
+                balance: balInfo.balance,
+                heldBdt: balInfo.heldBdt,
+                balanceOk,
+                canJoin: !c.alreadyJoined && campaign.status === 'active' && now < campaign.endTime && balanceOk && c.referralOk && c.tradeOk
+            };
+        }
+    }
+
+    // Check entry doc first: if user already joined, 0 referral/trade scans are needed!
+    const entrySnap = await db.collection('giveaway_entries').doc(`${campaign.campaignId}_${strId}`).get().catch(() => null);
+    const joinedEntry = (entrySnap && entrySnap.exists) ? (entrySnap.data() || null) : null;
+
+    if (joinedEntry) {
+        const balInfo = forJoin ? { balance: 0, heldBdt: Number(joinedEntry.holdAmountBdt || 0) } : await getFreshUserBalanceAndData(strId);
+        const minRefs = campaign.minReferrals || GIVEAWAY_MIN_REFERRALS;
+        const referralCount = Number(joinedEntry.referralCount ?? minRefs);
+        const completedCryptoBuys = Number(joinedEntry.completedCryptoBuys ?? 0);
+        const completedCryptoSells = Number(joinedEntry.completedCryptoSells ?? 0);
+        const totalCryptoTrades = Number(joinedEntry.totalCryptoTrades ?? Math.max(1, completedCryptoBuys + completedCryptoSells));
+
+        const cachedCore = {
+            referralCount,
+            referralOk: true,
+            completedCryptoBuys,
+            completedCryptoSells,
+            totalCryptoTrades,
+            tradeOk: true,
+            alreadyJoined: true,
+            joinedEntry
+        };
+        giveawayUserEligCache.set(cacheKey, { data: cachedCore, ts: now });
+
+        return {
+            ...cachedCore,
+            balance: balInfo.balance,
+            heldBdt: balInfo.heldBdt,
+            balanceOk: true,
+            canJoin: false
+        };
+    }
+
+    // User has not joined yet — query bounded projections on single-field indexes in parallel
     const numId = parseInt(cleanUserId, 10);
     const idCandidates = Number.isFinite(numId) ? [numId, strId] : [strId];
 
-    const [userDoc, refNumSnap, refStrSnap, buysSnap, sellsSnap, entrySnap] = await Promise.all([
-        db.collection('users').doc(strId).get().catch(() => null),
-        Number.isFinite(numId) ? db.collection('referrals').where('referrerId', '==', numId).get().catch(() => null) : Promise.resolve(null),
-        db.collection('referrals').where('referrerId', '==', strId).get().catch(() => null),
-        db.collection('miniapp_buys').where('userId', 'in', idCandidates).get().catch(() => null),
-        db.collection('miniapp_sells').where('userId', 'in', idCandidates).get().catch(() => null),
-        db.collection('giveaway_entries').doc(`${campaign.campaignId}_${strId}`).get().catch(() => null)
+    const [balInfo, refSnap, buysSnap, sellsSnap] = await Promise.all([
+        forJoin ? Promise.resolve({ balance: 0, heldBdt: 0 }) : getFreshUserBalanceAndData(strId),
+        db.collection('referrals').where('referrerId', 'in', idCandidates).select('status').limit(25).get().catch(() => null),
+        db.collection('miniapp_buys').where('userId', 'in', idCandidates).select('status', 'type', 'asset').limit(50).get().catch(() => null),
+        db.collection('miniapp_sells').where('userId', 'in', idCandidates).select('status').limit(30).get().catch(() => null)
     ]);
 
-    const uData = (userDoc && userDoc.exists) ? (userDoc.data() || {}) : {};
-    const balance = roundBdt(parseFloat(uData.balance || 0));
-    const heldBdt = roundBdt(parseFloat(uData.giveawayHoldBdt || 0));
-
-    // Count valid (non-clone) referrals
-    const seenRefIds = new Set();
     let validReferrals = 0;
-    [refNumSnap, refStrSnap].forEach(snap => {
-        if (!snap || snap.empty) return;
-        snap.forEach(doc => {
-            if (seenRefIds.has(doc.id)) return;
-            seenRefIds.add(doc.id);
-            const rd = doc.data() || {};
-            const st = rd.status || 'pending';
+    if (refSnap && !refSnap.empty) {
+        refSnap.forEach(doc => {
+            const st = (doc.data() || {}).status || 'pending';
             if (st !== 'blocked_clone' && st !== 'rejected_clone') {
                 validReferrals++;
             }
         });
-    });
+    }
 
-    // Count at least 1 completed crypto buy OR crypto sell (excluding fiat Add Money deposits)
     let completedCryptoBuys = 0;
     if (buysSnap && !buysSnap.empty) {
         buysSnap.forEach(doc => {
@@ -11737,6 +11842,7 @@ async function computeUserGiveawayEligibility(cleanUserId, campaign) {
             }
         });
     }
+
     let completedCryptoSells = 0;
     if (sellsSnap && !sellsSnap.empty) {
         sellsSnap.forEach(doc => {
@@ -11746,34 +11852,39 @@ async function computeUserGiveawayEligibility(cleanUserId, campaign) {
             }
         });
     }
+
     const totalCryptoTrades = completedCryptoBuys + completedCryptoSells;
-    const joinedEntry = (entrySnap && entrySnap.exists) ? (entrySnap.data() || null) : null;
-    const alreadyJoined = Boolean(joinedEntry);
-
-    const balanceOk = alreadyJoined ? true : (balance >= (campaign.holdAmountBdt || GIVEAWAY_HOLD_BDT));
-    const referralOk = validReferrals >= (campaign.minReferrals || GIVEAWAY_MIN_REFERRALS);
+    const minRefs = campaign.minReferrals || GIVEAWAY_MIN_REFERRALS;
+    const referralOk = validReferrals >= minRefs;
     const tradeOk = totalCryptoTrades >= 1;
+    const balanceOk = forJoin ? true : (balInfo.balance >= (campaign.holdAmountBdt || GIVEAWAY_HOLD_BDT));
 
-    return {
-        balance,
-        heldBdt,
-        balanceOk,
+    const cachedCore = {
         referralCount: validReferrals,
         referralOk,
         completedCryptoBuys,
         completedCryptoSells,
         totalCryptoTrades,
         tradeOk,
-        alreadyJoined,
-        joinedEntry,
-        canJoin: !alreadyJoined && campaign.status === 'active' && Date.now() < campaign.endTime && balanceOk && referralOk && tradeOk
+        alreadyJoined: false,
+        joinedEntry: null
+    };
+    giveawayUserEligCache.set(cacheKey, { data: cachedCore, ts: now });
+
+    return {
+        ...cachedCore,
+        balance: balInfo.balance,
+        heldBdt: balInfo.heldBdt,
+        balanceOk,
+        canJoin: campaign.status === 'active' && Date.now() < campaign.endTime && balanceOk && referralOk && tradeOk
     };
 }
 
 // 1. MiniApp: Get Giveaway status & user's 3-step eligibility
 app.get('/api/miniapp/giveaway/status', async (req, res) => {
     try {
-        const campaign = await getOrCreateGiveawayCampaign();
+        const forceRefresh = req.query.refresh === 'true' || req.query.force === '1';
+        const campaign = await getOrCreateGiveawayCampaign(forceRefresh);
         const rawUserId = req.query.userId || '';
         const cleanUserId = parseInt(rawUserId, 10);
         const now = Date.now();
@@ -11797,7 +11908,7 @@ app.get('/api/miniapp/giveaway/status', async (req, res) => {
         };
 
         if (cleanUserId && !isNaN(cleanUserId) && cleanUserId !== 123456789) {
-            const elig = await computeUserGiveawayEligibility(cleanUserId, campaign);
+            const elig = await computeUserGiveawayEligibility(cleanUserId, campaign, { forceRefresh });
             userStatus = { isGuest: false, ...elig };
         }
 
@@ -11819,8 +11930,8 @@ app.get('/api/miniapp/giveaway/status', async (req, res) => {
 app.post('/api/miniapp/giveaway/join', async (req, res) => {
     if (!checkRateLimit(req, res, 'giveaway_join', 10, 60000)) return;
     const { userId } = req.body || {};
-    const authUser = verifyRequestCallerIdentity(req, userId);
-    if (!authUser) {
+    const authValid = verifyRequestCallerIdentity(req, userId);
+    if (!authValid) {
         return res.status(401).json({ error: 'নিরাপত্তা যাচাই ব্যর্থ! অনুগ্রহ করে টেলিগ্রাম অ্যাপ থেকে পুনরায় খুলুন।' });
     }
 
@@ -11829,11 +11940,6 @@ app.post('/api/miniapp/giveaway/join', async (req, res) => {
         return res.status(400).json({ error: 'Valid Telegram account required.' });
     }
     const strId = String(cleanUserId);
-
-    const activeCheck = await checkUserAccountActive(cleanUserId);
-    if (!activeCheck.active) {
-        return res.status(403).json({ error: activeCheck.reason || 'Account restricted or banned.' });
-    }
 
     if (!acquireUserFinancialLock(strId)) {
         return res.status(429).json({ error: 'অনুগ্রহ করে অপেক্ষা করুন, আরেকটি লেনদেন প্রক্রিয়াধীন আছে।' });
@@ -11845,8 +11951,8 @@ app.post('/api/miniapp/giveaway/join', async (req, res) => {
             return res.status(400).json({ error: 'এই Giveaway-এর সময়সীমা শেষ হয়ে গেছে।' });
         }
 
-        // Pre-verify referrals and completed crypto trade before atomic balance transaction
-        const preCheck = await computeUserGiveawayEligibility(cleanUserId, campaign);
+        // Fast cached pre-verify (0 reads if user already opened Giveaway page)
+        const preCheck = await computeUserGiveawayEligibility(cleanUserId, campaign, { forJoin: true });
         if (preCheck.alreadyJoined) {
             return res.status(400).json({ error: 'আপনি ইতিমধ্যেই এই Giveaway-তে অংশগ্রহণ করেছেন!' });
         }
@@ -11879,6 +11985,15 @@ app.post('/api/miniapp/giveaway/join', async (req, res) => {
                 throw new Error('USER_NOT_FOUND');
             }
             const uData = uSnap.data() || {};
+            const isBanned = uData.status === 'banned' || Boolean(uData.isBanned);
+            if (isBanned) {
+                throw new Error('USER_BANNED');
+            }
+            const isRestricted = uData.status === 'restricted' && (!uData.restrictedUntil || new Date(uData.restrictedUntil) > new Date());
+            if (isRestricted) {
+                throw new Error('USER_RESTRICTED');
+            }
+
             const freshBal = roundBdt(parseFloat(uData.balance || 0));
             if (freshBal < holdAmt) {
                 throw new Error(`INSUFFICIENT_BALANCE:${freshBal}`);
@@ -11886,8 +12001,9 @@ app.post('/api/miniapp/giveaway/join', async (req, res) => {
 
             const newBal = roundBdt(freshBal - holdAmt);
             const newHold = roundBdt(parseFloat(uData.giveawayHoldBdt || 0) + holdAmt);
+            const newTotalParticipants = Number(cData.totalParticipants || 0) + 1;
             const now = Date.now();
-            const fullName = [uData.firstName || uData.first_name || authUser.first_name, uData.lastName || uData.last_name || authUser.last_name].filter(Boolean).join(' ').trim() || `User ${strId}`;
+            const fullName = [uData.firstName || uData.first_name, uData.lastName || uData.last_name].filter(Boolean).join(' ').trim() || `User ${strId}`;
 
             const entryData = {
                 id: `${campaign.campaignId}_${strId}`,
@@ -11896,7 +12012,7 @@ app.post('/api/miniapp/giveaway/join', async (req, res) => {
                 strUserId: strId,
                 mbsId: uData.mbsId || generateMbsId(cleanUserId),
                 name: fullName,
-                username: uData.username || authUser.username || '',
+                username: uData.username || '',
                 holdAmountBdt: holdAmt,
                 holdStatus: 'held',
                 status: 'joined',
@@ -11916,26 +12032,70 @@ app.post('/api/miniapp/giveaway/join', async (req, res) => {
             });
             tx.set(entryDocRef, entryData);
             tx.set(campaignDocRef, {
-                totalParticipants: Number(cData.totalParticipants || 0) + 1
+                totalParticipants: newTotalParticipants
             }, { merge: true });
 
-            return { newBal, newHold, entryData };
+            return { newBal, newHold, newTotalParticipants, entryData };
         });
 
+        // Update all RAM caches consistently without erasing the fresh joined state
         userProfileMemoryCache.delete(strId);
-        invalidateUserHistoryCache(strId);
+        userHistoryMemoryCache.delete(strId);
+        if (allUsersMasterData[strId]) {
+            allUsersMasterData[strId].balance = result.newBal;
+            allUsersMasterData[strId].giveawayHoldBdt = result.newHold;
+        }
+        if (giveawayCampaignCache.data && giveawayCampaignCache.data.campaignId === campaign.campaignId) {
+            giveawayCampaignCache.data = {
+                ...giveawayCampaignCache.data,
+                totalParticipants: result.newTotalParticipants
+            };
+            giveawayCampaignCache.ts = Date.now();
+        }
+        giveawayUserEligCache.set(`${campaign.campaignId}:${strId}`, {
+            data: {
+                referralCount: preCheck.referralCount,
+                referralOk: true,
+                completedCryptoBuys: preCheck.completedCryptoBuys,
+                completedCryptoSells: preCheck.completedCryptoSells,
+                totalCryptoTrades: preCheck.totalCryptoTrades,
+                tradeOk: true,
+                alreadyJoined: true,
+                joinedEntry: result.entryData
+            },
+            ts: Date.now()
+        });
+        if (adminGiveawayCache.data && adminGiveawayCache.data.campaign?.campaignId === campaign.campaignId) {
+            const prevParticipants = Array.isArray(adminGiveawayCache.data.participants) ? adminGiveawayCache.data.participants : [];
+            if (!prevParticipants.some(p => String(p.userId || p.strUserId) === strId)) {
+                adminGiveawayCache.data = {
+                    ...adminGiveawayCache.data,
+                    campaign: {
+                        ...adminGiveawayCache.data.campaign,
+                        totalParticipants: result.newTotalParticipants
+                    },
+                    totalHeldBdt: roundBdt(Number(adminGiveawayCache.data.totalHeldBdt || 0) + holdAmt),
+                    participants: [result.entryData, ...prevParticipants]
+                };
+                adminGiveawayCache.ts = Date.now();
+            }
+        }
 
         res.json({
             success: true,
             message: `🎉 অভিনন্দন! ৳${holdAmt.toFixed(2)} হোল্ড করে আপনি সফলভাবে Giveaway-তে জয়েন করেছেন।`,
             balance: result.newBal,
             giveawayHoldBdt: result.newHold,
+            totalParticipants: result.newTotalParticipants,
             entry: result.entryData
         });
     } catch (e) {
         const msg = String(e?.message || '');
         if (msg === 'ALREADY_JOINED') return res.status(400).json({ error: 'আপনি ইতিমধ্যেই Giveaway-তে অংশগ্রহণ করেছেন!' });
         if (msg === 'CAMPAIGN_ENDED') return res.status(400).json({ error: 'Giveaway-এর সময়সীমা শেষ হয়ে গেছে।' });
+        if (msg === 'USER_NOT_FOUND') return res.status(404).json({ error: 'ইউজার অ্যাকাউন্ট খুঁজে পাওয়া যায়নি।' });
+        if (msg === 'USER_BANNED') return res.status(403).json({ error: 'আপনার অ্যাকাউন্টটি স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।' });
+        if (msg === 'USER_RESTRICTED') return res.status(403).json({ error: 'আপনার অ্যাকাউন্টটি বর্তমানে রেস্ট্রিক্ট করা রয়েছে।' });
         if (msg.startsWith('INSUFFICIENT_BALANCE:')) {
             return res.status(400).json({ error: `জয়েন করতে আপনার অ্যাকাউন্টে কমপক্ষে ৳${GIVEAWAY_HOLD_BDT}.00 ব্যালেন্স থাকতে হবে।` });
         }
@@ -11946,10 +12106,20 @@ app.post('/api/miniapp/giveaway/join', async (req, res) => {
     }
 });
 
-// 3. Admin: Get Giveaway Campaign, Participants & Winners
+// 3. Admin: Get Giveaway Campaign, Participants & Winners (3-min RAM cache, ?refresh=true bypasses)
 app.get('/api/admin/giveaway', requireAdminAuth, async (req, res) => {
     try {
-        const campaign = await getOrCreateGiveawayCampaign();
+        const now = Date.now();
+        const forceRefresh = req.query.refresh === 'true' || req.query.force === '1';
+        if (!forceRefresh && adminGiveawayCache.data && (now - adminGiveawayCache.ts < ADMIN_GIVEAWAY_CACHE_TTL)) {
+            return res.json({
+                ...adminGiveawayCache.data,
+                serverNow: now,
+                cached: true
+            });
+        }
+
+        const campaign = await getOrCreateGiveawayCampaign(forceRefresh);
         const entriesSnap = await db.collection('giveaway_entries')
             .where('campaignId', '==', campaign.campaignId)
             .get();
@@ -11965,13 +12135,15 @@ app.get('/api/admin/giveaway', requireAdminAuth, async (req, res) => {
         });
         participants.sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0));
 
-        res.json({
+        const payload = {
             success: true,
             serverNow: Date.now(),
             campaign,
             totalHeldBdt,
             participants
-        });
+        };
+        adminGiveawayCache = { data: payload, ts: Date.now() };
+        res.json(payload);
     } catch (e) {
         console.error('Admin giveaway fetch error:', e);
         res.status(500).json({ error: e.message });
@@ -11982,7 +12154,7 @@ app.get('/api/admin/giveaway', requireAdminAuth, async (req, res) => {
 app.post('/api/admin/giveaway/config', requireAdminAuth, async (req, res) => {
     try {
         const { action, title, durationDays, endTime } = req.body || {};
-        const campaign = await getOrCreateGiveawayCampaign();
+        const campaign = await getOrCreateGiveawayCampaign(true);
         const ref = db.collection('settings').doc('giveaway_campaign');
         const now = Date.now();
 
@@ -12008,7 +12180,11 @@ app.post('/api/admin/giveaway/config', requireAdminAuth, async (req, res) => {
                 createdAt: now
             };
             await ref.set(nextData);
-            return res.json({ success: true, campaign: { ...nextData, prizes: GIVEAWAY_DEFAULT_PRIZES } });
+            const normalized = { ...nextData, prizes: GIVEAWAY_DEFAULT_PRIZES };
+            giveawayCampaignCache = { data: normalized, ts: Date.now() };
+            adminGiveawayCache = { data: null, ts: 0 };
+            giveawayUserEligCache.clear();
+            return res.json({ success: true, campaign: normalized });
         }
 
         const updates = {};
@@ -12022,7 +12198,8 @@ app.post('/api/admin/giveaway/config', requireAdminAuth, async (req, res) => {
             updates.endTime = now + d * 24 * 60 * 60 * 1000;
         }
         await ref.set(updates, { merge: true });
-        const updated = await getOrCreateGiveawayCampaign();
+        const updated = await getOrCreateGiveawayCampaign(true);
+        adminGiveawayCache = { data: null, ts: 0 };
         res.json({ success: true, campaign: updated });
     } catch (e) {
         console.error('Admin giveaway config error:', e);
@@ -12034,7 +12211,7 @@ app.post('/api/admin/giveaway/config', requireAdminAuth, async (req, res) => {
 app.post('/api/admin/giveaway/finalize', requireAdminAuth, async (req, res) => {
     try {
         const { winners = [], allowEarlyFinalize = false } = req.body || {};
-        const campaign = await getOrCreateGiveawayCampaign();
+        const campaign = await getOrCreateGiveawayCampaign(true);
 
         if (campaign.status === 'completed' || campaign.holdsReleased) {
             return res.status(400).json({ error: 'এই Giveaway ইতিমধ্যেই সম্পন্ন হয়েছে এবং পুরস্কার বিতরণ করা হয়েছে।' });
@@ -12062,6 +12239,9 @@ app.post('/api/admin/giveaway/finalize', requireAdminAuth, async (req, res) => {
                 completedAt: Date.now(),
                 winners: []
             }, { merge: true });
+            giveawayCampaignCache = { data: null, ts: 0 };
+            adminGiveawayCache = { data: null, ts: 0 };
+            giveawayUserEligCache.clear();
             return res.json({ success: true, message: 'কোনো অংশগ্রহণকারী ছিল না, ক্যাম্পেইন ক্লোজ করা হয়েছে।', winners: [] });
         }
 
@@ -12138,8 +12318,7 @@ app.post('/api/admin/giveaway/finalize', requireAdminAuth, async (req, res) => {
                 });
             });
 
-            userProfileMemoryCache.delete(uidStr);
-            invalidateUserHistoryCache(uidStr);
+            invalidateUserProfileCache(uidStr);
             notifications.push({ uidStr, winInfo, holdAmountBdt: entry.holdAmountBdt || GIVEAWAY_HOLD_BDT });
         }
 
@@ -12149,6 +12328,10 @@ app.post('/api/admin/giveaway/finalize', requireAdminAuth, async (req, res) => {
             completedAt: now,
             winners: finalizedWinners
         }, { merge: true });
+
+        giveawayCampaignCache = { data: null, ts: 0 };
+        adminGiveawayCache = { data: null, ts: 0 };
+        giveawayUserEligCache.clear();
 
         // Send Telegram DM notifications asynchronously
         if (bot) {
