@@ -260,12 +260,13 @@ export const submitSellOrder = async (payload) => {
         }, { timeout: 35000 });
         return res.data;
     } catch (e) {
-        console.error("submitSellOrder error:", e);
-        const serverError = e.response?.data?.error;
-        if (serverError) {
-            throw new Error(serverError);
-        }
-        throw e;
+        const serverData = e.response?.data || {};
+        const serverError = serverData.error;
+        const err = new Error(serverError || e.message || "Verification failed");
+        err.status = e.response?.status;
+        err.notFoundYet = Boolean(serverData.notFoundYet);
+        err.fatal = Boolean(serverData.fatal);
+        throw err;
     }
 };
 
@@ -470,6 +471,25 @@ export const checkEvmDeposit = async ({ userId, network }) => {
     }
 };
 
+export const checkTonDeposit = async ({ userId, sellCode, wallet, asset, amount }) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/check-ton-deposit`, {
+            userId,
+            sellCode: sellCode || undefined,
+            wallet: wallet || undefined,
+            asset: asset || undefined,
+            amount: amount || undefined
+        }, { timeout: 25000 });
+        return res.data;
+    } catch (e) {
+        const serverData = e.response?.data || {};
+        if (e.response?.status === 400 && serverData.notFoundYet) {
+            return { success: false, notFoundYet: true, error: serverData.error };
+        }
+        throw new Error(serverData.error || e.message || 'Failed to check TON deposit');
+    }
+};
+
 export const fetchUserHistory = async (userId) => {
     try {
         const res = await axios.get(`${API_URL}/api/miniapp/history/${userId}?_t=${Date.now()}`);
@@ -591,3 +611,27 @@ export const fetchLeaderboard = async (userId) => {
 
 
 
+
+export const fetchGiveawayStatus = async (userId) => {
+    try {
+        const res = await axios.get(`${API_URL}/api/miniapp/giveaway/status`, {
+            params: { userId: userId || '', _t: Date.now() },
+            timeout: 10000
+        });
+        return res.data;
+    } catch (e) {
+        console.error("fetchGiveawayStatus error:", e);
+        return null;
+    }
+};
+
+export const joinGiveaway = async (userId) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/miniapp/giveaway/join`, {
+            userId
+        });
+        return res.data;
+    } catch (e) {
+        throw new Error(e.response?.data?.error || e.message || 'Giveaway join failed');
+    }
+};

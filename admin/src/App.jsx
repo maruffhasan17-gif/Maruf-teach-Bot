@@ -50,7 +50,9 @@ import {
   Fuel,
   ShieldCheck,
   Activity,
-  QrCode
+  QrCode,
+  Trophy,
+  Gift
 } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI } from '@tonconnect/ui-react';
 import { 
@@ -419,6 +421,14 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       name: 'User Database', 
       sub: 'Accounts & Referrals', 
       icon: <Users size={18} strokeWidth={2.2} /> 
+    },
+    { 
+      path: '/giveaway', 
+      name: 'Giveaway Pool', 
+      sub: '৳50K Event & Winner Pick', 
+      icon: <Trophy size={18} strokeWidth={2.2} />,
+      badge: '৳50K',
+      badgeColor: 'bg-amber-500 text-slate-950 font-black shadow-sm'
     },
   ];
 
@@ -7541,6 +7551,7 @@ function App() {
               <Route path="/withdraw" element={<FiatWithdrawals />} />
               <Route path="/withdrawals" element={<FiatWithdrawals />} />
               <Route path="/users" element={<UsersManagement />} />
+              <Route path="/giveaway" element={<GiveawayManager />} />
               <Route path="/broadcast" element={<BroadcastCenter />} />
               <Route path="/bot-settings" element={<BotSettings />} />
               <Route path="/fraud" element={<FraudLogs />} />
@@ -7557,6 +7568,366 @@ function App() {
         </Router>
       </TonConnectUIProvider>
     </ThemeContext.Provider>
+  );
+}
+
+// =========================================================================
+// 8. ADMIN GIVEAWAY MANAGEMENT & WINNER SELECTION
+// =========================================================================
+function GiveawayManager() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [search, setSearch] = useState('');
+  const [selectedWinners, setSelectedWinners] = useState({});
+  const [allowEarly, setAllowEarly] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState({ type: '', text: '' });
+  const [nowMs, setNowMs] = useState(Date.now());
+  const [customDays, setCustomDays] = useState('30');
+
+  const fetchGiveawayAdmin = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/giveaway?_t=${Date.now()}`);
+      const json = await res.json();
+      if (json && json.success) {
+        setData(json);
+        if (json.serverNow) setNowMs(json.serverNow);
+        if (Array.isArray(json.campaign?.winners) && json.campaign.winners.length > 0) {
+          const prefill = {};
+          json.campaign.winners.forEach(w => {
+            prefill[w.rank] = String(w.userId);
+          });
+          setSelectedWinners(prefill);
+        }
+      }
+    } catch (e) {
+      setToast({ type: 'error', text: e.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGiveawayAdmin();
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const campaign = data?.campaign || {};
+  const participants = Array.isArray(data?.participants) ? data.participants : [];
+  const totalHeldBdt = Number(data?.totalHeldBdt || 0);
+  const remainingMs = Math.max(0, Number(campaign.endTime || 0) - nowMs);
+  const isTimeEnded = nowMs >= Number(campaign.endTime || 0);
+
+  const dDays = Math.floor(remainingMs / 86400000);
+  const dHours = Math.floor((remainingMs % 86400000) / 3600000);
+  const dMins = Math.floor((remainingMs % 3600000) / 60000);
+  const dSecs = Math.floor((remainingMs % 60000) / 1000);
+
+  const rankSlots = [
+    { rank: 1, label: '1st Prize Winner', prize: '৳50,000' },
+    { rank: 2, label: '2nd Prize Winner', prize: '৳15,000' },
+    { rank: 3, label: '3rd Prize Winner', prize: '৳2,000' },
+    { rank: 4, label: '4th Place', prize: '৳20' },
+    { rank: 5, label: '5th Place', prize: '৳20' },
+    { rank: 6, label: '6th Place', prize: '৳20' },
+    { rank: 7, label: '7th Place', prize: '৳20' },
+    { rank: 8, label: '8th Place', prize: '৳20' },
+    { rank: 9, label: '9th Place', prize: '৳20' },
+    { rank: 10, label: '10th Place', prize: '৳20' }
+  ];
+
+  const handleFinalize = async () => {
+    setToast({ type: '', text: '' });
+    const requiredCount = Math.min(10, participants.length);
+    const winnersPayload = [];
+    for (let r = 1; r <= requiredCount; r++) {
+      const uid = selectedWinners[r];
+      if (!uid) {
+        setToast({ type: 'error', text: `Rank #${r} এর জন্য একজন Winner সিলেক্ট করুন।` });
+        return;
+      }
+      winnersPayload.push({ rank: r, userId: uid });
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/giveaway/finalize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ winners: winnersPayload, allowEarlyFinalize: allowEarly })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to finalize');
+      setToast({ type: 'success', text: json.message || 'Winners finalized & holds released!' });
+      await fetchGiveawayAdmin();
+    } catch (e) {
+      setToast({ type: 'error', text: e.message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConfigAction = async (actionPayload) => {
+    setToast({ type: '', text: '' });
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/giveaway/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(actionPayload)
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Config update failed');
+      setToast({ type: 'success', text: 'Giveaway campaign updated cleanly!' });
+      setSelectedWinners({});
+      await fetchGiveawayAdmin();
+    } catch (e) {
+      setToast({ type: 'error', text: e.message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const filteredParticipants = participants.filter(p => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      String(p.userId || '').includes(q) ||
+      String(p.name || '').toLowerCase().includes(q) ||
+      String(p.username || '').toLowerCase().includes(q) ||
+      String(p.mbsId || '').toLowerCase().includes(q)
+    );
+  });
+
+  const usedIds = new Set(Object.values(selectedWinners).filter(Boolean));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className={`text-2xl font-black flex items-center gap-2.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <Trophy className="text-amber-500" size={26} />
+            <span>Giveaway Manager & Winner Selection</span>
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            1st ৳50,000 • 2nd ৳15,000 • 3rd ৳2,000 • 4th–10th ৳20 each • Holds ৳20 until winners selected
+          </p>
+        </div>
+        <button
+          onClick={fetchGiveawayAdmin}
+          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      {toast.text && (
+        <div className={`p-3.5 rounded-xl border text-xs font-bold ${
+          toast.type === 'error'
+            ? 'bg-rose-500/15 border-rose-500/40 text-rose-400'
+            : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+        }`}>
+          {toast.text}
+        </div>
+      )}
+
+      {/* KPI Row */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
+          <p className="text-[11px] font-bold text-slate-400 uppercase">Campaign Status</p>
+          <p className={`text-lg font-black mt-1 ${campaign.status === 'completed' ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {campaign.status === 'completed' ? 'COMPLETED' : isTimeEnded ? 'READY TO PICK' : 'ACTIVE (1 MONTH)'}
+          </p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{campaign.campaignId || 'season_1'}</p>
+        </div>
+        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
+          <p className="text-[11px] font-bold text-slate-400 uppercase">Countdown Remaining</p>
+          <p className="text-lg font-black font-mono text-white mt-1">
+            {dDays}d {String(dHours).padStart(2, '0')}h {String(dMins).padStart(2, '0')}m {String(dSecs).padStart(2, '0')}s
+          </p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{isTimeEnded ? 'Timer ended' : 'Live countdown'}</p>
+        </div>
+        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
+          <p className="text-[11px] font-bold text-slate-400 uppercase">Participants</p>
+          <p className="text-2xl font-black text-indigo-400 mt-1">{participants.length}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Verified 2+ refs & 1+ trade</p>
+        </div>
+        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
+          <p className="text-[11px] font-bold text-slate-400 uppercase">Locked ৳20 Hold Pool</p>
+          <p className="text-2xl font-black text-amber-400 mt-1">৳{totalHeldBdt.toFixed(2)}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{campaign.holdsReleased ? 'All released' : 'Refunded on finalize'}</p>
+        </div>
+      </div>
+
+      {/* Timer Controls */}
+      <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-slate-400">Timer Duration (Days):</span>
+          <input
+            type="number"
+            min="1"
+            max="90"
+            value={customDays}
+            onChange={e => setCustomDays(e.target.value)}
+            className="w-20 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-white text-xs font-bold"
+          />
+          <button
+            disabled={submitting || campaign.status === 'completed'}
+            onClick={() => handleConfigAction({ durationDays: Number(customDays) || 30 })}
+            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold disabled:opacity-40 cursor-pointer"
+          >
+            Update Timer
+          </button>
+          <button
+            disabled={submitting || campaign.status === 'completed'}
+            onClick={() => handleConfigAction({ action: 'end_now' })}
+            className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold disabled:opacity-40 cursor-pointer"
+          >
+            End Timer Now
+          </button>
+        </div>
+        {campaign.status === 'completed' && (
+          <button
+            disabled={submitting}
+            onClick={() => handleConfigAction({ action: 'new_season', durationDays: Number(customDays) || 30 })}
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black cursor-pointer"
+          >
+            + Start New 1-Month Giveaway Season
+          </button>
+        )}
+      </div>
+
+      {/* Manual Winner Selection Workbench */}
+      <div className={`p-5 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              Select Winners (Ranks 1–10)
+            </h2>
+            <p className="text-xs text-slate-400">
+              Finalizing credits prizes to winners AND unlocks/refunds ৳20 hold to all joined users.
+            </p>
+          </div>
+          {!isTimeEnded && campaign.status !== 'completed' && (
+            <label className="flex items-center gap-2 text-xs font-bold text-amber-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allowEarly}
+                onChange={e => setAllowEarly(e.target.checked)}
+              />
+              <span>Override 1-Month Timer (Close Early)</span>
+            </label>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {rankSlots.slice(0, Math.max(1, Math.min(10, participants.length))).map(slot => (
+            <div key={slot.rank} className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${isDark ? 'bg-slate-900/70 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+              <div className="shrink-0">
+                <p className="text-xs font-black text-amber-400">{slot.label}</p>
+                <p className="text-[11px] font-bold text-slate-400">Prize: {slot.prize}</p>
+              </div>
+              <select
+                disabled={campaign.status === 'completed' || participants.length === 0}
+                value={selectedWinners[slot.rank] || ''}
+                onChange={e => setSelectedWinners(prev => ({ ...prev, [slot.rank]: e.target.value }))}
+                className={`flex-1 max-w-[260px] px-3 py-2 rounded-lg border text-xs font-semibold ${
+                  isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                }`}
+              >
+                <option value="">-- Select Participant --</option>
+                {participants.map(p => {
+                  const uid = String(p.userId);
+                  const takenElsewhere = usedIds.has(uid) && selectedWinners[slot.rank] !== uid;
+                  return (
+                    <option key={uid} value={uid} disabled={takenElsewhere}>
+                      {p.name} ({uid}){p.username ? ` @${p.username}` : ''} — Refs:{p.referralCount} Trades:{p.totalCryptoTrades}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          ))}
+        </div>
+
+        {campaign.status !== 'completed' && (
+          <div className="mt-5 flex justify-end">
+            <button
+              disabled={submitting || participants.length === 0 || (!isTimeEnded && !allowEarly)}
+              onClick={handleFinalize}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 text-xs font-black shadow-lg disabled:opacity-40 cursor-pointer"
+            >
+              {submitting ? 'Processing Payouts & Releases...' : '🏆 Finalize Winners & Release ৳20 Holds'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Joined Participants Table */}
+      <div className={`p-5 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Joined Participants ({filteredParticipants.length})
+          </h2>
+          <input
+            type="text"
+            placeholder="Search ID, name, username..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className={`px-3 py-2 rounded-xl border text-xs w-64 ${
+              isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+            }`}
+          />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="text-slate-400 border-b border-slate-800">
+                <th className="py-2.5 pr-3">User</th>
+                <th className="py-2.5 px-3">Referrals</th>
+                <th className="py-2.5 px-3">Crypto Trades</th>
+                <th className="py-2.5 px-3">Hold Status</th>
+                <th className="py-2.5 px-3">Joined</th>
+                <th className="py-2.5 pl-3">Result</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {filteredParticipants.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-500">No participants joined yet.</td>
+                </tr>
+              ) : filteredParticipants.map(p => (
+                <tr key={p.id || p.userId}>
+                  <td className="py-3 pr-3">
+                    <div className="font-bold text-white">{p.name}</div>
+                    <div className="text-[11px] text-slate-400">{p.userId} • {p.mbsId}</div>
+                  </td>
+                  <td className="py-3 px-3 font-bold text-emerald-400">{p.referralCount || 0}</td>
+                  <td className="py-3 px-3 font-bold text-indigo-400">{p.totalCryptoTrades || 0}</td>
+                  <td className="py-3 px-3">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      p.holdStatus === 'released'
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'bg-amber-500/20 text-amber-400'
+                    }`}>
+                      {p.holdStatus === 'released' ? 'RELEASED' : `HELD ৳${Number(p.holdAmountBdt || 20).toFixed(2)}`}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-slate-400">{formatTimestamp(p.joinedAt)}</td>
+                  <td className="py-3 pl-3 font-black text-amber-400">
+                    {p.wonRank ? `#${p.wonRank} (৳${Number(p.prizeBdt || 0).toLocaleString()})` : (p.status === 'completed' ? 'Participated' : 'Active')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }
 

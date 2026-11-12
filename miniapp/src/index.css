@@ -732,3 +732,105 @@ html.dark .tp-spin-card-idle {
 .tp-box-5 {
   animation: tpBoxEntrance 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.32s both;
 }
+
+/* ============================================================================
+   FLOATING GOLDEN GIVEAWAY BADGE + GLOSSY SHINE EFFECT
+   ============================================================================ */
+@keyframes tpGiveawayFloat {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+    filter: drop-shadow(0 8px 18px rgba(245, 158, 11, 0.38));
+  }
+  50% {
+    transform: translateY(-7px) scale(1.035);
+    filter: drop-shadow(0 14px 24px rgba(251, 191, 36, 0.56));
+  }
+}
+
+@keyframes tpGiveawayShineSweep {
+  0% {
+    transform: translateX(-160%) skewX(-22deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.92;
+  }
+  42% {
+    transform: translateX(220%) skewX(-22deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(220%) skewX(-22deg);
+    opacity: 0;
+  }
+}
+
+.tp-giveaway-float {
+  animation: tpGiveawayFloat 3.1s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+.tp-giveaway-shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.tp-giveaway-shine::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  width: 48%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 251, 235, 0.58) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: tpGiveawayShineSweep 3.4s ease-in-out infinite;
+}
+
+/* Trophy High-Velocity Slam & Physics Animation */
+@keyframes tpTrophySlamIn {
+  0% {
+    transform: scale(3.2) translateY(-180px) rotate(-18deg);
+    opacity: 0;
+    filter: blur(8px) brightness(2.2);
+  }
+  45% {
+    transform: scale(0.88) translateY(8px) rotate(3deg);
+    opacity: 1;
+    filter: blur(0px) brightness(1.6);
+  }
+  70% {
+    transform: scale(1.08) translateY(-4px) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) translateY(0) rotate(0deg);
+    filter: brightness(1);
+  }
+}
+
+.tp-trophy-slam {
+  animation: tpTrophySlamIn 0.75s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  will-change: transform, filter, opacity;
+}
+
+@keyframes tpGoldenFlash {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+.tp-golden-flash {
+  animation: tpGoldenFlash 0.9s ease-out forwards;
+}

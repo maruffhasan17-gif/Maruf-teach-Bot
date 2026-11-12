@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText, Trophy, Crown, Medal, Flame, Mail, Heart, Globe } from 'lucide-react';
+import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText, Trophy, Crown, Medal, Flame, Mail, Heart, Globe, Lock } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, checkTreasuryAvailability, notifyAdminRefuel, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, searchUsers, lookupRecipientUser, submitTransferMoney } from './api';
+import { fetchUserData, syncUserProfile, submitFreeTonTask, saveFiatWallet, withdrawFiat, submitSellOrder, buildTransaction, submitBuyOrder, submitAddMoney, submitBuyCrypto, checkTreasuryAvailability, notifyAdminRefuel, submitSupportMessage, fetchMarketRates, checkCommunityMembership, verifyCommunityMembership, fetchReferralData, prepareReferralShare, fetchUserDepositAddress, checkEvmDeposit, checkTonDeposit, fetchUserHistory, getUserAvatarUrl, acknowledgeWithdrawNotice, acknowledgeReceivedTransfer, setupTwoStepPin, searchUsers, lookupRecipientUser, submitTransferMoney, fetchGiveawayStatus, joinGiveaway } from './api';
 import lottie from 'lottie-web/build/player/lottie_light';
+import confetti from 'canvas-confetti';
 import brandLogo from './assets/trustpaylogo.png';
 import referralBannerImg from './assets/trustpay-official-banner.jpg';
+import giveawayBadgeImg from './assets/giveaway-badge.png';
 import lotusLineArt from './assets/lotus-line-art.webp';
 import roseBranchArt from './assets/rose-branch-art.webp';
 import addmoneyRoseArt from './assets/addmoney-rose-art.webp';
@@ -18,6 +20,7 @@ import roseBotanicalArt from './assets/rose-botanical-art.webp';
 import marufFrameImg from './assets/frame-maruf.png';
 
 const stickerJsonCache = new Map();
+const roundBdt = (v) => Math.round(((Number(v) || 0) + Number.EPSILON) * 100) / 100;
 
 // ============================================================================
 // APP-WIDE FINTECH SOUND SYSTEM (Web Audio API — Zero Latency, No External MP3)
@@ -796,7 +799,51 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
         </div>
       </>
     )}
-    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'buy' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && page !== 'notifications' && page !== 'transfer' && page !== 'two-step' && page !== 'support' && (
+    {page === 'giveaway' && (
+      <>
+        <div
+          className="absolute -top-16 inset-x-0 h-[450px] pointer-events-none"
+          style={{
+            background: darkMode
+              ? 'radial-gradient(circle at 50% 20%, rgba(245, 158, 11, 0.16) 0%, rgba(124, 58, 237, 0.20) 45%, transparent 75%)'
+              : 'radial-gradient(circle at 50% 20%, rgba(254, 240, 138, 0.55) 0%, rgba(237, 233, 254, 0.50) 45%, transparent 75%)'
+          }}
+        />
+        {/* User's custom botanical flower art in top-right */}
+        <div
+          className="absolute -right-3 top-2 w-[220px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)',
+            maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%)'
+          }}
+        >
+          <img
+            src={roseBotanicalArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto ${darkMode ? 'opacity-[0.45] brightness-125' : 'opacity-[0.85]'}`}
+          />
+        </div>
+        {/* User's custom rose branch art in lower-left */}
+        <div
+          className="absolute -left-6 bottom-20 w-[180px] pointer-events-none select-none overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to top, black 75%, transparent 100%)',
+            maskImage: 'linear-gradient(to top, black 75%, transparent 100%)'
+          }}
+        >
+          <img
+            src={roseBranchArt}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className={`w-full h-auto transform -scale-x-100 ${darkMode ? 'opacity-[0.30] brightness-125' : 'opacity-[0.60]'}`}
+          />
+        </div>
+      </>
+    )}
+    {page !== 'home' && page !== 'add-money' && page !== 'sell' && page !== 'buy' && page !== 'profile' && page !== 'withdraw' && page !== 'referral' && page !== 'notifications' && page !== 'transfer' && page !== 'two-step' && page !== 'support' && page !== 'giveaway' && (
       <>
         <div
           className="absolute -top-12 -right-12 w-80 h-80 pointer-events-none"
@@ -4980,8 +5027,8 @@ function TransferMoneyPage({
                   type="button"
                   onClick={() => {
                     playAppSound('tap');
-                    const maxVal = Math.min(5000, Math.floor(balance || 0));
-                    setAmount(maxVal.toString());
+                    const maxVal = Math.min(5000, roundBdt(balance || 0));
+                    setAmount(maxVal.toFixed(2));
                     if (errorMessage) setErrorMessage('');
                   }}
                   className="px-2.5 py-1 rounded-full text-[11px] font-black border border-purple-300/80 dark:border-purple-800 bg-purple-500/10 text-purple-600 dark:text-purple-300 cursor-pointer active:scale-95"
@@ -6024,6 +6071,8 @@ export default function App() {
     return 0;
   });
   const [balanceLoaded, setBalanceLoaded] = useState(true);
+  const [giveawayHoldBdt, setGiveawayHoldBdt] = useState(0);
+  const [giveawayCache, setGiveawayCache] = useState(null);
   const [restrictionInfo, setRestrictionInfo] = useState(null);
   const [antiAbuseData, setAntiAbuseData] = useState({
     hasDepositWithoutTrade: false,
@@ -6104,6 +6153,11 @@ export default function App() {
         setBalance(finalBal);
         setBalanceLoaded(true);
       }
+      setGiveawayHoldBdt(roundBdt(data.giveawayHoldBdt || 0));
+      // Preload giveaway status in background so opening Giveaway tab is 0ms instant with zero stutter
+      fetchGiveawayStatus(targetId).then((gwRes) => {
+        if (gwRes) setGiveawayCache(gwRes);
+      }).catch(() => {});
       setFiatWallet(data.fiatWallet || null);
       const incomingWd = data.fiatWithdrawPending || null;
       if (incomingWd && (incomingWd.status === 'completed' || incomingWd.status === 'rejected')) {
@@ -6423,13 +6477,13 @@ export default function App() {
       }}
     >
       <TonConnectStyles />
-      <div className="min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] pb-28 relative overflow-x-hidden font-sans selection:bg-[var(--color-brand)]/20 transition-colors duration-200">
+      <div className={`min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] ${activeTab === 'giveaway' ? 'pb-2' : 'pb-28'} relative overflow-x-hidden font-sans selection:bg-[var(--color-brand)]/20 transition-colors duration-200`}>
         <PageBackgroundFlowers page={activeTab} darkMode={darkMode} />
         
-        <div className="relative z-10 p-4 max-w-md mx-auto">
+        <div className={`relative z-10 ${activeTab === 'giveaway' ? 'px-3 pt-1 pb-1' : 'p-4'} max-w-md mx-auto`}>
           {/* Header - shown only on primary tabs */}
           {activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'withdraw' && activeTab !== 'notifications' && activeTab !== 'claim' && activeTab !== 'history'  && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support'  && (
-            <div id="main-app-header" className="flex justify-between items-center mb-5 pt-2 transition-all duration-300">
+            <div id="main-app-header" className={`flex justify-between items-center ${activeTab === 'giveaway' ? 'mb-2.5 pt-0.5' : 'mb-5 pt-2'} transition-all duration-300`}>
                <div className="flex items-center gap-3">
                  <div className="w-[44px] h-[44px] flex items-center justify-center shrink-0">
                    <img src={brandLogo} alt="Trust Pay" className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(79,70,229,0.35)]" />
@@ -6494,6 +6548,9 @@ export default function App() {
           <div className={activeTab === 'home' ? 'block' : 'fixed top-0 left-0 w-full h-0 overflow-hidden opacity-0 pointer-events-none -z-50 select-none'}>
               <HomePage 
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
+                  isHomeActive={activeTab === 'home'}
+                  giveawayHoldBdt={giveawayHoldBdt}
+                  onOpenGiveaway={() => setActiveTab('giveaway')}
                   balance={balance} 
                   balanceLoaded={balanceLoaded}
                   user={user} 
@@ -6741,10 +6798,25 @@ export default function App() {
                   isRefreshing={isRefreshingNotifs}
               />
           )}
+          {activeTab === 'giveaway' && (
+              <GiveawayPage
+                  cachedData={giveawayCache}
+                  user={user}
+                  balance={balance}
+                  darkMode={darkMode}
+                  lang={lang}
+                  onBack={() => setActiveTab('home')}
+                  onGoToAddMoney={() => setActiveTab('add-money')}
+                  onGoToReferral={() => setActiveTab('referral')}
+                  onGoToBuyCrypto={() => setActiveTab('buy')}
+                  onGoToSell={() => setActiveTab('sell')}
+                  reloadData={() => loadData(user?.id || 123456789)}
+              />
+          )}
         </div>
 
         {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
-        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral'  && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (() => {
+        {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral'  && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && activeTab !== 'giveaway' && (() => {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             const isNavHidden = isKeyboardVisible || (activeTab === 'add-money' && addMoneyStep === 2);
@@ -7380,6 +7452,9 @@ function CryptoAssetSelectModal({
 function HomePage({ 
   balance, 
   balanceLoaded = false, 
+  isHomeActive = false,
+  giveawayHoldBdt = 0,
+  onOpenGiveaway,
   user, 
   mbsId,
   fiatWithdrawPending, 
@@ -7751,6 +7826,28 @@ function HomePage({
               </span> USD
             </span>
           </div>
+
+          {Number(giveawayHoldBdt) > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                playAppSound('tap');
+                onOpenGiveaway && onOpenGiveaway();
+              }}
+              className={`mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold border transition active:scale-95 cursor-pointer ${
+                darkMode
+                  ? 'bg-amber-500/15 border-amber-400/35 text-amber-300'
+                  : 'bg-amber-50 border-amber-300/80 text-amber-700'
+              }`}
+            >
+              <Lock size={10} />
+              <span>
+                {lang === 'bn'
+                  ? `Giveaway হোল্ড: ৳${Number(giveawayHoldBdt).toFixed(2)}`
+                  : `Giveaway Hold: ৳${Number(giveawayHoldBdt).toFixed(2)}`}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* 3D action buttons: Crypto Buy & Crypto Sell (Ultra-Premium Luxury Fintech 3D) */}
@@ -7972,6 +8069,40 @@ function HomePage({
         )}
       </div>
 
+      {isHomeActive && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-x-0 bottom-[88px] z-40 pointer-events-none px-3.5">
+          <div className="max-w-md mx-auto flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                playAppSound('tap');
+                onOpenGiveaway && onOpenGiveaway();
+              }}
+              aria-label="Open TrustPay Giveaway"
+              className="pointer-events-auto group relative flex flex-col items-center cursor-pointer active:scale-95 transition-transform focus:outline-none"
+            >
+              <div className="tp-giveaway-float relative w-[56px] h-[52px] flex items-center justify-center rounded-xl overflow-visible">
+                <div className="relative w-full h-full rounded-xl overflow-hidden flex items-center justify-center">
+                  <img
+                    src={giveawayBadgeImg}
+                    alt="TrustPay Giveaway"
+                    draggable={false}
+                    className="w-full h-full object-contain select-none"
+                  />
+                  <span className="tp-giveaway-shine" />
+                </div>
+                <div className="absolute -top-2 -right-2 pointer-events-none">
+                  <TelegramAnimatedSticker src="tg-sparkles-sticker.json" size={20} />
+                </div>
+              </div>
+              <span className="-mt-1.5 px-1.5 py-[1px] rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-[#1F1200] text-[8px] font-black tracking-wider uppercase shadow-[0_2px_8px_rgba(245,158,11,0.5)] border border-amber-200/90">
+                ৳50K
+              </span>
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
       </div>
   );
 }
@@ -9050,6 +9181,7 @@ function OnChainTransferProgressModal({
   stage = 'verifying', // 'verifying' | 'transferring' | 'success' | 'error'
   asset = 'GRAM',
   amount = 0,
+  bdtAmount = null,
   targetAddress = '',
   network = 'TON',
   isBuy = true,
@@ -9166,6 +9298,11 @@ function OnChainTransferProgressModal({
               <div className="text-2xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
                 +{amount} {asset}
               </div>
+              {bdtAmount != null && Number(bdtAmount) > 0 && (
+                <div className="text-sm font-black font-mono text-purple-600 dark:text-purple-400 mt-0.5">
+                  {isBuy ? `৳${roundBdt(bdtAmount).toFixed(2)} BDT` : `+৳${roundBdt(bdtAmount).toFixed(2)} BDT`}
+                </div>
+              )}
               <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mt-1 truncate">
                 {isBuy ? `Sent to ${truncatedAddress}` : 'ব্যালেন্সে সরাসরি টাকা যোগ হয়েছে'}
               </p>
@@ -9434,9 +9571,9 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
 
     const activeNetworkObj = BUY_NETWORKS.find(n => n.id === selectedNetwork) || BUY_NETWORKS[0];
     const cryptoRate = rates[selectedAsset] || (selectedAsset === 'GRAM' ? 160 : 130);
-    const numBdt = parseFloat(bdtAmount) || 0;
+    const numBdt = roundBdt(parseFloat(bdtAmount) || 0);
     const calculatedCrypto = numBdt > 0 ? (numBdt / cryptoRate).toFixed(4) : '';
-    const hasInsufficientBalance = numBdt > balance;
+    const hasInsufficientBalance = numBdt > roundBdt(balance || 0);
 
     // Real-time Address Validation
     const validateAddress = (addr, net) => {
@@ -9843,9 +9980,12 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                     }`}>
                         <input
                             type="number"
+                            step="0.01"
+                            min="20"
+                            inputMode="decimal"
                             value={bdtAmount}
                             onChange={e => setBdtAmount(e.target.value)}
-                            placeholder={lang === 'bn' ? 'নূন্যতম ৳20 BDT' : 'Min. ৳20 BDT'}
+                            placeholder={lang === 'bn' ? 'নূন্যতম ৳20.00 BDT' : 'Min. ৳20.00 BDT'}
                             style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
                             className="w-full bg-transparent text-lg sm:text-xl font-black font-mono tracking-tight outline-none pr-16 placeholder:text-xs placeholder:font-normal placeholder:text-slate-400"
                         />
@@ -9873,7 +10013,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                             {balance > 0 && (
                                 <button
                                     type="button"
-                                    onClick={() => setBdtAmount(Math.floor(balance).toString())}
+                                    onClick={() => setBdtAmount(roundBdt(balance || 0).toFixed(2))}
                                     className="px-2 py-0.5 rounded-lg border border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/40 text-[10px] font-black text-purple-600 dark:text-purple-400 cursor-pointer active:scale-95"
                                 >
                                     MAX
@@ -9887,7 +10027,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 <div className="pt-1 text-[11px] text-slate-400 space-y-1">
                     <div className="flex justify-between">
                         <span>Rate</span>
-                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {selectedAsset} ≈ ৳{cryptoRate} BDT</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {selectedAsset} ≈ ৳{Number(cryptoRate).toFixed(2)} BDT</span>
                     </div>
                     <div className="flex justify-between">
                         <span>Withdrawal Fees</span>
@@ -9966,6 +10106,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                 stage={transferStage}
                 asset={selectedAsset}
                 amount={calculatedCrypto}
+                bdtAmount={txResult?.bdtAmount ?? numBdt}
                 targetAddress={destMode === 'connected' ? (userTonAddress || receiveAddress) : receiveAddress}
                 network={activeNetworkObj.shortName}
                 isBuy={true}
@@ -10075,7 +10216,7 @@ function SellCryptoPage({
     const currentRate = asset === 'USDT' ? (liveRates?.USDT || 118) : (liveRates?.GRAM || 120);
     const MIN_SELL_CRYPTO_AMOUNT = 0.2;
     const numAmount = parseFloat(cryptoAmount) || 0;
-    const estimatedTk = numAmount > 0 ? Math.floor(numAmount * currentRate) : 0;
+    const estimatedTk = numAmount > 0 ? roundBdt(numAmount * currentRate) : 0;
     const quickAmounts = asset === 'GRAM' ? [0.2, 0.5, 1, 5, 10] : [5, 10, 25, 50, 100];
 
     const SELL_NETWORKS = [
@@ -10088,27 +10229,109 @@ function SellCryptoPage({
 
     const activeNetworkObj = SELL_NETWORKS.find(n => n.id === selectedNetwork) || SELL_NETWORKS[0];
 
-    const [lastActiveSellCode, setLastActiveSellCode] = useState(() => {
+    const pendingStorageKey = `tp_pending_sell_v2_${user?.id || 'guest'}`;
+    const readPendingSellStorage = () => {
         try {
-            return sessionStorage.getItem('tp_pending_sell_code') || '';
-        } catch (_) { return ''; }
-    });
-    const [lastSellAmount, setLastSellAmount] = useState(() => {
+            const rawLocal = localStorage.getItem(pendingStorageKey);
+            if (rawLocal) {
+                const parsed = JSON.parse(rawLocal);
+                if (parsed?.code && (!parsed.ts || Date.now() - parsed.ts < 6 * 60 * 60 * 1000)) {
+                    return parsed;
+                }
+            }
+        } catch (_) {}
         try {
-            return parseFloat(sessionStorage.getItem('tp_pending_sell_amt') || '0') || 0;
-        } catch (_) { return 0; }
-    });
+            const sCode = sessionStorage.getItem('tp_pending_sell_code') || '';
+            const sAmt = parseFloat(sessionStorage.getItem('tp_pending_sell_amt') || '0') || 0;
+            if (sCode) return { code: sCode, amount: sAmt, asset: initialAsset || 'GRAM', ts: Date.now() };
+        } catch (_) {}
+        return null;
+    };
 
-    const verifyTonSellOnChain = async (codeToVerify, amtToVerify) => {
-        if (isSuccessRef.current) return true;
+    const initialPendingSell = readPendingSellStorage();
+    const [lastActiveSellCode, setLastActiveSellCode] = useState(() => initialPendingSell?.code || '');
+    const [lastSellAmount, setLastSellAmount] = useState(() => initialPendingSell?.amount || 0);
+    const [lastSellAsset, setLastSellAsset] = useState(() => initialPendingSell?.asset || '');
+
+    const persistPendingSell = (code, amt, sellAsset) => {
+        setLastActiveSellCode(code);
+        setLastSellAmount(amt);
+        setLastSellAsset(sellAsset);
+        try {
+            localStorage.setItem(pendingStorageKey, JSON.stringify({ code, amount: amt, asset: sellAsset, ts: Date.now() }));
+            sessionStorage.setItem('tp_pending_sell_code', code);
+            sessionStorage.setItem('tp_pending_sell_amt', String(amt));
+        } catch (_) {}
+    };
+
+    const clearPendingSell = () => {
+        setLastActiveSellCode('');
+        setLastSellAmount(0);
+        setLastSellAsset('');
+        try {
+            localStorage.removeItem(pendingStorageKey);
+            sessionStorage.removeItem('tp_pending_sell_code');
+            sessionStorage.removeItem('tp_pending_sell_amt');
+            localStorage.removeItem(`miniapp_history_cache_${user?.id || 123456789}`);
+        } catch (_) {}
+    };
+
+    const handleSellConfirmedSuccess = (res, resolvedAmt, resolvedAsset) => {
+        isSuccessRef.current = true;
+        try {
+            tonConnectUI.closeModal();
+            const actionModal = document.querySelector('[data-tc-actions-modal-container]');
+            if (actionModal) actionModal.remove();
+        } catch (_) {}
+        const fallbackRate = resolvedAsset === 'USDT' ? (liveRates?.USDT || 118) : (liveRates?.GRAM || 120);
+        const finalCreditedTk = res.creditedTk != null ? roundBdt(res.creditedTk) : roundBdt((Number(resolvedAmt) || 0) * fallbackRate);
+        setLastSellAmount(Number(resolvedAmt) || lastSellAmount);
+        setLastSellAsset(resolvedAsset || asset);
+        setSellResult({ ...res, amount: resolvedAmt, estimatedTk: finalCreditedTk });
+        setErrorMessage('');
+        setIsTransferModalOpen(true);
+        setTransferStage('success');
+        clearPendingSell();
+        if (reloadData) reloadData();
+        playAppSound('success');
+    };
+
+    // Silently check & recover any confirmed on-chain pending sell when entering SellCryptoPage
+    useEffect(() => {
+        if (!user?.id || Number(user.id) === 123456789) return;
+        let active = true;
+        const stored = readPendingSellStorage();
+        checkTonDeposit({
+            userId: user.id,
+            sellCode: stored?.code,
+            wallet: userTonAddress || undefined,
+            asset: stored?.asset || asset,
+            amount: stored?.amount || undefined
+        }).then(res => {
+            if (!active || isSuccessRef.current) return;
+            if (res && res.success) {
+                const recovered = Array.isArray(res.results) && res.results[0] ? res.results[0] : {};
+                handleSellConfirmedSuccess(
+                    res,
+                    recovered.amount || stored?.amount || numAmount,
+                    recovered.asset || stored?.asset || asset
+                );
+            }
+        }).catch(() => {});
+        return () => { active = false; };
+    }, [user?.id]);
+
+    const verifyTonSellOnChain = async (codeToVerify, amtToVerify, assetToVerify) => {
+        if (isSuccessRef.current) return { ok: true };
         const code = codeToVerify || lastActiveSellCode;
         const targetAmt = amtToVerify || numAmount || lastSellAmount;
-        if (!code) return false;
+        const targetAsset = assetToVerify || lastSellAsset || asset;
+        if (!code) return { ok: false, error: 'Missing verification code' };
         try {
             if (!isSuccessRef.current) setTransferStage('verifying');
             const res = await submitSellOrder({
                 userId: user?.id || 123456789,
-                asset,
+                asset: targetAsset,
                 amount: targetAmt,
                 estimatedTk,
                 sellCode: code,
@@ -10117,58 +10340,56 @@ function SellCryptoPage({
             });
 
             if (res && res.success) {
-                isSuccessRef.current = true;
-                try {
-                    tonConnectUI.closeModal();
-                    const actionModal = document.querySelector('[data-tc-actions-modal-container]');
-                    if (actionModal) actionModal.remove();
-                } catch (_) {}
-                const finalCreditedTk = res.creditedTk || estimatedTk;
-                setSellResult({ ...res, amount: targetAmt, estimatedTk: finalCreditedTk });
-                setTransferStage('success');
-                try {
-                    sessionStorage.removeItem('tp_pending_sell_code');
-                    sessionStorage.removeItem('tp_pending_sell_amt');
-                    localStorage.removeItem(`miniapp_history_cache_${user?.id || 123456789}`);
-                } catch (_) {}
-                if (reloadData) reloadData();
-                playAppSound('success');
-                return true;
+                handleSellConfirmedSuccess(res, targetAmt, targetAsset);
+                return { ok: true };
             }
+            return { ok: false, error: res?.error || '' };
         } catch (e) {
-            console.warn("verifyTonSellOnChain check attempt:", e.message || e);
+            return { ok: false, fatal: Boolean(e?.fatal) || e?.status === 403, error: e?.message || '' };
         }
-        return false;
     };
 
     const handleCheckTonDeposit = async () => {
-        const code = lastActiveSellCode || sessionStorage.getItem('tp_pending_sell_code');
-        const amt = numAmount || lastSellAmount || parseFloat(sessionStorage.getItem('tp_pending_sell_amt') || '0');
-        if (!code) {
-            return handleDirectSell();
-        }
+        const stored = readPendingSellStorage();
+        const code = lastActiveSellCode || stored?.code || '';
+        const amt = lastSellAmount || stored?.amount || numAmount;
+        const targetAsset = lastSellAsset || stored?.asset || asset;
 
         setIsTransferModalOpen(true);
         setTransferStage('verifying');
         setErrorMessage(lang === 'bn' ? 'ব্লকচেইনে লেনদেন যাচাই করা হচ্ছে...' : 'Verifying transaction on blockchain...');
 
-        let ok = false;
-        for (let i = 0; i < 4; i++) {
-            ok = await verifyTonSellOnChain(code, amt);
-            if (ok) break;
-            if (i < 3) await new Promise(r => setTimeout(r, 2000));
+        let lastErr = '';
+        for (let i = 0; i < 3; i++) {
+            try {
+                const res = await checkTonDeposit({
+                    userId: user?.id || 123456789,
+                    sellCode: code || undefined,
+                    wallet: userTonAddress || undefined,
+                    asset: targetAsset,
+                    amount: amt || undefined
+                });
+                if (res && res.success) {
+                    const recovered = Array.isArray(res.results) && res.results[0] ? res.results[0] : {};
+                    handleSellConfirmedSuccess(res, recovered.amount || amt, recovered.asset || targetAsset);
+                    return;
+                }
+                if (res?.error) lastErr = res.error;
+            } catch (e) {
+                lastErr = e.message || '';
+                break;
+            }
+            if (i < 2) await new Promise(r => setTimeout(r, 2500));
         }
 
-        if (!ok) {
-            setTransferStage('error');
-            setErrorMessage(lang === 'bn' 
-                ? 'ব্লকচেইনে এখনও আপনার ডিপোজিট পাওয়া যায়নি। টংকিপারে লেনদেন সম্পন্ন হয়ে থাকলে অনুগ্রহ করে কয়েক সেকেন্ড পর আবার "ডিপোজিট চেক করুন" এ চাপ দিন।' 
-                : 'Deposit not yet found on blockchain. If confirmed in Keeper, please wait a few seconds and tap Check Deposit again.');
-            playAppSound('error');
-        }
+        setTransferStage('error');
+        setErrorMessage(lastErr || (lang === 'bn'
+            ? 'ব্লকচেইনে এখনও আপনার ডিপোজিট পাওয়া যায়নি। ওয়ালেটে পেমেন্ট সম্পন্ন হয়ে থাকলে কিছুক্ষণ পর আবার "ডিপোজিট চেক করুন" এ চাপ দিন।'
+            : 'Deposit not yet confirmed on blockchain. If confirmed in your wallet, please wait a moment and tap Check Deposit again.'));
+        playAppSound('error');
     };
 
-    // TON direct sell via Tonkeeper
+    // TON direct sell via Tonkeeper / Binance Web3 Wallet
     const handleDirectSell = async () => {
         if (!userTonAddress) {
             tonConnectUI.openModal();
@@ -10218,76 +10439,86 @@ function SellCryptoPage({
             }
 
             activeSellCode = txRes.sellCode;
-            setLastActiveSellCode(activeSellCode);
-            setLastSellAmount(numAmount);
-            try {
-                sessionStorage.setItem('tp_pending_sell_code', activeSellCode);
-                sessionStorage.setItem('tp_pending_sell_amt', numAmount.toString());
-            } catch (_) {}
+            persistPendingSell(activeSellCode, numAmount, asset);
 
-            // Background polling:
-            // When user confirms in Tonkeeper, the transaction hits the blockchain within 3-8 seconds!
-            // Poll in background so user doesn't get stuck waiting on TonConnect's modal!
+            // Background polling starts after 5s so user has time to switch wallet & approve,
+            // while single-flight deduplication on server prevents poll vs final submit collisions.
             const triggerBackgroundPoll = async () => {
                 if (isCompleted || isSuccessRef.current) { stopPolling(); return; }
-                const verified = await verifyTonSellOnChain(activeSellCode, numAmount);
-                if (verified || isSuccessRef.current) {
+                const checkRes = await verifyTonSellOnChain(activeSellCode, numAmount, asset);
+                if (checkRes.ok || isSuccessRef.current) {
                     isCompleted = true;
                     isSuccessRef.current = true;
                     stopPolling();
                     clearTimeout(progressTimer);
-                    try {
-                        tonConnectUI.closeModal();
-                        const actionModal = document.querySelector('[data-tc-actions-modal-container]');
-                        if (actionModal) actionModal.remove();
-                    } catch (_) {}
+                } else if (checkRes.fatal) {
+                    isCompleted = true;
+                    stopPolling();
+                    clearTimeout(progressTimer);
+                    setErrorMessage(checkRes.error || (lang === 'bn' ? 'পেমেন্ট ভেরিফাই করা যায়নি।' : 'Verification blocked.'));
+                    setTransferStage('error');
+                    playAppSound('error');
                 }
             };
 
             pollTimer = setTimeout(() => {
                 if (!isCompleted && !isSuccessRef.current) {
                     triggerBackgroundPoll();
-                    pollInterval = setInterval(triggerBackgroundPoll, 2500);
+                    pollInterval = setInterval(triggerBackgroundPoll, 3500);
                 }
-            }, 3500);
+            }, 5000);
 
-            // Trigger Tonkeeper / TonConnect transaction
-            let txResult = null;
+            // Trigger Tonkeeper / Binance Wallet / TonConnect transaction
             try {
-                txResult = await tonConnectUI.sendTransaction(txRes.tx, {
+                await tonConnectUI.sendTransaction(txRes.tx, {
                     modals: [],
                     notifications: []
                 });
             } catch (err) {
                 console.warn("tonConnectUI sendTransaction error or cancel:", err);
 
-                // If already succeeded, DO NOT overwrite with verifying or error!
                 if (isSuccessRef.current || isCompleted) {
                     stopPolling();
                     clearTimeout(progressTimer);
                     return;
                 }
 
-                // User may have confirmed in Tonkeeper, but tapped outside or bridge disconnected on app resume.
-                // Give on-chain verification multiple attempts before showing any error!
+                const errStr = String(err?.message || err || '').toLowerCase();
+                const isUserCancel = errStr.includes('reject') ||
+                                     errStr.includes('cancel') ||
+                                     errStr.includes('decline') ||
+                                     errStr.includes('abort') ||
+                                     errStr.includes('closed') ||
+                                     err?.name === 'UserRejectsError';
+
                 if (!isSuccessRef.current) {
                     setTransferStage('verifying');
                     setErrorMessage(lang === 'bn' ? 'ব্লকচেইনে লেনদেন যাচাই করা হচ্ছে...' : 'Verifying on-chain confirmation...');
                 }
 
-                for (let i = 0; i < 4; i++) {
-                    await new Promise(r => setTimeout(r, 2000));
+                const retryCount = isUserCancel ? 2 : 6;
+                for (let i = 0; i < retryCount; i++) {
+                    await new Promise(r => setTimeout(r, isUserCancel ? 2000 : 2500));
                     if (isSuccessRef.current || isCompleted) {
                         stopPolling();
                         clearTimeout(progressTimer);
                         return;
                     }
-                    const ok = await verifyTonSellOnChain(activeSellCode, numAmount);
-                    if (ok || isSuccessRef.current) {
+                    const checkRes = await verifyTonSellOnChain(activeSellCode, numAmount, asset);
+                    if (checkRes.ok || isSuccessRef.current) {
                         isCompleted = true;
                         isSuccessRef.current = true;
                         stopPolling();
                         clearTimeout(progressTimer);
+                        return;
+                    }
+                    if (checkRes.fatal) {
+                        isCompleted = true;
+                        stopPolling();
+                        clearTimeout(progressTimer);
+                        setErrorMessage(checkRes.error);
+                        setTransferStage('error');
+                        playAppSound('error');
                         return;
                     }
                 }
@@ -10302,17 +10533,9 @@ function SellCryptoPage({
                 stopPolling();
                 clearTimeout(progressTimer);
 
-                const errStr = String(err?.message || err || '').toLowerCase();
-                const isUserCancel = errStr.includes('reject') || 
-                                     errStr.includes('cancel') || 
-                                     errStr.includes('decline') || 
-                                     errStr.includes('abort') || 
-                                     errStr.includes('closed') ||
-                                     err?.name === 'UserRejectsError';
-
                 const cancelMsg = isUserCancel
-                    ? (lang === 'bn' ? 'টংকিপারে লেনদেন বাতিল করা হয়েছে বা এখনও কনফার্ম হয়নি।' : 'Transaction was cancelled or not yet confirmed.')
-                    : (lang === 'bn' ? 'ওয়ালেট থেকে রেসপন্স পাওয়া যায়নি। টংকিপারে কনফার্ম করে থাকলে নিচের বাটনে ডিপোজিট চেক করুন।' : (err?.message || 'Transaction was not confirmed.'));
+                    ? (lang === 'bn' ? 'ওয়ালেটে লেনদেন বাতিল করা হয়েছে বা এখনও কনফার্ম হয়নি।' : 'Transaction was cancelled or not yet confirmed.')
+                    : (lang === 'bn' ? 'ওয়ালেট থেকে রেসপন্স পাওয়া যায়নি। পেমেন্ট করে থাকলে নিচের বাটনে ডিপোজিট চেক করুন।' : (err?.message || 'Transaction was not confirmed yet. Tap Check Deposit below.'));
 
                 setErrorMessage(cancelMsg);
                 setTransferStage('error');
@@ -10322,43 +10545,54 @@ function SellCryptoPage({
                 return;
             }
 
+            // Wallet confirmed sendTransaction! Never abort on a single 400/429 response while indexing:
+            // patiently verify on-chain up to ~35s via single-flight deduplicated checks.
             if (!isCompleted && !isSuccessRef.current) {
                 stopPolling();
                 clearTimeout(progressTimer);
-
                 setTransferStage('verifying');
-                const res = await submitSellOrder({
-                    userId: user?.id || 123456789,
-                    asset,
-                    amount: numAmount,
-                    estimatedTk,
-                    sellCode: activeSellCode,
-                    wallet: userTonAddress,
-                    boc: txResult?.boc || null,
-                    status: 'completed'
-                });
+                setErrorMessage('');
+
+                let lastVerifyErr = '';
+                for (let attempt = 0; attempt < 10; attempt++) {
+                    if (isSuccessRef.current) return;
+                    const checkRes = await verifyTonSellOnChain(activeSellCode, numAmount, asset);
+                    if (checkRes.ok || isSuccessRef.current) {
+                        isCompleted = true;
+                        isSuccessRef.current = true;
+                        return;
+                    }
+                    if (checkRes.fatal) {
+                        throw new Error(checkRes.error || 'Verification failed');
+                    }
+                    lastVerifyErr = checkRes.error || lastVerifyErr;
+                    if (attempt < 9) {
+                        await new Promise(r => setTimeout(r, 2500));
+                    }
+                }
+
+                // Final recovery sweep by sellCode + userId before showing retry modal
+                if (!isSuccessRef.current) {
+                    const recoveryRes = await checkTonDeposit({
+                        userId: user?.id || 123456789,
+                        sellCode: activeSellCode,
+                        wallet: userTonAddress,
+                        asset,
+                        amount: numAmount
+                    }).catch(() => null);
+                    if (recoveryRes?.success) {
+                        isCompleted = true;
+                        handleSellConfirmedSuccess(recoveryRes, numAmount, asset);
+                        return;
+                    }
+                }
 
                 isCompleted = true;
-
-                if (res.success) {
-                    isSuccessRef.current = true;
-                    try {
-                        tonConnectUI.closeModal();
-                        const actionModal = document.querySelector('[data-tc-actions-modal-container]');
-                        if (actionModal) actionModal.remove();
-                    } catch (_) {}
-                    const finalCreditedTk = res.creditedTk || estimatedTk;
-                    setSellResult({ ...res, amount: numAmount, estimatedTk: finalCreditedTk });
-                    setTransferStage('success');
-                    try {
-                        sessionStorage.removeItem('tp_pending_sell_code');
-                        sessionStorage.removeItem('tp_pending_sell_amt');
-                    } catch (_) {}
-                    if (reloadData) reloadData();
-                    playAppSound('success');
-                } else {
-                    throw new Error(res.error || (lang === 'bn' ? 'ব্যালেন্সে টাকা যোগ করতে সমস্যা হয়েছে' : 'Failed to credit balance'));
-                }
+                setErrorMessage(lastVerifyErr || (lang === 'bn'
+                    ? 'ব্লকচেইন কনফার্মেশন হতে একটু সময় নিচ্ছে। নিচের "ডিপোজিট চেক করুন" বাটনে চাপ দিন।'
+                    : 'Blockchain confirmation is taking slightly longer. Tap Check Deposit below.'));
+                setTransferStage('error');
+                playAppSound('error');
             }
         } catch (err) {
             stopPolling();
@@ -10368,8 +10602,8 @@ function SellCryptoPage({
                 clearTimeout(progressTimer);
                 const errStr = String(err?.message || err || '').toLowerCase();
                 const isUserCancel = errStr.includes('reject') || errStr.includes('cancel') || errStr.includes('decline') || errStr.includes('abort');
-                const msg = isUserCancel 
-                    ? (lang === 'bn' ? 'টংকিপারে লেনদেন বাতিল করা হয়েছে।' : 'Payment rejected in wallet.')
+                const msg = isUserCancel
+                    ? (lang === 'bn' ? 'ওয়ালেটে লেনদেন বাতিল করা হয়েছে।' : 'Payment rejected in wallet.')
                     : (err.message || (lang === 'bn' ? 'পেমেন্ট ভেরিফাই করা যায়নি।' : 'Payment verification failed.'));
                 setErrorMessage(msg);
                 setTransferStage('error');
@@ -10671,13 +10905,39 @@ function SellCryptoPage({
                 <div className="pt-1 text-[11px] text-slate-400 space-y-1">
                     <div className="flex justify-between">
                         <span>Current Sell Rate</span>
-                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {asset} ≈ ৳{currentRate} BDT</span>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 font-mono">1 {asset} ≈ ৳{Number(currentRate).toFixed(2)} BDT</span>
                     </div>
                     <div className="flex justify-between">
                         <span>Receiving BDT (আনুমানিক)</span>
-                        <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono">৳{estimatedTk} BDT</span>
+                        <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono">৳{estimatedTk.toFixed(2)} BDT</span>
                     </div>
                 </div>
+
+                {/* Pending TON Deposit Quick Recovery Banner */}
+                {selectedNetwork === 'TON' && lastActiveSellCode && !isTransferModalOpen && (
+                    <div className={`rounded-2xl p-3 border flex items-center justify-between gap-2.5 ${
+                        darkMode ? 'bg-purple-950/30 border-purple-800/50' : 'bg-purple-50 border-purple-200'
+                    }`}>
+                        <div className="min-w-0">
+                            <p className={`text-[11px] font-black truncate ${darkMode ? 'text-purple-300' : 'text-purple-800'}`}>
+                                {lang === 'bn'
+                                    ? `আগের ডিপোজিট পেন্ডিং (${lastSellAmount || numAmount || ''} ${lastSellAsset || asset})`
+                                    : `Pending Deposit Check (${lastSellAmount || numAmount || ''} ${lastSellAsset || asset})`}
+                            </p>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                {lang === 'bn' ? 'পেমেন্ট করে থাকলে ব্যালেন্স যাচাই করুন' : 'Already paid in wallet? Tap to verify'}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleCheckTonDeposit}
+                            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[11px] font-black shrink-0 flex items-center gap-1 cursor-pointer active:scale-95"
+                        >
+                            <RefreshCw size={12} />
+                            <span>{lang === 'bn' ? 'চেক করুন' : 'Verify'}</span>
+                        </button>
+                    </div>
+                )}
 
                 {/* Error Banner */}
                 {errorMessage && (
@@ -10693,7 +10953,7 @@ function SellCryptoPage({
                 }`}>
                     <div>
                         <div className="text-xl sm:text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-                            ৳{estimatedTk} <span className="text-xs font-bold text-slate-400">BDT</span>
+                            ৳{estimatedTk.toFixed(2)} <span className="text-xs font-bold text-slate-400">BDT</span>
                         </div>
                         <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                             Instant Balance Credit
@@ -10737,8 +10997,9 @@ function SellCryptoPage({
             <OnChainTransferProgressModal
                 isOpen={isTransferModalOpen}
                 stage={transferStage}
-                asset={asset}
-                amount={numAmount || lastSellAmount}
+                asset={lastSellAsset || asset}
+                amount={lastSellAmount || numAmount}
+                bdtAmount={sellResult?.estimatedTk ?? estimatedTk}
                 targetAddress={botWalletAddress}
                 network={activeNetworkObj.shortName}
                 isBuy={false}
@@ -10746,7 +11007,9 @@ function SellCryptoPage({
                 onRetryCheck={selectedNetwork === 'TON' ? handleCheckTonDeposit : handleCheckEvmDeposit}
                 onClose={() => {
                     setIsTransferModalOpen(false);
-                    onBack();
+                    if (transferStage === 'success') {
+                        onBack();
+                    }
                 }}
                 lang={lang}
                 darkMode={darkMode}
@@ -12274,7 +12537,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
         return () => clearInterval(interval);
     }, [fiatWithdrawPending]);
 
-    const handleMax = () => setAmount(Math.min(Number(balance) || 0, maxAmount).toString());
+    const handleMax = () => setAmount(roundBdt(Math.min(Number(balance) || 0, maxAmount)).toFixed(2));
 
     // Step 1: Validate & Open Permission / Confirmation Modal
     const handleSubmit = () => {
@@ -12493,6 +12756,8 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                     <span className="absolute left-4 text-purple-600 font-black text-2xl select-none">৳</span>
                     <input 
                         type="number" 
+                        step="0.01"
+                        inputMode="decimal"
                         min="25"
                         max="5000"
                         value={amount} 
@@ -12815,6 +13080,964 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                                 <span>{lang === 'bn' ? 'আপডেট করুন' : 'UPDATE WALLET'}</span>
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+// ============================================================================
+// TRUSTPAY MONTHLY GIVEAWAY PAGE
+// ============================================================================
+function formatGiveawayCountdown(ms) {
+    const safeMs = Math.max(0, Number(ms) || 0);
+    const totalSec = Math.floor(safeMs / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    const seconds = totalSec % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return {
+        days: pad(days),
+        hours: pad(hours),
+        minutes: pad(minutes),
+        seconds: pad(seconds),
+        totalMs: safeMs
+    };
+}
+
+function GiveawayPage({
+    cachedData = null,
+    user,
+    balance = 0,
+    darkMode = false,
+    lang = 'bn',
+    onBack,
+    onGoToAddMoney,
+    onGoToReferral,
+    onGoToBuyCrypto,
+    onGoToSell,
+    reloadData
+}) {
+    const [data, setData] = useState(cachedData || null);
+    const [loading, setLoading] = useState(!cachedData && !data);
+    const [joining, setJoining] = useState(false);
+    const [justJoinedAnimation, setJustJoinedAnimation] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
+    const [successMsg, setSuccessMsg] = useState('');
+    const [nowMs, setNowMs] = useState(Date.now());
+
+    const loadGiveaway = async (silent = false) => {
+        if (!silent && !data) {
+            setLoading(true);
+        }
+        try {
+            const res = await fetchGiveawayStatus(user?.id || 123456789);
+            if (res) {
+                setData(res);
+                if (res.serverNow) {
+                    setNowMs(res.serverNow);
+                }
+            }
+        } catch (_) {}
+        if (!silent) {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (cachedData && !data) {
+            setData(cachedData);
+            setLoading(false);
+        }
+    }, [cachedData]);
+
+    useEffect(() => {
+        loadGiveaway(Boolean(cachedData || data));
+    }, [user?.id]);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setNowMs(Date.now());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const campaign = data?.campaign || {
+        title: 'TrustPay Monthly Mega Giveaway',
+        status: 'active',
+        endTime: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        holdAmountBdt: 20,
+        minReferrals: 2,
+        totalParticipants: 0,
+        winners: []
+    };
+    const userStatus = data?.userStatus || {};
+    const remainingMs = Math.max(0, Number(campaign.endTime || 0) - nowMs);
+    const countdown = formatGiveawayCountdown(remainingMs);
+    const isEnded = campaign.status === 'completed' || remainingMs <= 0;
+
+    const fireQuadSpeedConfetti = () => {
+        try {
+            // Corner 1: Bottom-Left Cannon
+            confetti({
+                particleCount: 65,
+                angle: 60,
+                spread: 75,
+                origin: { x: 0, y: 0.85 },
+                startVelocity: 65,
+                ticks: 260,
+                gravity: 1.1,
+                scalar: 1.15,
+                colors: ['#F59E0B', '#10B981', '#6366F1', '#EC4899', '#FFD700', '#F97316']
+            });
+            // Corner 2: Bottom-Right Cannon
+            confetti({
+                particleCount: 65,
+                angle: 120,
+                spread: 75,
+                origin: { x: 1, y: 0.85 },
+                startVelocity: 65,
+                ticks: 260,
+                gravity: 1.1,
+                scalar: 1.15,
+                colors: ['#F59E0B', '#10B981', '#6366F1', '#EC4899', '#FFD700', '#F97316']
+            });
+            // Corner 3: Top-Left Cannon
+            confetti({
+                particleCount: 45,
+                angle: 310,
+                spread: 65,
+                origin: { x: 0, y: 0.15 },
+                startVelocity: 55,
+                ticks: 260,
+                gravity: 1.2,
+                scalar: 1.05,
+                colors: ['#F59E0B', '#10B981', '#6366F1', '#EC4899', '#FFD700']
+            });
+            // Corner 4: Top-Right Cannon
+            confetti({
+                particleCount: 45,
+                angle: 230,
+                spread: 65,
+                origin: { x: 1, y: 0.15 },
+                startVelocity: 55,
+                ticks: 260,
+                gravity: 1.2,
+                scalar: 1.05,
+                colors: ['#F59E0B', '#10B981', '#6366F1', '#EC4899', '#FFD700']
+            });
+            // Center Supernova Explosion
+            setTimeout(() => {
+                confetti({
+                    particleCount: 90,
+                    spread: 120,
+                    origin: { x: 0.5, y: 0.45 },
+                    startVelocity: 48,
+                    ticks: 220,
+                    gravity: 1,
+                    scalar: 1.2,
+                    colors: ['#FFD700', '#FFA500', '#10B981', '#8B5CF6', '#FFFFFF']
+                });
+            }, 180);
+        } catch (_) {}
+    };
+
+    const handleJoin = async () => {
+        if (joining || !userStatus.canJoin) return;
+        setErrorMsg('');
+        setSuccessMsg('');
+        setJoining(true);
+        try {
+            playAppSound('tap');
+            const res = await joinGiveaway(user?.id);
+
+            // 1. One-time trophy fly-in slam physics animation
+            setJustJoinedAnimation(true);
+            try {
+                localStorage.setItem('tp_gw_trophy_animated_' + (user?.id || 'guest'), 'true');
+            } catch (_) {}
+
+            // 2. High-speed multi-angle confetti physics burst from all 4 sides
+            fireQuadSpeedConfetti();
+
+            // 3. Audio celebration
+            playAppSound('success');
+
+            // 4. Update data state immediately to joined view
+            setData(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    userStatus: {
+                        ...prev.userStatus,
+                        alreadyJoined: true,
+                        canJoin: false
+                    }
+                };
+            });
+
+            // 5. Background re-sync
+            Promise.all([
+                loadGiveaway(true),
+                reloadData && reloadData()
+            ]).catch(() => {});
+
+            setTimeout(() => {
+                setJustJoinedAnimation(false);
+            }, 4000);
+        } catch (err) {
+            playAppSound('error');
+            setErrorMsg(err.message || 'Failed to join giveaway');
+        } finally {
+            setJoining(false);
+        }
+    };
+
+    const liveBalance = Number.isFinite(Number(userStatus.balance)) && !userStatus.isGuest ? Number(userStatus.balance) : Number(balance || 0);
+    const balanceOk = userStatus.alreadyJoined ? true : liveBalance >= Number(campaign.holdAmountBdt || 20);
+    const referralOk = Boolean(userStatus.referralOk);
+    const tradeOk = Boolean(userStatus.tradeOk);
+    const completedCount = (balanceOk ? 1 : 0) + (referralOk ? 1 : 0) + (tradeOk ? 1 : 0);
+
+    const displayName = user?.first_name
+        ? `${user.first_name} ${user.last_name || ''}`.trim()
+        : (user?.username ? `@${user.username}` : (lang === 'bn' ? 'সম্মানিত ইউজার' : 'TrustPay VIP User'));
+    const displayId = user?.id || '777888';
+
+    return (
+        <div className="space-y-2 animate-in fade-in duration-200 relative z-10 select-none">
+            {/* Top Navigation Row */}
+            <div className="flex items-center justify-between h-7 px-0.5">
+                <button
+                    type="button"
+                    onClick={() => {
+                        playAppSound('tap');
+                        onBack && onBack();
+                    }}
+                    className={`flex items-center gap-1.5 h-7 px-3 rounded-full text-[11px] font-bold transition active:scale-95 cursor-pointer backdrop-blur-md ${
+                        darkMode
+                            ? 'bg-slate-900/90 border border-slate-700/80 text-slate-200 hover:bg-slate-800'
+                            : 'bg-white/95 border border-violet-200/80 text-slate-700 hover:bg-violet-50 shadow-[0_2px_8px_rgba(109,40,217,0.08)]'
+                    }`}
+                >
+                    <ArrowLeft size={12} />
+                    <span>{lang === 'bn' ? 'হোম' : 'Home'}</span>
+                </button>
+
+                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black backdrop-blur-md ${
+                    campaign.status === 'completed'
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/40'
+                        : isEnded
+                            ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-400/40'
+                            : darkMode
+                                ? 'bg-amber-500/15 text-amber-300 border border-amber-400/35 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                                : 'bg-white/95 text-[#7C3AED] border border-amber-200 shadow-[0_2px_10px_rgba(245,158,11,0.15)]'
+                }`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                    <span>
+                        {campaign.status === 'completed'
+                            ? (lang === 'bn' ? 'বিজয়ী ঘোষিত' : 'Completed')
+                            : isEnded
+                                ? (lang === 'bn' ? 'ফলাফল শীঘ্রই' : 'Result Soon')
+                                : (lang === 'bn' ? '১ মাসের মেগা ইভেন্ট লাইভ' : '1-Month Mega Live')}
+                    </span>
+                </div>
+            </div>
+
+            {userStatus.alreadyJoined ? (
+                /* ================================================================ */
+                /* JOINED STATE: TOP MASTER CARD -> TIME CAPSULE -> USER VERIFIED CARD -> FINAL STATUS (NO BUTTON) */
+                /* ================================================================ */
+                <div className="space-y-2 animate-in fade-in duration-300">
+                    {/* 1. MASTER PRIZE POOL CARD (Top Center) */}
+                    <div
+                        className={`relative overflow-hidden rounded-[26px] p-3.5 sm:p-4 border transition-all duration-300 ${
+                            darkMode
+                                ? 'bg-gradient-to-b from-[#1C143B]/95 via-[#130E2B]/95 to-[#0D0920]/95 border-amber-400/40 shadow-[0_16px_40px_rgba(0,0,0,0.6),0_0_24px_rgba(245,158,11,0.2)] text-white'
+                                : 'bg-gradient-to-b from-white/95 via-[#FAF5FF]/95 to-[#FFFBEB]/95 border-amber-300/80 shadow-[0_12px_36px_rgba(109,40,217,0.12),0_2px_20px_rgba(245,158,11,0.18)] text-[#1E1B4B]'
+                        }`}
+                    >
+                        {/* Botanical Rose Watermark (Top-Right) */}
+                        <div
+                            className="absolute -right-3 -top-2 w-[170px] pointer-events-none select-none overflow-hidden opacity-25 dark:opacity-20"
+                            style={{
+                                WebkitMaskImage: 'radial-gradient(circle at top right, black 40%, transparent 85%)',
+                                maskImage: 'radial-gradient(circle at top right, black 40%, transparent 85%)'
+                            }}
+                        >
+                            <img
+                                src={roseBotanicalArt}
+                                alt=""
+                                aria-hidden="true"
+                                draggable={false}
+                                className="w-full h-auto object-contain"
+                            />
+                        </div>
+
+                        {/* Soft Ambient Radiant Glow */}
+                        <div
+                            className="absolute inset-0 pointer-events-none"
+                            style={{
+                                background: darkMode
+                                    ? 'radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.22) 0%, rgba(124,58,237,0.25) 45%, transparent 75%)'
+                                    : 'radial-gradient(ellipse at 50% 0%, rgba(254,240,138,0.70) 0%, rgba(237,233,254,0.45) 50%, transparent 75%)'
+                            }}
+                        />
+
+                        {/* Event Header Tag */}
+                        <div className="relative z-10 flex items-center justify-center">
+                            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-[9px] font-black uppercase tracking-widest shadow-xs">
+                                <Sparkles size={11} className="text-yellow-200" />
+                                <span>TRUSTPAY MEGA FESTIVAL</span>
+                                <Sparkles size={11} className="text-yellow-200" />
+                            </div>
+                        </div>
+
+                        {/* Centerpiece: Badge + ৳50,000 + Golden Trophy (Slam Animation on Join) */}
+                        <div className="relative z-10 flex items-center justify-center gap-3 mt-1.5">
+                            {/* Floating 3D Golden Badge */}
+                            <div className="tp-giveaway-float relative w-[60px] h-[52px] shrink-0 flex items-center justify-center">
+                                <img
+                                    src={giveawayBadgeImg}
+                                    alt="TrustPay Giveaway"
+                                    draggable={false}
+                                    className="w-full h-full object-contain drop-shadow-[0_8px_16px_rgba(245,158,11,0.5)]"
+                                />
+                                <span className="tp-giveaway-shine" />
+                            </div>
+
+                            {/* ৳50,000 Headline */}
+                            <div className="text-left">
+                                <div className="flex items-center gap-1 text-[9.5px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                                    <Crown size={11} className="fill-amber-500 text-amber-500" />
+                                    <span>১ম মেগা জ্যাকপট ক্যাশ</span>
+                                </div>
+                                <div className="text-[34px] font-black tracking-tight leading-none text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-700 dark:from-yellow-200 dark:via-amber-400 dark:to-yellow-100 drop-shadow-[0_2px_12px_rgba(245,158,11,0.3)]">
+                                    ৳50,000
+                                </div>
+                                <p className="text-[9px] font-bold text-violet-700 dark:text-violet-200/90 mt-0.5">
+                                    সর্বমোট প্রাইজ পুল ৳৬৭,১৪০ • ১০ জন বিজয়ী
+                                </p>
+                            </div>
+
+                            {/* Golden Trophy Slot (With high-velocity physics slam on join!) */}
+                            <div className="relative shrink-0 flex items-center justify-center">
+                                {justJoinedAnimation && (
+                                    <div className="absolute inset-0 rounded-full bg-amber-400/80 blur-md pointer-events-none tp-golden-flash" />
+                                )}
+                                <div className={justJoinedAnimation ? 'tp-trophy-slam' : ''}>
+                                    <TelegramAnimatedSticker src="tg-trophy-sticker.json" size={54} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3 Prize Podium Tiles */}
+                        <div className="relative z-10 mt-2 pt-2 border-t border-amber-300/40 dark:border-white/10">
+                            <div className="grid grid-cols-3 gap-1.5">
+                                <div className={`rounded-xl p-1.5 text-center border relative overflow-hidden flex flex-col justify-center ${
+                                    darkMode ? 'bg-gradient-to-b from-amber-500/20 to-amber-500/5 border-amber-400/40 shadow-xs' : 'bg-gradient-to-b from-amber-100/70 to-white border-amber-300/80 shadow-2xs'
+                                }`}>
+                                    <div className="text-[9px] font-black text-amber-700 dark:text-amber-400">🥇 ১ম পুরস্কার</div>
+                                    <div className="text-[14px] font-black text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">৳50,000</div>
+                                </div>
+                                <div className={`rounded-xl p-1.5 text-center border relative overflow-hidden flex flex-col justify-center ${
+                                    darkMode ? 'bg-gradient-to-b from-indigo-500/20 to-violet-500/5 border-indigo-400/30' : 'bg-gradient-to-b from-violet-100/70 to-white border-violet-200 shadow-2xs'
+                                }`}>
+                                    <div className="text-[9px] font-black text-violet-700 dark:text-violet-300">🥈 ২য় পুরস্কার</div>
+                                    <div className="text-[14px] font-black text-violet-700 dark:text-violet-300 mt-0.5 leading-tight">৳15,000</div>
+                                </div>
+                                <div className={`rounded-xl p-1.5 text-center border relative overflow-hidden flex flex-col justify-center ${
+                                    darkMode ? 'bg-gradient-to-b from-emerald-500/20 to-teal-500/5 border-emerald-400/30' : 'bg-gradient-to-b from-emerald-100/70 to-white border-emerald-200 shadow-2xs'
+                                }`}>
+                                    <div className="text-[9px] font-black text-emerald-700 dark:text-emerald-300">🥉 ৩য় পুরস্কার</div>
+                                    <div className="text-[14px] font-black text-emerald-700 dark:text-emerald-300 mt-0.5 leading-tight">৳2,000</div>
+                                </div>
+                            </div>
+
+                            {/* 4th-10th Ribbon */}
+                            <div className={`mt-1.5 flex items-center justify-between px-2.5 py-1 rounded-lg text-[9.5px] font-bold ${
+                                darkMode ? 'bg-white/[0.04] text-slate-300 border border-white/5' : 'bg-amber-500/[0.08] border border-amber-300/50 text-slate-700'
+                            }`}>
+                                <span className="flex items-center gap-1">
+                                    <Gift size={11} className="text-amber-500 shrink-0" />
+                                    <span>৪র্থ – ১০ম পুরস্কার (৭ জন বিজয়ী):</span>
+                                </span>
+                                <span className="font-black text-amber-600 dark:text-amber-400">জনপ্রতি ৳20</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 2. UNIQUE COUNTDOWN TIME SETTINGS CAPSULE ("tar niche sundor uniqe time settings") */}
+                    <div
+                        className={`relative overflow-hidden rounded-[20px] px-3.5 py-2 border transition-all duration-300 backdrop-blur-md flex items-center justify-between ${
+                            darkMode
+                                ? 'bg-[#150E2A]/90 border-amber-400/35 shadow-[0_4px_16px_rgba(0,0,0,0.4)]'
+                                : 'bg-white/95 border-amber-200/90 shadow-[0_4px_18px_rgba(109,40,217,0.08)]'
+                        }`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-500 shrink-0">
+                                <Clock size={13} className="animate-pulse" />
+                            </div>
+                            <div className="text-left">
+                                <p className="text-[10px] font-black text-amber-700 dark:text-amber-300 leading-tight">
+                                    সমাপ্তির সময় বাকি (ড্র ও ফলাফল ঘোষণা)
+                                </p>
+                                <p className="text-[8px] font-semibold text-slate-500 dark:text-slate-400">
+                                    ইভেন্ট সমাপ্ত হলে বিজয়ী ঘোষণা হবে
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* 4 Digital Timer Units */}
+                        <div className="flex items-center gap-1 font-mono">
+                            {[
+                                { val: countdown.days, lbl: 'দিন' },
+                                { val: countdown.hours, lbl: 'ঘণ্টা' },
+                                { val: countdown.minutes, lbl: 'মি' },
+                                { val: countdown.seconds, lbl: 'সে' }
+                            ].map((item, i) => (
+                                <div
+                                    key={i}
+                                    className="flex items-baseline gap-0.5 px-2 py-0.5 rounded-lg bg-amber-500/[0.08] dark:bg-white/[0.08] border border-amber-300/40 dark:border-white/10 shadow-2xs"
+                                >
+                                    <span className="text-[12px] font-black leading-none text-amber-600 dark:text-amber-300">
+                                        {item.val}
+                                    </span>
+                                    <span className="text-[7.5px] font-bold text-slate-500 dark:text-slate-400">
+                                        {item.lbl}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 3. USER PROFILE & 3 FULFILLED CONDITIONS ("tar niche je user joined korche tar nam,Trustpay ID tarpor se je 3 ta sortho puron karche tar pashe tick cihinno thakbe") */}
+                    <div
+                        className={`relative overflow-hidden rounded-[24px] p-3.5 border transition-all duration-300 ${
+                            darkMode
+                                ? 'bg-gradient-to-b from-[#181133]/95 via-[#120C27]/95 to-[#0B071A]/95 border-emerald-500/35 shadow-[0_8px_24px_rgba(0,0,0,0.5)]'
+                                : 'bg-gradient-to-b from-emerald-50/70 via-white to-amber-50/40 border-emerald-200/90 shadow-[0_8px_24px_rgba(16,185,129,0.08)]'
+                        }`}
+                    >
+                        {/* User Profile Header */}
+                        <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20 dark:border-white/10">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 via-orange-500 to-amber-400 p-[1.5px] shrink-0 shadow-xs flex items-center justify-center">
+                                    <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-white font-black text-[11px] uppercase">
+                                        {(displayName || 'U')[0]}
+                                    </div>
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className={`text-[12px] font-black truncate ${darkMode ? 'text-white' : 'text-[#1E1B4B]'}`}>
+                                            {displayName}
+                                        </span>
+                                        <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
+                                    </div>
+                                    <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 tracking-wide">
+                                        TrustPay ID: #{displayId}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[9.5px] font-black shrink-0">
+                                <Sparkles size={10} className="text-emerald-500" />
+                                <span>ভেরিফাইড অংশগ্রহণ</span>
+                            </span>
+                        </div>
+
+                        {/* 3 Fulfilled Conditions with Green Tick Marks */}
+                        <div className="mt-2 space-y-1.5">
+                            {/* Condition 1: ৳20 Hold */}
+                            <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border ${
+                                darkMode ? 'bg-emerald-500/[0.08] border-emerald-500/25' : 'bg-white/90 border-emerald-200/80 shadow-2xs'
+                            }`}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0 shadow-xs">
+                                        <Check size={11} strokeWidth={3} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className={`text-[10px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                                            ৳20.00 ব্যালেন্স হোল্ড সম্পন্ন
+                                        </p>
+                                        <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                            সুরক্ষিত হোল্ড • ড্র সমাপ্তির পর অটো আনলক
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0">
+                                    <CheckCircle2 size={10} />
+                                    <span>পূরণ ✅</span>
+                                </span>
+                            </div>
+
+                            {/* Condition 2: 2 Referrals */}
+                            <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border ${
+                                darkMode ? 'bg-emerald-500/[0.08] border-emerald-500/25' : 'bg-white/90 border-emerald-200/80 shadow-2xs'
+                            }`}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0 shadow-xs">
+                                        <Check size={11} strokeWidth={3} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className={`text-[10px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                                            কমপক্ষে ২টি রেফারেল সম্পন্ন
+                                        </p>
+                                        <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                            অগ্রগতি: {userStatus.referralCount || 2}/{campaign.minReferrals || 2} টি রেফারেল সম্পন্ন
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0">
+                                    <CheckCircle2 size={10} />
+                                    <span>পূরণ ✅</span>
+                                </span>
+                            </div>
+
+                            {/* Condition 3: Crypto Buy/Sell */}
+                            <div className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border ${
+                                darkMode ? 'bg-emerald-500/[0.08] border-emerald-500/25' : 'bg-white/90 border-emerald-200/80 shadow-2xs'
+                            }`}>
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-white shrink-0 shadow-xs">
+                                        <Check size={11} strokeWidth={3} />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className={`text-[10px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                                            ১টি Crypto Buy বা Sell সম্পন্ন
+                                        </p>
+                                        <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                            ট্রেড স্ট্যাটাস: {userStatus.totalCryptoTrades || 1}/1 সফল ট্রেড সম্পন্ন
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0">
+                                    <CheckCircle2 size={10} />
+                                    <span>পূরণ ✅</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 4. FINAL SUCCESS NOTICE - NO BUTTON AT ALL ("and niche kono button thakbe na final likha thakbe you are succesfuly joined the giveway wait for winner selection") */}
+                    <div
+                        className={`relative overflow-hidden rounded-[22px] p-3 text-center border transition-all duration-300 ${
+                            darkMode
+                                ? 'bg-gradient-to-r from-amber-500/15 via-emerald-500/15 to-amber-500/15 border-amber-400/35 shadow-[0_4px_16px_rgba(245,158,11,0.12)]'
+                                : 'bg-gradient-to-r from-amber-100/80 via-emerald-100/70 to-amber-100/80 border-amber-300/80 shadow-[0_4px_16px_rgba(245,158,11,0.10)]'
+                        }`}
+                    >
+                        <div className="inline-flex items-center gap-1.5 text-[12px] font-black text-amber-600 dark:text-amber-300">
+                            <Sparkles size={14} className="text-amber-500" />
+                            <span>You are successfully joined the Giveaway!</span>
+                            <Sparkles size={14} className="text-amber-500" />
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 mt-0.5">
+                            Wait for winner selection • বিজয়ী নির্বাচনের জন্য অপেক্ষা করুন
+                        </p>
+                        <p className="text-[8.5px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                            আপনার হোল্ডকৃত ৳২০.০০ সম্পূর্ণ সুরক্ষিত এবং ড্র সমাপ্ত হলে স্বয়ংক্রিয়ভাবে আপনার মেইন ব্যালেন্সে যুক্ত হবে।
+                        </p>
+                    </div>
+                </div>
+            ) : (
+                /* ================================================================ */
+                /* UNJOINED STATE: MASTER ALL-IN-ONE CARD WITH 3 MISSIONS & CTA BUTTON */
+                /* ================================================================ */
+                <div
+                    className={`relative overflow-hidden rounded-[28px] p-4 sm:p-5 border transition-all duration-300 ${
+                        darkMode
+                            ? 'bg-gradient-to-b from-[#1C143B]/95 via-[#130E2B]/95 to-[#0D0920]/95 border-amber-400/40 shadow-[0_20px_50px_rgba(0,0,0,0.6),0_0_28px_rgba(245,158,11,0.2)] text-white'
+                            : 'bg-gradient-to-b from-white/95 via-[#FAF5FF]/95 to-[#FFFBEB]/95 border-amber-300/80 shadow-[0_16px_45px_rgba(109,40,217,0.14),0_2px_24px_rgba(245,158,11,0.20)] text-[#1E1B4B]'
+                    }`}
+                >
+                    {/* 1. Internal Flower Art Watermark (Top-Right Bloom) */}
+                    <div
+                        className="absolute -right-4 -top-3 w-[185px] pointer-events-none select-none overflow-hidden opacity-30 dark:opacity-20"
+                        style={{
+                            WebkitMaskImage: 'radial-gradient(circle at top right, black 40%, transparent 85%)',
+                            maskImage: 'radial-gradient(circle at top right, black 40%, transparent 85%)'
+                        }}
+                    >
+                        <img
+                            src={roseBotanicalArt}
+                            alt=""
+                            aria-hidden="true"
+                            draggable={false}
+                            className="w-full h-auto object-contain"
+                        />
+                    </div>
+
+                    {/* 2. Soft Ambient Radiant Glow */}
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            background: darkMode
+                                ? 'radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.22) 0%, rgba(124,58,237,0.25) 45%, transparent 75%)'
+                                : 'radial-gradient(ellipse at 50% 0%, rgba(254,240,138,0.70) 0%, rgba(237,233,254,0.45) 50%, transparent 75%)'
+                        }}
+                    />
+
+                    {/* 3. Hero Header Tag */}
+                    <div className="relative z-10 flex items-center justify-center">
+                        <div className="inline-flex items-center gap-1.5 px-3.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white text-[9px] font-black uppercase tracking-widest shadow-sm">
+                            <Sparkles size={11} className="text-yellow-200" />
+                            <span>TRUSTPAY MEGA FESTIVAL</span>
+                            <Sparkles size={11} className="text-yellow-200" />
+                        </div>
+                    </div>
+
+                    {/* 4. Hero Centerpiece: 3D Badge + ৳50,000 + Animated Trophy */}
+                    <div className="relative z-10 flex items-center justify-center gap-3.5 mt-2">
+                        {/* Floating 3D Golden Badge */}
+                        <div className="tp-giveaway-float relative w-[68px] h-[58px] shrink-0 flex items-center justify-center">
+                            <img
+                                src={giveawayBadgeImg}
+                                alt="TrustPay Giveaway"
+                                draggable={false}
+                                className="w-full h-full object-contain drop-shadow-[0_8px_18px_rgba(245,158,11,0.5)]"
+                            />
+                            <span className="tp-giveaway-shine" />
+                        </div>
+
+                        {/* Massive ৳50,000 Headline */}
+                        <div className="text-left">
+                            <div className="flex items-center gap-1 text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                                <Crown size={12} className="fill-amber-500 text-amber-500" />
+                                <span>১ম মেগা জ্যাকপট ক্যাশ</span>
+                            </div>
+                            <div className="text-[38px] font-black tracking-tight leading-none text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-700 dark:from-yellow-200 dark:via-amber-400 dark:to-yellow-100 drop-shadow-[0_2px_14px_rgba(245,158,11,0.35)]">
+                                ৳50,000
+                            </div>
+                            <p className="text-[9.5px] font-bold text-violet-700 dark:text-violet-200/90 mt-0.5">
+                                সর্বমোট প্রাইজ পুল ৳৬৭,১৪০ • ১০ জন বিজয়ী
+                            </p>
+                        </div>
+
+                        {/* Animated Telegram Sticker */}
+                        <div className="shrink-0 flex items-center justify-center -ml-1">
+                            <TelegramAnimatedSticker src="tg-trophy-sticker.json" size={56} />
+                        </div>
+                    </div>
+
+                    {/* 5. Sleek Golden Digital Countdown */}
+                    <div className="relative z-10 mt-2.5 rounded-2xl px-3 py-1.5 flex items-center justify-between bg-amber-500/[0.08] dark:bg-black/40 border border-amber-400/35 backdrop-blur-md">
+                        <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-700 dark:text-amber-300">
+                            <Clock size={12} className="text-amber-500" />
+                            <span>সময় বাকি:</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 font-mono">
+                            {[
+                                { val: countdown.days, lbl: 'দিন' },
+                                { val: countdown.hours, lbl: 'ঘণ্টা' },
+                                { val: countdown.minutes, lbl: 'মি' },
+                                { val: countdown.seconds, lbl: 'সে' }
+                            ].map((item, i) => (
+                                <div
+                                    key={i}
+                                    className="flex items-baseline gap-0.5 px-2 py-0.5 rounded-lg bg-white/70 dark:bg-white/[0.08] border border-amber-200/80 dark:border-white/10 shadow-2xs"
+                                >
+                                    <span className="text-[12.5px] font-black leading-none text-amber-600 dark:text-amber-300">
+                                        {item.val}
+                                    </span>
+                                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-300">
+                                        {item.lbl}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 6. Prize Pool Podium Tiles (Seamless Inside the Master Card) */}
+                    <div className="relative z-10 mt-2.5 pt-2.5 border-t border-amber-300/40 dark:border-white/10">
+                        <div className="grid grid-cols-3 gap-2">
+                            {/* 1st Prize */}
+                            <div className={`rounded-2xl p-2 text-center border relative overflow-hidden min-h-[64px] flex flex-col justify-center ${
+                                darkMode
+                                    ? 'bg-gradient-to-b from-amber-500/20 to-amber-500/5 border-amber-400/40 shadow-[0_2px_10px_rgba(245,158,11,0.15)]'
+                                    : 'bg-gradient-to-b from-amber-100/70 to-white border-amber-300/80 shadow-[0_2px_10px_rgba(245,158,11,0.1)]'
+                            }`}>
+                                <div className="text-[9.5px] font-black text-amber-700 dark:text-amber-400">
+                                    🥇 ১ম পুরস্কার
+                                </div>
+                                <div className="text-[15px] font-black text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
+                                    ৳50,000
+                                </div>
+                            </div>
+
+                            {/* 2nd Prize */}
+                            <div className={`rounded-2xl p-2 text-center border relative overflow-hidden min-h-[64px] flex flex-col justify-center ${
+                                darkMode
+                                    ? 'bg-gradient-to-b from-indigo-500/20 to-violet-500/5 border-indigo-400/30'
+                                    : 'bg-gradient-to-b from-violet-100/70 to-white border-violet-200 shadow-2xs'
+                            }`}>
+                                <div className="text-[9.5px] font-black text-violet-700 dark:text-violet-300">
+                                    🥈 ২য় পুরস্কার
+                                </div>
+                                <div className="text-[15px] font-black text-violet-700 dark:text-violet-300 mt-0.5 leading-tight">
+                                    ৳15,000
+                                </div>
+                            </div>
+
+                            {/* 3rd Prize */}
+                            <div className={`rounded-2xl p-2 text-center border relative overflow-hidden min-h-[64px] flex flex-col justify-center ${
+                                darkMode
+                                    ? 'bg-gradient-to-b from-emerald-500/20 to-teal-500/5 border-emerald-400/30'
+                                    : 'bg-gradient-to-b from-emerald-100/70 to-white border-emerald-200 shadow-2xs'
+                            }`}>
+                                <div className="text-[9.5px] font-black text-emerald-700 dark:text-emerald-300">
+                                    🥉 ৩য় পুরস্কার
+                                </div>
+                                <div className="text-[15px] font-black text-emerald-700 dark:text-emerald-300 mt-0.5 leading-tight">
+                                    ৳2,000
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 4th-10th Ribbon */}
+                        <div className={`mt-2 flex items-center justify-between px-3 py-1.5 rounded-xl text-[10px] font-bold ${
+                            darkMode ? 'bg-white/[0.04] text-slate-300 border border-white/5' : 'bg-amber-500/[0.08] border border-amber-300/50 text-slate-700'
+                        }`}>
+                            <span className="flex items-center gap-1.5">
+                                <Gift size={12} className="text-amber-500 shrink-0" />
+                                <span>৪র্থ – ১০ম পুরস্কার (৭ জন বিজয়ী):</span>
+                            </span>
+                            <span className="font-black text-amber-600 dark:text-amber-400 text-[10.5px]">
+                                জনপ্রতি ৳20
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 7. Gamified 3 Missions Card */}
+                    <div className="relative z-10 mt-2.5 pt-2.5 border-t border-amber-300/40 dark:border-white/10">
+                        {loading ? (
+                            <div className="py-6 flex items-center justify-center text-slate-400 gap-1.5">
+                                <Loader2 size={16} className="animate-spin text-amber-500" />
+                                <span className="text-[11px] font-semibold">{lang === 'bn' ? 'যাচাই হচ্ছে...' : 'Checking...'}</span>
+                            </div>
+                        ) : (
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <ShieldCheck size={14} className="text-amber-500" />
+                                        <span className={`text-[10.5px] font-black ${darkMode ? 'text-white' : 'text-[#1E1B4B]'}`}>
+                                            অংশগ্রহণের ৩টি মিশন
+                                        </span>
+                                    </div>
+                                    {/* 3 Segmented Progress Bars */}
+                                    <div className="flex items-center gap-1">
+                                        {[1, 2, 3].map((step) => (
+                                            <span
+                                                key={step}
+                                                className={`h-1.5 w-4 rounded-full transition-all duration-300 ${
+                                                    completedCount >= step
+                                                        ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'
+                                                        : darkMode ? 'bg-slate-700' : 'bg-slate-200'
+                                                }`}
+                                            />
+                                        ))}
+                                        <span className="text-[9.5px] font-black ml-1 text-emerald-600 dark:text-emerald-400">
+                                            {completedCount}/3
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Mission 1: ৳20 Hold */}
+                                <div className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all ${
+                                    balanceOk
+                                        ? (darkMode ? 'bg-emerald-500/15 border-emerald-500/40' : 'bg-emerald-50/90 border-emerald-300')
+                                        : (darkMode ? 'bg-white/[0.04] border-white/10' : 'bg-white/80 border-slate-200/90 shadow-2xs')
+                                }`}>
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-[11px] font-black ${
+                                            balanceOk ? 'bg-emerald-500 text-white shadow-2xs' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                                        }`}>
+                                            {balanceOk ? <Check size={13} strokeWidth={3} /> : '💰'}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className={`text-[10.5px] font-extrabold leading-tight ${darkMode ? 'text-white' : 'text-[#1E1B4B]'}`}>
+                                                ৳20.00 ব্যালেন্স হোল্ড
+                                            </p>
+                                            <p className="text-[8.5px] text-slate-500 dark:text-slate-400">
+                                                ব্যালেন্স: ৳{liveBalance.toFixed(2)} • ফলাফলের পর আনলক
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {balanceOk ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0 border border-emerald-500/30">
+                                            <CheckCircle2 size={11} />
+                                            <span>পূরণ</span>
+                                        </span>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => { playAppSound('tap'); onGoToAddMoney && onGoToAddMoney(); }}
+                                            className="px-3 py-1 rounded-lg text-white text-[9px] font-black shrink-0 cursor-pointer active:scale-95 shadow-2xs bg-gradient-to-r from-amber-500 to-amber-600"
+                                        >
+                                            ডিপোজিট
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Mission 2: 2 Referrals */}
+                                <div className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all ${
+                                    referralOk
+                                        ? (darkMode ? 'bg-emerald-500/15 border-emerald-500/40' : 'bg-emerald-50/90 border-emerald-300')
+                                        : (darkMode ? 'bg-white/[0.04] border-white/10' : 'bg-white/80 border-slate-200/90 shadow-2xs')
+                                }`}>
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-[11px] font-black ${
+                                            referralOk ? 'bg-emerald-500 text-white shadow-2xs' : 'bg-violet-100 text-[#6D28D9] dark:bg-violet-500/20 dark:text-violet-300'
+                                        }`}>
+                                            {referralOk ? <Check size={13} strokeWidth={3} /> : '👥'}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className={`text-[10.5px] font-extrabold leading-tight ${darkMode ? 'text-white' : 'text-[#1E1B4B]'}`}>
+                                                কমপক্ষে ২টি রেফারেল
+                                            </p>
+                                            <p className="text-[8.5px] text-slate-500 dark:text-slate-400">
+                                                অগ্রগতি: {userStatus.referralCount || 0}/{campaign.minReferrals || 2} টি সম্পন্ন
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {referralOk ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0 border border-emerald-500/30">
+                                            <CheckCircle2 size={11} />
+                                            <span>পূরণ</span>
+                                        </span>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => { playAppSound('tap'); onGoToReferral && onGoToReferral(); }}
+                                            className="px-3 py-1 rounded-lg text-white text-[9px] font-black shrink-0 cursor-pointer active:scale-95 shadow-2xs bg-gradient-to-r from-violet-600 to-purple-600"
+                                        >
+                                            রেফার
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Mission 3: 1 Crypto Buy/Sell */}
+                                <div className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all ${
+                                    tradeOk
+                                        ? (darkMode ? 'bg-emerald-500/15 border-emerald-500/40' : 'bg-emerald-50/90 border-emerald-300')
+                                        : (darkMode ? 'bg-white/[0.04] border-white/10' : 'bg-white/80 border-slate-200/90 shadow-2xs')
+                                }`}>
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 text-[11px] font-black ${
+                                            tradeOk ? 'bg-emerald-500 text-white shadow-2xs' : 'bg-pink-100 text-pink-600 dark:bg-pink-500/20 dark:text-pink-300'
+                                        }`}>
+                                            {tradeOk ? <Check size={13} strokeWidth={3} /> : '⚡'}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className={`text-[10.5px] font-extrabold leading-tight ${darkMode ? 'text-white' : 'text-[#1E1B4B]'}`}>
+                                                ১টি Crypto Buy বা Sell
+                                            </p>
+                                            <p className="text-[8.5px] text-slate-500 dark:text-slate-400">
+                                                ট্রেড: {userStatus.totalCryptoTrades || 0}/1 (যেকোনো পরিমাণ)
+                                            </p>
+                                        </div>
+                                    </div>
+                                    {tradeOk ? (
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0 border border-emerald-500/30">
+                                            <CheckCircle2 size={11} />
+                                            <span>পূরণ</span>
+                                        </span>
+                                    ) : (
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => { playAppSound('tap'); onGoToBuyCrypto && onGoToBuyCrypto(); }}
+                                                className="px-2.5 py-1 rounded-lg text-white text-[8.5px] font-black cursor-pointer active:scale-95 shadow-2xs bg-gradient-to-r from-violet-600 to-indigo-600"
+                                            >
+                                                Buy
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => { playAppSound('tap'); onGoToSell && onGoToSell(); }}
+                                                className="px-2.5 py-1 rounded-lg text-white text-[8.5px] font-black cursor-pointer active:scale-95 shadow-2xs bg-gradient-to-r from-pink-500 to-rose-500"
+                                            >
+                                                Sell
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {userStatus.isGuest && (
+                                    <p className="text-[9px] text-[#6D28D9] dark:text-violet-300 font-semibold text-center pt-0.5">
+                                        জয়েন করতে টেলিগ্রাম বট থেকে MiniApp ওপেন করুন।
+                                    </p>
+                                )}
+
+                                {errorMsg && (
+                                    <div className="p-1 rounded-xl bg-rose-500/15 border border-rose-500/35 text-rose-500 text-[9.5px] font-bold text-center">
+                                        {errorMsg}
+                                    </div>
+                                )}
+                                {successMsg && (
+                                    <div className="p-1 rounded-xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[9.5px] font-bold text-center">
+                                        {successMsg}
+                                    </div>
+                                )}
+
+                                {/* CTA Button: Disabled when conditions not met, active when met */}
+                                <button
+                                    type="button"
+                                    disabled={!userStatus.canJoin || joining || isEnded}
+                                    onClick={handleJoin}
+                                    className={`tp-btn-3d relative overflow-hidden w-full h-[46px] mt-2 rounded-[18px] text-white select-none transition-all ${
+                                        !userStatus.canJoin || isEnded
+                                            ? 'opacity-65 cursor-not-allowed'
+                                            : 'cursor-pointer active:scale-98'
+                                    }`}
+                                    style={
+                                        isEnded
+                                            ? {
+                                                background: 'linear-gradient(135deg, #475569 0%, #334155 100%)',
+                                                '--tp-3d-edge': '#1E293B',
+                                                '--tp-3d-glow': 'rgba(51, 65, 85, 0.35)'
+                                            }
+                                            : userStatus.canJoin
+                                                ? {
+                                                    background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 40%, #B45309 100%)',
+                                                    '--tp-3d-edge': '#78350F',
+                                                    '--tp-3d-glow': 'rgba(245, 158, 11, 0.65)'
+                                                }
+                                                : {
+                                                    background: darkMode
+                                                        ? 'linear-gradient(135deg, #334155 0%, #1E293B 100%)'
+                                                        : 'linear-gradient(135deg, #94A3B8 0%, #64748B 100%)',
+                                                    '--tp-3d-edge': '#475569',
+                                                    '--tp-3d-glow': 'rgba(100, 116, 139, 0.25)'
+                                                }
+                                    }
+                                >
+                                    {userStatus.canJoin && <span className="tp-sweep-beam" />}
+                                    <span className="relative z-10 flex items-center justify-center gap-2 px-3">
+                                        {joining ? (
+                                            <Loader2 size={16} className="animate-spin text-white" />
+                                        ) : isEnded ? (
+                                            <Gift size={16} className="text-slate-300" />
+                                        ) : userStatus.canJoin ? (
+                                            <Sparkles size={16} className="text-yellow-200" />
+                                        ) : (
+                                            <Lock size={15} className="text-slate-200" />
+                                        )}
+                                        <span className={`${userStatus.canJoin ? 'tp-shine-text' : ''} text-[13px] font-black tracking-wide`}>
+                                            {isEnded
+                                                ? (lang === 'bn' ? 'Giveaway সময় শেষ' : 'Giveaway Ended')
+                                                : userStatus.canJoin
+                                                    ? (lang === 'bn' ? '🎉 জয়েন করুন (৳২০ হোল্ড)' : '🎉 Join (৳20 Hold)')
+                                                    : (lang === 'bn' ? 'জয়েন করুন' : 'Join')}
+                                        </span>
+                                    </span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

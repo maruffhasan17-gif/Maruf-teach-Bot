@@ -3,6 +3,8 @@ const TelegramBot = require('node-telegram-bot-api');
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
+const roundBdt = (val) => Math.round(((Number(val) || 0) + Number.EPSILON) * 100) / 100;
+const formatBdt = (val) => roundBdt(val).toFixed(2);
 const escapeHtml = (str) => {
     return String(str || '')
         .replace(/&/g, '&amp;')
@@ -601,8 +603,8 @@ const notifyDataGroup = async (payload) => {
                 '🆔 <b>User ID:</b> <code>' + cleanUserId + '</code>\n' +
                 '🔗 <b>Username:</b> ' + cleanUsername + '\n' +
                 '💎 <b>ক্রয়কৃত ক্রিপ্টো:</b> <b>' + amount + ' ' + (asset || 'USDT') + '</b>\n' +
-                '💵 <b>পরিশোধিত টাকা:</b> <b>৳' + (totalBdt !== undefined ? totalBdt : 'N/A') + ' BDT</b>\n' +
-                '💰 <b>নতুন ব্যালেন্স:</b> <b>৳' + (newBalance !== undefined ? newBalance : 'N/A') + ' BDT</b>\n' +
+                '💵 <b>পরিশোধিত টাকা:</b> <b>৳' + (totalBdt !== undefined ? formatBdt(totalBdt) : 'N/A') + ' BDT</b>\n' +
+                '💰 <b>নতুন ব্যালেন্স:</b> <b>৳' + (newBalance !== undefined ? formatBdt(newBalance) : 'N/A') + ' BDT</b>\n' +
                 '🏦 <b>পেমেন্ট মাধ্যম:</b> <code>' + escapeHtml(paymentMethod || 'In-App Balance') + '</code>\n' +
                 '📩 <b>রিসিভ এড্রেস:</b> <code>' + escapeHtml(wallet || 'N/A') + '</code>\n' +
                 '🆔 <b>Order ID:</b> <code>' + (orderId || trxId || 'N/A') + '</code>\n' +
@@ -615,8 +617,8 @@ const notifyDataGroup = async (payload) => {
                 '🆔 <b>User ID:</b> <code>' + cleanUserId + '</code>\n' +
                 '🔗 <b>Username:</b> ' + cleanUsername + '\n' +
                 '💎 <b>বিক্রিত ক্রিপ্টো:</b> <b>' + amount + ' ' + (asset || 'GRAM') + '</b>\n' +
-                '💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳' + (totalBdt !== undefined ? totalBdt : 'N/A') + ' BDT</b>\n' +
-                '💰 <b>নতুন ব্যালেন্স:</b> <b>৳' + (newBalance !== undefined ? newBalance : 'N/A') + ' BDT</b>\n' +
+                '💵 <b>ব্যালেন্সে যুক্ত:</b> <b>৳' + (totalBdt !== undefined ? formatBdt(totalBdt) : 'N/A') + ' BDT</b>\n' +
+                '💰 <b>নতুন ব্যালেন্স:</b> <b>৳' + (newBalance !== undefined ? formatBdt(newBalance) : 'N/A') + ' BDT</b>\n' +
                 (commentCode ? ('🔢 <b>Comment Code:</b> <code>' + escapeHtml(commentCode) + '</code>\n') : '') +
                 '🏦 <b>সেন্ডার ওয়ালেট:</b> <code>' + escapeHtml(wallet || 'Direct') + '</code>\n' +
                 '🆔 <b>Order ID:</b> <code>' + (orderId || trxId || 'N/A') + '</code>\n' +
@@ -703,14 +705,17 @@ const bkashNumber = process.env.BKASH_NUMBER;
 const botEvmAddress = process.env.BOT_EVM_ADDRESS || process.env.BEP20_ADDRESS;
 const adminUsername = "maruff666";
 
-const bot = new TelegramBot(token, { polling: true });
-bot.setChatMenuButton({
-    menu_button: {
-        type: 'web_app',
-        text: 'Trust Pay',
-        web_app: { url: WEB_APP_URL }
-    }
-}).catch(err => console.warn('[MenuButton]:', err.message));
+const ENABLE_BOT_POLLING = process.env.DISABLE_BOT_POLLING !== '1';
+const bot = new TelegramBot(token, { polling: ENABLE_BOT_POLLING });
+if (ENABLE_BOT_POLLING) {
+    bot.setChatMenuButton({
+        menu_button: {
+            type: 'web_app',
+            text: 'Trust Pay',
+            web_app: { url: WEB_APP_URL }
+        }
+    }).catch(err => console.warn('[MenuButton]:', err.message));
+}
 
 bot.on('polling_error', (error) => {
     // Ignore transient Telegram network polling resets
@@ -1221,8 +1226,9 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
         }
     }
     
-    // Calculate provenance (including P2P Transfer Inflows/Outflows)
-    const totalLegitimateIn = sumDeposits + sumSells + spinEarnings + referralEarnings + sumLegitRefunds + adminAddedBdt + transferReceivedBdt;
+    // Calculate provenance (including P2P Transfer Inflows/Outflows & Giveaway Prizes)
+    const giveawayPrizeBdt = roundBdt(parseFloat(uData.giveawayPrizeWonBdt || 0));
+    const totalLegitimateIn = sumDeposits + sumSells + spinEarnings + referralEarnings + sumLegitRefunds + adminAddedBdt + transferReceivedBdt + giveawayPrizeBdt;
     const totalLegitimateOut = sumBalanceBuys + sumWithdrawals + transferSentBdt;
     const maxPermissibleBalance = hasAdminManualUpdate
         ? Math.max(currentBalance, totalLegitimateIn - totalLegitimateOut)
@@ -4449,6 +4455,8 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             hasSellBalance: Boolean(data.hasSellBalance || (parseFloat(data.totalCryptoSellBdt) > 0)),
             spentSinceLastDeposit: data.spentSinceLastDeposit || 0,
             referralEarnings: data.referralEarnings || 0,
+            giveawayHoldBdt: roundBdt(data.giveawayHoldBdt || 0),
+            giveawayPrizeWonBdt: roundBdt(data.giveawayPrizeWonBdt || 0),
             activeReferralsCount: data.activeReferralsCount || 0,
             referredBy: data.referredBy || null,
             referralStatus: data.referralStatus || null,
@@ -5395,9 +5403,20 @@ app.post('/api/miniapp/task', async (req, res) => {
     }
 });
 
-// In-memory store for active 10-to-15 character crypto sell verification codes (e.g. "WHIO65GTN9")
+// In-memory store + single-flight deduplication for active 10-to-15 char sell verification codes
 const inMemorySellCodes = new Map();
-const inFlightSellCodes = new Set();
+const inFlightSellVerifications = new Map();
+const SELL_EVENT_LOOKBACK_SEC = 6 * 60 * 60; // 6-hour safe lookback window (protected by event_id & sellCode replay guards)
+const SELL_INTENT_TTL_MS = SELL_EVENT_LOOKBACK_SEC * 1000;
+
+async function waitForUserFinancialLock(userId, lockTtlMs = 15000, maxWaitMs = 6000) {
+    const start = Date.now();
+    while (true) {
+        if (acquireUserFinancialLock(userId, lockTtlMs)) return true;
+        if (Date.now() - start >= maxWaitMs) return false;
+        await new Promise(r => setTimeout(r, 120));
+    }
+}
 
 // Generates a 100% unique 10-to-15 character uppercase alphanumeric code (never repeats across any user)
 async function generateUniqueSellCommentCode(preferredLength = 10) {
@@ -5485,10 +5504,10 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
         // Generate a fresh, 100% unique 10-to-15 char comment code on the server for every single click
         const cleanSellCode = await generateUniqueSellCommentCode(10);
 
-        // Prune expired codes older than 30 minutes
+        // Prune expired codes older than TTL
         const nowMs = Date.now();
         for (const [k, v] of inMemorySellCodes.entries()) {
-            if (nowMs - v.createdAt > 30 * 60 * 1000) inMemorySellCodes.delete(k);
+            if (nowMs - v.createdAt > SELL_INTENT_TTL_MS) inMemorySellCodes.delete(k);
         }
         inMemorySellCodes.set(cleanSellCode, {
             sellCode: cleanSellCode,
@@ -5498,6 +5517,22 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
             userAddress: String(userAddress || ''),
             createdAt: nowMs,
             claimed: false
+        });
+
+        // Persist intent in Firestore so restarts/WebView reloads never orphan an active sell
+        await db.collection('pending_sell_intents').doc(cleanSellCode).set({
+            sellCode: cleanSellCode,
+            userId: String(userId || ''),
+            asset,
+            amount,
+            userAddress: String(userAddress || ''),
+            status: 'pending',
+            claimed: false,
+            createdAtMs: nowMs,
+            expiresAtMs: nowMs + SELL_INTENT_TTL_MS,
+            createdAt: FieldValue.serverTimestamp()
+        }, { merge: true }).catch(err => {
+            console.warn('[build-tx] pending_sell_intents persist warning:', err.message);
         });
 
         // Build TON standard text comment cell (opcode 0x00000000 + 10-15 char ASCII string)
@@ -5577,186 +5612,456 @@ app.post('/api/miniapp/build-tx', async (req, res) => {
     }
 });
 
-// Function: Verify On-Chain payment via TonAPI (with 10-to-15 Char Auto Comment Code + Amount + Replay Protection)
-async function verifyOnChainSellPayment({ userWallet, asset, amount, sellCode, userId }) {
+function safeParseTonRawAddress(addr) {
+    if (!addr || addr === 'Manual' || addr === 'Direct') return '';
+    try {
+        return Address.parse(String(addr)).toRawString().toLowerCase();
+    } catch (_) {
+        return '';
+    }
+}
+
+function parseSellEventMatch(ev, { normAsset, cleanSellCode, targetAmt, adminRaw, minTimestampSec = 0 }) {
+    if (!ev || ev.in_progress) return null;
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (ev.timestamp && (nowSec - ev.timestamp > SELL_EVENT_LOOKBACK_SEC)) return null;
+    if (minTimestampSec && ev.timestamp && ev.timestamp < minTimestampSec) return null;
+
+    for (const act of (ev.actions || [])) {
+        if (act.status !== 'ok') continue;
+
+        if (normAsset === 'USDT' && act.type === 'JettonTransfer') {
+            const jt = act.JettonTransfer || {};
+            const senderRaw = safeParseTonRawAddress(jt.sender?.address);
+            const recipRaw = safeParseTonRawAddress(jt.recipient?.address);
+            const jettonAmt = Number(jt.amount) / 1e6;
+            const txComment = String(jt.comment || '').trim().toUpperCase();
+
+            // STRICT CONTRACT CHECK: Verify exact official Tether USDT Master Contract on TON (never trust jetton.symbol!)
+            const jAddr = String(jt.jetton?.address || '');
+            const isUsdt = jAddr.toLowerCase().includes('b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe') ||
+                           jAddr.includes('EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs');
+
+            if (isUsdt && recipRaw === adminRaw && txComment === cleanSellCode && jettonAmt >= (targetAmt * 0.99)) {
+                return { eventId: ev.event_id, amount: jettonAmt, senderRaw, timestamp: ev.timestamp };
+            }
+        } else if ((normAsset === 'TON' || normAsset === 'GRAM') && act.type === 'TonTransfer') {
+            const tt = act.TonTransfer || {};
+            const senderRaw = safeParseTonRawAddress(tt.sender?.address);
+            const recipRaw = safeParseTonRawAddress(tt.recipient?.address);
+            const tonAmt = Number(tt.amount) / 1e9;
+            const txComment = String(tt.comment || '').trim().toUpperCase();
+
+            if (recipRaw === adminRaw && txComment === cleanSellCode && tonAmt >= (targetAmt * 0.99)) {
+                return { eventId: ev.event_id, amount: tonAmt, senderRaw, timestamp: ev.timestamp };
+            }
+        }
+    }
+    return null;
+}
+
+async function fetchTonEventsForSell({ adminRaw, userRaw = '', prefetchedEvents = null }) {
+    if (Array.isArray(prefetchedEvents)) {
+        return prefetchedEvents;
+    }
+    let events = [];
+    try {
+        const tonApiRes = await axios.get(`https://tonapi.io/v2/accounts/${adminRaw}/events?limit=50`, { timeout: 8000 });
+        events = Array.isArray(tonApiRes.data?.events) ? tonApiRes.data.events : [];
+    } catch (err) {
+        console.warn('[fetchTonEventsForSell] admin events error:', err.message);
+    }
+
+    if (userRaw) {
+        try {
+            const userRes = await axios.get(`https://tonapi.io/v2/accounts/${userRaw}/events?limit=25`, { timeout: 8000 });
+            const userEvents = Array.isArray(userRes.data?.events) ? userRes.data.events : [];
+            if (userEvents.length > 0) {
+                const seenIds = new Set(events.map(e => e.event_id));
+                for (const ue of userEvents) {
+                    if (ue?.event_id && !seenIds.has(ue.event_id)) {
+                        seenIds.add(ue.event_id);
+                        events.push(ue);
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('[fetchTonEventsForSell] user events fallback note:', err.message);
+        }
+    }
+    return events;
+}
+
+// Atomically claim on-chain tx + credit user wallet + record miniapp_sells in a single Firestore transaction
+async function creditVerifiedSellOrder({ userId, normAsset, numAmount, wallet, cleanSellCode, match, orderId = null }) {
+    const strUserId = String(userId).trim();
+    const canonicalUserId = /^\d+$/.test(strUserId) ? Number(strUserId) : strUserId;
+    const hasLock = await waitForUserFinancialLock(strUserId, 15000, 6000);
+    if (!hasLock) {
+        return {
+            success: false,
+            lockTimeout: true,
+            error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।'
+        };
+    }
+
+    try {
+        const serverSellRate = normAsset === 'USDT'
+            ? (Number(cachedMarketRates?.sellRates?.USDT) || 118)
+            : (Number(cachedMarketRates?.sellRates?.GRAM) || 120);
+
+        const baseAmount = numAmount > 0 ? numAmount : (Number(match.amount) || 0);
+        const verifiedCryptoAmt = Math.min(Number(match.amount) || baseAmount, baseAmount * 1.05);
+        const verifiedTk = roundBdt(verifiedCryptoAmt * serverSellRate);
+        if (!Number.isFinite(verifiedTk) || verifiedTk < 1) {
+            return { success: false, error: 'নূন্যতম বিক্রয় ১ টাকা হতে হবে।' };
+        }
+
+        const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+        const adminRaw = safeParseTonRawAddress(adminWallet);
+        const eventRef = db.collection('claimed_onchain_events').doc(match.eventId);
+        const codeRef = db.collection('claimed_sell_codes').doc(cleanSellCode);
+        const intentRef = db.collection('pending_sell_intents').doc(cleanSellCode);
+        const userRef = db.collection('users').doc(strUserId);
+        const sellDocRef = orderId ? db.collection('miniapp_sells').doc(orderId) : db.collection('miniapp_sells').doc();
+
+        const extraWalletField = (wallet && wallet !== 'Manual' && wallet !== 'Direct' && String(wallet).length >= 20)
+            ? { tonAddress: String(wallet).trim() }
+            : {};
+
+        let txOutcome = null;
+        await db.runTransaction(async (t) => {
+            const reads = [t.get(eventRef), t.get(codeRef), t.get(intentRef), t.get(userRef)];
+            if (orderId) reads.push(t.get(sellDocRef));
+            const [eventDoc, codeDoc, intentDoc, userDoc, existingSellDoc] = await Promise.all(reads);
+
+            const currentBal = Number(userDoc.exists ? (userDoc.data()?.balance || 0) : 0);
+
+            if (codeDoc.exists) {
+                const cd = codeDoc.data() || {};
+                if (String(cd.userId) === strUserId && cd.credited === true) {
+                    txOutcome = {
+                        success: true,
+                        alreadyProcessed: true,
+                        orderId: cd.orderId || orderId || null,
+                        creditedTk: Number(cd.creditedTk || verifiedTk),
+                        newBalance: currentBal
+                    };
+                    return;
+                }
+                txOutcome = { success: false, replayBlocked: true, error: 'এই ট্রানজেকশন কোডটি আগেই ব্যবহার করা হয়েছে (Replay Blocked)!' };
+                return;
+            }
+
+            if (eventDoc.exists) {
+                const ed = eventDoc.data() || {};
+                if (String(ed.userId) === strUserId && ed.credited === true) {
+                    txOutcome = {
+                        success: true,
+                        alreadyProcessed: true,
+                        orderId: ed.orderId || orderId || null,
+                        creditedTk: Number(ed.creditedTk || verifiedTk),
+                        newBalance: currentBal
+                    };
+                    return;
+                }
+                txOutcome = { success: false, replayBlocked: true, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
+                return;
+            }
+
+            const savedOrderId = sellDocRef.id;
+            const computedNewBal = roundBdt(currentBal + verifiedTk);
+
+            t.set(eventRef, {
+                eventId: match.eventId,
+                sellCode: cleanSellCode,
+                userId: strUserId,
+                asset: normAsset,
+                amount: match.amount,
+                userWallet: wallet || match.senderRaw || 'Direct',
+                userRaw: match.senderRaw || '',
+                adminRaw,
+                orderId: savedOrderId,
+                creditedTk: verifiedTk,
+                credited: true,
+                claimedAt: FieldValue.serverTimestamp()
+            });
+
+            t.set(codeRef, {
+                sellCode: cleanSellCode,
+                eventId: match.eventId,
+                userId: strUserId,
+                asset: normAsset,
+                amount: match.amount,
+                userWallet: wallet || match.senderRaw || 'Direct',
+                orderId: savedOrderId,
+                creditedTk: verifiedTk,
+                credited: true,
+                claimedAt: FieldValue.serverTimestamp()
+            });
+
+            if (intentDoc.exists) {
+                t.update(intentRef, {
+                    status: 'completed',
+                    claimed: true,
+                    orderId: savedOrderId,
+                    onChainEventId: match.eventId,
+                    creditedTk: verifiedTk,
+                    completedAt: FieldValue.serverTimestamp()
+                });
+            }
+
+            if (orderId && existingSellDoc?.exists && existingSellDoc.data()?.status !== 'completed') {
+                t.update(sellDocRef, {
+                    status: 'completed',
+                    estimatedTk: verifiedTk,
+                    sellCode: cleanSellCode,
+                    onChainEventId: match.eventId,
+                    completedAt: FieldValue.serverTimestamp()
+                });
+            } else {
+                t.set(sellDocRef, {
+                    userId: canonicalUserId,
+                    asset: normAsset,
+                    amount: baseAmount,
+                    estimatedTk: verifiedTk,
+                    sellCode: cleanSellCode,
+                    wallet: wallet || match.senderRaw || 'Direct',
+                    status: 'completed',
+                    onChainEventId: match.eventId,
+                    timestamp: FieldValue.serverTimestamp(),
+                    completedAt: FieldValue.serverTimestamp()
+                });
+            }
+
+            if (userDoc.exists) {
+                t.update(userRef, {
+                    balance: FieldValue.increment(verifiedTk),
+                    totalCryptoSellBdt: FieldValue.increment(verifiedTk),
+                    hasSellBalance: true,
+                    hasDepositWithoutTrade: false,
+                    ...extraWalletField
+                });
+            } else {
+                t.set(userRef, {
+                    balance: FieldValue.increment(verifiedTk),
+                    totalCryptoSellBdt: FieldValue.increment(verifiedTk),
+                    hasSellBalance: true,
+                    hasDepositWithoutTrade: false,
+                    ...extraWalletField
+                }, { merge: true });
+            }
+
+            txOutcome = {
+                success: true,
+                alreadyProcessed: false,
+                orderId: savedOrderId,
+                creditedTk: verifiedTk,
+                newBalance: computedNewBal,
+                userSnapshot: userDoc.exists ? (userDoc.data() || {}) : {}
+            };
+        });
+
+        if (!txOutcome || !txOutcome.success) {
+            return txOutcome || { success: false, error: 'লেনদেন সম্পন্ন করতে সমস্যা হয়েছে।' };
+        }
+
+        const memEntry = inMemorySellCodes.get(cleanSellCode);
+        if (memEntry) memEntry.claimed = true;
+
+        if (!txOutcome.alreadyProcessed) {
+            if (allUsersMasterData[strUserId]) {
+                allUsersMasterData[strUserId].balance = txOutcome.newBalance;
+                allUsersMasterData[strUserId].totalCryptoSellBdt = (Number(allUsersMasterData[strUserId].totalCryptoSellBdt) || 0) + txOutcome.creditedTk;
+                allUsersMasterData[strUserId].hasSellBalance = true;
+                if (extraWalletField.tonAddress) allUsersMasterData[strUserId].tonAddress = extraWalletField.tonAddress;
+                saveUserMasterData(strUserId, allUsersMasterData[strUserId]);
+            }
+
+            checkAndRewardReferral(canonicalUserId).catch(err => console.warn("Sell referral check err:", err.message));
+
+            const uSnap = txOutcome.userSnapshot || {};
+            notifyDataGroup({
+                type: 'sell',
+                userId: canonicalUserId,
+                name: uSnap.firstName || uSnap.first_name || allUsersMasterData[strUserId]?.firstName || 'User',
+                username: uSnap.username || allUsersMasterData[strUserId]?.username || '',
+                asset: normAsset,
+                amount: baseAmount,
+                totalBdt: txOutcome.creditedTk,
+                newBalance: txOutcome.newBalance,
+                commentCode: cleanSellCode,
+                wallet: wallet || 'Direct',
+                orderId: txOutcome.orderId,
+                status: 'Completed & Verified'
+            }).catch(() => {});
+
+            if (bot && strUserId) {
+                const userSellMsg = `${PE.moneyBag} <b>Crypto Sell Completed! (ক্রিপ্টো বিক্রি সফল!)</b>\n\n` +
+                    `${PE.gem} <b>Sold Asset:</b> ${baseAmount} ${normAsset}\n` +
+                    `${PE.dollar} <b>Added Amount:</b> ৳${formatBdt(txOutcome.creditedTk)} BDT\n` +
+                    `${PE.moneyBag} <b>New Balance:</b> <b>৳${formatBdt(txOutcome.newBalance)} BDT</b>\n` +
+                    `${PE.globe} <b>Order ID:</b> <code>${txOutcome.orderId}</code>\n\n` +
+                    `${PE.zap} <i>টাকাটি অ্যাপ ব্যালেন্সে জমা হয়েছে। প্রোফাইল থেকে যেকোনো সময় উইথড্র করতে পারবেন!</i>`;
+                bot.sendMessage(strUserId, userSellMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
+            }
+
+            invalidateUserHistoryCache(strUserId);
+            invalidateOrdersCache();
+            statsCache.timestamp = 0;
+        }
+
+        return {
+            success: true,
+            alreadyProcessed: txOutcome.alreadyProcessed,
+            orderId: txOutcome.orderId,
+            newBalance: txOutcome.newBalance,
+            creditedTk: txOutcome.creditedTk
+        };
+    } finally {
+        releaseUserFinancialLock(strUserId);
+    }
+}
+
+// Single-flight deduplicated On-Chain payment verification & atomic credit via TonAPI
+async function verifyAndCreditSellPayment({
+    userWallet,
+    asset,
+    amount,
+    sellCode,
+    userId,
+    orderId = null,
+    prefetchedEvents = null,
+    maxRetries = 4,
+    retryDelayMs = 1800
+}) {
     const cleanSellCode = String(sellCode || '').trim().toUpperCase();
+    const strUserId = String(userId || '').trim();
     if (!/^[A-Z0-9]{10,15}$/.test(cleanSellCode)) {
         return { verified: false, error: 'ভেরিফিকেশন কোড পাওয়া যায়নি। দয়া করে আবার চেষ্টা করুন।' };
     }
 
-    if (inFlightSellCodes.has(cleanSellCode)) {
-        return { verified: false, error: 'এই ট্রানজেকশন কোডটি বর্তমানে যাচাই করা হচ্ছে। অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।' };
+    // Single-Flight Promise Sharing: concurrent background polls + final submit await the SAME verification!
+    const existingFlight = inFlightSellVerifications.get(cleanSellCode);
+    if (existingFlight && !Array.isArray(prefetchedEvents)) {
+        return await existingFlight;
     }
-    inFlightSellCodes.add(cleanSellCode);
 
-    try {
-        // Check if this 10-to-15 character code was already claimed in memory or Firestore
+    const runPromise = (async () => {
         const memEntry = inMemorySellCodes.get(cleanSellCode);
-        if (memEntry && memEntry.claimed) {
-            return { verified: false, error: 'এই ট্রানজেকশনটি ইতিমধ্যে ব্যবহৃত হয়েছে!' };
-        }
-        if (memEntry && memEntry.userId && userId && String(memEntry.userId) !== String(userId)) {
-            return { verified: false, error: 'ভেরিফিকেশন কোডটি আপনার অ্যাকাউন্টের সাথে মিলছে না!' };
+        let intentData = null;
+        if (!memEntry) {
+            const intentSnap = await db.collection('pending_sell_intents').doc(cleanSellCode).get().catch(() => null);
+            if (intentSnap && intentSnap.exists) {
+                intentData = intentSnap.data() || {};
+            }
         }
 
-        const existingCodeDoc = await db.collection('claimed_sell_codes').doc(cleanSellCode).get();
-        if (existingCodeDoc.exists) {
-            return { verified: false, error: 'এই ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Blocked)!' };
+        const expectedOwner = memEntry?.userId || intentData?.userId || '';
+        if (expectedOwner && strUserId && String(expectedOwner) !== strUserId) {
+            return { verified: false, fatal: true, error: 'ভেরিফিকেশন কোডটি আপনার অ্যাকাউন্টের সাথে মিলছে না!' };
+        }
+
+        // Fast idempotency check: if already credited for THIS SAME user, return 200 success cleanly!
+        const existingCodeDoc = await db.collection('claimed_sell_codes').doc(cleanSellCode).get().catch(() => null);
+        if (existingCodeDoc && existingCodeDoc.exists) {
+            const cd = existingCodeDoc.data() || {};
+            if (String(cd.userId) === strUserId && cd.credited === true) {
+                const uDoc = await db.collection('users').doc(strUserId).get().catch(() => null);
+                const curBal = Number(uDoc?.exists ? (uDoc.data()?.balance || 0) : (allUsersMasterData[strUserId]?.balance || 0));
+                return {
+                    verified: true,
+                    alreadyProcessed: true,
+                    orderId: cd.orderId || null,
+                    creditedTk: Number(cd.creditedTk || 0),
+                    newBalance: curBal,
+                    sellCode: cleanSellCode
+                };
+            }
+            return { verified: false, fatal: true, error: 'এই ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Blocked)!' };
         }
 
         const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
-        let adminRaw = '';
-        let userRaw = '';
-        try {
-            adminRaw = Address.parse(adminWallet).toRawString().toLowerCase();
-            if (userWallet && userWallet !== 'Manual' && userWallet !== 'Direct') {
-                userRaw = Address.parse(userWallet).toRawString().toLowerCase();
-            }
-        } catch(e) {
-            return { verified: false, error: 'ওয়ালেট অ্যাড্রেস পার্স করতে ব্যর্থ হয়েছে: ' + e.message };
+        const adminRaw = safeParseTonRawAddress(adminWallet);
+        const effectiveWallet = userWallet || intentData?.userAddress || memEntry?.userAddress || '';
+        const userRaw = safeParseTonRawAddress(effectiveWallet);
+        if (!adminRaw) {
+            return { verified: false, error: 'অ্যাডমিন ওয়ালেট অ্যাড্রেস পার্স করতে ব্যর্থ হয়েছে।' };
+        }
+        if (effectiveWallet && effectiveWallet !== 'Manual' && effectiveWallet !== 'Direct' && !userRaw) {
+            return { verified: false, error: 'ওয়ালেট অ্যাড্রেস পার্স করতে ব্যর্থ হয়েছে।' };
         }
 
-        const normAsset = (asset || 'TON').toUpperCase();
-        const targetAmt = parseFloat(amount) || 0;
+        const normAsset = String(asset || memEntry?.asset || intentData?.asset || 'TON').toUpperCase();
+        const targetAmt = parseFloat(amount) || parseFloat(memEntry?.amount) || parseFloat(intentData?.amount) || 0;
         if (targetAmt <= 0) return { verified: false, error: 'অবৈধ অ্যামাউন্ট।' };
 
-        // Retry loop: Tonkeeper / blockchain indexing can take 2-10 seconds to appear in TonAPI events
-        const maxRetries = 6;
-        const retryDelayMs = 1500;
+        const createdMs = Number(memEntry?.createdAt || intentData?.createdAtMs || 0);
+        const minTimestampSec = createdMs > 0 ? Math.floor(createdMs / 1000) - 120 : 0;
 
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                const tonApiRes = await axios.get(`https://tonapi.io/v2/accounts/${adminRaw}/events?limit=30`, { timeout: 7000 });
-                const events = tonApiRes.data?.events || [];
-                const nowSec = Math.floor(Date.now() / 1000);
+        const attempts = Math.max(1, Number(maxRetries) || 1);
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            const events = await fetchTonEventsForSell({
+                adminRaw,
+                userRaw: (attempt === attempts || !prefetchedEvents) ? userRaw : '',
+                prefetchedEvents: attempt === 1 ? prefetchedEvents : null
+            });
 
-                for (const ev of events) {
-                    // Ignore events older than 30 minutes
-                    if (ev.timestamp && (nowSec - ev.timestamp > 1800)) continue;
-                    if (ev.in_progress) continue;
+            for (const ev of events) {
+                const match = parseSellEventMatch(ev, { normAsset, cleanSellCode, targetAmt, adminRaw, minTimestampSec });
+                if (!match) continue;
 
-                    for (const act of (ev.actions || [])) {
-                        if (act.status !== 'ok') continue;
+                const creditRes = await creditVerifiedSellOrder({
+                    userId: strUserId || expectedOwner,
+                    normAsset,
+                    numAmount: targetAmt,
+                    wallet: effectiveWallet || match.senderRaw || 'Direct',
+                    cleanSellCode,
+                    match,
+                    orderId
+                });
 
-                        if (normAsset === 'USDT' && act.type === 'JettonTransfer') {
-                            const jt = act.JettonTransfer;
-                            const senderRaw = jt.sender?.address ? Address.parse(jt.sender.address).toRawString().toLowerCase() : '';
-                            const recipRaw = jt.recipient?.address ? Address.parse(jt.recipient.address).toRawString().toLowerCase() : '';
-                            const jettonAmt = Number(jt.amount) / 1e6;
-                            const txComment = String(jt.comment || '').trim().toUpperCase();
-
-                            // STRICT CONTRACT CHECK: Verify exact official Tether USDT Master Contract on TON (never trust jetton.symbol!)
-                            const jAddr = String(jt.jetton?.address || '');
-                            const isUsdt = jAddr.toLowerCase().includes('b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe') ||
-                                           jAddr.includes('EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs');
-
-                            // Match admin wallet recipient + exact 10-char comment code + amount
-                            if (isUsdt && recipRaw === adminRaw && txComment === cleanSellCode && jettonAmt >= (targetAmt * 0.99)) {
-                                const eventRef = db.collection('claimed_onchain_events').doc(ev.event_id);
-                                const codeRef = db.collection('claimed_sell_codes').doc(cleanSellCode);
-
-                                let alreadyClaimedTx = false;
-                                await db.runTransaction(async (t) => {
-                                    const [eventDoc, codeDoc] = await Promise.all([t.get(eventRef), t.get(codeRef)]);
-                                    if (eventDoc.exists || codeDoc.exists) {
-                                        alreadyClaimedTx = true;
-                                        return;
-                                    }
-                                    t.set(eventRef, {
-                                        eventId: ev.event_id,
-                                        sellCode: cleanSellCode,
-                                        userId: String(userId || ''),
-                                        asset: normAsset,
-                                        amount: jettonAmt,
-                                        userWallet: userWallet || senderRaw,
-                                        userRaw: senderRaw || userRaw,
-                                        adminRaw,
-                                        claimedAt: FieldValue.serverTimestamp()
-                                    });
-                                    t.set(codeRef, {
-                                        sellCode: cleanSellCode,
-                                        eventId: ev.event_id,
-                                        userId: String(userId || ''),
-                                        asset: normAsset,
-                                        amount: jettonAmt,
-                                        userWallet: userWallet || senderRaw,
-                                        claimedAt: FieldValue.serverTimestamp()
-                                    });
-                                });
-
-                                if (alreadyClaimedTx) {
-                                    return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
-                                }
-
-                                if (memEntry) memEntry.claimed = true;
-                                return { verified: true, eventId: ev.event_id, amount: jettonAmt, sellCode: cleanSellCode, timestamp: ev.timestamp };
-                            }
-                        } else if ((normAsset === 'TON' || normAsset === 'GRAM') && act.type === 'TonTransfer') {
-                            const tt = act.TonTransfer;
-                            const senderRaw = tt.sender?.address ? Address.parse(tt.sender.address).toRawString().toLowerCase() : '';
-                            const recipRaw = tt.recipient?.address ? Address.parse(tt.recipient.address).toRawString().toLowerCase() : '';
-                            const tonAmt = Number(tt.amount) / 1e9;
-                            const txComment = String(tt.comment || '').trim().toUpperCase();
-
-                            // Match admin wallet recipient + exact 10-char comment code + amount
-                            if (recipRaw === adminRaw && txComment === cleanSellCode && tonAmt >= (targetAmt * 0.99)) {
-                                const eventRef = db.collection('claimed_onchain_events').doc(ev.event_id);
-                                const codeRef = db.collection('claimed_sell_codes').doc(cleanSellCode);
-
-                                let alreadyClaimedTx = false;
-                                await db.runTransaction(async (t) => {
-                                    const [eventDoc, codeDoc] = await Promise.all([t.get(eventRef), t.get(codeRef)]);
-                                    if (eventDoc.exists || codeDoc.exists) {
-                                        alreadyClaimedTx = true;
-                                        return;
-                                    }
-                                    t.set(eventRef, {
-                                        eventId: ev.event_id,
-                                        sellCode: cleanSellCode,
-                                        userId: String(userId || ''),
-                                        asset: normAsset,
-                                        amount: tonAmt,
-                                        userWallet: userWallet || senderRaw,
-                                        userRaw: senderRaw || userRaw,
-                                        adminRaw,
-                                        claimedAt: FieldValue.serverTimestamp()
-                                    });
-                                    t.set(codeRef, {
-                                        sellCode: cleanSellCode,
-                                        eventId: ev.event_id,
-                                        userId: String(userId || ''),
-                                        asset: normAsset,
-                                        amount: tonAmt,
-                                        userWallet: userWallet || senderRaw,
-                                        claimedAt: FieldValue.serverTimestamp()
-                                    });
-                                });
-
-                                if (alreadyClaimedTx) {
-                                    return { verified: false, error: 'এই ব্লকচেইন ট্রানজেকশনটি আগেই ব্যবহার করা হয়েছে (Replay Attack Blocked)!' };
-                                }
-
-                                if (memEntry) memEntry.claimed = true;
-                                return { verified: true, eventId: ev.event_id, amount: tonAmt, sellCode: cleanSellCode, timestamp: ev.timestamp };
-                            }
-                        }
-                    }
+                if (creditRes.success) {
+                    return {
+                        verified: true,
+                        alreadyProcessed: Boolean(creditRes.alreadyProcessed),
+                        orderId: creditRes.orderId,
+                        newBalance: creditRes.newBalance,
+                        creditedTk: creditRes.creditedTk,
+                        eventId: match.eventId,
+                        amount: match.amount,
+                        sellCode: cleanSellCode,
+                        timestamp: match.timestamp
+                    };
                 }
-            } catch(err) {
-                console.warn(`[verifyOnChainSellPayment] attempt ${attempt} TonAPI error:`, err.message);
+                return {
+                    verified: false,
+                    fatal: Boolean(creditRes.replayBlocked),
+                    error: creditRes.error || 'ব্যালেন্স ক্রেডিট করতে সমস্যা হয়েছে।'
+                };
             }
 
-            if (attempt < maxRetries) {
+            if (attempt < attempts) {
                 await new Promise(r => setTimeout(r, retryDelayMs));
             }
         }
 
-        return { 
-            verified: false, 
-            error: 'ব্লকচেইনে কোনো ডিপোজিট ট্রানজেকশন পাওয়া যায়নি! আপনার ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা এবং পেমেন্ট সম্পন্ন হয়েছে কিনা চেক করুন।' 
+        return {
+            verified: false,
+            notFoundYet: true,
+            error: 'ব্লকচেইনে এখনো ডিপোজিট ট্রানজেকশন কনফার্ম হয়নি! ওয়ালেটে পেমেন্ট করে থাকলে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।'
         };
+    })();
+
+    if (!Array.isArray(prefetchedEvents)) {
+        inFlightSellVerifications.set(cleanSellCode, runPromise);
+    }
+    try {
+        return await runPromise;
     } finally {
-        inFlightSellCodes.delete(cleanSellCode);
+        if (!Array.isArray(prefetchedEvents)) {
+            inFlightSellVerifications.delete(cleanSellCode);
+        }
     }
 }
 
@@ -5764,20 +6069,14 @@ app.post('/api/miniapp/sell', async (req, res) => {
     const { userId, asset, amount, wallet, status, orderId, sellCode } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
-    // 1. Rate Limit check
-    if (!checkRateLimit(`sell_${userId}`, 15, 60000)) {
+    // 1. Generous Rate Limit for active polling + fallback recovery (40 req / 60s)
+    if (!checkRateLimit(`sell_${userId}`, 40, 60000)) {
         return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
     }
 
     // 2. Caller Identity Verification (Telegram WebApp initData HMAC)
     if (!verifyRequestCallerIdentity(req, userId)) {
         return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
-    }
-
-    // 3. Concurrency Mutex Lock
-    const hasLock = acquireUserFinancialLock(userId);
-    if (!hasLock) {
-        return res.status(429).json({ error: 'আপনার একটি লেনদেন ইতিমধ্যে প্রক্রিয়াধীন রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর আবার চেষ্টা করুন।' });
     }
 
     try {
@@ -5789,18 +6088,15 @@ app.post('/api/miniapp/sell', async (req, res) => {
             return res.status(400).json({ error: `নূন্যতম বিক্রয় ০.২ ${normAsset} (Minimum sell: ${MIN_SELL_CRYPTO_AMOUNT} ${normAsset})` });
         }
 
-        // CRITICAL SECURITY FIX: Calculate BDT strictly on the server using live server sell rate!
-        // Never trust client-supplied estimatedTk!
         const serverSellRate = normAsset === 'USDT'
             ? (Number(cachedMarketRates?.sellRates?.USDT) || 118)
             : (Number(cachedMarketRates?.sellRates?.GRAM) || 120);
-        const serverExpectedTk = Math.floor(numAmount * serverSellRate);
-        
+        const serverExpectedTk = roundBdt(numAmount * serverSellRate);
         if (!Number.isFinite(serverExpectedTk) || serverExpectedTk < 1) {
             return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা' });
         }
 
-        // 4. Account Active Check (Ban/Restriction check only; never block Crypto Sell with balance audit)
+        // 3. Account Active Check (Ban/Restriction check only; never block Crypto Sell with balance audit)
         const statusCheck = await checkUserAccountActive(userId);
         if (!statusCheck.ok) {
             return res.status(403).json({ error: statusCheck.error });
@@ -5811,10 +6107,10 @@ app.post('/api/miniapp/sell', async (req, res) => {
 
         if (status === 'pending') {
             const docRef = await db.collection('miniapp_sells').add({
-                userId, 
-                asset: normAsset, 
-                amount: numAmount, 
-                estimatedTk: serverExpectedTk, 
+                userId,
+                asset: normAsset,
+                amount: numAmount,
+                estimatedTk: serverExpectedTk,
                 sellCode: cleanSellCode || null,
                 wallet: wallet || 'Manual',
                 status: 'pending',
@@ -5823,130 +6119,210 @@ app.post('/api/miniapp/sell', async (req, res) => {
             return res.json({ success: true, orderId: docRef.id });
         }
 
-        // --- HARDENED ON-CHAIN VERIFICATION WITH 10-CHAR AUTO COMMENT CODE ---
-        const onChain = await verifyOnChainSellPayment({
+        // NOTE: Do NOT hold user financial mutex while polling TonAPI (avoids poll vs sendTransaction 429 deadlock).
+        // Single-flight promise deduplication + atomic Firestore transaction handles concurrency safely.
+        const outcome = await verifyAndCreditSellPayment({
             userWallet: wallet,
             asset: normAsset,
             amount: numAmount,
             sellCode: cleanSellCode,
-            userId
+            userId,
+            orderId,
+            maxRetries: 4,
+            retryDelayMs: 1800
         });
 
-        if (!onChain.verified) {
-            // Do NOT insert junk failed documents on transient blockchain poll attempts!
-            return res.status(400).json({ 
-                success: false, 
-                error: onChain.error || 'ব্লকচেইনে ডিপোজিট কনফার্ম হয়নি। ওয়ালেটে পর্যাপ্ত ব্যালেন্স আছে কিনা চেক করুন।' 
+        if (!outcome.verified) {
+            return res.status(400).json({
+                success: false,
+                notFoundYet: Boolean(outcome.notFoundYet),
+                fatal: Boolean(outcome.fatal),
+                error: outcome.error || 'ব্লকচেইনে ডিপোজিট কনফার্ম হয়নি।'
             });
         }
 
-        // Compute exact verified BDT from the actual on-chain received amount
-        const verifiedCryptoAmt = Math.min(Number(onChain.amount) || numAmount, numAmount * 1.05);
-        const verifiedTk = Math.floor(verifiedCryptoAmt * serverSellRate);
-        if (verifiedTk < 1) {
-            return res.status(400).json({ error: 'নূন্যতম বিক্রয় ১ টাকা হতে হবে।' });
-        }
-
-        let savedOrderId = orderId;
-        if (orderId) {
-            await db.collection('miniapp_sells').doc(orderId).update({ 
-                status: 'completed',
-                estimatedTk: verifiedTk,
-                sellCode: cleanSellCode,
-                onChainEventId: onChain.eventId,
-                completedAt: FieldValue.serverTimestamp()
-            });
-        } else {
-            const docRef = await db.collection('miniapp_sells').add({
-                userId, 
-                asset: normAsset, 
-                amount: numAmount, 
-                estimatedTk: verifiedTk, 
-                sellCode: cleanSellCode,
-                wallet: wallet || 'Manual', 
-                status: 'completed',
-                onChainEventId: onChain.eventId,
-                timestamp: FieldValue.serverTimestamp()
-            });
-            savedOrderId = docRef.id;
-        }
-
-        // Increment user balance & track totalCryptoSellBdt for referral activation using strictly server-calculated verifiedTk
-        const userRef = db.collection('users').doc(userId.toString());
-        const userDoc = await userRef.get().catch(() => null);
-        const extraWalletField = (wallet && wallet !== 'Manual' && wallet !== 'Direct' && String(wallet).length >= 20)
-            ? { tonAddress: String(wallet).trim() }
-            : {};
-
-        if (userDoc && userDoc.exists) {
-            await userRef.update({ 
-                balance: FieldValue.increment(verifiedTk),
-                totalCryptoSellBdt: FieldValue.increment(verifiedTk),
-                hasSellBalance: true,
-                hasDepositWithoutTrade: false,
-                ...extraWalletField
-            }).catch(() => {});
-        } else {
-            await userRef.set({ 
-                balance: FieldValue.increment(verifiedTk), 
-                totalCryptoSellBdt: FieldValue.increment(verifiedTk),
-                hasSellBalance: true,
-                hasDepositWithoutTrade: false,
-                ...extraWalletField
-            }, { merge: true }).catch(() => {});
-        }
-
-        if (allUsersMasterData[userId.toString()]) {
-            allUsersMasterData[userId.toString()].balance = (Number(allUsersMasterData[userId.toString()].balance) || 0) + verifiedTk;
-            saveUserMasterData(userId.toString(), allUsersMasterData[userId.toString()]);
-        }
-
-        // Check if this user qualifies their referrer for the 5 BDT active referral bonus
-        checkAndRewardReferral(userId).catch(err => console.warn("Sell referral check err:", err.message));
-
-        const updatedDoc = await userRef.get().catch(() => null);
-        const newBalance = (updatedDoc && updatedDoc.exists)
-            ? (updatedDoc.data()?.balance || verifiedTk)
-            : ((allUsersMasterData[userId.toString()]?.balance) || verifiedTk);
-
-        // Notify Telegram Data Group with comprehensive details
-        notifyDataGroup({
-            type: 'sell',
-            userId,
-            name: (updatedDoc && typeof updatedDoc.data === 'function' ? (updatedDoc.data()?.firstName || updatedDoc.data()?.first_name) : '') || allUsersMasterData[userId.toString()]?.firstName || 'User',
-            username: (updatedDoc && typeof updatedDoc.data === 'function' ? updatedDoc.data()?.username : '') || allUsersMasterData[userId.toString()]?.username || '',
-            asset: normAsset,
-            amount: numAmount,
-            totalBdt: verifiedTk,
-            newBalance,
-            commentCode: cleanSellCode,
-            wallet: wallet || 'Direct',
-            orderId: savedOrderId,
-            status: 'Completed & Verified'
-        }).catch(() => {});
-
-        // Send confirmation to User in Telegram (without showing internal comment code)
-        if (bot && userId) {
-            const userSellMsg = `${PE.moneyBag} <b>Crypto Sell Completed! (ক্রিপ্টো বিক্রি সফল!)</b>\n\n` +
-                `${PE.gem} <b>Sold Asset:</b> ${numAmount} ${normAsset}\n` +
-                `${PE.dollar} <b>Added Amount:</b> ৳${verifiedTk} BDT\n` +
-                `${PE.moneyBag} <b>New Balance:</b> <b>৳${newBalance} BDT</b>\n` +
-                `${PE.globe} <b>Order ID:</b> <code>${savedOrderId}</code>\n\n` +
-                `${PE.zap} <i>টাকাটি অ্যাপ ব্যালেন্সে জমা হয়েছে। প্রোফাইল থেকে যেকোনো সময় উইথড্র করতে পারবেন!</i>`;
-            bot.sendMessage(userId, userSellMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e=>console.error(e.message));
-        }
-
-        invalidateUserHistoryCache(userId);
-        invalidateOrdersCache();
-        statsCache.timestamp = 0;
-        res.json({ success: true, orderId: savedOrderId, newBalance, creditedTk: verifiedTk });
-    } catch(e) {
+        res.json({
+            success: true,
+            alreadyProcessed: Boolean(outcome.alreadyProcessed),
+            orderId: outcome.orderId,
+            newBalance: outcome.newBalance,
+            creditedTk: outcome.creditedTk
+        });
+    } catch (e) {
         console.error("Sell order error:", e);
         res.status(500).json({ error: e.message });
-    } finally {
-        releaseUserFinancialLock(userId);
     }
 });
+
+// Recover & verify recent pending TON/USDT/GRAM sell intents for a user (works even if WebView reloaded!)
+app.post('/api/miniapp/check-ton-deposit', async (req, res) => {
+    const { userId, sellCode, wallet, asset, amount } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+    const strUserId = String(userId).trim();
+
+    if (!checkRateLimit(`check_ton_${strUserId}`, 25, 60000)) {
+        return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
+    }
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (User ID mismatch)' });
+    }
+
+    try {
+        const statusCheck = await checkUserAccountActive(userId);
+        if (!statusCheck.ok) {
+            return res.status(403).json({ error: statusCheck.error });
+        }
+
+        const results = [];
+        let totalCreditedTk = 0;
+        let latestNewBalance = null;
+        const checkedCodes = new Set();
+
+        const cleanExplicitCode = String(sellCode || '').trim().toUpperCase();
+        if (/^[A-Z0-9]{10,15}$/.test(cleanExplicitCode)) {
+            checkedCodes.add(cleanExplicitCode);
+            const directOutcome = await verifyAndCreditSellPayment({
+                userWallet: wallet,
+                asset,
+                amount,
+                sellCode: cleanExplicitCode,
+                userId: strUserId,
+                maxRetries: 2,
+                retryDelayMs: 1500
+            });
+            if (directOutcome.verified) {
+                results.push({ sellCode: cleanExplicitCode, creditedTk: directOutcome.creditedTk, orderId: directOutcome.orderId, alreadyProcessed: directOutcome.alreadyProcessed });
+                if (!directOutcome.alreadyProcessed) totalCreditedTk += Number(directOutcome.creditedTk || 0);
+                latestNewBalance = directOutcome.newBalance;
+            }
+        }
+
+        // Also check any still-pending sell intents stored for this user in the last 6 hours
+        const pendingSnap = await db.collection('pending_sell_intents')
+            .where('userId', '==', strUserId)
+            .get()
+            .catch(() => ({ docs: [] }));
+
+        const nowMs = Date.now();
+        const activeIntents = [];
+        for (const doc of (pendingSnap.docs || [])) {
+            const d = doc.data() || {};
+            if (d.status !== 'pending' || d.claimed) continue;
+            if (checkedCodes.has(d.sellCode)) continue;
+            if (d.expiresAtMs && nowMs > d.expiresAtMs) continue;
+            activeIntents.push(d);
+        }
+
+        if (activeIntents.length > 0) {
+            const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+            const adminRaw = safeParseTonRawAddress(adminWallet);
+            const firstUserRaw = safeParseTonRawAddress(wallet || activeIntents[0]?.userAddress);
+            const prefetchedEvents = adminRaw ? await fetchTonEventsForSell({ adminRaw, userRaw: firstUserRaw }) : [];
+
+            for (const intent of activeIntents.slice(0, 8)) {
+                checkedCodes.add(intent.sellCode);
+                const recOutcome = await verifyAndCreditSellPayment({
+                    userWallet: wallet || intent.userAddress,
+                    asset: intent.asset,
+                    amount: intent.amount,
+                    sellCode: intent.sellCode,
+                    userId: strUserId,
+                    prefetchedEvents,
+                    maxRetries: 1
+                });
+                if (recOutcome.verified) {
+                    results.push({
+                        sellCode: intent.sellCode,
+                        asset: intent.asset,
+                        amount: intent.amount,
+                        creditedTk: recOutcome.creditedTk,
+                        orderId: recOutcome.orderId,
+                        alreadyProcessed: recOutcome.alreadyProcessed
+                    });
+                    if (!recOutcome.alreadyProcessed) totalCreditedTk += Number(recOutcome.creditedTk || 0);
+                    latestNewBalance = recOutcome.newBalance;
+                }
+            }
+        }
+
+        if (results.length > 0) {
+            return res.json({
+                success: true,
+                creditedCount: results.length,
+                creditedTk: totalCreditedTk || results[0]?.creditedTk || 0,
+                newBalance: latestNewBalance,
+                orderId: results[0]?.orderId || null,
+                results
+            });
+        }
+
+        return res.status(400).json({
+            success: false,
+            notFoundYet: true,
+            error: 'ব্লকচেইনে এখনো কোনো ডিপোজিট পাওয়া যায়নি। ওয়ালেটে পেমেন্ট সম্পন্ন হয়ে থাকলে কিছুক্ষণ পর আবার চেক করুন।'
+        });
+    } catch (e) {
+        console.error('[check-ton-deposit] error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+let isReconcilingPendingSells = false;
+async function reconcilePendingTonSellIntents() {
+    if (isReconcilingPendingSells || !db) return;
+    isReconcilingPendingSells = true;
+    try {
+        const snap = await db.collection('pending_sell_intents')
+            .where('status', '==', 'pending')
+            .limit(25)
+            .get();
+
+        if (!snap || snap.empty) return;
+
+        const nowMs = Date.now();
+        const readyIntents = [];
+        for (const doc of snap.docs) {
+            const d = doc.data() || {};
+            if (d.claimed) {
+                doc.ref.update({ status: 'completed' }).catch(() => {});
+                continue;
+            }
+            if (d.expiresAtMs && nowMs > d.expiresAtMs) {
+                doc.ref.update({ status: 'expired' }).catch(() => {});
+                continue;
+            }
+            // Wait at least 12 seconds after creation so live user checkout claims first cleanly
+            if (d.createdAtMs && (nowMs - d.createdAtMs < 12000)) continue;
+            readyIntents.push(d);
+        }
+
+        if (readyIntents.length === 0) return;
+
+        const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
+        const adminRaw = safeParseTonRawAddress(adminWallet);
+        if (!adminRaw) return;
+
+        const prefetchedEvents = await fetchTonEventsForSell({ adminRaw });
+        if (!prefetchedEvents.length) return;
+
+        for (const intent of readyIntents) {
+            if (!intent.sellCode || !intent.userId) continue;
+            await verifyAndCreditSellPayment({
+                userWallet: intent.userAddress,
+                asset: intent.asset,
+                amount: intent.amount,
+                sellCode: intent.sellCode,
+                userId: intent.userId,
+                prefetchedEvents,
+                maxRetries: 1
+            }).catch(err => console.warn('[reconcilePendingTonSellIntents] item err:', err.message));
+        }
+    } catch (err) {
+        console.warn('[reconcilePendingTonSellIntents] error:', err.message);
+    } finally {
+        isReconcilingPendingSells = false;
+    }
+}
 
 // =======================================================
 // DETERMINISTIC USER EVM DEPOSIT ADDRESS (ARBITRUM & BEP20)
@@ -6040,7 +6416,7 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
         }
 
         const serverSellRate = Number(cachedMarketRates?.sellRates?.USDT) || 118;
-        const creditedTk = Math.floor(uncreditedAmount * serverSellRate);
+        const creditedTk = roundBdt(uncreditedAmount * serverSellRate);
 
         const docRef = await db.collection('miniapp_sells').add({
             userId,
@@ -6091,7 +6467,7 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
                 `🔗 <b>Username:</b> ${evmUname}\n` +
                 `💎 <b>Asset:</b> ${uncreditedAmount} USDT\n` +
                 `🌐 <b>Network:</b> ${netCfg.name}\n` +
-                `৳ <b>Added:</b> ৳${creditedTk} BDT\n` +
+                `৳ <b>Added:</b> ৳${formatBdt(creditedTk)} BDT\n` +
                 `🏦 <b>Deposit Wallet:</b> <code>${userEvmAddress}</code>\n` +
                 `🆔 <b>Order ID:</b> <code>${docRef.id}</code></blockquote>`;
             bot.sendMessage(dataGroup, adminMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
@@ -6102,7 +6478,7 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
             const userMsg = `💰 <b>USDT অন-চেইন ডিপোজিট সফল!</b>\n\n` +
                 `🌐 <b>Network:</b> ${netCfg.name}\n` +
                 `💵 <b>Amount:</b> ${uncreditedAmount} USDT\n` +
-                `৳ <b>ব্যালেন্সে জমা:</b> ৳${creditedTk} BDT\n\n` +
+                `৳ <b>ব্যালেন্সে জমা:</b> ৳${formatBdt(creditedTk)} BDT\n\n` +
                 `⚡ <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে সফলভাবে যোগ করা হয়েছে।</i>`;
             bot.sendMessage(userId, userMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
         }
@@ -6112,7 +6488,7 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
             creditedAmount: uncreditedAmount,
             creditedTk,
             orderId: docRef.id,
-            message: `অভিনন্দন! আপনার ${uncreditedAmount} USDT সফলভাবে গৃহীত হয়েছে এবং ৳${creditedTk} ব্যালেন্সে যোগ করা হয়েছে।`
+            message: `অভিনন্দন! আপনার ${uncreditedAmount} USDT সফলভাবে গৃহীত হয়েছে এবং ৳${formatBdt(creditedTk)} ব্যালেন্সে যোগ করা হয়েছে।`
         });
     } catch (err) {
         console.error("Check EVM deposit error:", err);
@@ -7360,7 +7736,7 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
     }
 
     try {
-        amount = parseFloat(amount);
+        amount = roundBdt(parseFloat(amount));
         if (!Number.isFinite(amount) || amount <= 0) {
             throw new Error("সঠিক টাকার পরিমাণ দিন");
         }
@@ -7931,7 +8307,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
     }
 
     try {
-        bdtAmount = parseFloat(bdtAmount);
+        bdtAmount = roundBdt(parseFloat(bdtAmount));
         let cleanAsset = (asset || 'GRAM').toUpperCase();
         if (cleanAsset === 'TON') cleanAsset = 'GRAM';
         asset = cleanAsset;
@@ -8011,7 +8387,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         const adminGroupId = config.adminGroupId || 8799135330;
 
         const prevSpent = userData?.spentSinceLastDeposit || 0;
-        const newSpent = prevSpent + bdtAmount;
+        const newSpent = roundBdt(prevSpent + bdtAmount);
         const buyUpdates = {
             balance: FieldValue.increment(-bdtAmount),
             spentSinceLastDeposit: FieldValue.increment(bdtAmount)
@@ -8101,7 +8477,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 });
                 console.error("Buy crypto TON transfer failed:", txErr.message);
                 return res.status(500).json({ 
-                    error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${bdtAmount} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।` 
+                    error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${formatBdt(bdtAmount)} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।` 
                 });
             }
 
@@ -8221,7 +8597,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 });
                 console.error(`EVM transfer failed on ${selectedNetwork}:`, txErr.message);
                 return res.status(500).json({
-                    error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${bdtAmount} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।`
+                    error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${formatBdt(bdtAmount)} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।`
                 });
             }
         }
@@ -8245,14 +8621,14 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
             timestamp: FieldValue.serverTimestamp()
         });
 
-        const newBalance = currentBalance - bdtAmount;
+        const newBalance = roundBdt(currentBalance - bdtAmount);
 
         const userBuyInstantMsg = `<b>${PE.gem} ক্রিপ্টো ক্রয় ও উইথড্র সফল! (Crypto Sent!)</b>\n\n` +
-            `<blockquote>${PE.dollar} <b>Amount:</b> <code>${cryptoAmount} ${asset}</code> (৳${bdtAmount} BDT)\n` +
+            `<blockquote>${PE.dollar} <b>Amount:</b> <code>${cryptoAmount} ${asset}</code> (৳${formatBdt(bdtAmount)} BDT)\n` +
             `${PE.bank} <b>Gateway:</b> <code>${gatewayName}</code>\n` +
             `${PE.wallet} <b>Address:</b> <code>${receiveAddress}</code>\n` +
             `${PE.globe} <b>Order ID:</b> <code>${orderId}</code>\n` +
-            `${PE.moneyBag} <b>New Balance:</b> <b>৳${newBalance} BDT</b></blockquote>\n\n` +
+            `${PE.moneyBag} <b>New Balance:</b> <b>৳${formatBdt(newBalance)} BDT</b></blockquote>\n\n` +
             `${PE.rocket} <i>ক্রিপ্টো আপনার ওয়ালেটে সফলভাবে পাঠিয়ে দেওয়া হয়েছে।</i>`;
         bot.sendMessage(userId, userBuyInstantMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
 
@@ -11254,6 +11630,563 @@ app.post('/api/miniapp/support', async (req, res) => {
     }
 });
 
+// =========================================================================
+// TRUSTPAY MONTHLY GIVEAWAY ENGINE (1-Month Pool, ৳20 Hold, Admin Winner Pick)
+// =========================================================================
+const GIVEAWAY_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 1 Month (30 days)
+const GIVEAWAY_HOLD_BDT = 20;
+const GIVEAWAY_MIN_REFERRALS = 2;
+
+function getGiveawayPrizeForRank(rank) {
+    const r = parseInt(rank, 10);
+    if (r === 1) return 50000;
+    if (r === 2) return 15000;
+    if (r === 3) return 2000;
+    if (r >= 4 && r <= 10) return 20;
+    return 0;
+}
+
+const GIVEAWAY_DEFAULT_PRIZES = [
+    { rank: 1, label: '1st Prize', amountBdt: 50000 },
+    { rank: 2, label: '2nd Prize', amountBdt: 15000 },
+    { rank: 3, label: '3rd Prize', amountBdt: 2000 },
+    { rank: 4, label: '4th–10th Prize (Each)', amountBdt: 20, count: 7 }
+];
+
+async function getOrCreateGiveawayCampaign() {
+    const ref = db.collection('settings').doc('giveaway_campaign');
+    const snap = await ref.get();
+    if (snap.exists) {
+        const d = snap.data() || {};
+        return {
+            campaignId: d.campaignId || 'season_1',
+            seasonNumber: Number(d.seasonNumber || 1),
+            title: d.title || 'TrustPay Monthly Mega Giveaway',
+            status: d.status || 'active',
+            startTime: Number(d.startTime || Date.now()),
+            endTime: Number(d.endTime || (Date.now() + GIVEAWAY_DURATION_MS)),
+            holdAmountBdt: Number(d.holdAmountBdt || GIVEAWAY_HOLD_BDT),
+            minReferrals: Number(d.minReferrals || GIVEAWAY_MIN_REFERRALS),
+            totalParticipants: Number(d.totalParticipants || 0),
+            holdsReleased: Boolean(d.holdsReleased),
+            winners: Array.isArray(d.winners) ? d.winners : [],
+            completedAt: d.completedAt || null,
+            prizes: GIVEAWAY_DEFAULT_PRIZES
+        };
+    }
+    const now = Date.now();
+    const initial = {
+        campaignId: 'season_1',
+        seasonNumber: 1,
+        title: 'TrustPay Monthly Mega Giveaway',
+        status: 'active',
+        startTime: now,
+        endTime: now + GIVEAWAY_DURATION_MS,
+        holdAmountBdt: GIVEAWAY_HOLD_BDT,
+        minReferrals: GIVEAWAY_MIN_REFERRALS,
+        totalParticipants: 0,
+        holdsReleased: false,
+        winners: [],
+        createdAt: now
+    };
+    await ref.set(initial);
+    return { ...initial, prizes: GIVEAWAY_DEFAULT_PRIZES };
+}
+
+async function computeUserGiveawayEligibility(cleanUserId, campaign) {
+    const strId = String(cleanUserId);
+    const numId = parseInt(cleanUserId, 10);
+    const idCandidates = Number.isFinite(numId) ? [numId, strId] : [strId];
+
+    const [userDoc, refNumSnap, refStrSnap, buysSnap, sellsSnap, entrySnap] = await Promise.all([
+        db.collection('users').doc(strId).get().catch(() => null),
+        Number.isFinite(numId) ? db.collection('referrals').where('referrerId', '==', numId).get().catch(() => null) : Promise.resolve(null),
+        db.collection('referrals').where('referrerId', '==', strId).get().catch(() => null),
+        db.collection('miniapp_buys').where('userId', 'in', idCandidates).get().catch(() => null),
+        db.collection('miniapp_sells').where('userId', 'in', idCandidates).get().catch(() => null),
+        db.collection('giveaway_entries').doc(`${campaign.campaignId}_${strId}`).get().catch(() => null)
+    ]);
+
+    const uData = (userDoc && userDoc.exists) ? (userDoc.data() || {}) : {};
+    const balance = roundBdt(parseFloat(uData.balance || 0));
+    const heldBdt = roundBdt(parseFloat(uData.giveawayHoldBdt || 0));
+
+    // Count valid (non-clone) referrals
+    const seenRefIds = new Set();
+    let validReferrals = 0;
+    [refNumSnap, refStrSnap].forEach(snap => {
+        if (!snap || snap.empty) return;
+        snap.forEach(doc => {
+            if (seenRefIds.has(doc.id)) return;
+            seenRefIds.add(doc.id);
+            const rd = doc.data() || {};
+            const st = rd.status || 'pending';
+            if (st !== 'blocked_clone' && st !== 'rejected_clone') {
+                validReferrals++;
+            }
+        });
+    });
+
+    // Count at least 1 completed crypto buy OR crypto sell (excluding fiat Add Money deposits)
+    let completedCryptoBuys = 0;
+    if (buysSnap && !buysSnap.empty) {
+        buysSnap.forEach(doc => {
+            const b = doc.data() || {};
+            if (b.status === 'completed' && b.type !== 'add_money' && b.asset !== 'BDT') {
+                completedCryptoBuys++;
+            }
+        });
+    }
+    let completedCryptoSells = 0;
+    if (sellsSnap && !sellsSnap.empty) {
+        sellsSnap.forEach(doc => {
+            const s = doc.data() || {};
+            if (s.status === 'completed') {
+                completedCryptoSells++;
+            }
+        });
+    }
+    const totalCryptoTrades = completedCryptoBuys + completedCryptoSells;
+    const joinedEntry = (entrySnap && entrySnap.exists) ? (entrySnap.data() || null) : null;
+    const alreadyJoined = Boolean(joinedEntry);
+
+    const balanceOk = alreadyJoined ? true : (balance >= (campaign.holdAmountBdt || GIVEAWAY_HOLD_BDT));
+    const referralOk = validReferrals >= (campaign.minReferrals || GIVEAWAY_MIN_REFERRALS);
+    const tradeOk = totalCryptoTrades >= 1;
+
+    return {
+        balance,
+        heldBdt,
+        balanceOk,
+        referralCount: validReferrals,
+        referralOk,
+        completedCryptoBuys,
+        completedCryptoSells,
+        totalCryptoTrades,
+        tradeOk,
+        alreadyJoined,
+        joinedEntry,
+        canJoin: !alreadyJoined && campaign.status === 'active' && Date.now() < campaign.endTime && balanceOk && referralOk && tradeOk
+    };
+}
+
+// 1. MiniApp: Get Giveaway status & user's 3-step eligibility
+app.get('/api/miniapp/giveaway/status', async (req, res) => {
+    try {
+        const campaign = await getOrCreateGiveawayCampaign();
+        const rawUserId = req.query.userId || '';
+        const cleanUserId = parseInt(rawUserId, 10);
+        const now = Date.now();
+        const remainingMs = Math.max(0, campaign.endTime - now);
+        const isTimeEnded = now >= campaign.endTime;
+
+        let userStatus = {
+            isGuest: true,
+            balance: 0,
+            heldBdt: 0,
+            balanceOk: false,
+            referralCount: 0,
+            referralOk: false,
+            completedCryptoBuys: 0,
+            completedCryptoSells: 0,
+            totalCryptoTrades: 0,
+            tradeOk: false,
+            alreadyJoined: false,
+            joinedEntry: null,
+            canJoin: false
+        };
+
+        if (cleanUserId && !isNaN(cleanUserId) && cleanUserId !== 123456789) {
+            const elig = await computeUserGiveawayEligibility(cleanUserId, campaign);
+            userStatus = { isGuest: false, ...elig };
+        }
+
+        res.json({
+            success: true,
+            serverNow: now,
+            remainingMs,
+            isTimeEnded,
+            campaign,
+            userStatus
+        });
+    } catch (e) {
+        console.error('Giveaway status error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 2. MiniApp: Join Giveaway (Atomic ৳20 hold + server-verified 2 referrals & 1 trade)
+app.post('/api/miniapp/giveaway/join', async (req, res) => {
+    if (!checkRateLimit(req, res, 'giveaway_join', 10, 60000)) return;
+    const { userId } = req.body || {};
+    const authUser = verifyRequestCallerIdentity(req, userId);
+    if (!authUser) {
+        return res.status(401).json({ error: 'নিরাপত্তা যাচাই ব্যর্থ! অনুগ্রহ করে টেলিগ্রাম অ্যাপ থেকে পুনরায় খুলুন।' });
+    }
+
+    const cleanUserId = parseInt(userId, 10);
+    if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
+        return res.status(400).json({ error: 'Valid Telegram account required.' });
+    }
+    const strId = String(cleanUserId);
+
+    const activeCheck = await checkUserAccountActive(cleanUserId);
+    if (!activeCheck.active) {
+        return res.status(403).json({ error: activeCheck.reason || 'Account restricted or banned.' });
+    }
+
+    if (!acquireUserFinancialLock(strId)) {
+        return res.status(429).json({ error: 'অনুগ্রহ করে অপেক্ষা করুন, আরেকটি লেনদেন প্রক্রিয়াধীন আছে।' });
+    }
+
+    try {
+        const campaign = await getOrCreateGiveawayCampaign();
+        if (campaign.status !== 'active' || Date.now() >= campaign.endTime) {
+            return res.status(400).json({ error: 'এই Giveaway-এর সময়সীমা শেষ হয়ে গেছে।' });
+        }
+
+        // Pre-verify referrals and completed crypto trade before atomic balance transaction
+        const preCheck = await computeUserGiveawayEligibility(cleanUserId, campaign);
+        if (preCheck.alreadyJoined) {
+            return res.status(400).json({ error: 'আপনি ইতিমধ্যেই এই Giveaway-তে অংশগ্রহণ করেছেন!' });
+        }
+        if (!preCheck.referralOk) {
+            return res.status(400).json({ error: `অংশগ্রহণের জন্য কমপক্ষে ${campaign.minReferrals}টি রেফারেল প্রয়োজন (বর্তমান: ${preCheck.referralCount}টি)।` });
+        }
+        if (!preCheck.tradeOk) {
+            return res.status(400).json({ error: 'অংশগ্রহণের জন্য অন্তত ১টি সফল Crypto Buy অথবা Crypto Sell সম্পন্ন থাকতে হবে।' });
+        }
+
+        const holdAmt = roundBdt(campaign.holdAmountBdt || GIVEAWAY_HOLD_BDT);
+        const entryDocRef = db.collection('giveaway_entries').doc(`${campaign.campaignId}_${strId}`);
+        const userDocRef = db.collection('users').doc(strId);
+        const campaignDocRef = db.collection('settings').doc('giveaway_campaign');
+
+        const result = await db.runTransaction(async (tx) => {
+            const [uSnap, eSnap, cSnap] = await Promise.all([
+                tx.get(userDocRef),
+                tx.get(entryDocRef),
+                tx.get(campaignDocRef)
+            ]);
+            if (eSnap.exists) {
+                throw new Error('ALREADY_JOINED');
+            }
+            const cData = cSnap.exists ? (cSnap.data() || {}) : campaign;
+            if ((cData.status || 'active') !== 'active' || Date.now() >= Number(cData.endTime || campaign.endTime)) {
+                throw new Error('CAMPAIGN_ENDED');
+            }
+            if (!uSnap.exists) {
+                throw new Error('USER_NOT_FOUND');
+            }
+            const uData = uSnap.data() || {};
+            const freshBal = roundBdt(parseFloat(uData.balance || 0));
+            if (freshBal < holdAmt) {
+                throw new Error(`INSUFFICIENT_BALANCE:${freshBal}`);
+            }
+
+            const newBal = roundBdt(freshBal - holdAmt);
+            const newHold = roundBdt(parseFloat(uData.giveawayHoldBdt || 0) + holdAmt);
+            const now = Date.now();
+            const fullName = [uData.firstName || uData.first_name || authUser.first_name, uData.lastName || uData.last_name || authUser.last_name].filter(Boolean).join(' ').trim() || `User ${strId}`;
+
+            const entryData = {
+                id: `${campaign.campaignId}_${strId}`,
+                campaignId: campaign.campaignId,
+                userId: cleanUserId,
+                strUserId: strId,
+                mbsId: uData.mbsId || generateMbsId(cleanUserId),
+                name: fullName,
+                username: uData.username || authUser.username || '',
+                holdAmountBdt: holdAmt,
+                holdStatus: 'held',
+                status: 'joined',
+                referralCount: preCheck.referralCount,
+                completedCryptoBuys: preCheck.completedCryptoBuys,
+                completedCryptoSells: preCheck.completedCryptoSells,
+                totalCryptoTrades: preCheck.totalCryptoTrades,
+                wonRank: null,
+                prizeBdt: 0,
+                joinedAt: now
+            };
+
+            tx.update(userDocRef, {
+                balance: newBal,
+                giveawayHoldBdt: newHold,
+                updatedAt: now
+            });
+            tx.set(entryDocRef, entryData);
+            tx.set(campaignDocRef, {
+                totalParticipants: Number(cData.totalParticipants || 0) + 1
+            }, { merge: true });
+
+            return { newBal, newHold, entryData };
+        });
+
+        userProfileMemoryCache.delete(strId);
+        invalidateUserHistoryCache(strId);
+
+        res.json({
+            success: true,
+            message: `🎉 অভিনন্দন! ৳${holdAmt.toFixed(2)} হোল্ড করে আপনি সফলভাবে Giveaway-তে জয়েন করেছেন।`,
+            balance: result.newBal,
+            giveawayHoldBdt: result.newHold,
+            entry: result.entryData
+        });
+    } catch (e) {
+        const msg = String(e?.message || '');
+        if (msg === 'ALREADY_JOINED') return res.status(400).json({ error: 'আপনি ইতিমধ্যেই Giveaway-তে অংশগ্রহণ করেছেন!' });
+        if (msg === 'CAMPAIGN_ENDED') return res.status(400).json({ error: 'Giveaway-এর সময়সীমা শেষ হয়ে গেছে।' });
+        if (msg.startsWith('INSUFFICIENT_BALANCE:')) {
+            return res.status(400).json({ error: `জয়েন করতে আপনার অ্যাকাউন্টে কমপক্ষে ৳${GIVEAWAY_HOLD_BDT}.00 ব্যালেন্স থাকতে হবে।` });
+        }
+        console.error('Giveaway join error:', e);
+        res.status(500).json({ error: 'সার্ভারে সমস্যা হয়েছে, কিছুক্ষণ পর আবার চেষ্টা করুন।' });
+    } finally {
+        releaseUserFinancialLock(strId);
+    }
+});
+
+// 3. Admin: Get Giveaway Campaign, Participants & Winners
+app.get('/api/admin/giveaway', requireAdminAuth, async (req, res) => {
+    try {
+        const campaign = await getOrCreateGiveawayCampaign();
+        const entriesSnap = await db.collection('giveaway_entries')
+            .where('campaignId', '==', campaign.campaignId)
+            .get();
+
+        const participants = [];
+        let totalHeldBdt = 0;
+        entriesSnap.forEach(doc => {
+            const d = doc.data() || {};
+            if (d.holdStatus === 'held') {
+                totalHeldBdt = roundBdt(totalHeldBdt + parseFloat(d.holdAmountBdt || 0));
+            }
+            participants.push(d);
+        });
+        participants.sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0));
+
+        res.json({
+            success: true,
+            serverNow: Date.now(),
+            campaign,
+            totalHeldBdt,
+            participants
+        });
+    } catch (e) {
+        console.error('Admin giveaway fetch error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 4. Admin: Adjust Giveaway Config / End Time / Start New Season
+app.post('/api/admin/giveaway/config', requireAdminAuth, async (req, res) => {
+    try {
+        const { action, title, durationDays, endTime } = req.body || {};
+        const campaign = await getOrCreateGiveawayCampaign();
+        const ref = db.collection('settings').doc('giveaway_campaign');
+        const now = Date.now();
+
+        if (action === 'new_season') {
+            if (campaign.status === 'active' && campaign.totalParticipants > 0 && !campaign.holdsReleased) {
+                return res.status(400).json({ error: 'নতুন সিজন শুরু করার আগে বর্তমান সিজনের Winner সিলেক্ট করে সবার হোল্ডকৃত ৳20 রিলিজ করুন।' });
+            }
+            const nextSeason = Number(campaign.seasonNumber || 1) + 1;
+            const days = Math.max(1, Math.min(90, parseInt(durationDays, 10) || 30));
+            const nextData = {
+                campaignId: `season_${nextSeason}_${now}`,
+                seasonNumber: nextSeason,
+                title: (title || `TrustPay Monthly Mega Giveaway S${nextSeason}`).trim(),
+                status: 'active',
+                startTime: now,
+                endTime: now + days * 24 * 60 * 60 * 1000,
+                holdAmountBdt: GIVEAWAY_HOLD_BDT,
+                minReferrals: GIVEAWAY_MIN_REFERRALS,
+                totalParticipants: 0,
+                holdsReleased: false,
+                winners: [],
+                completedAt: null,
+                createdAt: now
+            };
+            await ref.set(nextData);
+            return res.json({ success: true, campaign: { ...nextData, prizes: GIVEAWAY_DEFAULT_PRIZES } });
+        }
+
+        const updates = {};
+        if (typeof title === 'string' && title.trim()) updates.title = title.trim();
+        if (action === 'end_now') {
+            updates.endTime = now - 1000;
+        } else if (endTime && Number.isFinite(Number(endTime))) {
+            updates.endTime = Number(endTime);
+        } else if (durationDays && Number.isFinite(Number(durationDays))) {
+            const d = Math.max(1, Math.min(90, Number(durationDays)));
+            updates.endTime = now + d * 24 * 60 * 60 * 1000;
+        }
+        await ref.set(updates, { merge: true });
+        const updated = await getOrCreateGiveawayCampaign();
+        res.json({ success: true, campaign: updated });
+    } catch (e) {
+        console.error('Admin giveaway config error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 5. Admin: Finalize Giveaway Winners (1st-10th), Credit Prizes & Release All Held ৳20
+app.post('/api/admin/giveaway/finalize', requireAdminAuth, async (req, res) => {
+    try {
+        const { winners = [], allowEarlyFinalize = false } = req.body || {};
+        const campaign = await getOrCreateGiveawayCampaign();
+
+        if (campaign.status === 'completed' || campaign.holdsReleased) {
+            return res.status(400).json({ error: 'এই Giveaway ইতিমধ্যেই সম্পন্ন হয়েছে এবং পুরস্কার বিতরণ করা হয়েছে।' });
+        }
+        if (Date.now() < campaign.endTime && !allowEarlyFinalize) {
+            return res.status(400).json({ error: '১ মাসের Giveaway সময়সীমা এখনো শেষ হয়নি। সময় শেষ হওয়ার পর Winner সিলেক্ট করুন (অথবা Override অন করুন)।' });
+        }
+
+        const entriesSnap = await db.collection('giveaway_entries')
+            .where('campaignId', '==', campaign.campaignId)
+            .get();
+
+        const entriesMap = new Map();
+        entriesSnap.forEach(doc => {
+            const d = doc.data() || {};
+            entriesMap.set(String(d.userId || d.strUserId), { docRef: doc.ref, ...d });
+        });
+
+        const maxRequiredSlots = Math.min(10, entriesMap.size);
+        if (entriesMap.size === 0) {
+            // No participants — just mark completed cleanly
+            await db.collection('settings').doc('giveaway_campaign').set({
+                status: 'completed',
+                holdsReleased: true,
+                completedAt: Date.now(),
+                winners: []
+            }, { merge: true });
+            return res.json({ success: true, message: 'কোনো অংশগ্রহণকারী ছিল না, ক্যাম্পেইন ক্লোজ করা হয়েছে।', winners: [] });
+        }
+
+        if (!Array.isArray(winners) || winners.length < maxRequiredSlots) {
+            return res.status(400).json({ error: `১ম থেকে ${maxRequiredSlots}ম স্থান পর্যন্ত সবগুলো ইউনিক Winner সিলেক্ট করুন।` });
+        }
+
+        const seenWinnerIds = new Set();
+        const winnerByUserId = new Map();
+        const finalizedWinners = [];
+
+        const sortedSelections = [...winners]
+            .filter(w => w && w.userId && parseInt(w.rank, 10) >= 1 && parseInt(w.rank, 10) <= 10)
+            .sort((a, b) => parseInt(a.rank, 10) - parseInt(b.rank, 10));
+
+        for (const sel of sortedSelections) {
+            const rank = parseInt(sel.rank, 10);
+            const uidStr = String(sel.userId).trim();
+            if (seenWinnerIds.has(uidStr)) {
+                return res.status(400).json({ error: `একই ইউজার (${uidStr}) একাধিকবার Winner হতে পারবেন না।` });
+            }
+            const entry = entriesMap.get(uidStr);
+            if (!entry) {
+                return res.status(400).json({ error: `ইউজার ${uidStr} এই Giveaway-তে অংশগ্রহণ করেননি।` });
+            }
+            seenWinnerIds.add(uidStr);
+            const prizeBdt = getGiveawayPrizeForRank(rank);
+            const winRecord = {
+                rank,
+                userId: entry.userId,
+                mbsId: entry.mbsId || '',
+                name: entry.name || `User ${uidStr}`,
+                username: entry.username || '',
+                prizeBdt
+            };
+            winnerByUserId.set(uidStr, winRecord);
+            finalizedWinners.push(winRecord);
+        }
+
+        const now = Date.now();
+        const notifications = [];
+
+        // Atomically credit prize & release ৳20 hold for EVERY participant
+        for (const [uidStr, entry] of entriesMap.entries()) {
+            const winInfo = winnerByUserId.get(uidStr) || null;
+            const prizeBdt = winInfo ? roundBdt(winInfo.prizeBdt) : 0;
+            const userDocRef = db.collection('users').doc(uidStr);
+
+            await db.runTransaction(async (tx) => {
+                const [uSnap, eSnap] = await Promise.all([tx.get(userDocRef), tx.get(entry.docRef)]);
+                const eData = eSnap.exists ? (eSnap.data() || {}) : entry;
+                const holdToRelease = eData.holdStatus === 'held' ? roundBdt(parseFloat(eData.holdAmountBdt || 0)) : 0;
+
+                if (uSnap.exists) {
+                    const uData = uSnap.data() || {};
+                    const curBal = roundBdt(parseFloat(uData.balance || 0));
+                    const curHold = roundBdt(parseFloat(uData.giveawayHoldBdt || 0));
+                    const curPrizeTotal = roundBdt(parseFloat(uData.giveawayPrizeWonBdt || 0));
+
+                    tx.update(userDocRef, {
+                        balance: roundBdt(curBal + holdToRelease + prizeBdt),
+                        giveawayHoldBdt: Math.max(0, roundBdt(curHold - holdToRelease)),
+                        giveawayPrizeWonBdt: roundBdt(curPrizeTotal + prizeBdt),
+                        updatedAt: now
+                    });
+                }
+
+                tx.update(entry.docRef, {
+                    holdStatus: 'released',
+                    releasedAt: now,
+                    status: winInfo ? 'winner' : 'completed',
+                    wonRank: winInfo ? winInfo.rank : null,
+                    prizeBdt
+                });
+            });
+
+            userProfileMemoryCache.delete(uidStr);
+            invalidateUserHistoryCache(uidStr);
+            notifications.push({ uidStr, winInfo, holdAmountBdt: entry.holdAmountBdt || GIVEAWAY_HOLD_BDT });
+        }
+
+        await db.collection('settings').doc('giveaway_campaign').set({
+            status: 'completed',
+            holdsReleased: true,
+            completedAt: now,
+            winners: finalizedWinners
+        }, { merge: true });
+
+        // Send Telegram DM notifications asynchronously
+        if (bot) {
+            for (const item of notifications) {
+                if (item.winInfo) {
+                    const r = item.winInfo.rank;
+                    const p = item.winInfo.prizeBdt;
+                    bot.sendMessage(
+                        item.uidStr,
+                        `🏆 <b>অভিনন্দন! আপনি TrustPay Giveaway বিজয়ী!</b>\n\n` +
+                        `🥇 <b>অবস্থান:</b> #${r} স্থান\n` +
+                        `💰 <b>পুরস্কার:</b> <b>৳${p.toLocaleString()}</b>\n` +
+                        `🔓 <b>হোল্ড রিলিজ:</b> আপনার হোল্ডকৃত <b>৳${Number(item.holdAmountBdt).toFixed(2)}</b> ও পুরস্কারের টাকা মোট ব্যালেন্সে যোগ করা হয়েছে!`,
+                        { parse_mode: 'HTML' }
+                    ).catch(() => {});
+                } else {
+                    bot.sendMessage(
+                        item.uidStr,
+                        `🎁 <b>TrustPay Giveaway সম্পন্ন হয়েছে!</b>\n\n` +
+                        `এবারের Giveaway-এর বিজয়ী নির্বাচন শেষ হয়েছে।\n` +
+                        `🔓 আপনার হোল্ডকৃত <b>৳${Number(item.holdAmountBdt).toFixed(2)}</b> আপনার অ্যাকাউন্ট ব্যালেন্সে সফলভাবে আনলক ও ফেরত দেওয়া হয়েছে। পরবর্তী রাউন্ডে অংশগ্রহণের জন্য ধন্যবাদ!`,
+                        { parse_mode: 'HTML' }
+                    ).catch(() => {});
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `🏆 ${finalizedWinners.length} জন বিজয়ী চূড়ান্ত করা হয়েছে এবং সকল অংশগ্রহণকারীর হোল্ডকৃত ৳20.00 ব্যালেন্সে ফেরত দেওয়া হয়েছে!`,
+            winners: finalizedWinners
+        });
+    } catch (e) {
+        console.error('Admin giveaway finalize error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.use('/app', (req, res) => {
     const p = path.join(__dirname, 'miniapp/dist/index.html');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
@@ -11508,6 +12441,9 @@ To receive your payout, please send your *TON Address* now:`;
         console.error("BSC Polling Error:", e.message);
     }
 }, 15000); // Check every 15 seconds
+
+setTimeout(() => { reconcilePendingTonSellIntents().catch(() => {}); }, 15000);
+setInterval(reconcilePendingTonSellIntents, 45000);
 
 const PORT = process.env.PORT || 3000; app.listen(PORT, () => { console.log('Server on ' + PORT); });
 
@@ -11879,17 +12815,19 @@ const formatBdPhone = (num) => {
 
 let withdrawBot;
 try {
-    withdrawBot = new TelegramBot(WITHDRAW_BOT_TOKEN, { polling: true });
-    console.log('[WithdrawBot] ✓ Withdraw Manager Bot started successfully');
+    withdrawBot = new TelegramBot(WITHDRAW_BOT_TOKEN, { polling: ENABLE_BOT_POLLING });
+    console.log('[WithdrawBot] ✓ Withdraw Manager Bot started successfully' + (ENABLE_BOT_POLLING ? '' : ' (polling disabled for local mode)'));
 
     registerMasterSecurityCommands(withdrawBot);
-    withdrawBot.setMyCommands([
-        { command: 'withdraw', description: 'ক্যাশআউট সিরিয়াল অনুযায়ী শুরু করুন' },
-        { command: 'list', description: 'সকল পেন্ডিং রিকোয়েস্টের তালিকা' },
-        { command: 'getadmincreds', description: 'বর্তমান অ্যাডমিন ইমেইল ও পাসওয়ার্ড দেখুন' },
-        { command: 'securitystatus', description: 'ফায়ারওয়াল ও নিরাপত্তা স্ট্যাটাস' },
-        { command: 'help', description: 'সাহায্য ও নিয়মাবলী' }
-    ]).catch(() => {});
+    if (ENABLE_BOT_POLLING) {
+        withdrawBot.setMyCommands([
+            { command: 'withdraw', description: 'ক্যাশআউট সিরিয়াল অনুযায়ী শুরু করুন' },
+            { command: 'list', description: 'সকল পেন্ডিং রিকোয়েস্টের তালিকা' },
+            { command: 'getadmincreds', description: 'বর্তমান অ্যাডমিন ইমেইল ও পাসওয়ার্ড দেখুন' },
+            { command: 'securitystatus', description: 'ফায়ারওয়াল ও নিরাপত্তা স্ট্যাটাস' },
+            { command: 'help', description: 'সাহায্য ও নিয়মাবলী' }
+        ]).catch(() => {});
+    }
 } catch(e) {
     console.error('[WithdrawBot] ✗ Failed to start Withdraw Bot:', e.message);
 }
