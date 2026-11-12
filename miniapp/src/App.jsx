@@ -5917,7 +5917,26 @@ export default function App() {
     };
   }, []);
 
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const tgData = searchParams.get('tgWebAppData') || hashParams.get('tgWebAppData');
+      let startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param || WebApp?.initDataUnsafe?.start_param;
+      if (!startParam && tgData) {
+        try {
+          const inner = new URLSearchParams(tgData);
+          startParam = inner.get('start_param');
+        } catch (_) {}
+      }
+      const directTab = searchParams.get('tab') || searchParams.get('page') || searchParams.get('startapp') || searchParams.get('tgWebAppStartParam') || hashParams.get('startapp') || hashParams.get('tgWebAppStartParam');
+      const targetParam = String(startParam || directTab || '').toLowerCase();
+      if (targetParam === 'giveaway' || targetParam === 'giveaway_page') {
+        return 'giveaway';
+      }
+    } catch (_) {}
+    return 'home';
+  });
   const [buyInitialAsset, setBuyInitialAsset] = useState('GRAM');
   const [sellInitialAsset, setSellInitialAsset] = useState('GRAM');
   const [cryptoModalState, setCryptoModalState] = useState({ isOpen: false, mode: 'buy' });
@@ -5972,6 +5991,18 @@ export default function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [activeTab]);
+
+  useEffect(() => {
+    try {
+      const sp = window.Telegram?.WebApp?.initDataUnsafe?.start_param || WebApp?.initDataUnsafe?.start_param;
+      const search = new URLSearchParams(window.location.search);
+      const hash = new URLSearchParams(window.location.hash.slice(1));
+      const target = String(sp || search.get('tab') || search.get('page') || search.get('startapp') || hash.get('startapp') || '').toLowerCase();
+      if (target === 'giveaway' || target === 'giveaway_page') {
+        setActiveTab('giveaway');
+      }
+    } catch (_) {}
+  }, []);
 
   const [fiatWallet, setFiatWallet] = useState(null);
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
