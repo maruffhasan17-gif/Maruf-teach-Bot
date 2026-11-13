@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText, Trophy, Crown, Medal, Flame, Mail, Heart, Globe, Lock } from 'lucide-react';
+import { Home, Calendar, Clipboard, Camera, User, Users, Shield, ShieldCheck, Award, ArrowLeft, ArrowDown, ArrowUp, ArrowRight, ChevronLeft, ChevronRight, Zap, Share2, Copy, X, ArrowRightLeft, Wallet, Gift, ArrowUpRight, ArrowDownLeft, MinusCircle, TrendingUp, Sparkles, Info, CircleDollarSign, Gem, Coins, Delete, ChevronDown, Clock, Save, CheckCircle2 , Volume2, VolumeX, Check, Settings , ClipboardPaste, Loader2, PlusCircle, AlertCircle, AlertTriangle, RefreshCw, Headphones, Send, Edit3, ExternalLink, LogOut, PlayCircle, Moon, Sun, Bell, Eye, EyeOff, Search, QrCode, HelpCircle, FileText, Trophy, Crown, Medal, Flame, Mail, Heart, Globe, Lock } from 'lucide-react';
 import { TonConnectUIProvider, TonConnectButton, useTonAddress, useTonConnectUI, THEME } from '@tonconnect/ui-react';
 import WebApp from '@twa-dev/sdk';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -6006,6 +6006,14 @@ export default function App() {
 
   const [fiatWallet, setFiatWallet] = useState(null);
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
+  const [withdrawConfig, setWithdrawConfig] = useState(() => ({
+    withdrawEnabled: true,
+    bkashWithdrawEnabled: false,
+    nagadWithdrawEnabled: true,
+    withdrawDisabledNotice: '',
+    bkashDisabledNotice: '',
+    nagadDisabledNotice: ''
+  }));
   const [pendingReceivedTransfer, setPendingReceivedTransfer] = useState(null);
   const [mbsId, setMbsId] = useState(null);
   const [user, setUser] = useState(() => resolveTelegramUser());
@@ -6194,6 +6202,9 @@ export default function App() {
         }).catch(() => {});
       }
       setFiatWallet(data.fiatWallet || null);
+      if (data.withdrawConfig) {
+        setWithdrawConfig(data.withdrawConfig);
+      }
       const incomingWd = data.fiatWithdrawPending || null;
       if (incomingWd && (incomingWd.status === 'completed' || incomingWd.status === 'rejected')) {
         const wdKey = getWithdrawNoticeKey(incomingWd);
@@ -6762,6 +6773,7 @@ export default function App() {
                       twoStepLength={twoStepLength}
                       fiatWallet={fiatWallet} 
                       setFiatWallet={setFiatWallet}
+                      withdrawConfig={withdrawConfig}
                       fiatWithdrawPending={fiatWithdrawPending} 
                       antiAbuseData={antiAbuseData}
                       setIsModalOpen={setIsModalOpen}
@@ -12514,7 +12526,7 @@ function ReferralPage({ user, lang = 'bn', darkMode = false, onBack, reloadData 
 
 
 
-function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, twoStepEnabled = false, twoStepLength = 4, fiatWallet, setFiatWallet, fiatWithdrawPending, antiAbuseData = {}, setIsModalOpen, onBack, reloadData }) {
+function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, twoStepEnabled = false, twoStepLength = 4, fiatWallet, setFiatWallet, withdrawConfig = {}, fiatWithdrawPending, antiAbuseData = {}, setIsModalOpen, onBack, reloadData }) {
     const [amount, setAmount] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState('');
@@ -12525,8 +12537,23 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
     const [withdrawPinError, setWithdrawPinError] = useState('');
     const [showFlowerModal, setShowFlowerModal] = useState(false);
     const [withdrawDetails, setWithdrawDetails] = useState(null);
-    const isBkashSelected = String(fiatWallet?.method || '').trim().toLowerCase() === 'bkash';
-    const [editMethod, setEditMethod] = useState(isBkashSelected ? 'Nagad' : (fiatWallet?.method || 'Nagad'));
+
+    const isWithdrawGloballyEnabled = withdrawConfig?.withdrawEnabled !== false;
+    const isBkashAllowed = Boolean(withdrawConfig?.bkashWithdrawEnabled);
+    const isNagadAllowed = withdrawConfig?.nagadWithdrawEnabled !== false;
+
+    const walletMethod = String(fiatWallet?.method || '').trim().toLowerCase();
+    const isBkashSelected = walletMethod === 'bkash';
+    const isNagadSelected = walletMethod === 'nagad' || (!isBkashSelected && Boolean(fiatWallet?.method));
+
+    const isCurrentMethodDisabled = (isBkashSelected && !isBkashAllowed) || (isNagadSelected && !isNagadAllowed);
+
+    const defaultEditMethod = isNagadAllowed ? 'Nagad' : (isBkashAllowed ? 'bKash' : 'Nagad');
+    const [editMethod, setEditMethod] = useState(() => {
+        if (fiatWallet?.method === 'bKash' && isBkashAllowed) return 'bKash';
+        if (fiatWallet?.method === 'Nagad' && isNagadAllowed) return 'Nagad';
+        return defaultEditMethod;
+    });
     const [editNumber, setEditNumber] = useState('');
     const [editName, setEditName] = useState('');
     const [isSavingWallet, setIsSavingWallet] = useState(false);
@@ -12545,14 +12572,33 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
 
     const handleSaveEditedWallet = async () => {
         if (!editNumber || !editName) return;
-        if (editMethod === 'bKash') {
+        if (!isWithdrawGloballyEnabled) {
             playAppSound('error');
-            const msg = lang === 'bn' 
-                ? "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad) ওয়ালেট গ্রহণ করা হচ্ছে।" 
-                : "bKash withdrawal is temporarily closed! Please select Nagad.";
+            const msg = withdrawConfig?.withdrawDisabledNotice || (lang === 'bn' 
+                ? "উইথড্র সিস্টেম সাময়িকভাবে রক্ষণাবেক্ষণের জন্য বন্ধ রয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।" 
+                : "Withdrawal system is temporarily suspended for maintenance.");
             if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(msg);
             else alert(msg);
-            setEditMethod('Nagad');
+            return;
+        }
+        if (editMethod === 'bKash' && !isBkashAllowed) {
+            playAppSound('error');
+            const msg = withdrawConfig?.bkashDisabledNotice || (lang === 'bn' 
+                ? "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad) ওয়ালেট গ্রহণ করা হচ্ছে।" 
+                : "bKash withdrawal is temporarily closed! Please select Nagad.");
+            if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(msg);
+            else alert(msg);
+            if (isNagadAllowed) setEditMethod('Nagad');
+            return;
+        }
+        if (editMethod === 'Nagad' && !isNagadAllowed) {
+            playAppSound('error');
+            const msg = withdrawConfig?.nagadDisabledNotice || (lang === 'bn' 
+                ? "নগদ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র বিকাশ (bKash) ওয়ালেট গ্রহণ করা হচ্ছে।" 
+                : "Nagad withdrawal is temporarily closed! Please select bKash.");
+            if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(msg);
+            else alert(msg);
+            if (isBkashAllowed) setEditMethod('bKash');
             return;
         }
         setIsSavingWallet(true);
@@ -12600,20 +12646,49 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
 
     // Step 1: Validate & Open Permission / Confirmation Modal
     const handleSubmit = () => {
-        if (isBkashSelected) {
+        if (!isWithdrawGloballyEnabled) {
             playAppSound('error');
-            const msg = lang === 'bn' 
+            const msg = withdrawConfig?.withdrawDisabledNotice || (lang === 'bn'
+                ? "উইথড্র সিস্টেম সাময়িকভাবে রক্ষণাবেক্ষণের জন্য বন্ধ রয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।"
+                : "Withdrawal system is temporarily suspended for maintenance. Please try again later.");
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+        }
+
+        if (isBkashSelected && !isBkashAllowed) {
+            playAppSound('error');
+            const msg = withdrawConfig?.bkashDisabledNotice || (lang === 'bn' 
                 ? "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad)-এ উইথড্র সফলভাবে গ্রহণ করা হচ্ছে। অনুগ্রহ করে নগদ নাম্বার যোগ করে উইথড্র দিন।" 
-                : "bKash limit exhausted! Currently withdrawals are available ONLY via Nagad. Please switch to Nagad.";
+                : "bKash limit exhausted! Currently withdrawals are available ONLY via Nagad. Please switch to Nagad.");
             if (window.Telegram?.WebApp?.showAlert) {
                 window.Telegram.WebApp.showAlert(msg);
             } else {
                 alert(msg);
             }
-            setEditMethod('Nagad');
-            setEditNumber('');
-            setEditName(user?.first_name || '');
-            setShowEditWalletModal(true);
+            if (isNagadAllowed) {
+                setEditMethod('Nagad');
+                setEditNumber('');
+                setEditName(user?.first_name || '');
+                setShowEditWalletModal(true);
+            }
+            return;
+        }
+
+        if (isNagadSelected && !isNagadAllowed) {
+            playAppSound('error');
+            const msg = withdrawConfig?.nagadDisabledNotice || (lang === 'bn' 
+                ? "নগদ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র বিকাশ (bKash)-এ উইথড্র সফলভাবে গ্রহণ করা হচ্ছে। অনুগ্রহ করে বিকাশ নাম্বার যোগ করে উইথড্র দিন।" 
+                : "Nagad limit exhausted! Currently withdrawals are available ONLY via bKash. Please switch to bKash.");
+            if (window.Telegram?.WebApp?.showAlert) {
+                window.Telegram.WebApp.showAlert(msg);
+            } else {
+                alert(msg);
+            }
+            if (isBkashAllowed) {
+                setEditMethod('bKash');
+                setEditNumber('');
+                setEditName(user?.first_name || '');
+                setShowEditWalletModal(true);
+            }
             return;
         }
 
@@ -12872,8 +12947,32 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                 </div>
             )}
 
+            {/* Global Withdraw Maintenance Banner */}
+            {!isWithdrawGloballyEnabled && (
+                <div className="p-4 rounded-3xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 shadow-xs flex items-start gap-3.5 animate-in fade-in duration-200">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertTriangle size={20} />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                                {lang === 'bn' ? 'উইথড্র সাময়িকভাবে বন্ধ' : 'Withdrawal System Paused'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                                {lang === 'bn' ? 'রক্ষণাবেক্ষণ' : 'Maintenance'}
+                            </span>
+                        </div>
+                        <p className="text-xs text-amber-800 dark:text-amber-300 font-semibold leading-relaxed">
+                            {withdrawConfig?.withdrawDisabledNotice || (lang === 'bn'
+                                ? 'উইথড্র সিস্টেম সাময়িকভাবে রক্ষণাবেক্ষণের জন্য বন্ধ রয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।'
+                                : 'Withdrawal system is temporarily under maintenance. Please try again shortly.')}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* bKash Limit Exhausted Executive Notice */}
-            {isBkashSelected && (
+            {isWithdrawGloballyEnabled && isBkashSelected && !isBkashAllowed && (
                 <div className="p-4 rounded-3xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 shadow-xs flex items-start gap-3.5 animate-in fade-in duration-200">
                     <div className="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
                         <AlertTriangle size={20} />
@@ -12888,42 +12987,87 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                             </span>
                         </div>
                         <p className="text-xs text-rose-800 dark:text-rose-300 font-semibold leading-relaxed">
-                            {lang === 'bn'
+                            {withdrawConfig?.bkashDisabledNotice || (lang === 'bn'
                                 ? 'আমাদের বিকাশ লিমিট সাময়িকভাবে শেষ হয়ে গেছে। টাকা উত্তোলনের জন্য বর্তমানে শুধুমাত্র নগদ (Nagad) চালু রয়েছে।'
-                                : 'bKash withdrawal limit is temporarily reached. Withdrawals are currently available ONLY via Nagad.'}
+                                : 'bKash withdrawal limit is temporarily reached. Withdrawals are currently available ONLY via Nagad.')}
                         </p>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setEditMethod('Nagad');
-                                setEditNumber('');
-                                setEditName(user?.first_name || '');
-                                setShowEditWalletModal(true);
-                            }}
-                            className="mt-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
-                        >
-                            <Edit3 size={12} />
-                            <span>{lang === 'bn' ? '👉 নগদ ওয়ালেট যোগ করুন' : '👉 Switch to Nagad'}</span>
-                        </button>
+                        {isNagadAllowed && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setEditMethod('Nagad');
+                                    setEditNumber('');
+                                    setEditName(user?.first_name || '');
+                                    setShowEditWalletModal(true);
+                                }}
+                                className="mt-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                                <Edit3 size={12} />
+                                <span>{lang === 'bn' ? '👉 নগদ ওয়ালেট যোগ করুন' : '👉 Switch to Nagad'}</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Nagad Limit Exhausted Executive Notice */}
+            {isWithdrawGloballyEnabled && isNagadSelected && !isNagadAllowed && (
+                <div className="p-4 rounded-3xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 shadow-xs flex items-start gap-3.5 animate-in fade-in duration-200">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertTriangle size={20} />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-rose-600 dark:text-rose-400 uppercase tracking-wide">
+                                {lang === 'bn' ? 'নগদ লিমিট শেষ' : 'Nagad Limit Out'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                {lang === 'bn' ? 'উইথড্র বন্ধ' : 'Unavailable'}
+                            </span>
+                        </div>
+                        <p className="text-xs text-rose-800 dark:text-rose-300 font-semibold leading-relaxed">
+                            {withdrawConfig?.nagadDisabledNotice || (lang === 'bn'
+                                ? 'আমাদের নগদ লিমিট সাময়িকভাবে শেষ হয়ে গেছে। টাকা উত্তোলনের জন্য বর্তমানে শুধুমাত্র বিকাশ (bKash) চালু রয়েছে।'
+                                : 'Nagad withdrawal limit is temporarily reached. Withdrawals are currently available ONLY via bKash.')}
+                        </p>
+                        {isBkashAllowed && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setEditMethod('bKash');
+                                    setEditNumber('');
+                                    setEditName(user?.first_name || '');
+                                    setShowEditWalletModal(true);
+                                }}
+                                className="mt-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                                <Edit3 size={12} />
+                                <span>{lang === 'bn' ? '👉 বিকাশ ওয়ালেট যোগ করুন' : '👉 Switch to bKash'}</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
 
             {/* Saved Wallet Info with Edit Icon Aligned Right */}
             <div className={`p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border shadow-xs transition-colors ${
-                isBkashSelected ? 'border-rose-300 dark:border-rose-800/80 bg-rose-50/20 dark:bg-rose-950/20' : 'border-slate-200/90 dark:border-slate-800'
+                isCurrentMethodDisabled || !isWithdrawGloballyEnabled ? 'border-rose-300 dark:border-rose-800/80 bg-rose-50/20 dark:bg-rose-950/20' : 'border-slate-200/90 dark:border-slate-800'
             }`}>
                 <div className="flex items-center justify-between gap-3 w-full">
                     <div className="flex items-center gap-3.5 flex-1 min-w-0">
                         <div style={{ backgroundColor: '#ffffff' }} className={`w-11 h-11 rounded-2xl bg-white border p-1.5 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box ${
-                            isBkashSelected ? 'border-rose-300 grayscale opacity-80' : 'border-slate-200/90'
+                            isCurrentMethodDisabled || !isWithdrawGloballyEnabled ? 'border-rose-300 grayscale opacity-80' : 'border-slate-200/90'
                         }`}>
                             <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                                 <h4 className="text-sm font-black text-slate-900 dark:text-white leading-tight">{fiatWallet?.method || 'Nagad'} Wallet</h4>
-                                {isBkashSelected ? (
+                                {!isWithdrawGloballyEnabled ? (
+                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60">
+                                        {lang === 'bn' ? 'সিস্টেম সাময়িক বন্ধ' : 'System Paused'}
+                                    </span>
+                                ) : isCurrentMethodDisabled ? (
                                     <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60">
                                         {lang === 'bn' ? 'লিমিট শেষ / বন্ধ' : 'Limit Out'}
                                     </span>
@@ -12940,20 +13084,29 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                     <button 
                         type="button"
                         onClick={() => {
-                            setEditMethod('Nagad');
-                            setEditNumber(isBkashSelected ? '' : (fiatWallet?.number || ''));
+                            const initialMethod = isBkashSelected && !isBkashAllowed && isNagadAllowed
+                                ? 'Nagad'
+                                : (isNagadSelected && !isNagadAllowed && isBkashAllowed ? 'bKash' : (fiatWallet?.method || defaultEditMethod));
+                            setEditMethod(initialMethod);
+                            setEditNumber(isCurrentMethodDisabled ? '' : (fiatWallet?.number || ''));
                             setEditName(fiatWallet?.name || '');
                             setShowEditWalletModal(true);
                         }}
                         className={`px-3.5 py-1.5 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-black shrink-0 shadow-xs cursor-pointer border ${
-                            isBkashSelected 
+                            isCurrentMethodDisabled 
                                 ? 'bg-emerald-600 text-white hover:bg-emerald-500 border-emerald-500 shadow-emerald-600/20' 
                                 : 'bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/80'
                         }`}
                         title="Edit Wallet"
                     >
                         <Edit3 size={13} />
-                        <span>{isBkashSelected ? (lang === 'bn' ? 'নগদ দিন' : 'Set Nagad') : (lang === 'bn' ? 'এডিট' : 'Edit')}</span>
+                        <span>
+                            {isBkashSelected && !isBkashAllowed && isNagadAllowed
+                                ? (lang === 'bn' ? 'নগদ দিন' : 'Set Nagad')
+                                : isNagadSelected && !isNagadAllowed && isBkashAllowed
+                                    ? (lang === 'bn' ? 'বিকাশ দিন' : 'Set bKash')
+                                    : (lang === 'bn' ? 'এডিট' : 'Edit')}
+                        </span>
                     </button>
                 </div>
             </div>
@@ -12980,24 +13133,36 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                 <button 
                     type="button"
                     onClick={handleSubmit} 
-                    disabled={(!amount && !isBkashSelected) || isSubmitting} 
+                    disabled={!isWithdrawGloballyEnabled || (!amount && !isCurrentMethodDisabled) || isSubmitting} 
                     className={`w-full h-[54px] rounded-2xl text-white font-black text-sm flex items-center justify-center gap-2.5 border-t border-white/20 transition-all duration-150 active:translate-y-1 disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed cursor-pointer ${
-                        isBkashSelected
-                            ? 'bg-gradient-to-r from-rose-600 via-amber-600 to-rose-600 shadow-[0_5px_0_#9f1239,0_12px_24px_rgba(225,29,72,0.35)]'
-                            : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)]'
+                        !isWithdrawGloballyEnabled
+                            ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 shadow-[0_5px_0_#9a3412,0_12px_24px_rgba(234,88,12,0.35)]'
+                            : isCurrentMethodDisabled
+                                ? 'bg-gradient-to-r from-rose-600 via-amber-600 to-rose-600 shadow-[0_5px_0_#9f1239,0_12px_24px_rgba(225,29,72,0.35)]'
+                                : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)]'
                     }`}
                 >
                     {isSubmitting ? (
                         <Loader2 size={18} className="animate-spin" />
-                    ) : isBkashSelected ? (
+                    ) : !isWithdrawGloballyEnabled ? (
+                        <AlertTriangle size={18} />
+                    ) : isCurrentMethodDisabled ? (
                         <AlertTriangle size={18} />
                     ) : (
                         <Wallet size={18} />
                     )}
                     <span>
-                        {isBkashSelected 
-                            ? (lang === 'bn' ? '⚠️ বিকাশ বন্ধ • নগদে উইথড্র নিন' : '⚠️ bKash Closed • Use Nagad') 
-                            : (t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS'))}
+                        {!isWithdrawGloballyEnabled
+                            ? (lang === 'bn' ? '⏸️ উইথড্র সাময়িকভাবে বন্ধ' : '⏸️ Withdrawals Temporarily Paused')
+                            : isBkashSelected && !isBkashAllowed
+                                ? (isNagadAllowed 
+                                    ? (lang === 'bn' ? '⚠️ বিকাশ বন্ধ • নগদে উইথড্র নিন' : '⚠️ bKash Closed • Use Nagad')
+                                    : (lang === 'bn' ? '⚠️ বিকাশ উইথড্র বন্ধ' : '⚠️ bKash Closed'))
+                                : isNagadSelected && !isNagadAllowed
+                                    ? (isBkashAllowed
+                                        ? (lang === 'bn' ? '⚠️ নগদ বন্ধ • বিকাশে উইথড্র নিন' : '⚠️ Nagad Closed • Use bKash')
+                                        : (lang === 'bn' ? '⚠️ নগদ উইথড্র বন্ধ' : '⚠️ Nagad Closed'))
+                                    : (t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS'))}
                     </span>
                 </button>
             </div>
@@ -13163,37 +13328,72 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Select Method</label>
                                 <div className="flex gap-2">
+                                    {/* bKash Selection */}
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            playAppSound('error');
-                                            const msg = lang === 'bn' ? "বিকাশ লিমিট শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad)-এ উইথড্র চালু আছে।" : "bKash limit exhausted! Please withdraw via Nagad.";
-                                            if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(msg);
-                                            else alert(msg);
+                                            if (!isBkashAllowed) {
+                                                playAppSound('error');
+                                                const msg = withdrawConfig?.bkashDisabledNotice || (lang === 'bn' ? "বিকাশ লিমিট শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad)-এ উইথড্র চালু আছে।" : "bKash limit exhausted! Please withdraw via Nagad.");
+                                                if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(msg);
+                                                else alert(msg);
+                                                return;
+                                            }
+                                            setEditMethod('bKash');
                                         }}
-                                        className="flex-1 py-2.5 px-3 rounded-2xl border border-rose-300/80 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-rose-500/80 dark:text-rose-400/80 flex items-center justify-center gap-1.5 font-bold text-xs cursor-not-allowed relative overflow-hidden"
-                                    >
-                                        <div style={{ backgroundColor: '#ffffff' }} className="w-6 h-6 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0 grayscale opacity-60">
-                                            <img src={getPaymentLogo('bKash')} alt="bKash" className="w-full h-full object-contain" />
-                                        </div>
-                                        <span className="line-through">bKash</span>
-                                        <span className="text-[8.5px] font-black bg-rose-500/20 text-rose-600 dark:text-rose-400 px-1 py-0.2 rounded-md">বন্ধ</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditMethod('Nagad')}
-                                        className={`flex-1 py-2.5 px-3 rounded-2xl border flex items-center justify-center gap-1.5 font-black text-xs transition-all cursor-pointer ${
-                                            editMethod === 'Nagad' 
-                                                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 shadow-xs' 
-                                                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400'
+                                        className={`flex-1 py-2.5 px-3 rounded-2xl border flex items-center justify-center gap-1.5 font-bold text-xs transition-all ${
+                                            !isBkashAllowed
+                                                ? 'border-rose-300/80 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-rose-500/80 dark:text-rose-400/80 cursor-not-allowed'
+                                                : editMethod === 'bKash'
+                                                    ? 'border-pink-500 bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 shadow-xs cursor-pointer font-black'
+                                                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 cursor-pointer'
                                         }`}
                                     >
-                                        <div style={{ backgroundColor: '#ffffff' }} className="w-6 h-6 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0 shadow-2xs">
+                                        <div style={{ backgroundColor: '#ffffff' }} className={`w-6 h-6 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0 ${!isBkashAllowed ? 'grayscale opacity-60' : 'shadow-2xs'}`}>
+                                            <img src={getPaymentLogo('bKash')} alt="bKash" className="w-full h-full object-contain" />
+                                        </div>
+                                        <span className={!isBkashAllowed ? 'line-through' : ''}>bKash</span>
+                                        <span className={`text-[8.5px] font-black px-1 py-0.2 rounded-md ${
+                                            isBkashAllowed 
+                                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
+                                                : 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                                        }`}>
+                                            {isBkashAllowed ? 'চালু' : 'বন্ধ'}
+                                        </span>
+                                    </button>
+
+                                    {/* Nagad Selection */}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!isNagadAllowed) {
+                                                playAppSound('error');
+                                                const msg = withdrawConfig?.nagadDisabledNotice || (lang === 'bn' ? "নগদ লিমিট শেষ! বর্তমানে শুধুমাত্র বিকাশ (bKash)-এ উইথড্র চালু আছে।" : "Nagad limit exhausted! Please withdraw via bKash.");
+                                                if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(msg);
+                                                else alert(msg);
+                                                return;
+                                            }
+                                            setEditMethod('Nagad');
+                                        }}
+                                        className={`flex-1 py-2.5 px-3 rounded-2xl border flex items-center justify-center gap-1.5 font-bold text-xs transition-all ${
+                                            !isNagadAllowed
+                                                ? 'border-rose-300/80 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-rose-500/80 dark:text-rose-400/80 cursor-not-allowed'
+                                                : editMethod === 'Nagad'
+                                                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 shadow-xs cursor-pointer font-black'
+                                                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 cursor-pointer'
+                                        }`}
+                                    >
+                                        <div style={{ backgroundColor: '#ffffff' }} className={`w-6 h-6 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0 ${!isNagadAllowed ? 'grayscale opacity-60' : 'shadow-2xs'}`}>
                                             <img src={getPaymentLogo('Nagad')} alt="Nagad" className="w-full h-full object-contain" />
                                         </div>
-                                        <span>Nagad</span>
-                                        <span className="text-[8.5px] font-black bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1 py-0.2 rounded-md">চালু</span>
+                                        <span className={!isNagadAllowed ? 'line-through' : ''}>Nagad</span>
+                                        <span className={`text-[8.5px] font-black px-1 py-0.2 rounded-md ${
+                                            isNagadAllowed 
+                                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
+                                                : 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                                        }`}>
+                                            {isNagadAllowed ? 'চালু' : 'বন্ধ'}
+                                        </span>
                                     </button>
                                 </div>
                             </div>

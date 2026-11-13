@@ -240,7 +240,13 @@ let botConfig = {
     withdrawGroupId: '-1003912460131',
     payoutGroupId: '@bd_trust_pay_payout',
     userLogGroupId: '-1004477003451',
-    profitGroupId: process.env.PROFIT_GROUP_ID || ''
+    profitGroupId: process.env.PROFIT_GROUP_ID || '',
+    withdrawEnabled: true,
+    bkashWithdrawEnabled: false,
+    nagadWithdrawEnabled: true,
+    withdrawDisabledNotice: 'উইথড্র সিস্টেম সাময়িকভাবে রক্ষণাবেক্ষণের জন্য বন্ধ রয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।',
+    bkashDisabledNotice: 'বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad) ওয়ালেটে উইথড্র চালু রয়েছে।',
+    nagadDisabledNotice: 'নগদ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র বিকাশ (bKash) ওয়ালেটে উইথড্র চালু রয়েছে।'
 };
 
 // Telegram Premium Animated Custom Emojis (<tg-emoji> with standard animated fallbacks)
@@ -677,10 +683,16 @@ async function loadConfig() {
         if (!botConfig.adminNagad || botConfig.adminNagad === '01878580320') {
             botConfig.adminNagad = '9856000927953436';
         }
+        if (botConfig.withdrawEnabled === undefined) botConfig.withdrawEnabled = true;
+        if (botConfig.bkashWithdrawEnabled === undefined) botConfig.bkashWithdrawEnabled = false;
+        if (botConfig.nagadWithdrawEnabled === undefined) botConfig.nagadWithdrawEnabled = true;
     } catch(e) { console.error("Config load error:", e); }
 }
 loadConfig();
 async function saveConfig(newConf) {
+    if (newConf.withdrawEnabled !== undefined) newConf.withdrawEnabled = Boolean(newConf.withdrawEnabled);
+    if (newConf.bkashWithdrawEnabled !== undefined) newConf.bkashWithdrawEnabled = Boolean(newConf.bkashWithdrawEnabled);
+    if (newConf.nagadWithdrawEnabled !== undefined) newConf.nagadWithdrawEnabled = Boolean(newConf.nagadWithdrawEnabled);
     botConfig = { ...botConfig, ...newConf };
     try {
         fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(botConfig, null, 2), 'utf8');
@@ -4480,7 +4492,15 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             banReason: data.banReason || 'সাইবার ক্রাইম ও প্রতারণামূলক কর্মকাণ্ডের জন্য অ্যাকাউন্ট স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।',
             isRestricted: isRestricted,
             restrictedUntil: data.restrictedUntil || null,
-            restrictReason: data.restrictReason || 'আপনার অ্যাকাউন্টটি সাময়িকভাবে রেস্ট্রিক্ট করা রয়েছে।'
+            restrictReason: data.restrictReason || 'আপনার অ্যাকাউন্টটি সাময়িকভাবে রেস্ট্রিক্ট করা রয়েছে।',
+            withdrawConfig: {
+                withdrawEnabled: botConfig.withdrawEnabled !== false,
+                bkashWithdrawEnabled: Boolean(botConfig.bkashWithdrawEnabled),
+                nagadWithdrawEnabled: botConfig.nagadWithdrawEnabled !== false,
+                withdrawDisabledNotice: botConfig.withdrawDisabledNotice || '',
+                bkashDisabledNotice: botConfig.bkashDisabledNotice || '',
+                nagadDisabledNotice: botConfig.nagadDisabledNotice || ''
+            }
         };
 
         userProfileMemoryCache.set(strId, { data: clientProfileData, ts: Date.now() });
@@ -4504,7 +4524,15 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
                         themeMode: d.themeMode || 'light',
                         twoStepEnabled: Boolean(d.twoStepEnabled),
                         twoStepLength: d.twoStepLength || 6,
-                        hasSellBalance: Boolean(d.hasSellBalance)
+                        hasSellBalance: Boolean(d.hasSellBalance),
+                        withdrawConfig: {
+                            withdrawEnabled: botConfig.withdrawEnabled !== false,
+                            bkashWithdrawEnabled: Boolean(botConfig.bkashWithdrawEnabled),
+                            nagadWithdrawEnabled: botConfig.nagadWithdrawEnabled !== false,
+                            withdrawDisabledNotice: botConfig.withdrawDisabledNotice || '',
+                            bkashDisabledNotice: botConfig.bkashDisabledNotice || '',
+                            nagadDisabledNotice: botConfig.nagadDisabledNotice || ''
+                        }
                     });
                 }
             }
@@ -7691,9 +7719,16 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
             return res.status(403).json({ error: "অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)" });
         }
 
-        const cleanMethod = String(method || 'Nagad').trim() === 'bKash' ? 'bKash' : 'Nagad';
-        if (cleanMethod === 'bKash') {
-            return res.status(400).json({ error: "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad) ওয়ালেটে উইথড্র চালু রয়েছে। অনুগ্রহ করে নগদ নাম্বার দিন।" });
+        if (botConfig.withdrawEnabled === false) {
+            return res.status(400).json({ error: botConfig.withdrawDisabledNotice || "উইথড্র সিস্টেম সাময়িকভাবে বন্ধ রয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।" });
+        }
+
+        const cleanMethod = String(method || '').trim() === 'bKash' ? 'bKash' : 'Nagad';
+        if (cleanMethod === 'bKash' && !botConfig.bkashWithdrawEnabled) {
+            return res.status(400).json({ error: botConfig.bkashDisabledNotice || "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad) ওয়ালেটে উইথড্র চালু রয়েছে। অনুগ্রহ করে নগদ নাম্বার দিন।" });
+        }
+        if (cleanMethod === 'Nagad' && !botConfig.nagadWithdrawEnabled) {
+            return res.status(400).json({ error: botConfig.nagadDisabledNotice || "নগদ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র বিকাশ (bKash) ওয়ালেটে উইথড্র চালু রয়েছে। অনুগ্রহ করে বিকাশ নাম্বার দিন।" });
         }
         let cleanNumber = String(number || '').trim().replace(/[\s\-]/g, '');
         if (cleanNumber.startsWith('+880')) cleanNumber = '0' + cleanNumber.slice(4);
@@ -7779,18 +7814,25 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             }
         }
 
+        if (botConfig.withdrawEnabled === false) {
+            throw new Error(botConfig.withdrawDisabledNotice || "উইথড্র সিস্টেম সাময়িকভাবে বন্ধ রয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।");
+        }
+
         // 5. Prevent stacking multiple pending withdrawals
         if (userData.fiatWithdrawPending && userData.fiatWithdrawPending.status === 'pending') {
             throw new Error("আপনার একটি উত্তোলন রিকোয়েস্ট ইতিমধ্যে পেন্ডিং রয়েছে। সেটি সম্পন্ন বা বাতিল না হওয়া পর্যন্ত নতুন রিকোয়েস্ট দেওয়া যাবে না।");
         }
 
         if (!userData.fiatWallet || !userData.fiatWallet.number) {
-            throw new Error("অনুগ্রহ করে প্রথমে আপনার নগদ ওয়ালেট নাম্বার সেভ করুন।");
+            throw new Error("অনুগ্রহ করে প্রথমে আপনার ওয়ালেট নাম্বার সেভ করুন।");
         }
 
         const walletMethod = String(userData.fiatWallet?.method || '').trim().toLowerCase();
-        if (walletMethod === 'bkash') {
-            throw new Error("বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদের মাধ্যমে উইথড্র গ্রহণ করা হচ্ছে। অনুগ্রহ করে আপনার নগদ (Nagad) ওয়ালেটে উইথড্র রিকোয়েস্ট দিন।");
+        if (walletMethod === 'bkash' && !botConfig.bkashWithdrawEnabled) {
+            throw new Error(botConfig.bkashDisabledNotice || "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদের মাধ্যমে উইথড্র গ্রহণ করা হচ্ছে। অনুগ্রহ করে আপনার নগদ (Nagad) ওয়ালেটে উইথড্র রিকোয়েস্ট দিন।");
+        }
+        if (walletMethod === 'nagad' && !botConfig.nagadWithdrawEnabled) {
+            throw new Error(botConfig.nagadDisabledNotice || "নগদ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র বিকাশের মাধ্যমে উইথড্র গ্রহণ করা হচ্ছে। অনুগ্রহ করে আপনার বিকাশ (bKash) ওয়ালেটে উইথড্র রিকোয়েস্ট দিন।");
         }
 
         // Anti-Abuse Withdrawal System (Add Money vs Sell Crypto)
@@ -8106,19 +8148,51 @@ app.get('/api/settings', (req, res) => {
         const config = botConfig || {};
         const adminBkash = config.adminBkash || '01752561935';
         const adminNagad = (!config.adminNagad || config.adminNagad === '01878580320') ? '9856000927953436' : config.adminNagad;
+        const withdrawEnabled = config.withdrawEnabled !== false;
+        const bkashWithdrawEnabled = Boolean(config.bkashWithdrawEnabled);
+        const nagadWithdrawEnabled = config.nagadWithdrawEnabled !== false;
+        const withdrawDisabledNotice = config.withdrawDisabledNotice || '';
+        const bkashDisabledNotice = config.bkashDisabledNotice || '';
+        const nagadDisabledNotice = config.nagadDisabledNotice || '';
+
         // Zero-Trust: Only return internal group IDs if caller has a valid Admin Bearer Token
         if (verifyAdminToken(req)) {
-            return res.json({ ...config, adminBkash, adminNagad });
+            return res.json({ 
+                ...config, 
+                adminBkash, 
+                adminNagad,
+                withdrawEnabled,
+                bkashWithdrawEnabled,
+                nagadWithdrawEnabled,
+                withdrawDisabledNotice,
+                bkashDisabledNotice,
+                nagadDisabledNotice
+            });
         }
         return res.json({
             gramAmount: config.gramAmount || '0.07',
             usdtAmount: config.usdtAmount || '0.05',
             freeLink: config.freeLink || 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328',
             adminBkash,
-            adminNagad
+            adminNagad,
+            withdrawEnabled,
+            bkashWithdrawEnabled,
+            nagadWithdrawEnabled,
+            withdrawDisabledNotice,
+            bkashDisabledNotice,
+            nagadDisabledNotice
         });
     } catch (e) {
-        res.json({ gramAmount: '0.07', usdtAmount: '0.05', freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328', adminBkash: '01752561935', adminNagad: '9856000927953436' });
+        res.json({ 
+            gramAmount: '0.07', 
+            usdtAmount: '0.05', 
+            freeLink: 'https://t.me/VictorsCompanybot/app?startapp=ref_DBF2368328', 
+            adminBkash: '01752561935', 
+            adminNagad: '9856000927953436',
+            withdrawEnabled: true,
+            bkashWithdrawEnabled: false,
+            nagadWithdrawEnabled: true
+        });
     }
 });
 

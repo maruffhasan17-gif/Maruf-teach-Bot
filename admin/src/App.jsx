@@ -5211,7 +5211,13 @@ function BotSettings() {
     usdtAmount: '0.05',
     dailyWithdrawLimit: 50,
     userLogGroupId: '',
-    payoutGroupId: '@bd_trust_pay_payout'
+    payoutGroupId: '@bd_trust_pay_payout',
+    withdrawEnabled: true,
+    bkashWithdrawEnabled: false,
+    nagadWithdrawEnabled: true,
+    withdrawDisabledNotice: '',
+    bkashDisabledNotice: '',
+    nagadDisabledNotice: ''
   });
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -5393,6 +5399,171 @@ function BotSettings() {
                   {copiedField === 'nagad' ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card: Withdrawal Master Controls & Gateway Switches */}
+        <div className={`p-6 rounded-3xl border space-y-5 ${
+          isDark ? 'bg-[#0f0c22] border-purple-900/30 shadow-xl' : 'bg-white border-slate-200 shadow-md'
+        }`}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-amber-400 font-black text-xs uppercase tracking-wider">
+              <AlertTriangle size={16} />
+              <span>উইথড্রয়াল সিস্টেম কন্ট্রোল ও গেটওয়ে সুইচ (Withdrawal Master Controls)</span>
+            </div>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+              settings.withdrawEnabled !== false 
+                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' 
+                : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+            }`}>
+              {settings.withdrawEnabled !== false ? 'উইথড্রয়াল সিস্টেম চালু ✅' : 'উইথড্রয়াল সিস্টেম সাময়িক বন্ধ ⏸️'}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-400">
+            প্রয়োজনে সকল উইথড্র সাময়িকভাবে অফ করতে পারবেন অথবা বিকাশ বা নগদের লিমিট শেষ হলে নির্দিষ্ট মেথডটি অফ করে দিতে পারবেন।
+          </p>
+
+          {/* Master Withdrawal Switch */}
+          <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${
+            isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-slate-900 dark:text-white">
+                  মাস্টার সুইচ: সকল উইথড্র (All Withdrawals)
+                </span>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                  settings.withdrawEnabled !== false
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-rose-500/20 text-rose-400'
+                }`}>
+                  {settings.withdrawEnabled !== false ? 'চালু' : 'সাময়িক বন্ধ'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                এটি বন্ধ করলে কোনো ইউজার অ্যাপে কোনো উইথড্র রিকোয়েস্ট পাঠাতে পারবে না।
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSettings(prev => ({ ...prev, withdrawEnabled: prev.withdrawEnabled === false ? true : false }))}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 shadow-sm active:scale-95 ${
+                settings.withdrawEnabled !== false
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                  : 'bg-rose-600 hover:bg-rose-500 text-white'
+              }`}
+            >
+              {settings.withdrawEnabled !== false ? (
+                <>
+                  <Check size={14} strokeWidth={3} />
+                  <span>উইথড্র চালু আছে (ক্লিক করে বন্ধ করুন)</span>
+                </>
+              ) : (
+                <>
+                  <X size={14} strokeWidth={3} />
+                  <span>উইথড্র বন্ধ আছে (ক্লিক করে চালু করুন)</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Individual Gateway Switches: bKash & Nagad */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* bKash Gateway Switch */}
+            <div className={`p-4 rounded-2xl border space-y-3 ${
+              isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-white p-0.5 border border-slate-200 flex items-center justify-center shrink-0">
+                    <img src="https://raw.githubusercontent.com/maruffhasan17-gif/Maruf-teach-Bot/main/miniapp/src/assets/bkash.png" alt="bKash" className="w-full h-full object-contain" onError={(e) => { e.currentTarget.style.display='none'; }} />
+                  </div>
+                  <span className="text-xs font-black text-slate-900 dark:text-white">বিকাশ উইথড্র (bKash)</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                  settings.bkashWithdrawEnabled
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-rose-500/20 text-rose-400'
+                }`}>
+                  {settings.bkashWithdrawEnabled ? 'চালু' : 'লিমিট শেষ / বন্ধ'}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                বিকাশে ব্যালেন্স না থাকলে বা লিমিট শেষ হলে বন্ধ রাখুন। ইউজারকে নগদে উইথড্র নেওয়ার গাইড দিবে।
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setSettings(prev => ({ ...prev, bkashWithdrawEnabled: !prev.bkashWithdrawEnabled }))}
+                className={`w-full py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+                  settings.bkashWithdrawEnabled
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                    : 'bg-rose-600/90 hover:bg-rose-500 text-white shadow-rose-600/20'
+                }`}
+              >
+                {settings.bkashWithdrawEnabled ? (
+                  <>
+                    <Check size={14} />
+                    <span>বিকাশ চালু আছে (ক্লিক করে বন্ধ করুন)</span>
+                  </>
+                ) : (
+                  <>
+                    <X size={14} />
+                    <span>বিকাশ বন্ধ আছে (ক্লিক করে চালু করুন)</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Nagad Gateway Switch */}
+            <div className={`p-4 rounded-2xl border space-y-3 ${
+              isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-white p-0.5 border border-slate-200 flex items-center justify-center shrink-0">
+                    <img src="https://raw.githubusercontent.com/maruffhasan17-gif/Maruf-teach-Bot/main/miniapp/src/assets/nagad.png" alt="Nagad" className="w-full h-full object-contain" onError={(e) => { e.currentTarget.style.display='none'; }} />
+                  </div>
+                  <span className="text-xs font-black text-slate-900 dark:text-white">নগদ উইথড্র (Nagad)</span>
+                </div>
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                  settings.nagadWithdrawEnabled !== false
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'bg-rose-500/20 text-rose-400'
+                }`}>
+                  {settings.nagadWithdrawEnabled !== false ? 'চালু' : 'লিমিট শেষ / বন্ধ'}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                নগদে ব্যালেন্স না থাকলে বা লিমিট শেষ হলে বন্ধ রাখুন। ইউজারকে বিকাশে উইথড্র নেওয়ার গাইড দিবে।
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setSettings(prev => ({ ...prev, nagadWithdrawEnabled: prev.nagadWithdrawEnabled === false ? true : false }))}
+                className={`w-full py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+                  settings.nagadWithdrawEnabled !== false
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                    : 'bg-rose-600/90 hover:bg-rose-500 text-white shadow-rose-600/20'
+                }`}
+              >
+                {settings.nagadWithdrawEnabled !== false ? (
+                  <>
+                    <Check size={14} />
+                    <span>নগদ চালু আছে (ক্লিক করে বন্ধ করুন)</span>
+                  </>
+                ) : (
+                  <>
+                    <X size={14} />
+                    <span>নগদ বন্ধ আছে (ক্লিক করে চালু করুন)</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
