@@ -392,8 +392,9 @@ const notifyPayoutGroup = async (payoutData) => {
 
         const maskWallet = (addr) => {
             const s = String(addr || '').trim();
-            if (s.length <= 14) return s;
-            return s.slice(0, 8) + '...' + s.slice(-8);
+            if (!s) return 'N/A';
+            if (s.length <= 12) return s;
+            return s.slice(0, 6) + '...' + s.slice(-6);
         };
 
         const escapeHtml = (str) => {
@@ -543,7 +544,7 @@ const notifyPayoutGroup = async (payoutData) => {
                   `${PE.user} ${clickableCustomerHtml} (${maskedUid})\n` +
                   `${PE.dollar} Amount: ${payoutData.amount} ${asset}${bdtLabel}\n` +
                   `${PE.flyingCash} Send${feePart}: ${sentAmt} ${asset}\n` +
-                  `${PE.bank} To: ${fullAddr || maskWallet(fullAddr)}\n\n` +
+                  `${PE.bank} To: ${maskWallet(fullAddr)}\n\n` +
                   `✅ Paid on-chain · <a href="${previewUrl}">view transaction</a>`;
         }
 
