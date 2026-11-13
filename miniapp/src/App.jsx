@@ -12525,7 +12525,8 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
     const [withdrawPinError, setWithdrawPinError] = useState('');
     const [showFlowerModal, setShowFlowerModal] = useState(false);
     const [withdrawDetails, setWithdrawDetails] = useState(null);
-    const [editMethod, setEditMethod] = useState('bKash');
+    const isBkashSelected = String(fiatWallet?.method || '').trim().toLowerCase() === 'bkash';
+    const [editMethod, setEditMethod] = useState(isBkashSelected ? 'Nagad' : (fiatWallet?.method || 'Nagad'));
     const [editNumber, setEditNumber] = useState('');
     const [editName, setEditName] = useState('');
     const [isSavingWallet, setIsSavingWallet] = useState(false);
@@ -12544,6 +12545,16 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
 
     const handleSaveEditedWallet = async () => {
         if (!editNumber || !editName) return;
+        if (editMethod === 'bKash') {
+            playAppSound('error');
+            const msg = lang === 'bn' 
+                ? "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad) ওয়ালেট গ্রহণ করা হচ্ছে।" 
+                : "bKash withdrawal is temporarily closed! Please select Nagad.";
+            if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(msg);
+            else alert(msg);
+            setEditMethod('Nagad');
+            return;
+        }
         setIsSavingWallet(true);
         try {
             await saveFiatWallet({
@@ -12589,6 +12600,23 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
 
     // Step 1: Validate & Open Permission / Confirmation Modal
     const handleSubmit = () => {
+        if (isBkashSelected) {
+            playAppSound('error');
+            const msg = lang === 'bn' 
+                ? "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad)-এ উইথড্র সফলভাবে গ্রহণ করা হচ্ছে। অনুগ্রহ করে নগদ নাম্বার যোগ করে উইথড্র দিন।" 
+                : "bKash limit exhausted! Currently withdrawals are available ONLY via Nagad. Please switch to Nagad.";
+            if (window.Telegram?.WebApp?.showAlert) {
+                window.Telegram.WebApp.showAlert(msg);
+            } else {
+                alert(msg);
+            }
+            setEditMethod('Nagad');
+            setEditNumber('');
+            setEditName(user?.first_name || '');
+            setShowEditWalletModal(true);
+            return;
+        }
+
         const amt = parseFloat(amount);
         if (!amount || isNaN(amt) || amt <= 0) {
             playAppSound('error');
@@ -12844,19 +12872,66 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                 </div>
             )}
 
+            {/* bKash Limit Exhausted Executive Notice */}
+            {isBkashSelected && (
+                <div className="p-4 rounded-3xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 shadow-xs flex items-start gap-3.5 animate-in fade-in duration-200">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+                        <AlertTriangle size={20} />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-rose-600 dark:text-rose-400 uppercase tracking-wide">
+                                {lang === 'bn' ? 'বিকাশ লিমিট শেষ' : 'bKash Limit Out'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md text-[9px] font-black bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                {lang === 'bn' ? 'উইথড্র বন্ধ' : 'Unavailable'}
+                            </span>
+                        </div>
+                        <p className="text-xs text-rose-800 dark:text-rose-300 font-semibold leading-relaxed">
+                            {lang === 'bn'
+                                ? 'আমাদের বিকাশ লিমিট সাময়িকভাবে শেষ হয়ে গেছে। টাকা উত্তোলনের জন্য বর্তমানে শুধুমাত্র নগদ (Nagad) চালু রয়েছে।'
+                                : 'bKash withdrawal limit is temporarily reached. Withdrawals are currently available ONLY via Nagad.'}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setEditMethod('Nagad');
+                                setEditNumber('');
+                                setEditName(user?.first_name || '');
+                                setShowEditWalletModal(true);
+                            }}
+                            className="mt-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                            <Edit3 size={12} />
+                            <span>{lang === 'bn' ? '👉 নগদ ওয়ালেট যোগ করুন' : '👉 Switch to Nagad'}</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Saved Wallet Info with Edit Icon Aligned Right */}
-            <div className="p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs">
+            <div className={`p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border shadow-xs transition-colors ${
+                isBkashSelected ? 'border-rose-300 dark:border-rose-800/80 bg-rose-50/20 dark:bg-rose-950/20' : 'border-slate-200/90 dark:border-slate-800'
+            }`}>
                 <div className="flex items-center justify-between gap-3 w-full">
                     <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                        <div style={{ backgroundColor: '#ffffff' }} className="w-11 h-11 rounded-2xl bg-white border border-slate-200/90 p-1.5 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box">
+                        <div style={{ backgroundColor: '#ffffff' }} className={`w-11 h-11 rounded-2xl bg-white border p-1.5 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box ${
+                            isBkashSelected ? 'border-rose-300 grayscale opacity-80' : 'border-slate-200/90'
+                        }`}>
                             <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
-                                <h4 className="text-sm font-black text-slate-900 dark:text-white leading-tight">{fiatWallet?.method || 'bKash'} Wallet</h4>
-                                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
-                                    {lang === 'bn' ? 'সক্রিয়' : 'Active'}
-                                </span>
+                                <h4 className="text-sm font-black text-slate-900 dark:text-white leading-tight">{fiatWallet?.method || 'Nagad'} Wallet</h4>
+                                {isBkashSelected ? (
+                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60">
+                                        {lang === 'bn' ? 'লিমিট শেষ / বন্ধ' : 'Limit Out'}
+                                    </span>
+                                ) : (
+                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
+                                        {lang === 'bn' ? 'সক্রিয়' : 'Active'}
+                                    </span>
+                                )}
                             </div>
                             <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 truncate mt-0.5">{fiatWallet?.number}</p>
                             {fiatWallet?.name && <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold truncate">{fiatWallet?.name}</p>}
@@ -12865,16 +12940,20 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                     <button 
                         type="button"
                         onClick={() => {
-                            setEditMethod(fiatWallet?.method || 'bKash');
-                            setEditNumber(fiatWallet?.number || '');
+                            setEditMethod('Nagad');
+                            setEditNumber(isBkashSelected ? '' : (fiatWallet?.number || ''));
                             setEditName(fiatWallet?.name || '');
                             setShowEditWalletModal(true);
                         }}
-                        className="px-3.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 dark:text-purple-300 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-black border border-purple-200/80 dark:border-purple-800/80 shrink-0 shadow-xs cursor-pointer"
+                        className={`px-3.5 py-1.5 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-black shrink-0 shadow-xs cursor-pointer border ${
+                            isBkashSelected 
+                                ? 'bg-emerald-600 text-white hover:bg-emerald-500 border-emerald-500 shadow-emerald-600/20' 
+                                : 'bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/80'
+                        }`}
                         title="Edit Wallet"
                     >
                         <Edit3 size={13} />
-                        <span>{lang === 'bn' ? 'এডিট' : 'Edit'}</span>
+                        <span>{isBkashSelected ? (lang === 'bn' ? 'নগদ দিন' : 'Set Nagad') : (lang === 'bn' ? 'এডিট' : 'Edit')}</span>
                     </button>
                 </div>
             </div>
@@ -12901,15 +12980,25 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                 <button 
                     type="button"
                     onClick={handleSubmit} 
-                    disabled={!amount || isSubmitting} 
-                    className="w-full h-[54px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm flex items-center justify-center gap-2.5 border-t border-purple-300/40 shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3,0_6px_12px_rgba(79,70,229,0.25)] transition-all duration-150 disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed cursor-pointer"
+                    disabled={(!amount && !isBkashSelected) || isSubmitting} 
+                    className={`w-full h-[54px] rounded-2xl text-white font-black text-sm flex items-center justify-center gap-2.5 border-t border-white/20 transition-all duration-150 active:translate-y-1 disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 disabled:cursor-not-allowed cursor-pointer ${
+                        isBkashSelected
+                            ? 'bg-gradient-to-r from-rose-600 via-amber-600 to-rose-600 shadow-[0_5px_0_#9f1239,0_12px_24px_rgba(225,29,72,0.35)]'
+                            : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)]'
+                    }`}
                 >
                     {isSubmitting ? (
                         <Loader2 size={18} className="animate-spin" />
+                    ) : isBkashSelected ? (
+                        <AlertTriangle size={18} />
                     ) : (
                         <Wallet size={18} />
                     )}
-                    <span>{t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS')}</span>
+                    <span>
+                        {isBkashSelected 
+                            ? (lang === 'bn' ? '⚠️ বিকাশ বন্ধ • নগদে উইথড্র নিন' : '⚠️ bKash Closed • Use Nagad') 
+                            : (t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS'))}
+                    </span>
                 </button>
             </div>
 
@@ -13074,23 +13163,38 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Select Method</label>
                                 <div className="flex gap-2">
-                                    {['bKash', 'Nagad'].map(method => (
-                                        <button
-                                            key={method}
-                                            type="button"
-                                            onClick={() => setEditMethod(method)}
-                                            className={`flex-1 py-2.5 px-3 rounded-2xl border flex items-center justify-center gap-2 font-black text-xs transition-all cursor-pointer ${
-                                                editMethod === method 
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shadow-xs' 
-                                                    : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400'
-                                            }`}
-                                        >
-                                            <div style={{ backgroundColor: '#ffffff' }} className="w-7 h-7 rounded-xl tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
-                                                <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
-                                            </div>
-                                            {method}
-                                        </button>
-                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            playAppSound('error');
+                                            const msg = lang === 'bn' ? "বিকাশ লিমিট শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad)-এ উইথড্র চালু আছে।" : "bKash limit exhausted! Please withdraw via Nagad.";
+                                            if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(msg);
+                                            else alert(msg);
+                                        }}
+                                        className="flex-1 py-2.5 px-3 rounded-2xl border border-rose-300/80 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-rose-500/80 dark:text-rose-400/80 flex items-center justify-center gap-1.5 font-bold text-xs cursor-not-allowed relative overflow-hidden"
+                                    >
+                                        <div style={{ backgroundColor: '#ffffff' }} className="w-6 h-6 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0 grayscale opacity-60">
+                                            <img src={getPaymentLogo('bKash')} alt="bKash" className="w-full h-full object-contain" />
+                                        </div>
+                                        <span className="line-through">bKash</span>
+                                        <span className="text-[8.5px] font-black bg-rose-500/20 text-rose-600 dark:text-rose-400 px-1 py-0.2 rounded-md">বন্ধ</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditMethod('Nagad')}
+                                        className={`flex-1 py-2.5 px-3 rounded-2xl border flex items-center justify-center gap-1.5 font-black text-xs transition-all cursor-pointer ${
+                                            editMethod === 'Nagad' 
+                                                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 shadow-xs' 
+                                                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400'
+                                        }`}
+                                    >
+                                        <div style={{ backgroundColor: '#ffffff' }} className="w-6 h-6 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0 shadow-2xs">
+                                            <img src={getPaymentLogo('Nagad')} alt="Nagad" className="w-full h-full object-contain" />
+                                        </div>
+                                        <span>Nagad</span>
+                                        <span className="text-[8.5px] font-black bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1 py-0.2 rounded-md">চালু</span>
+                                    </button>
                                 </div>
                             </div>
                             
@@ -13477,13 +13581,13 @@ function GiveawayPage({
                             <div className="text-left">
                                 <div className="flex items-center gap-1 text-[9.5px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wide">
                                     <Crown size={11} className="fill-amber-500 text-amber-500" />
-                                    <span>১ম মেগা জ্যাকপট ক্যাশ</span>
+                                    <span>{lang === 'bn' ? '১ম মেগা জ্যাকপট ক্যাশ' : '1st Mega Jackpot Cash'}</span>
                                 </div>
                                 <div className="text-[34px] font-black tracking-tight leading-none text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-700 dark:from-yellow-200 dark:via-amber-400 dark:to-yellow-100 drop-shadow-[0_2px_12px_rgba(245,158,11,0.3)]">
                                     ৳50,000
                                 </div>
                                 <p className="text-[9px] font-bold text-violet-700 dark:text-violet-200/90 mt-0.5">
-                                    সর্বমোট প্রাইজ পুল ৳৬৭,১৪০ • ১০ জন বিজয়ী
+                                    {lang === 'bn' ? 'সর্বমোট প্রাইজ পুল ৳৬৭,১৪০ • ১০ জন বিজয়ী' : 'Total Prize Pool ৳67,140 • 10 Winners'}
                                 </p>
                             </div>
 
@@ -13504,19 +13608,25 @@ function GiveawayPage({
                                 <div className={`rounded-xl p-1.5 text-center border relative overflow-hidden flex flex-col justify-center ${
                                     darkMode ? 'bg-gradient-to-b from-amber-500/20 to-amber-500/5 border-amber-400/40 shadow-xs' : 'bg-gradient-to-b from-amber-100/70 to-white border-amber-300/80 shadow-2xs'
                                 }`}>
-                                    <div className="text-[9px] font-black text-amber-700 dark:text-amber-400">🥇 ১ম পুরস্কার</div>
+                                    <div className="text-[9px] font-black text-amber-700 dark:text-amber-400">
+                                        {lang === 'bn' ? '🥇 ১ম পুরস্কার' : '🥇 1st Prize'}
+                                    </div>
                                     <div className="text-[14px] font-black text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">৳50,000</div>
                                 </div>
                                 <div className={`rounded-xl p-1.5 text-center border relative overflow-hidden flex flex-col justify-center ${
                                     darkMode ? 'bg-gradient-to-b from-indigo-500/20 to-violet-500/5 border-indigo-400/30' : 'bg-gradient-to-b from-violet-100/70 to-white border-violet-200 shadow-2xs'
                                 }`}>
-                                    <div className="text-[9px] font-black text-violet-700 dark:text-violet-300">🥈 ২য় পুরস্কার</div>
+                                    <div className="text-[9px] font-black text-violet-700 dark:text-violet-300">
+                                        {lang === 'bn' ? '🥈 ২য় পুরস্কার' : '🥈 2nd Prize'}
+                                    </div>
                                     <div className="text-[14px] font-black text-violet-700 dark:text-violet-300 mt-0.5 leading-tight">৳15,000</div>
                                 </div>
                                 <div className={`rounded-xl p-1.5 text-center border relative overflow-hidden flex flex-col justify-center ${
                                     darkMode ? 'bg-gradient-to-b from-emerald-500/20 to-teal-500/5 border-emerald-400/30' : 'bg-gradient-to-b from-emerald-100/70 to-white border-emerald-200 shadow-2xs'
                                 }`}>
-                                    <div className="text-[9px] font-black text-emerald-700 dark:text-emerald-300">🥉 ৩য় পুরস্কার</div>
+                                    <div className="text-[9px] font-black text-emerald-700 dark:text-emerald-300">
+                                        {lang === 'bn' ? '🥉 ৩য় পুরস্কার' : '🥉 3rd Prize'}
+                                    </div>
                                     <div className="text-[14px] font-black text-emerald-700 dark:text-emerald-300 mt-0.5 leading-tight">৳2,000</div>
                                 </div>
                             </div>
@@ -13527,9 +13637,11 @@ function GiveawayPage({
                             }`}>
                                 <span className="flex items-center gap-1">
                                     <Gift size={11} className="text-amber-500 shrink-0" />
-                                    <span>৪র্থ – ১০ম পুরস্কার (৭ জন বিজয়ী):</span>
+                                    <span>{lang === 'bn' ? '৪র্থ – ১০ম পুরস্কার (৭ জন বিজয়ী):' : '4th – 10th Prize (7 Winners):'}</span>
                                 </span>
-                                <span className="font-black text-amber-600 dark:text-amber-400">জনপ্রতি ৳20</span>
+                                <span className="font-black text-amber-600 dark:text-amber-400">
+                                    {lang === 'bn' ? 'জনপ্রতি ৳20' : '৳20 Each'}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -13548,10 +13660,10 @@ function GiveawayPage({
                             </div>
                             <div className="text-left">
                                 <p className="text-[10px] font-black text-amber-700 dark:text-amber-300 leading-tight">
-                                    সমাপ্তির সময় বাকি (ড্র ও ফলাফল ঘোষণা)
+                                    {lang === 'bn' ? 'সমাপ্তির সময় বাকি (ড্র ও ফলাফল ঘোষণা)' : 'Time Remaining (Draw & Winner Announcement)'}
                                 </p>
                                 <p className="text-[8px] font-semibold text-slate-500 dark:text-slate-400">
-                                    ইভেন্ট সমাপ্ত হলে বিজয়ী ঘোষণা হবে
+                                    {lang === 'bn' ? 'ইভেন্ট সমাপ্ত হলে বিজয়ী ঘোষণা হবে' : 'Winners will be announced when event ends'}
                                 </p>
                             </div>
                         </div>
@@ -13559,10 +13671,10 @@ function GiveawayPage({
                         {/* 4 Digital Timer Units */}
                         <div className="flex items-center gap-1 font-mono">
                             {[
-                                { val: countdown.days, lbl: 'দিন' },
-                                { val: countdown.hours, lbl: 'ঘণ্টা' },
-                                { val: countdown.minutes, lbl: 'মি' },
-                                { val: countdown.seconds, lbl: 'সে' }
+                                { val: countdown.days, lbl: lang === 'bn' ? 'দিন' : 'Days' },
+                                { val: countdown.hours, lbl: lang === 'bn' ? 'ঘণ্টা' : 'Hours' },
+                                { val: countdown.minutes, lbl: lang === 'bn' ? 'মি' : 'Mins' },
+                                { val: countdown.seconds, lbl: lang === 'bn' ? 'সে' : 'Secs' }
                             ].map((item, i) => (
                                 <div
                                     key={i}
@@ -13610,7 +13722,7 @@ function GiveawayPage({
 
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-400 text-[9.5px] font-black shrink-0">
                                 <Sparkles size={10} className="text-emerald-500" />
-                                <span>ভেরিফাইড অংশগ্রহণ</span>
+                                <span>{lang === 'bn' ? 'ভেরিফাইড অংশগ্রহণ' : 'Verified Entry'}</span>
                             </span>
                         </div>
 
@@ -13626,16 +13738,16 @@ function GiveawayPage({
                                     </div>
                                     <div className="min-w-0">
                                         <p className={`text-[10px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                                            ৳20.00 ব্যালেন্স হোল্ড সম্পন্ন
+                                            {lang === 'bn' ? '৳20.00 ব্যালেন্স হোল্ড সম্পন্ন' : '৳20.00 Balance Hold Completed'}
                                         </p>
                                         <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                                            সুরক্ষিত হোল্ড • ড্র সমাপ্তির পর অটো আনলক
+                                            {lang === 'bn' ? 'সুরক্ষিত হোল্ড • ড্র সমাপ্তির পর অটো আনলক' : 'Protected Hold • Auto-unlock after draw'}
                                         </p>
                                     </div>
                                 </div>
                                 <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0">
                                     <CheckCircle2 size={10} />
-                                    <span>পূরণ ✅</span>
+                                    <span>{lang === 'bn' ? 'পূরণ ✅' : 'Completed ✅'}</span>
                                 </span>
                             </div>
 
@@ -13649,16 +13761,18 @@ function GiveawayPage({
                                     </div>
                                     <div className="min-w-0">
                                         <p className={`text-[10px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                                            কমপক্ষে ২টি রেফারেল সম্পন্ন
+                                            {lang === 'bn' ? 'কমপক্ষে ২টি রেফারেল সম্পন্ন' : 'At least 2 Referrals Completed'}
                                         </p>
                                         <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                                            অগ্রগতি: {userStatus.referralCount || 2}/{campaign.minReferrals || 2} টি রেফারেল সম্পন্ন
+                                            {lang === 'bn'
+                                                ? `অগ্রগতি: ${userStatus.referralCount || 2}/${campaign.minReferrals || 2} টি রেফারেল সম্পন্ন`
+                                                : `Progress: ${userStatus.referralCount || 2}/${campaign.minReferrals || 2} referrals completed`}
                                         </p>
                                     </div>
                                 </div>
                                 <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0">
                                     <CheckCircle2 size={10} />
-                                    <span>পূরণ ✅</span>
+                                    <span>{lang === 'bn' ? 'পূরণ ✅' : 'Completed ✅'}</span>
                                 </span>
                             </div>
 
@@ -13672,16 +13786,18 @@ function GiveawayPage({
                                     </div>
                                     <div className="min-w-0">
                                         <p className={`text-[10px] font-bold truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                                            ১টি Crypto Buy বা Sell সম্পন্ন
+                                            {lang === 'bn' ? '১টি Crypto Buy বা Sell সম্পন্ন' : '1 Crypto Buy or Sell Completed'}
                                         </p>
                                         <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                                            ট্রেড স্ট্যাটাস: {userStatus.totalCryptoTrades || 1}/1 সফল ট্রেড সম্পন্ন
+                                            {lang === 'bn'
+                                                ? `ট্রেড স্ট্যাটাস: ${userStatus.totalCryptoTrades || 1}/1 সফল ট্রেড সম্পন্ন`
+                                                : `Trade Status: ${userStatus.totalCryptoTrades || 1}/1 trade completed`}
                                         </p>
                                     </div>
                                 </div>
                                 <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0">
                                     <CheckCircle2 size={10} />
-                                    <span>পূরণ ✅</span>
+                                    <span>{lang === 'bn' ? 'পূরণ ✅' : 'Completed ✅'}</span>
                                 </span>
                             </div>
                         </div>
@@ -13697,14 +13813,16 @@ function GiveawayPage({
                     >
                         <div className="inline-flex items-center gap-1.5 text-[12px] font-black text-amber-600 dark:text-amber-300">
                             <Sparkles size={14} className="text-amber-500" />
-                            <span>You are successfully joined the Giveaway!</span>
+                            <span>{lang === 'bn' ? 'You are successfully joined the Giveaway!' : 'You have successfully joined the Giveaway!'}</span>
                             <Sparkles size={14} className="text-amber-500" />
                         </div>
                         <p className="text-[10px] font-bold text-slate-700 dark:text-slate-200 mt-0.5">
-                            Wait for winner selection • বিজয়ী নির্বাচনের জন্য অপেক্ষা করুন
+                            {lang === 'bn' ? 'Wait for winner selection • বিজয়ী নির্বাচনের জন্য অপেক্ষা করুন' : 'Wait for winner selection • Stay tuned for the draw'}
                         </p>
                         <p className="text-[8.5px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                            আপনার হোল্ডকৃত ৳২০.০০ সম্পূর্ণ সুরক্ষিত এবং ড্র সমাপ্ত হলে স্বয়ংক্রিয়ভাবে আপনার মেইন ব্যালেন্সে যুক্ত হবে।
+                            {lang === 'bn'
+                                ? 'আপনার হোল্ডকৃত ৳২০.০০ সম্পূর্ণ সুরক্ষিত এবং ড্র সমাপ্ত হলে স্বয়ংক্রিয়ভাবে আপনার মেইন ব্যালেন্সে যুক্ত হবে।'
+                                : 'Your held ৳20.00 is completely safe and will automatically return to your main balance after the event ends.'}
                         </p>
                     </div>
                 </div>
@@ -13772,13 +13890,13 @@ function GiveawayPage({
                         <div className="text-left">
                             <div className="flex items-center gap-1 text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wide">
                                 <Crown size={12} className="fill-amber-500 text-amber-500" />
-                                <span>১ম মেগা জ্যাকপট ক্যাশ</span>
+                                <span>{lang === 'bn' ? '১ম মেগা জ্যাকপট ক্যাশ' : '1st Mega Jackpot Cash'}</span>
                             </div>
                             <div className="text-[38px] font-black tracking-tight leading-none text-transparent bg-clip-text bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-700 dark:from-yellow-200 dark:via-amber-400 dark:to-yellow-100 drop-shadow-[0_2px_14px_rgba(245,158,11,0.35)]">
                                 ৳50,000
                             </div>
                             <p className="text-[9.5px] font-bold text-violet-700 dark:text-violet-200/90 mt-0.5">
-                                সর্বমোট প্রাইজ পুল ৳৬৭,১৪০ • ১০ জন বিজয়ী
+                                {lang === 'bn' ? 'সর্বমোট প্রাইজ পুল ৳৬৭,১৪০ • ১০ জন বিজয়ী' : 'Total Prize Pool ৳67,140 • 10 Winners'}
                             </p>
                         </div>
 
@@ -13792,15 +13910,15 @@ function GiveawayPage({
                     <div className="relative z-10 mt-2.5 rounded-2xl px-3 py-1.5 flex items-center justify-between bg-amber-500/[0.08] dark:bg-black/40 border border-amber-400/35 backdrop-blur-md">
                         <div className="flex items-center gap-1.5 text-[10px] font-black text-amber-700 dark:text-amber-300">
                             <Clock size={12} className="text-amber-500" />
-                            <span>সময় বাকি:</span>
+                            <span>{lang === 'bn' ? 'সময় বাকি:' : 'Time Left:'}</span>
                         </div>
 
                         <div className="flex items-center gap-1.5 font-mono">
                             {[
-                                { val: countdown.days, lbl: 'দিন' },
-                                { val: countdown.hours, lbl: 'ঘণ্টা' },
-                                { val: countdown.minutes, lbl: 'মি' },
-                                { val: countdown.seconds, lbl: 'সে' }
+                                { val: countdown.days, lbl: lang === 'bn' ? 'দিন' : 'Days' },
+                                { val: countdown.hours, lbl: lang === 'bn' ? 'ঘণ্টা' : 'Hours' },
+                                { val: countdown.minutes, lbl: lang === 'bn' ? 'মি' : 'Mins' },
+                                { val: countdown.seconds, lbl: lang === 'bn' ? 'সে' : 'Secs' }
                             ].map((item, i) => (
                                 <div
                                     key={i}
@@ -13827,7 +13945,7 @@ function GiveawayPage({
                                     : 'bg-gradient-to-b from-amber-100/70 to-white border-amber-300/80 shadow-[0_2px_10px_rgba(245,158,11,0.1)]'
                             }`}>
                                 <div className="text-[9.5px] font-black text-amber-700 dark:text-amber-400">
-                                    🥇 ১ম পুরস্কার
+                                    {lang === 'bn' ? '🥇 ১ম পুরস্কার' : '🥇 1st Prize'}
                                 </div>
                                 <div className="text-[15px] font-black text-amber-600 dark:text-amber-400 mt-0.5 leading-tight">
                                     ৳50,000
@@ -13841,7 +13959,7 @@ function GiveawayPage({
                                     : 'bg-gradient-to-b from-violet-100/70 to-white border-violet-200 shadow-2xs'
                             }`}>
                                 <div className="text-[9.5px] font-black text-violet-700 dark:text-violet-300">
-                                    🥈 ২য় পুরস্কার
+                                    {lang === 'bn' ? '🥈 ২য় পুরস্কার' : '🥈 2nd Prize'}
                                 </div>
                                 <div className="text-[15px] font-black text-violet-700 dark:text-violet-300 mt-0.5 leading-tight">
                                     ৳15,000
@@ -13855,7 +13973,7 @@ function GiveawayPage({
                                     : 'bg-gradient-to-b from-emerald-100/70 to-white border-emerald-200 shadow-2xs'
                             }`}>
                                 <div className="text-[9.5px] font-black text-emerald-700 dark:text-emerald-300">
-                                    🥉 ৩য় পুরস্কার
+                                    {lang === 'bn' ? '🥉 ৩য় পুরস্কার' : '🥉 3rd Prize'}
                                 </div>
                                 <div className="text-[15px] font-black text-emerald-700 dark:text-emerald-300 mt-0.5 leading-tight">
                                     ৳2,000
@@ -13869,10 +13987,10 @@ function GiveawayPage({
                         }`}>
                             <span className="flex items-center gap-1.5">
                                 <Gift size={12} className="text-amber-500 shrink-0" />
-                                <span>৪র্থ – ১০ম পুরস্কার (৭ জন বিজয়ী):</span>
+                                <span>{lang === 'bn' ? '৪র্থ – ১০ম পুরস্কার (৭ জন বিজয়ী):' : '4th – 10th Prize (7 Winners):'}</span>
                             </span>
                             <span className="font-black text-amber-600 dark:text-amber-400 text-[10.5px]">
-                                জনপ্রতি ৳20
+                                {lang === 'bn' ? 'জনপ্রতি ৳20' : '৳20 Each'}
                             </span>
                         </div>
                     </div>
@@ -13890,7 +14008,7 @@ function GiveawayPage({
                                     <div className="flex items-center gap-1.5">
                                         <ShieldCheck size={14} className="text-amber-500" />
                                         <span className={`text-[10.5px] font-black ${darkMode ? 'text-white' : 'text-[#1E1B4B]'}`}>
-                                            অংশগ্রহণের ৩টি মিশন
+                                            {lang === 'bn' ? 'অংশগ্রহণের ৩টি মিশন' : '3 Participation Missions'}
                                         </span>
                                     </div>
                                     {/* 3 Segmented Progress Bars */}
@@ -13925,17 +14043,19 @@ function GiveawayPage({
                                         </div>
                                         <div className="min-w-0">
                                             <p className={`text-[10.5px] font-extrabold leading-tight ${darkMode ? 'text-white' : 'text-[#1E1B4B]'}`}>
-                                                ৳20.00 ব্যালেন্স হোল্ড
+                                                {lang === 'bn' ? '৳20.00 ব্যালেন্স হোল্ড' : '৳20.00 Balance Hold'}
                                             </p>
                                             <p className="text-[8.5px] text-slate-500 dark:text-slate-400">
-                                                ব্যালেন্স: ৳{liveBalance.toFixed(2)} • ফলাফলের পর আনলক
+                                                {lang === 'bn'
+                                                    ? `ব্যালেন্স: ৳${liveBalance.toFixed(2)} • ফলাফলের পর আনলক`
+                                                    : `Balance: ৳${liveBalance.toFixed(2)} • Unlocks after result`}
                                             </p>
                                         </div>
                                     </div>
                                     {balanceOk ? (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0 border border-emerald-500/30">
                                             <CheckCircle2 size={11} />
-                                            <span>পূরণ</span>
+                                            <span>{lang === 'bn' ? 'পূরণ' : 'Done'}</span>
                                         </span>
                                     ) : (
                                         <button
@@ -13943,7 +14063,7 @@ function GiveawayPage({
                                             onClick={() => { playAppSound('tap'); onGoToAddMoney && onGoToAddMoney(); }}
                                             className="px-3 py-1 rounded-lg text-white text-[9px] font-black shrink-0 cursor-pointer active:scale-95 shadow-2xs bg-gradient-to-r from-amber-500 to-amber-600"
                                         >
-                                            ডিপোজিট
+                                            {lang === 'bn' ? 'ডিপোজিট' : 'Deposit'}
                                         </button>
                                     )}
                                 </div>
@@ -13962,17 +14082,19 @@ function GiveawayPage({
                                         </div>
                                         <div className="min-w-0">
                                             <p className={`text-[10.5px] font-extrabold leading-tight ${darkMode ? 'text-white' : 'text-[#1E1B4B]'}`}>
-                                                কমপক্ষে ২টি রেফারেল
+                                                {lang === 'bn' ? 'কমপক্ষে ২টি রেফারেল' : 'At least 2 Referrals'}
                                             </p>
                                             <p className="text-[8.5px] text-slate-500 dark:text-slate-400">
-                                                অগ্রগতি: {userStatus.referralCount || 0}/{campaign.minReferrals || 2} টি সম্পন্ন
+                                                {lang === 'bn'
+                                                    ? `অগ্রগতি: ${userStatus.referralCount || 0}/${campaign.minReferrals || 2} টি সম্পন্ন`
+                                                    : `Progress: ${userStatus.referralCount || 0}/${campaign.minReferrals || 2} completed`}
                                             </p>
                                         </div>
                                     </div>
                                     {referralOk ? (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0 border border-emerald-500/30">
                                             <CheckCircle2 size={11} />
-                                            <span>পূরণ</span>
+                                            <span>{lang === 'bn' ? 'পূরণ' : 'Done'}</span>
                                         </span>
                                     ) : (
                                         <button
@@ -13980,7 +14102,7 @@ function GiveawayPage({
                                             onClick={() => { playAppSound('tap'); onGoToReferral && onGoToReferral(); }}
                                             className="px-3 py-1 rounded-lg text-white text-[9px] font-black shrink-0 cursor-pointer active:scale-95 shadow-2xs bg-gradient-to-r from-violet-600 to-purple-600"
                                         >
-                                            রেফার
+                                            {lang === 'bn' ? 'রেফার' : 'Refer'}
                                         </button>
                                     )}
                                 </div>
@@ -13999,17 +14121,19 @@ function GiveawayPage({
                                         </div>
                                         <div className="min-w-0">
                                             <p className={`text-[10.5px] font-extrabold leading-tight ${darkMode ? 'text-white' : 'text-[#1E1B4B]'}`}>
-                                                ১টি Crypto Buy বা Sell
+                                                {lang === 'bn' ? '১টি Crypto Buy বা Sell' : '1 Crypto Buy or Sell'}
                                             </p>
                                             <p className="text-[8.5px] text-slate-500 dark:text-slate-400">
-                                                ট্রেড: {userStatus.totalCryptoTrades || 0}/1 (যেকোনো পরিমাণ)
+                                                {lang === 'bn'
+                                                    ? `ট্রেড: ${userStatus.totalCryptoTrades || 0}/1 (যেকোনো পরিমাণ)`
+                                                    : `Trade: ${userStatus.totalCryptoTrades || 0}/1 (Any amount)`}
                                             </p>
                                         </div>
                                     </div>
                                     {tradeOk ? (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black shrink-0 border border-emerald-500/30">
                                             <CheckCircle2 size={11} />
-                                            <span>পূরণ</span>
+                                            <span>{lang === 'bn' ? 'পূরণ' : 'Done'}</span>
                                         </span>
                                     ) : (
                                         <div className="flex items-center gap-1 shrink-0">
@@ -14033,7 +14157,7 @@ function GiveawayPage({
 
                                 {userStatus.isGuest && (
                                     <p className="text-[9px] text-[#6D28D9] dark:text-violet-300 font-semibold text-center pt-0.5">
-                                        জয়েন করতে টেলিগ্রাম বট থেকে MiniApp ওপেন করুন।
+                                        {lang === 'bn' ? 'জয়েন করতে টেলিগ্রাম বট থেকে MiniApp ওপেন করুন।' : 'Open the MiniApp from Telegram bot to participate.'}
                                     </p>
                                 )}
 
@@ -14095,8 +14219,8 @@ function GiveawayPage({
                                             {isEnded
                                                 ? (lang === 'bn' ? 'Giveaway সময় শেষ' : 'Giveaway Ended')
                                                 : userStatus.canJoin
-                                                    ? (lang === 'bn' ? '🎉 জয়েন করুন (৳২০ হোল্ড)' : '🎉 Join (৳20 Hold)')
-                                                    : (lang === 'bn' ? 'জয়েন করুন' : 'Join')}
+                                                    ? (lang === 'bn' ? '🎉 জয়েন করুন (৳২০ হোল্ড)' : '🎉 Join Giveaway (৳20 Hold)')
+                                                    : (lang === 'bn' ? 'জয়েন করুন' : 'Join Giveaway')}
                                         </span>
                                     </span>
                                 </button>

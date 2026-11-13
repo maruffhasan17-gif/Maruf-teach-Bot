@@ -424,11 +424,11 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
     },
     { 
       path: '/giveaway', 
-      name: 'Giveaway Pool', 
-      sub: '৳50K Event & Winner Pick', 
+      name: 'Giveaway Joined Users', 
+      sub: '৳50K Participants & Winners', 
       icon: <Trophy size={18} strokeWidth={2.2} />,
-      badge: '৳50K',
-      badgeColor: 'bg-amber-500 text-slate-950 font-black shadow-sm'
+      badge: '৳50K Pool',
+      badgeColor: 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black shadow-sm'
     },
   ];
 
@@ -4452,17 +4452,20 @@ function UsersManagement() {
           chatId: uId,
           mbsId: u.mbsId || `MBS${uId.slice(-5)}`,
           balanceNum: isNaN(bal) ? 0 : bal,
-          isVerified: Boolean(u.isVerified || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0) || u.status === 'verified')
+          isVerified: Boolean(u.isVerified || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0) || u.status === 'verified'),
+          isGiveawayJoined: Boolean(u.isGiveawayJoined || Number(u.giveawayHoldBdt || 0) > 0)
         };
       }).filter(Boolean);
 
       const total = rawList.length;
       const verifiedCount = rawList.filter(u => u.isVerified).length;
       const unverifiedCount = total - verifiedCount;
+      const giveawayCount = rawList.filter(u => u.isGiveawayJoined).length;
 
       let filtered = rawList.filter(u => {
         if (filter === 'verified') return u.isVerified;
         if (filter === 'unverified') return !u.isVerified;
+        if (filter === 'giveaway') return u.isGiveawayJoined;
         return true;
       });
 
@@ -4486,11 +4489,11 @@ function UsersManagement() {
 
       return {
         processedUsers: filtered,
-        statsCounts: { total, verifiedCount, unverifiedCount }
+        statsCounts: { total, verifiedCount, unverifiedCount, giveawayCount }
       };
     } catch (e) {
       console.error("Users memo computation error:", e);
-      return { processedUsers: [], statsCounts: { total: 0, verifiedCount: 0, unverifiedCount: 0 } };
+      return { processedUsers: [], statsCounts: { total: 0, verifiedCount: 0, unverifiedCount: 0, giveawayCount: 0 } };
     }
   }, [users, search, filter, sortOrder]);
 
@@ -4684,6 +4687,19 @@ function UsersManagement() {
             <span>আন-ভেরিফাইড (Unverified)</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{statsCounts.unverifiedCount}</span>
           </button>
+
+          <button
+            onClick={() => setFilter('giveaway')}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              filter === 'giveaway'
+                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/30'
+                : isDark ? 'bg-slate-900 text-slate-400 hover:text-amber-400' : 'bg-slate-100 text-slate-600 hover:text-amber-600'
+            }`}
+          >
+            <Trophy size={14} className={filter === 'giveaway' ? 'text-slate-950' : 'text-amber-400'} />
+            <span>Giveaway জয়েনকৃত</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 dark:bg-white/20">{statsCounts.giveawayCount || 0}</span>
+          </button>
         </div>
 
         {/* Search & Sort Toggle */}
@@ -4789,6 +4805,13 @@ function UsersManagement() {
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xl text-[9.5px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30">
                       <span>আন-ভেরিফাইড</span>
+                    </span>
+                  )}
+
+                  {u.isGiveawayJoined && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xl text-[9.5px] font-black bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-400 border border-amber-500/40 shadow-xs" title="Giveaway অংশগ্রহণকারী (৳২০ হোল্ড)">
+                      <Trophy size={10} className="text-amber-400" />
+                      <span>Giveaway ৳20 Held</span>
                     </span>
                   )}
                 </div>
@@ -7577,6 +7600,7 @@ function App() {
 function GiveawayManager() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const [activeTab, setActiveTab] = useState('participants'); // 'participants' | 'winners'
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [search, setSearch] = useState('');
@@ -7706,19 +7730,20 @@ function GiveawayManager() {
 
   return (
     <div className="space-y-6">
+      {/* Header Row */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className={`text-2xl font-black flex items-center gap-2.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
             <Trophy className="text-amber-500" size={26} />
-            <span>Giveaway Manager & Winner Selection</span>
+            <span>Giveaway Manager & Participants</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            1st ৳50,000 • 2nd ৳15,000 • 3rd ৳2,000 • 4th–10th ৳20 each • Holds ৳20 until winners selected
+            ১ম ৳৫০,০০০ • ২য় ৳১৫,০০০ • ৩য় ৳২,০০০ • ৪র্থ–১০ম ৳২০ • ড্র সমাপ্তি পর্যন্ত ৳২০ হোল্ড পুল
           </p>
         </div>
         <button
           onClick={() => fetchGiveawayAdmin(true)}
-          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer"
+          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-md transition-all active:scale-95"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           <span>Refresh</span>
@@ -7735,198 +7760,311 @@ function GiveawayManager() {
         </div>
       )}
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
-          <p className="text-[11px] font-bold text-slate-400 uppercase">Campaign Status</p>
-          <p className={`text-lg font-black mt-1 ${campaign.status === 'completed' ? 'text-emerald-400' : 'text-amber-400'}`}>
-            {campaign.status === 'completed' ? 'COMPLETED' : isTimeEnded ? 'READY TO PICK' : 'ACTIVE (1 MONTH)'}
-          </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{campaign.campaignId || 'season_1'}</p>
+      {/* KPI Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className={`p-4 rounded-2xl border transition-all ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200 shadow-xs'}`}>
+          <p className="text-[11px] font-bold text-slate-400 uppercase">মোট অংশগ্রহণকারী</p>
+          <div className="flex items-baseline gap-2 mt-1">
+            <p className="text-2xl font-black text-indigo-400">{participants.length}</p>
+            <span className="text-xs font-bold text-slate-400">জন ইউজার</span>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">সব শর্ত পূরণ করে জয়েন করেছেন</p>
         </div>
-        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
-          <p className="text-[11px] font-bold text-slate-400 uppercase">Countdown Remaining</p>
-          <p className="text-lg font-black font-mono text-white mt-1">
+
+        <div className={`p-4 rounded-2xl border transition-all ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200 shadow-xs'}`}>
+          <p className="text-[11px] font-bold text-slate-400 uppercase">লকড ৳২০ হোল্ড পুল</p>
+          <p className="text-2xl font-black text-amber-400 mt-1">৳{totalHeldBdt.toFixed(2)}</p>
+          <p className="text-[11px] text-slate-400 mt-1">{campaign.holdsReleased ? 'সকল ব্যালেন্স আনলক করা হয়েছে' : 'ড্র শেষে স্বয়ংক্রিয় রিফান্ড হবে'}</p>
+        </div>
+
+        <div className={`p-4 rounded-2xl border transition-all ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200 shadow-xs'}`}>
+          <p className="text-[11px] font-bold text-slate-400 uppercase">কাউন্টডাউন সময় বাকি</p>
+          <p className="text-lg font-black font-mono text-slate-900 dark:text-white mt-1">
             {dDays}d {String(dHours).padStart(2, '0')}h {String(dMins).padStart(2, '0')}m {String(dSecs).padStart(2, '0')}s
           </p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{isTimeEnded ? 'Timer ended' : 'Live countdown'}</p>
+          <p className="text-[11px] text-slate-400 mt-1">{isTimeEnded ? 'টাইমার সম্পন্ন হয়েছে' : 'লাইভ ড্র কাউন্টডাউন'}</p>
         </div>
-        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
-          <p className="text-[11px] font-bold text-slate-400 uppercase">Participants</p>
-          <p className="text-2xl font-black text-indigo-400 mt-1">{participants.length}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Verified 2+ refs & 1+ trade</p>
-        </div>
-        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
-          <p className="text-[11px] font-bold text-slate-400 uppercase">Locked ৳20 Hold Pool</p>
-          <p className="text-2xl font-black text-amber-400 mt-1">৳{totalHeldBdt.toFixed(2)}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{campaign.holdsReleased ? 'All released' : 'Refunded on finalize'}</p>
+
+        <div className={`p-4 rounded-2xl border transition-all ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200 shadow-xs'}`}>
+          <p className="text-[11px] font-bold text-slate-400 uppercase">ক্যাম্পেইন স্ট্যাটাস</p>
+          <p className={`text-lg font-black mt-1 ${campaign.status === 'completed' ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {campaign.status === 'completed' ? 'COMPLETED (বিজয়ী ঘোষিত)' : isTimeEnded ? 'READY TO PICK' : 'ACTIVE (লাইভ)'}
+          </p>
+          <p className="text-[11px] text-slate-400 mt-1">সিজন: {campaign.campaignId || 'season_1'}</p>
         </div>
       </div>
 
-      {/* Timer Controls */}
-      <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-slate-400">Timer Duration (Days):</span>
-          <input
-            type="number"
-            min="1"
-            max="90"
-            value={customDays}
-            onChange={e => setCustomDays(e.target.value)}
-            className="w-20 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-white text-xs font-bold"
-          />
-          <button
-            disabled={submitting || campaign.status === 'completed'}
-            onClick={() => handleConfigAction({ durationDays: Number(customDays) || 30 })}
-            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold disabled:opacity-40 cursor-pointer"
-          >
-            Update Timer
-          </button>
-          <button
-            disabled={submitting || campaign.status === 'completed'}
-            onClick={() => handleConfigAction({ action: 'end_now' })}
-            className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold disabled:opacity-40 cursor-pointer"
-          >
-            End Timer Now
-          </button>
-        </div>
-        {campaign.status === 'completed' && (
-          <button
-            disabled={submitting}
-            onClick={() => handleConfigAction({ action: 'new_season', durationDays: Number(customDays) || 30 })}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black cursor-pointer"
-          >
-            + Start New 1-Month Giveaway Season
-          </button>
-        )}
+      {/* Prominent Tab Switcher */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 dark:border-purple-900/40 pb-3">
+        <button
+          onClick={() => setActiveTab('participants')}
+          className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === 'participants'
+              ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/20'
+              : isDark ? 'bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800' : 'bg-slate-100 text-slate-700 hover:text-slate-900 hover:bg-slate-200'
+          }`}
+        >
+          <Users size={16} />
+          <span>👥 জয়েনকৃত ইউজার লিস্ট ({participants.length} জন)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('winners')}
+          className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === 'winners'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/30'
+              : isDark ? 'bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800' : 'bg-slate-100 text-slate-700 hover:text-slate-900 hover:bg-slate-200'
+          }`}
+        >
+          <Trophy size={16} />
+          <span>🏆 বিজয়ী নির্বাচন ও সেটিংস</span>
+        </button>
       </div>
 
-      {/* Manual Winner Selection Workbench */}
-      <div className={`p-5 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div>
-            <h2 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Select Winners (Ranks 1–10)
-            </h2>
-            <p className="text-xs text-slate-400">
-              Finalizing credits prizes to winners AND unlocks/refunds ৳20 hold to all joined users.
-            </p>
-          </div>
-          {!isTimeEnded && campaign.status !== 'completed' && (
-            <label className="flex items-center gap-2 text-xs font-bold text-amber-400 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={allowEarly}
-                onChange={e => setAllowEarly(e.target.checked)}
-              />
-              <span>Override 1-Month Timer (Close Early)</span>
-            </label>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {rankSlots.slice(0, Math.max(1, Math.min(10, participants.length))).map(slot => (
-            <div key={slot.rank} className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${isDark ? 'bg-slate-900/70 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-              <div className="shrink-0">
-                <p className="text-xs font-black text-amber-400">{slot.label}</p>
-                <p className="text-[11px] font-bold text-slate-400">Prize: {slot.prize}</p>
-              </div>
-              <select
-                disabled={campaign.status === 'completed' || participants.length === 0}
-                value={selectedWinners[slot.rank] || ''}
-                onChange={e => setSelectedWinners(prev => ({ ...prev, [slot.rank]: e.target.value }))}
-                className={`flex-1 max-w-[260px] px-3 py-2 rounded-lg border text-xs font-semibold ${
-                  isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
-                }`}
-              >
-                <option value="">-- Select Participant --</option>
-                {participants.map(p => {
-                  const uid = String(p.userId);
-                  const takenElsewhere = usedIds.has(uid) && selectedWinners[slot.rank] !== uid;
-                  return (
-                    <option key={uid} value={uid} disabled={takenElsewhere}>
-                      {p.name} ({uid}){p.username ? ` @${p.username}` : ''} — Refs:{p.referralCount} Trades:{p.totalCryptoTrades}
-                    </option>
-                  );
-                })}
-              </select>
+      {/* TAB 1: JOINED PARTICIPANTS LIST (Default View) */}
+      {activeTab === 'participants' && (
+        <div className={`p-5 rounded-2xl border transition-all ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200 shadow-xs'}`}>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className={`text-base font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <span>জয়েনকৃত ইউজারদের তালিকা</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  {filteredParticipants.length} জন
+                </span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                যে সকল ইউজার ২০৳ ব্যালেন্স হোল্ড, ২টি রেফারেল এবং ১টি ট্রেড সম্পন্ন করে গিভঅ্যাওয়েতে জয়েন হয়েছেন।
+              </p>
             </div>
-          ))}
-        </div>
 
-        {campaign.status !== 'completed' && (
-          <div className="mt-5 flex justify-end">
-            <button
-              disabled={submitting || participants.length === 0 || (!isTimeEnded && !allowEarly)}
-              onClick={handleFinalize}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 text-xs font-black shadow-lg disabled:opacity-40 cursor-pointer"
-            >
-              {submitting ? 'Processing Payouts & Releases...' : '🏆 Finalize Winners & Release ৳20 Holds'}
-            </button>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                placeholder="ID, নাম, ইউজারনেম, MBS..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className={`px-3.5 py-2 rounded-xl border text-xs w-64 outline-none ${
+                  isDark ? 'bg-slate-900 border-slate-700 text-white focus:border-amber-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-500'
+                }`}
+              />
+              <button
+                onClick={() => setActiveTab('winners')}
+                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+              >
+                <Trophy size={13} />
+                <span>বিজয়ী নির্বাচন</span>
+              </button>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Joined Participants Table */}
-      <div className={`p-5 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200'}`}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <h2 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
-            Joined Participants ({filteredParticipants.length})
-          </h2>
-          <input
-            type="text"
-            placeholder="Search ID, name, username..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className={`px-3 py-2 rounded-xl border text-xs w-64 ${
-              isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-            }`}
-          />
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                  <th className="py-3 pr-3 font-bold uppercase text-[10.5px]">ইউজার পরিচিতি</th>
+                  <th className="py-3 px-3 font-bold uppercase text-[10.5px]">রেফারেল</th>
+                  <th className="py-3 px-3 font-bold uppercase text-[10.5px]">ক্রিপ্টো ট্রেড</th>
+                  <th className="py-3 px-3 font-bold uppercase text-[10.5px]">হোল্ড স্ট্যাটাস</th>
+                  <th className="py-3 px-3 font-bold uppercase text-[10.5px]">অংশগ্রহণের তারিখ</th>
+                  <th className="py-3 pl-3 font-bold uppercase text-[10.5px]">রেজাল্ট / স্ট্যাটাস</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {filteredParticipants.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-400">
+                      <Users size={32} className="mx-auto mb-2 opacity-40 text-amber-500" />
+                      <p className="font-bold">কোনো অংশগ্রহণকারী পাওয়া যায়নি</p>
+                      <p className="text-[11px] mt-0.5">ইউজাররা শর্ত পূরণ করে জয়েন করলে এখানে স্বয়ংক্রিয়ভাবে তালিকা দেখা যাবে।</p>
+                    </td>
+                  </tr>
+                ) : filteredParticipants.map((p, idx) => (
+                  <tr key={p.id || p.userId} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3 pr-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 p-[1.5px] shrink-0 shadow-xs flex items-center justify-center">
+                          <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center text-white font-black text-[11px] uppercase">
+                            {(p.name || 'U')[0]}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <span>{p.name || 'সম্মানিত ইউজার'}</span>
+                            {p.username && (
+                              <a
+                                href={`https://t.me/${p.username}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                              >
+                                @{p.username}
+                              </a>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                            ID: #{p.userId} • {p.mbsId || `MBS${String(p.userId).slice(-5)}`}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        👥 {p.referralCount || 0} টি সম্পন্ন
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                        ⚡ {p.totalCryptoTrades || 0} টি সম্পন্ন
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-black border ${
+                        p.holdStatus === 'released'
+                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                          : 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/35'
+                      }`}>
+                        {p.holdStatus === 'released' ? '✓ RELEASED (আনলক)' : `🔒 HELD ৳${Number(p.holdAmountBdt || 20).toFixed(2)}`}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-slate-500 dark:text-slate-400 font-medium">
+                      {formatTimestamp(p.joinedAt)}
+                    </td>
+                    <td className="py-3 pl-3">
+                      {p.wonRank ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-xs">
+                          <Crown size={12} />
+                          <span>#{p.wonRank} বিজয়ী (৳{Number(p.prizeBdt || 0).toLocaleString()})</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-600 dark:text-slate-400 font-semibold text-xs">
+                          {p.status === 'completed' ? 'অংশগ্রহণকারী (সমাপ্ত)' : 'অ্যাক্টিভ অংশগ্রহণকারী'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="text-slate-400 border-b border-slate-800">
-                <th className="py-2.5 pr-3">User</th>
-                <th className="py-2.5 px-3">Referrals</th>
-                <th className="py-2.5 px-3">Crypto Trades</th>
-                <th className="py-2.5 px-3">Hold Status</th>
-                <th className="py-2.5 px-3">Joined</th>
-                <th className="py-2.5 pl-3">Result</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {filteredParticipants.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-500">No participants joined yet.</td>
-                </tr>
-              ) : filteredParticipants.map(p => (
-                <tr key={p.id || p.userId}>
-                  <td className="py-3 pr-3">
-                    <div className="font-bold text-white">{p.name}</div>
-                    <div className="text-[11px] text-slate-400">{p.userId} • {p.mbsId}</div>
-                  </td>
-                  <td className="py-3 px-3 font-bold text-emerald-400">{p.referralCount || 0}</td>
-                  <td className="py-3 px-3 font-bold text-indigo-400">{p.totalCryptoTrades || 0}</td>
-                  <td className="py-3 px-3">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                      p.holdStatus === 'released'
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-amber-500/20 text-amber-400'
-                    }`}>
-                      {p.holdStatus === 'released' ? 'RELEASED' : `HELD ৳${Number(p.holdAmountBdt || 20).toFixed(2)}`}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-slate-400">{formatTimestamp(p.joinedAt)}</td>
-                  <td className="py-3 pl-3 font-black text-amber-400">
-                    {p.wonRank ? `#${p.wonRank} (৳${Number(p.prizeBdt || 0).toLocaleString()})` : (p.status === 'completed' ? 'Participated' : 'Active')}
-                  </td>
-                </tr>
+      )}
+
+      {/* TAB 2: WINNERS WORKBENCH & SETTINGS */}
+      {activeTab === 'winners' && (
+        <div className="space-y-6">
+          {/* Timer Duration Controls */}
+          <div className={`p-5 rounded-2xl border flex flex-wrap items-center justify-between gap-4 ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200 shadow-xs'}`}>
+            <div>
+              <h3 className={`text-sm font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                ইভেন্ট টাইমার সেটিংস
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                গিভঅ্যাওয়ে সময়সীমা বৃদ্ধি করুন অথবা তাৎক্ষণিকভাবে সমাপ্ত করুন।
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-400">Duration (Days):</span>
+              <input
+                type="number"
+                min="1"
+                max="90"
+                value={customDays}
+                onChange={e => setCustomDays(e.target.value)}
+                className="w-20 px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-900 text-white text-xs font-bold"
+              />
+              <button
+                disabled={submitting || campaign.status === 'completed'}
+                onClick={() => handleConfigAction({ durationDays: Number(customDays) || 30 })}
+                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold disabled:opacity-40 cursor-pointer shadow-xs"
+              >
+                Update Timer
+              </button>
+              <button
+                disabled={submitting || campaign.status === 'completed'}
+                onClick={() => handleConfigAction({ action: 'end_now' })}
+                className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold disabled:opacity-40 cursor-pointer shadow-xs"
+              >
+                End Timer Now
+              </button>
+              {campaign.status === 'completed' && (
+                <button
+                  disabled={submitting}
+                  onClick={() => handleConfigAction({ action: 'new_season', durationDays: Number(customDays) || 30 })}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black cursor-pointer shadow-md"
+                >
+                  + Start New 1-Month Giveaway Season
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Manual Winner Selection Workbench */}
+          <div className={`p-5 rounded-2xl border ${isDark ? 'bg-[#110D24] border-purple-900/30' : 'bg-white border-slate-200 shadow-xs'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                  Select Winners (Ranks 1–10)
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Finalizing credits prizes to winners AND unlocks/refunds ৳20 hold to all joined users.
+                </p>
+              </div>
+              {!isTimeEnded && campaign.status !== 'completed' && (
+                <label className="flex items-center gap-2 text-xs font-bold text-amber-500 dark:text-amber-400 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allowEarly}
+                    onChange={e => setAllowEarly(e.target.checked)}
+                  />
+                  <span>Override 1-Month Timer (Close Early)</span>
+                </label>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {rankSlots.slice(0, Math.max(1, Math.min(10, participants.length))).map(slot => (
+                <div key={slot.rank} className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${isDark ? 'bg-slate-900/70 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className="shrink-0">
+                    <p className="text-xs font-black text-amber-500 dark:text-amber-400">{slot.label}</p>
+                    <p className="text-[11px] font-bold text-slate-400">Prize: {slot.prize}</p>
+                  </div>
+                  <select
+                    disabled={campaign.status === 'completed' || participants.length === 0}
+                    value={selectedWinners[slot.rank] || ''}
+                    onChange={e => setSelectedWinners(prev => ({ ...prev, [slot.rank]: e.target.value }))}
+                    className={`flex-1 max-w-[260px] px-3 py-2 rounded-lg border text-xs font-semibold ${
+                      isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    }`}
+                  >
+                    <option value="">-- Select Participant --</option>
+                    {participants.map(p => {
+                      const uid = String(p.userId);
+                      const takenElsewhere = usedIds.has(uid) && selectedWinners[slot.rank] !== uid;
+                      return (
+                        <option key={uid} value={uid} disabled={takenElsewhere}>
+                          {p.name} ({uid}){p.username ? ` @${p.username}` : ''} — Refs:{p.referralCount} Trades:{p.totalCryptoTrades}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            {campaign.status !== 'completed' && (
+              <div className="mt-5 flex justify-end">
+                <button
+                  disabled={submitting || participants.length === 0 || (!isTimeEnded && !allowEarly)}
+                  onClick={handleFinalize}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 text-xs font-black shadow-lg disabled:opacity-40 cursor-pointer transition-all active:scale-95"
+                >
+                  {submitting ? 'Processing Payouts & Releases...' : '🏆 Finalize Winners & Release ৳20 Holds'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

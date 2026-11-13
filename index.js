@@ -7691,7 +7691,10 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
             return res.status(403).json({ error: "অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)" });
         }
 
-        const cleanMethod = String(method || 'bKash').trim() === 'Nagad' ? 'Nagad' : 'bKash';
+        const cleanMethod = String(method || 'Nagad').trim() === 'bKash' ? 'bKash' : 'Nagad';
+        if (cleanMethod === 'bKash') {
+            return res.status(400).json({ error: "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad) ওয়ালেটে উইথড্র চালু রয়েছে। অনুগ্রহ করে নগদ নাম্বার দিন।" });
+        }
         let cleanNumber = String(number || '').trim().replace(/[\s\-]/g, '');
         if (cleanNumber.startsWith('+880')) cleanNumber = '0' + cleanNumber.slice(4);
         else if (cleanNumber.startsWith('880')) cleanNumber = '0' + cleanNumber.slice(3);
@@ -7782,7 +7785,12 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         }
 
         if (!userData.fiatWallet || !userData.fiatWallet.number) {
-            throw new Error("অনুগ্রহ করে প্রথমে আপনার বিকাশ বা নগদ ওয়ালেট নাম্বার সেভ করুন।");
+            throw new Error("অনুগ্রহ করে প্রথমে আপনার নগদ ওয়ালেট নাম্বার সেভ করুন।");
+        }
+
+        const walletMethod = String(userData.fiatWallet?.method || '').trim().toLowerCase();
+        if (walletMethod === 'bkash') {
+            throw new Error("বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদের মাধ্যমে উইথড্র গ্রহণ করা হচ্ছে। অনুগ্রহ করে আপনার নগদ (Nagad) ওয়ালেটে উইথড্র রিকোয়েস্ট দিন।");
         }
 
         // Anti-Abuse Withdrawal System (Add Money vs Sell Crypto)
