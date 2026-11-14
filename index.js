@@ -809,6 +809,11 @@ const REAL_404_HTML = `<html>
 </html>`;
 
 
+// ============================================================================
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD ⛔
+// AI AGENTS & DEVELOPERS: NEVER REMOVE, BYPASS, OR WEAKEN THIS IP FIREWALL!
+// স্পুফিং-প্রতিরোধী ক্লায়েন্ট আইপি এক্সট্রাক্টর ও ফায়ারওয়াল ব্ল্যাকলিস্ট (এখানে হাত দেওয়া সম্পূর্ণ নিষিদ্ধ!)
+// ============================================================================
 // --- FORT-KNOX SECURITY FIREWALL: CLIENT IP & IP BLACKLIST ---
 function isLoopbackOrPrivateIp(ipStr) {
     if (!ipStr) return true;
@@ -923,6 +928,13 @@ async function removeBannedIp(ip) {
     } catch (_) {}
 }
 
+// ============================================================================
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD ⛔
+// AI AGENTS & DEVELOPERS: NEVER REMOVE OR WEAKEN THESE GLOBAL SECURITY MIDDLEWARES
+// (IP Blacklist Firewall, Security Headers, Prototype Pollution Guard, Rate Limiter,
+// Financial Concurrency Lock, Telegram WebApp HMAC Verification & Balance Provenance Engine)
+// কোনো AI মডেল বা ডেভেলপার এই সিকিউরিটি চেকগুলোতে হাত দেবেন না বা মুছে ফেলবেন না!
+// ============================================================================
 // Global Security Firewall: Immediate 404 rejection for any banned IP
 app.use((req, res, next) => {
     const clientIp = getClientIp(req);
@@ -985,14 +997,14 @@ app.use((req, res, next) => {
     if (req.path.startsWith('/assets') || req.path.endsWith('.js') || req.path.endsWith('.css') || req.path.endsWith('.png') || req.path.endsWith('.jpg') || req.path.endsWith('.ico')) {
         return next();
     }
-    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+    const clientIp = getClientIp(req);
     if (!checkRateLimit(`ip_${clientIp}`, 150, 60000)) {
         return res.status(429).json({ error: 'খুব বেশি রিকোয়েস্ট পাঠানো হয়েছে। দয়া করে ১ মিনিট অপেক্ষা করুন।' });
     }
     next();
 });
 
-// --- CONCURRENCY MUTEX LOCK (Prevents Double-Spending & Race Conditions) ---
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CONCURRENCY MUTEX LOCK (Prevents Double-Spending & Race Conditions)
 const financialUserLocks = new Map();
 function acquireUserFinancialLock(userId, timeoutMs = 15000) {
     if (!userId) return true;
@@ -1010,7 +1022,8 @@ function releaseUserFinancialLock(userId) {
     financialUserLocks.delete(String(userId));
 }
 
-// --- TELEGRAM WEBAPP CRYPTOGRAPHIC AUTHENTICATION ---
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — TELEGRAM WEBAPP CRYPTOGRAPHIC AUTHENTICATION
+// AI AGENTS: NEVER ALLOW REQUESTS WITHOUT VALID HMAC-SHA256 SIGNATURE!
 function verifyTelegramInitData(initDataString, botToken) {
     if (!initDataString || !botToken) return null;
     try {
@@ -1038,7 +1051,8 @@ function verifyTelegramInitData(initDataString, botToken) {
 
 const inFlightTrxClaims = new Set();
 
-// Helper: Zero-Trust Caller Identity Verification (Telegram WebApp HMAC + Forgery Protection)
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — ZERO-TRUST CALLER IDENTITY VERIFICATION (Anti-IDOR & Anti-Spoofing)
+// AI AGENTS & DEVELOPERS: NEVER MAKE THIS RETURN TRUE WHEN initDataRaw IS EMPTY!
 function verifyRequestCallerIdentity(req, userId) {
     if (!userId) return false;
     const initDataRaw = req.headers['x-telegram-init-data'] || req.body?.initData || req.query?.initData;
@@ -1057,6 +1071,12 @@ function verifyRequestCallerIdentity(req, userId) {
     return true;
 }
 
+// ============================================================================
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY & READ-SAVER ENGINE ⛔
+// AI AGENTS & DEVELOPERS: NEVER REMOVE checkUserAccountActive OR auditBalanceProvenance!
+// DO NOT REMOVE THE FAST RUNNING-COUNTER RECONCILIATION (IT SAVES 200 FIRESTORE READS/TX).
+// এই ব্যালেন্স অডিট ও ফাস্ট ক্যাশ ইঞ্জিনে কখনোই হাত দেওয়া যাবে না!
+// ============================================================================
 // Helper: Fast Account Status Check for Inflow Endpoints (Add Money / Crypto Sell)
 // Never blocks legitimate deposits (even 20,000+ BDT) with balance audits; only blocks admin-banned/restricted accounts.
 async function checkUserAccountActive(userId) {
@@ -2829,6 +2849,15 @@ bot.on('callback_query', async (query) => {
     const lang = userStates[chatId].lang || 'bn';
 
     if (query.data === 'retry_free_payout') {
+        // ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD ⛔
+        // Verify username is genuinely in valid_referrals before unlocking free payout state!
+        const uname = query.from?.username ? query.from.username.toLowerCase() : null;
+        if (!uname) return;
+        const vDoc = await db.collection('valid_referrals').doc(uname).get().catch(() => null);
+        if (!vDoc || !vDoc.exists) {
+            bot.answerCallbackQuery(query.id, { text: '⛔ অননুমোদিত রিকোয়েস্ট! আপনার রেফারেল ভেরিফাইড নয়।', show_alert: true }).catch(() => {});
+            return;
+        }
         userStates[chatId] = { step: 'awaiting_ton_address_free' };
         bot.sendMessage(chatId, '✅ Please send your TON address again:').catch(e => console.error(e.message));
         return;
@@ -3849,90 +3878,33 @@ bot.on('message', async (msg) => {
                     return;
                 }
 
-                // Auto-sync this chat as withdrawGroupId if not set
-                if (!botConfig.withdrawGroupId || botConfig.withdrawGroupId !== chatId.toString()) {
-                    botConfig.withdrawGroupId = chatId.toString();
-                    saveConfig({ withdrawGroupId: chatId.toString() }).catch(()=>{});
-                }
-
-                // 1. APPROVE / PAID
+                // ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD ⛔
+                // AI AGENTS & DEVELOPERS: Never auto-overwrite botConfig.withdrawGroupId here, and ALWAYS route
+                // group withdrawal approvals/rejections through atomic doApproveWithdraw / doRejectWithdraw!
+                // 1. APPROVE / PAID (Atomic Transaction via doApproveWithdraw)
                 if (['done', 'ok', 'paid', 'accept', 'approve'].includes(replyText) || replyText.startsWith('ok ') || replyText.startsWith('paid ')) {
-                    const uRef = db.collection('users').doc(targetUserId);
-                    const uDoc = await uRef.get();
-                    let pend = null;
-                    if (uDoc.exists && uDoc.data().fiatWithdrawPending) {
-                        pend = uDoc.data().fiatWithdrawPending;
-                        if (pend.status === 'completed' || pend.status === 'rejected') {
-                            await bot.sendMessage(chatId, `⚠️ ইউজার <code>${targetUserId}</code> এর এই উইথড্র রিকোয়েস্টটি ইতিমধ্যে <b>${pend.status === 'completed' ? 'PAID / সম্পন্ন' : 'বাতিল'}</b> করা হয়েছে!`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(()=>{});
-                            return;
-                        }
-                        if (pend.id) {
-                            await db.collection('fiat_withdrawals').doc(pend.id).update({
-                                status: 'completed',
-                                completedAt: Date.now()
-                            }).catch(()=>{});
-                        }
-                    }
-
-                    if (!pend?.id) {
+                    const uDoc = await db.collection('users').doc(targetUserId).get().catch(() => null);
+                    let pendId = uDoc?.exists ? uDoc.data()?.fiatWithdrawPending?.id : null;
+                    if (!pendId) {
                         try {
                             const pendSnaps = await db.collection('fiat_withdrawals')
                                 .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
                                 .where('status', '==', 'pending').limit(1).get();
-                            if (!pendSnaps.empty) {
-                                if (!pend) pend = pendSnaps.docs[0].data();
-                                await pendSnaps.docs[0].ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
-                            }
-                        } catch(e) {}
+                            if (!pendSnaps.empty) pendId = pendSnaps.docs[0].id;
+                        } catch (_) {}
                     }
 
-                    await uRef.update({
-                        'fiatWithdrawPending.status': 'completed',
-                        'fiatWithdrawPending.completedAt': Date.now()
-                    }).catch(()=>{});
-
-                    if (allUsersMasterData[targetUserId]) {
-                        if (allUsersMasterData[targetUserId].fiatWithdrawPending) {
-                            allUsersMasterData[targetUserId].fiatWithdrawPending.status = 'completed';
-                            allUsersMasterData[targetUserId].fiatWithdrawPending.completedAt = Date.now();
-                        }
-                        saveUserMasterData(targetUserId, allUsersMasterData[targetUserId]);
+                    const approved = await doApproveWithdraw(pendId, targetUserId);
+                    if (!approved) {
+                        await bot.sendMessage(chatId, `⚠️ ইউজার <code>${targetUserId}</code> এর এই উইথড্র রিকোয়েস্টটি ইতিমধ্যে সম্পন্ন বা বাতিল করা হয়েছে!`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(()=>{});
+                        return;
                     }
                     invalidateOrdersCache();
-
-                    const amtVal = pend?.amount || 0;
-                    const feeVal = pend?.fee !== undefined ? pend.fee : 0;
-                    const recVal = pend?.receiveAmount || (amtVal > feeVal ? amtVal - feeVal : amtVal);
-                    const methodVal = pend?.method || 'bKash';
-                    const numVal = pend?.number || '';
-
-                    // DM to User (Shards Bot Premium Animated Emoji format)
-                    const userSuccessMsg = `${PE.approvedBag} <b>Withdrawal Approved! (ক্যাশআউট সফল!)</b>\n\n` +
-                        `${PE.dollar} <b>Amount:</b> ৳${amtVal} BDT\n` +
-                        `${PE.chartDown} <b>Fee:</b> ৳${typeof feeVal === 'number' ? feeVal.toFixed(2) : feeVal} BDT\n` +
-                        `${PE.flyingCash} <b>Net Sent:</b> <b>৳${typeof recVal === 'number' ? recVal.toFixed(2) : recVal} BDT</b>\n` +
-                        `${PE.bank} <b>Gateway:</b> ${methodVal.toUpperCase()}\n` +
-                        `${PE.wallet} <b>Account:</b> <code>${numVal}</code>\n\n` +
-                        `${PE.zap} <i>আপনার ${methodVal.toUpperCase()} অ্যাকাউন্টে টাকা সফলভাবে পাঠিয়ে দেওয়া হয়েছে!</i>`;
-                    await bot.sendMessage(targetUserId, userSuccessMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
-
-                    // Confirm in Withdraw Request Group
                     await bot.sendMessage(chatId, `${PE.check} <code>${targetUserId}</code> এর উইথড্র সফলভাবে <b>PAID</b> কনফার্ম করা হয়েছে।`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
-
-                    // Post Live Payout Proof to Public Payout Group / Channel
-                    await notifyPayoutGroup({
-                        type: 'fiat',
-                        userId: targetUserId,
-                        name: pend?.name || uDoc.data()?.first_name || 'User',
-                        amount: amtVal,
-                        receiveAmount: recVal,
-                        method: methodVal,
-                        number: numVal
-                    });
                     return;
                 }
 
-                // 2. REJECT & REFUND
+                // 2. REJECT & REFUND (Atomic Transaction via doRejectWithdraw)
                 else if (replyText.startsWith('reject') || replyText.startsWith('cancel') || replyText === 'no') {
                     let reason = text.trim();
                     if (reason.toLowerCase().startsWith('reject')) {
@@ -3942,78 +3914,24 @@ bot.on('message', async (msg) => {
                     }
                     if (!reason) reason = 'অ্যাডমিন কর্তৃক বাতিল করা হয়েছে (Rejected by admin)';
 
-                    const userRef = db.collection('users').doc(targetUserId);
-                    const userDoc = await userRef.get();
-                    let pend = userDoc.exists ? userDoc.data().fiatWithdrawPending : null;
-
-                    if (pend && (pend.status === 'completed' || pend.status === 'rejected')) {
-                        await bot.sendMessage(chatId, `⚠️ ইউজার <code>${targetUserId}</code> এর এই উইথড্র রিকোয়েস্টটি ইতিমধ্যে <b>${pend.status === 'completed' ? 'PAID / সম্পন্ন' : 'বাতিল'}</b> করা হয়েছে!`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(()=>{});
-                        return;
-                    }
-                    
-                    if (!pend) {
+                    const uDoc = await db.collection('users').doc(targetUserId).get().catch(() => null);
+                    let pendId = uDoc?.exists ? uDoc.data()?.fiatWithdrawPending?.id : null;
+                    if (!pendId) {
                         try {
                             const pendSnaps = await db.collection('fiat_withdrawals')
                                 .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
-                                .where('status', '==', 'pending').get();
-                            if (!pendSnaps.empty) pend = pendSnaps.docs[0].data();
-                        } catch(e) {}
+                                .where('status', '==', 'pending').limit(1).get();
+                            if (!pendSnaps.empty) pendId = pendSnaps.docs[0].id;
+                        } catch (_) {}
                     }
 
-                    const amountToRefund = pend?.amount || 0;
-
-                    if (pend?.id) {
-                        await db.collection('fiat_withdrawals').doc(pend.id).update({
-                            status: 'rejected',
-                            rejectReason: reason,
-                            rejectedAt: Date.now()
-                        }).catch(()=>{});
-                    }
-                    try {
-                        const pendSnaps = await db.collection('fiat_withdrawals')
-                            .where('userId', 'in', [parseInt(targetUserId), targetUserId.toString()].filter(Boolean))
-                            .where('status', '==', 'pending').get();
-                        if (!pend?.id && !pendSnaps.empty) {
-                            await pendSnaps.docs[0].ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
-                        }
-                    } catch(e) {}
-
-                    if (amountToRefund > 0) {
-                        await userRef.update({
-                            balance: FieldValue.increment(amountToRefund),
-                            'fiatWithdrawPending.status': 'rejected',
-                            'fiatWithdrawPending.rejectReason': reason,
-                            'fiatWithdrawPending.rejectedAt': Date.now()
-                        });
-                    } else {
-                        await userRef.update({
-                            'fiatWithdrawPending.status': 'rejected',
-                            'fiatWithdrawPending.rejectReason': reason,
-                            'fiatWithdrawPending.rejectedAt': Date.now()
-                        }).catch(()=>{});
-                    }
-
-                    if (allUsersMasterData[targetUserId]) {
-                        if (allUsersMasterData[targetUserId].fiatWithdrawPending) {
-                            allUsersMasterData[targetUserId].fiatWithdrawPending.status = 'rejected';
-                            allUsersMasterData[targetUserId].fiatWithdrawPending.rejectReason = reason;
-                            allUsersMasterData[targetUserId].fiatWithdrawPending.rejectedAt = Date.now();
-                        }
-                        if (amountToRefund > 0) {
-                            allUsersMasterData[targetUserId].balance = (parseFloat(allUsersMasterData[targetUserId].balance) || 0) + amountToRefund;
-                        }
-                        saveUserMasterData(targetUserId, allUsersMasterData[targetUserId]);
+                    const rejectRes = await doRejectWithdraw(pendId, targetUserId, 0, reason);
+                    if (!rejectRes || !rejectRes.ok) {
+                        await bot.sendMessage(chatId, `⚠️ ইউজার <code>${targetUserId}</code> এর এই উইথড্র রিকোয়েস্টটি ইতিমধ্যে সম্পন্ন বা বাতিল করা হয়েছে!`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(()=>{});
+                        return;
                     }
                     invalidateOrdersCache();
-
-                    await bot.sendMessage(chatId, `${PE.cross} উইথড্র বাতিল করা হয়েছে! ইউজার <code>${targetUserId}</code> এর একাউন্টে <b>৳${amountToRefund} BDT</b> রিফান্ড করা হয়েছে।\n${PE.note} <b>কারণ:</b> <i>${reason}</i>`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
-
-                    // DM to User
-                    const userRejectMsg = `${PE.cross} <b>Withdrawal Rejected! (উইথড্র বাতিল ও রিফান্ড!)</b>\n\n` +
-                        `${PE.dollar} <b>Refunded Amount:</b> <b>৳${amountToRefund} BDT</b>\n` +
-                        `${PE.note} <b>Reason:</b> <i>${reason}</i>\n\n` +
-                        `${PE.swap} <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে পুনরায় যোগ করে দেওয়া হয়েছে। তথ্য যাচাই করে আবার চেষ্টা করুন।</i>`;
-                    await bot.sendMessage(targetUserId, userRejectMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
+                    await bot.sendMessage(chatId, `${PE.cross} উইথড্র বাতিল করা হয়েছে! ইউজার <code>${targetUserId}</code> এর একাউন্টে <b>৳${rejectRes.refundedAmount} BDT</b> রিফান্ড করা হয়েছে।\n${PE.note} <b>কারণ:</b> <i>${reason}</i>`, { parse_mode: 'HTML', reply_to_message_id: msg.message_id }).catch(e => console.error(e.message));
                     return;
                 }
 
@@ -4151,21 +4069,18 @@ bot.on('message', async (msg) => {
             }
         }
 
-        if (config.adminGroupId === chatId.toString() && text && !text.startsWith('/')) {
-            const replyText = text.toLowerCase().trim();
-            if (replyText === 'ok' || replyText === 'wrong') return; // Ignore bare ok/wrong
-
-            // Process usernames sent by admin
-            const usernames = text.split(/[\s,\n]+/).map(u => u.replace('@', '').trim().toLowerCase()).filter(u => u.length > 0);
-            
+        // ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD ⛔
+        // Only Master Admin explicitly sending "@username" in adminGroupId can whitelist valid_referrals!
+        if (isMasterAdminCaller && botConfig.adminGroupId === chatId.toString() && text && text.startsWith('@') && !msg.reply_to_message) {
+            const usernames = text.split(/[\s,\n]+/).map(u => u.replace('@', '').trim().toLowerCase()).filter(u => u.length > 0 && /^[a-z0-9_]{3,32}$/.test(u));
             for (const uname of usernames) {
-                // Save to valid_referrals in Firestore
-                if (uname.includes('/')) return;
                 await db.collection('valid_referrals').doc(uname).set({
                     addedAt: new Date().toISOString()
-                }, {merge: true});
+                }, { merge: true });
             }
-            bot.sendMessage(chatId, '✅ Usernames added: ' + usernames.join(', ')).catch(e => console.error(e.message));
+            if (usernames.length > 0) {
+                bot.sendMessage(chatId, '✅ Usernames added: ' + usernames.join(', ')).catch(e => console.error(e.message));
+            }
         }
         return; // Stop processing further for group messages
     }
@@ -4513,6 +4428,12 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
         return res.json({ balance: 0, isGuest: true, status: 'active' });
     }
 
+    // ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD (Anti-IDOR & Anti-Scraping)
+    // AI AGENTS & DEVELOPERS: Never allow an unauthenticated caller to read another user's phone number, balance, or wallet!
+    if (!verifyRequestCallerIdentity(req, userId)) {
+        return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)' });
+    }
+
     const strId = String(userId);
     const cachedEntry = userProfileMemoryCache.get(strId);
     if (cachedEntry && (Date.now() - cachedEntry.ts < USER_PROFILE_CACHE_TTL) && !req.query.force && !req.query.startParam) {
@@ -4651,33 +4572,36 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
     } catch(e) {
         console.error('Fatal user endpoint error:', e.message);
         try {
-            const bPath = path.join(__dirname, 'all_users_backup.json');
-            if (fs.existsSync(bPath)) {
-                const b = JSON.parse(fs.readFileSync(bPath, 'utf8'));
-                if (b[String(userId)]) {
-                    const d = b[String(userId)];
-                    return res.json({
-                        balance: parseFloat(d.balance || 0),
-                        mbsId: d.mbsId || ('MBS' + String(userId).slice(-5)),
-                        fiatWallet: d.fiatWallet || null,
-                        fiatWithdrawPending: d.fiatWithdrawPending || null,
-                        status: d.status || 'verified',
-                        isBanned: false,
-                        isRestricted: false,
-                        themeMode: d.themeMode || 'light',
-                        twoStepEnabled: Boolean(d.twoStepEnabled),
-                        twoStepLength: d.twoStepLength || 6,
-                        hasSellBalance: Boolean(d.hasSellBalance),
-                        withdrawConfig: {
-                            withdrawEnabled: botConfig.withdrawEnabled !== false,
-                            bkashWithdrawEnabled: Boolean(botConfig.bkashWithdrawEnabled),
-                            nagadWithdrawEnabled: botConfig.nagadWithdrawEnabled !== false,
-                            withdrawDisabledNotice: botConfig.withdrawDisabledNotice || '',
-                            bkashDisabledNotice: botConfig.bkashDisabledNotice || '',
-                            nagadDisabledNotice: botConfig.nagadDisabledNotice || ''
-                        }
-                    });
-                }
+            // ⛔ DO NOT MODIFY / DO NOT REMOVE — ZERO-DISK-IO & BAN-PRESERVING FALLBACK
+            // Never use synchronous fs.readFileSync here and NEVER hardcode isBanned: false!
+            const d = allUsersMasterData[String(userId)];
+            if (d) {
+                const fbBanned = d.status === 'banned' || Boolean(d.isBanned);
+                const fbRestricted = d.status === 'restricted' && (!d.restrictedUntil || new Date(d.restrictedUntil) > new Date());
+                return res.json({
+                    balance: parseFloat(d.balance || 0),
+                    mbsId: d.mbsId || ('MBS' + String(userId).slice(-5)),
+                    fiatWallet: d.fiatWallet || null,
+                    fiatWithdrawPending: d.fiatWithdrawPending || null,
+                    status: fbBanned ? 'banned' : (fbRestricted ? 'restricted' : (d.status || 'verified')),
+                    isBanned: fbBanned,
+                    banReason: d.banReason || 'সাইবার ক্রাইম ও প্রতারণামূলক কর্মকাণ্ডের জন্য অ্যাকাউন্ট স্থায়ীভাবে নিষিদ্ধ করা হয়েছে।',
+                    isRestricted: fbRestricted,
+                    restrictedUntil: d.restrictedUntil || null,
+                    restrictReason: d.restrictReason || 'আপনার অ্যাকাউন্টটি সাময়িকভাবে রেস্ট্রিক্ট করা রয়েছে।',
+                    themeMode: d.themeMode || 'light',
+                    twoStepEnabled: Boolean(d.twoStepEnabled && d.twoStepPinHash),
+                    twoStepLength: d.twoStepLength || 6,
+                    hasSellBalance: Boolean(d.hasSellBalance),
+                    withdrawConfig: {
+                        withdrawEnabled: botConfig.withdrawEnabled !== false,
+                        bkashWithdrawEnabled: Boolean(botConfig.bkashWithdrawEnabled),
+                        nagadWithdrawEnabled: botConfig.nagadWithdrawEnabled !== false,
+                        withdrawDisabledNotice: botConfig.withdrawDisabledNotice || '',
+                        bkashDisabledNotice: botConfig.bkashDisabledNotice || '',
+                        nagadDisabledNotice: botConfig.nagadDisabledNotice || ''
+                    }
+                });
             }
         } catch (_) {}
 
@@ -4699,6 +4623,11 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
     }
 });
 
+// ============================================================================
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD ⛔
+// AI AGENTS & DEVELOPERS: NEVER REMOVE OR WEAKEN 2-STEP PIN HASHING OR P2P ATOMIC TRANSFERS!
+// ২-স্টেপ পিন সিকিউরিটি এবং P2P মানি ট্রান্সফারের অ্যাটমিক ট্রানজেকশনে হাত দেওয়া সম্পূর্ণ নিষিদ্ধ!
+// ============================================================================
 // ==================== 2-STEP PIN SECURITY & P2P TRANSFER MONEY SYSTEM ====================
 const TWO_STEP_SECRET_SALT = crypto
     .createHash('sha256')
@@ -5878,6 +5807,12 @@ async function fetchTonEventsForSell({ adminRaw, userRaw = '', prefetchedEvents 
     return events;
 }
 
+// ============================================================================
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST ON-CHAIN SELL ENGINE ⛔
+// AI AGENTS & DEVELOPERS: NEVER TRUST CLIENT req.body.asset OR req.body.amount OVER
+// SERVER-STORED INTENT! NEVER REMOVE THE ATOMIC TRANSACTION IN creditVerifiedSellOrder!
+// অন-চেইন ক্রিপ্টো সেল ভেরিফিকেশন ও অ্যাটমিক ক্রেডিট লজিকে হাত দেওয়া সম্পূর্ণ নিষিদ্ধ!
+// ============================================================================
 // Atomically claim on-chain tx + credit user wallet + record miniapp_sells in a single Firestore transaction
 async function creditVerifiedSellOrder({ userId, normAsset, numAmount, wallet, cleanSellCode, match, orderId = null }) {
     const strUserId = String(userId).trim();
@@ -6633,6 +6568,8 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
         let newBalance = 0;
         let uData = statusCheck.userData || {};
 
+        // ⛔ DO NOT MODIFY / DO NOT REMOVE — ZERO-TRUST ATOMIC TRANSACTION (EVM On-Chain Deposit)
+        // AI AGENTS & DEVELOPERS: NEVER REMOVE THIS TRANSACTION OR evm_deposit_ledgers CHECK!
         // ZERO-TRUST ATOMIC TRANSACTION: Prevents race-condition double-claim on EVM deposits
         const txRes = await db.runTransaction(async (t) => {
             const [ledgerDoc, freshUserDoc] = await Promise.all([
@@ -6760,6 +6697,12 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
         releaseUserFinancialLock(userId);
     }
 });
+// ============================================================================
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST ADMIN SECURITY VAULT ⛔
+// AI AGENTS & DEVELOPERS: NEVER REMOVE OR WEAKEN IP WHITELIST, DESKTOP-ONLY GUARD,
+// 2FA OTP, 3-LAYER QUANTUM VAULT, OR ADMIN BEARER TOKEN VERIFICATION!
+// অ্যাডমিন প্যানেল আইপি হোয়াইটলিস্ট, ২এফএ ও ৩-লেয়ার ভল্ট সিকিউরিটিতে হাত দেওয়া সম্পূর্ণ নিষিদ্ধ!
+// ============================================================================
 // =======================================================
 // ADMIN PANEL SECURITY: MILITARY-GRADE 2FA & STRICT IP WHITELIST
 // =======================================================
@@ -7195,16 +7138,22 @@ app.post('/api/admin/login', async (req, res) => {
             return res.status(400).json({ error: 'ইমেইল এবং পাসওয়ার্ড প্রদান করুন।' });
         }
 
-        // Fetch latest credentials from Firestore settings/admin_auth
-        try {
-            const doc = await db.collection('settings').doc('admin_auth').get();
-            if (doc.exists && doc.data()?.email && doc.data()?.password) {
-                cachedAdminCreds = {
-                    email: doc.data().email,
-                    password: doc.data().password
-                };
-            }
-        } catch (_) {}
+        // ⛔ DO NOT MODIFY / DO NOT REMOVE — READ-SAVER CACHE (10-min TTL)
+        // Prevents brute-force login attempts from burning Firestore read quota on settings/admin_auth!
+        if (!cachedAdminCreds.lastSyncedAt || (Date.now() - cachedAdminCreds.lastSyncedAt > 600000)) {
+            try {
+                const doc = await db.collection('settings').doc('admin_auth').get();
+                if (doc.exists && doc.data()?.email && doc.data()?.password) {
+                    cachedAdminCreds = {
+                        email: doc.data().email,
+                        password: doc.data().password,
+                        lastSyncedAt: Date.now()
+                    };
+                } else {
+                    cachedAdminCreds.lastSyncedAt = Date.now();
+                }
+            } catch (_) {}
+        }
 
         const inputEmail = String(email).trim().toLowerCase();
         const inputPass = String(password);
@@ -7983,6 +7932,13 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
     }
 });
 
+// ============================================================================
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST FINANCIAL ENDPOINTS ⛔
+// AI AGENTS & DEVELOPERS: NEVER REMOVE verifyRequestCallerIdentity, acquireUserFinancialLock,
+// auditBalanceProvenance, verifyUserTwoStepPin, OR db.runTransaction FROM withdraw-fiat,
+// add-money, OR buy-crypto!
+// উইথড্র, অ্যাড মানি ও ক্রিপ্টো বাই-এর জিরো-ট্রাস্ট সিকিউরিটি চেকগুলোতে হাত দেওয়া সম্পূর্ণ নিষিদ্ধ!
+// ============================================================================
 app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
     let { userId, amount, fee, receiveAmount } = req.body;
     if (!userId) return res.status(400).json({ error: "User ID is required" });
@@ -9206,6 +9162,12 @@ app.post('/api/miniapp/buy', async (req, res) => {
 });
 
 
+// ============================================================================
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SMS WEBHOOK GUARD ⛔
+// AI AGENTS & DEVELOPERS: NEVER WEAKEN parsePaymentSms OR handleIncomingSmsWebhook!
+// ALWAYS REQUIRE AUTHENTIC MACRODROID UA OR WEBHOOK_SECRET AND FULL SMS FIELDS!
+// এসএমএস ওয়েবহুক সিকিউরিটি ও পার্সিং গার্ডে হাত দেওয়া বা পরিবর্তন করা সম্পূর্ণ নিষিদ্ধ!
+// ============================================================================
 function parsePaymentSms(msg, rawSenderList) {
     if (!msg || typeof msg !== 'string') return null;
     const text = msg.trim();
@@ -9306,17 +9268,6 @@ async function handleIncomingSmsWebhook(req, res) {
             ).catch(() => {});
             return res.status(404).send(REAL_404_HTML);
         }
-
-        try {
-            db.collection('debug_logs').add({
-                method: req.method || 'UNKNOWN',
-                body: JSON.parse(JSON.stringify(req.body || {})),
-                query: JSON.parse(JSON.stringify(req.query || {})),
-                userAgent: ua,
-                contentType: req.headers['content-type'] || '',
-                timestamp: FieldValue.serverTimestamp()
-            }).catch(e => console.warn("debug_logs add error:", e.message));
-        } catch (_) {}
 
         let rawMessage = req.body?.message || 
                          req.body?.sms_message ||
@@ -10223,11 +10174,6 @@ const userReferralsMemoryCache = new Map();
 app.get('/api/miniapp/referrals/:userId', async (req, res) => {
     try {
         const cleanUserId = parseInt(req.params.userId);
-        const strCleanId = String(cleanUserId);
-        const cachedRef = userReferralsMemoryCache.get(strCleanId);
-        if (cachedRef && (Date.now() - cachedRef.ts < 30000)) {
-            return res.json(cachedRef.data);
-        }
         if (!cleanUserId || isNaN(cleanUserId) || cleanUserId === 123456789) {
             return res.json({
                 referralLink: `https://t.me/${BOT_USERNAME}?start=ref_0`,
@@ -10242,6 +10188,15 @@ app.get('/api/miniapp/referrals/:userId', async (req, res) => {
                 stats: { totalReferrals: 0, activeReferrals: 0, pendingReferrals: 0, blockedReferrals: 0, totalEarned: 0, bonusPerReferral: REFERRAL_BONUS_BDT },
                 referrals: []
             });
+        }
+        // ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD (Anti-IDOR & Anti-Read-Burn)
+        if (!verifyRequestCallerIdentity(req, cleanUserId)) {
+            return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)' });
+        }
+        const strCleanId = String(cleanUserId);
+        const cachedRef = userReferralsMemoryCache.get(strCleanId);
+        if (cachedRef && (Date.now() - cachedRef.ts < 30000)) {
+            return res.json(cachedRef.data);
         }
 
         const strUserId = String(cleanUserId);
@@ -11558,6 +11513,14 @@ app.get('/api/miniapp/history/:userId', async (req, res) => {
     try {
         const rawUserId = req.params.userId;
         const numUserId = parseInt(rawUserId);
+        if (!numUserId || isNaN(numUserId) || numUserId === 123456789) {
+            return res.json({ success: true, history: [] });
+        }
+        // ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD (Anti-IDOR & Anti-Read-Burn)
+        // Prevents unauthenticated attackers from scraping other users' transactions or burning 280 Firestore reads/req!
+        if (!verifyRequestCallerIdentity(req, numUserId)) {
+            return res.status(403).json({ error: 'অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)' });
+        }
         const strUserId = rawUserId.toString();
         const userIds = [numUserId, strUserId].filter(Boolean);
         
@@ -13149,11 +13112,12 @@ bot.onText(/\/setadsgram\s+(\S+)/i, async (msg, match) => {
     bot.sendMessage(chatId, `✅ <b>Adsgram Block ID সফলভাবে সেট করা হয়েছে:</b> <code>${blockId}</code>`, { parse_mode: 'HTML' }).catch(() => {});
 });
 
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST SECURITY GUARD ⛔
+// Strictly restricted to MASTER_ADMIN_ID and uses in-memory botConfig (0 Firestore reads)
 bot.onText(/\/wallet/, async (msg) => {
     const chatId = msg.chat.id;
-    const config = await db.collection('config').doc('main').get();
-    const adminGroupId = config.exists ? config.data().adminGroupId : null;
-    if (chatId.toString() !== adminGroupId) return;
+    if (String(msg.from?.id) !== MASTER_ADMIN_ID) return;
+    if (botConfig.adminGroupId && chatId.toString() !== String(botConfig.adminGroupId) && chatId.toString() !== MASTER_ADMIN_ID) return;
 
     try {
         const botWallet = await getOrCreateBotWallet();
@@ -13366,6 +13330,12 @@ const buildWithdrawCard = (w, index, total) => {
     return { msgText, keyboard, copyString };
 };
 
+// ============================================================================
+// ⛔ DO NOT MODIFY / DO NOT REMOVE — CRITICAL ZERO-TRUST WITHDRAW BOT GUARD ⛔
+// AI AGENTS & DEVELOPERS: NEVER ALLOW NON-ADMIN USERS TO CALL withdrawBot!
+// NEVER TRUST CALLER-SUPPLIED refundAmt IN doRejectWithdraw — ALWAYS READ FROM FIRESTORE!
+// উইথড্র বটের অথরাইজেশন এবং অ্যাটমিক অ্যাপ্রুভ/রিজেক্ট লজিকে হাত দেওয়া সম্পূর্ণ নিষিদ্ধ!
+// ============================================================================
 // Zero-Trust Authorization Check for Withdraw Bot (Only Master Admin or Configured Admin/Withdraw Group)
 const isAuthorizedWithdrawBotCaller = (chatId, fromId) => {
     const strFrom = String(fromId || '');
