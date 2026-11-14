@@ -11667,16 +11667,16 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
                       />
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
-                          {fiatWallet.method} Personal
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black text-slate-900 dark:text-white leading-tight whitespace-nowrap">
+                          {fiatWallet.method}
                         </span>
                         {isSavedMethodDisabled ? (
-                          <span className="px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 text-[9px] font-black">
+                          <span className="px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 text-[9px] font-black whitespace-nowrap shrink-0">
                             {lang === 'bn' ? 'উইথড্র বন্ধ' : 'WITHDRAW OFF'}
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black">
+                          <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black whitespace-nowrap shrink-0">
                             ACTIVE
                           </span>
                         )}
@@ -11684,13 +11684,6 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
                       <span className="text-xs font-mono font-bold text-violet-700 dark:text-violet-300 block mt-0.5 truncate">
                         {fiatWallet.number} {fiatWallet.name ? `• ${fiatWallet.name}` : ''}
                       </span>
-                      {isSavedMethodDisabled && (
-                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 block mt-0.5 leading-tight">
-                          {lang === 'bn'
-                            ? `${fiatWallet.method} উইথড্র সাময়িকভাবে বন্ধ • টাকা তুলতে ওয়ালেট পরিবর্তন করুন`
-                            : `${fiatWallet.method} withdraw is currently off • Change wallet to withdraw`}
-                        </span>
-                      )}
                     </div>
                   </div>
                   <span className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shrink-0 border ${
@@ -11805,16 +11798,16 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
 
               {/* Notice when bKash or Nagad Withdraw is Disabled by Admin */}
               {((walletMethod === 'bKash' && !isBkashAllowed) || (walletMethod === 'Nagad' && !isNagadAllowed)) && (
-                <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-2 text-[11px] leading-snug text-amber-900 dark:text-amber-300 font-semibold animate-in fade-in duration-150">
-                  <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="px-2.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center gap-2 text-[11px] leading-snug text-amber-900 dark:text-amber-300 font-bold animate-in fade-in duration-150">
+                  <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
                   <span>
                     {walletMethod === 'bKash'
                       ? (lang === 'bn'
-                          ? 'বর্তমানে বিকাশ (bKash) উইথড্র সাময়িকভাবে বন্ধ রয়েছে। আপনি আপনার বিকাশ নাম্বার সেভ করে রাখতে পারবেন, তবে এখন বিকাশের মাধ্যমে উইথড্র দিতে পারবেন না।'
-                          : 'bKash withdrawal is currently disabled. You can save your bKash wallet now, but you cannot withdraw via bKash until it is re-enabled.')
+                          ? 'বিকাশ উইথড্র বন্ধ (শুধু ওয়ালেট সেভ করা যাবে)'
+                          : 'bKash withdraw is off (Wallet save only)')
                       : (lang === 'bn'
-                          ? 'বর্তমানে নগদ (Nagad) উইথড্র সাময়িকভাবে বন্ধ রয়েছে। আপনি আপনার নগদ নাম্বার সেভ করে রাখতে পারবেন, তবে এখন নগদের মাধ্যমে উইথড্র দিতে পারবেন না।'
-                          : 'Nagad withdrawal is currently disabled. You can save your Nagad wallet now, but you cannot withdraw via Nagad until it is re-enabled.')}
+                          ? 'নগদ উইথড্র বন্ধ (শুধু ওয়ালেট সেভ করা যাবে)'
+                          : 'Nagad withdraw is off (Wallet save only)')}
                   </span>
                 </div>
               )}
