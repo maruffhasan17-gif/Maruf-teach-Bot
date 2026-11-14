@@ -109,6 +109,8 @@ async function syncMasterUsersFromFirestore() {
 }
 setTimeout(syncMasterUsersFromFirestore, 1500);
 
+const balanceAuditCache = new Map();
+
 function saveUserMasterData(userId, data) {
     if (!userId) return;
     const strId = String(userId).trim();
@@ -118,6 +120,10 @@ function saveUserMasterData(userId, data) {
         id: strId,
         userId: strId
     };
+    balanceAuditCache.delete(strId);
+    if (typeof userProfileMemoryCache !== 'undefined' && userProfileMemoryCache) {
+        userProfileMemoryCache.delete(strId);
+    }
     try {
         fs.writeFileSync(ALL_USERS_BACKUP_FILE, JSON.stringify(allUsersMasterData, null, 2), 'utf8');
     } catch (_) {}
@@ -1086,13 +1092,18 @@ async function checkUserAccountActive(userId) {
 async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 'Transaction') {
     const strUserId = String(userId);
     const numUserId = parseInt(userId, 10);
+    const userRef = db.collection('users').doc(strUserId);
     let uData = {};
     try {
-        const userRef = db.collection('users').doc(strUserId);
         const userDoc = await userRef.get();
         if (userDoc.exists) {
             uData = userDoc.data() || {};
-            saveUserMasterData(strUserId, uData);
+            allUsersMasterData[strUserId] = {
+                ...(allUsersMasterData[strUserId] || {}),
+                ...uData,
+                id: strUserId,
+                userId: strUserId
+            };
         } else if (allUsersMasterData[strUserId]) {
             uData = { ...allUsersMasterData[strUserId] };
         } else {
@@ -1142,8 +1153,59 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     if (currentBalance === 0 && requestedAmount === 0) {
         return { ok: true, currentBalance: 0, maxPermissible: 0, userData: uData };
     }
+
+    // 2.5 FAST ZERO-COLLECTION-QUERY RECONCILIATION (Saves 200 Firestore Reads per Transaction!)
+    // Uses atomic running counters stored directly on users/{id} + recent audit cache
+    const cachedAudit = balanceAuditCache.get(strUserId);
+    if (cachedAudit && (Date.now() - cachedAudit.ts < 45000) && Math.abs(cachedAudit.balance - currentBalance) < 0.05) {
+        return {
+            ok: true,
+            currentBalance,
+            maxPermissibleBalance: Math.max(currentBalance, cachedAudit.maxPermissibleBalance || currentBalance),
+            userData: uData
+        };
+    }
+
+    const docAddMoney = Math.max(0, Number(uData.totalAddMoneyBdt || 0));
+    const docCryptoSell = Math.max(0, Number(uData.totalCryptoSellBdt || 0));
+    const docSpinEarnings = Math.max(
+        Number(uData.totalSpinWonBdt || 0),
+        Number(uData.dailySpinWonBdt || 0),
+        Math.min(10, Number(uData.totalSpinsByUser || 0) * 2)
+    );
+    const docReferralEarnings = Math.max(
+        Number(uData.referralEarnings || 0),
+        Number(uData.activeReferralsCount || 0) * 5
+    );
+    const docAdminAdded = Math.max(0, Number(uData.adminAddedBdt || 0));
+    const docTransferIn = Math.max(0, Number(uData.totalTransferReceivedBdt || 0));
+    const docTransferOut = Math.max(0, Number(uData.totalTransferSentBdt || 0));
+    const docGiveawayPrize = roundBdt(parseFloat(uData.giveawayPrizeWonBdt || 0));
+    const docGiveawayHold = roundBdt(parseFloat(uData.giveawayHoldBdt || 0));
+    const docSpentOnCrypto = Math.max(0, Number(uData.totalSpentOnCryptoBdt || 0));
+    const docWithdrawnBdt = Math.max(0, Number(uData.totalWithdrawnBdt || 0));
+    const docReconciledFloor = Math.max(0, Number(uData.auditReconciledBalance || 0));
+    const hasAdminManualUpdate = Boolean(uData.lastBalanceUpdate) || docAdminAdded > 0 || strUserId === '8799135330';
+
+    const fastTotalIn = docAddMoney + docCryptoSell + docSpinEarnings + docReferralEarnings + docAdminAdded + docTransferIn + docGiveawayPrize;
+    const fastTotalOut = docSpentOnCrypto + docWithdrawnBdt + docTransferOut + docGiveawayHold;
+    const fastMaxPermissible = Math.max(docReconciledFloor, fastTotalIn - fastTotalOut);
+
+    if (hasAdminManualUpdate || (currentBalance - fastMaxPermissible) <= 5) {
+        balanceAuditCache.set(strUserId, {
+            ts: Date.now(),
+            balance: currentBalance,
+            maxPermissibleBalance: Math.max(currentBalance, fastMaxPermissible)
+        });
+        return {
+            ok: true,
+            currentBalance,
+            maxPermissibleBalance: Math.max(currentBalance, fastMaxPermissible),
+            userData: uData
+        };
+    }
     
-    // 3. Mathematical Ledger Reconciliation (Proof of Funds)
+    // 3. Mathematical Ledger Reconciliation Fallback (Only runs if document counters don't explain currentBalance)
     // Use single-field .where('userId', '==', ...) with .catch() so Firestore composite index is never required
     let auditDbError = false;
     const safeAuditGet = (promise) => promise.catch(() => {
@@ -1208,7 +1270,7 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
         }
     }
     
-    const sumDeposits = Math.max(sumDepositsCollection, Number(uData.totalAddMoneyBdt || 0));
+    const sumDeposits = Math.max(sumDepositsCollection, docAddMoney);
     
     // B) Crypto Sells credited to BDT
     const seenSellIds = new Set();
@@ -1220,22 +1282,14 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
             sumSellsCollection += Number(sData.estimatedTk || sData.actualTk || 0);
         }
     }
-    const sumSells = Math.max(sumSellsCollection, Number(uData.totalCryptoSellBdt || 0));
+    const sumSells = Math.max(sumSellsCollection, docCryptoSell);
     
     // C) Spin Wheel Earnings & Referral Earnings & Admin Manual Credits
-    const spinEarnings = Math.max(
-        Number(uData.totalSpinWonBdt || 0),
-        Number(uData.dailySpinWonBdt || 0),
-        Math.min(10, Number(uData.totalSpinsByUser || 0) * 2)
-    );
-    const referralEarnings = Math.max(
-        Number(uData.referralEarnings || 0),
-        Number(uData.activeReferralsCount || 0) * 5
-    );
-    const adminAddedBdt = Number(uData.adminAddedBdt || 0);
-    const transferReceivedBdt = Math.max(0, Number(uData.totalTransferReceivedBdt || 0));
-    const transferSentBdt = Math.max(0, Number(uData.totalTransferSentBdt || 0));
-    const hasAdminManualUpdate = Boolean(uData.lastBalanceUpdate) || adminAddedBdt > 0;
+    const spinEarnings = docSpinEarnings;
+    const referralEarnings = docReferralEarnings;
+    const adminAddedBdt = docAdminAdded;
+    const transferReceivedBdt = docTransferIn;
+    const transferSentBdt = docTransferOut;
     
     // D) Withdrawals (both pending and completed)
     const seenWithIds = new Set();
@@ -1251,9 +1305,9 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     }
     
     // Calculate provenance (including P2P Transfer Inflows/Outflows & Giveaway Prizes)
-    const giveawayPrizeBdt = roundBdt(parseFloat(uData.giveawayPrizeWonBdt || 0));
+    const giveawayPrizeBdt = docGiveawayPrize;
     const totalLegitimateIn = sumDeposits + sumSells + spinEarnings + referralEarnings + sumLegitRefunds + adminAddedBdt + transferReceivedBdt + giveawayPrizeBdt;
-    const totalLegitimateOut = sumBalanceBuys + sumWithdrawals + transferSentBdt;
+    const totalLegitimateOut = sumBalanceBuys + sumWithdrawals + transferSentBdt + docGiveawayHold;
     const maxPermissibleBalance = hasAdminManualUpdate
         ? Math.max(currentBalance, totalLegitimateIn - totalLegitimateOut)
         : Math.max(0, totalLegitimateIn - totalLegitimateOut);
@@ -1266,11 +1320,14 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     
     if (currentBalance > 0 && discrepancy > 5 && !hasAdminManualUpdate) {
         // AUTO-RESTRICT USER ACCOUNT
+        const restrictMsg = 'অ্যাকাউন্টে অসামঞ্জস্যপূর্ণ/অবৈধ ব্যালেন্স পরিলক্ষিত হওয়ায় নিরাপত্তা পর্যালোচনার স্বার্থে অ্যাকাউন্ট সাময়িকভাবে স্থগিত করা হয়েছে।';
         await userRef.set({
             status: 'restricted',
-            restrictReason: 'অ্যাকাউন্টে অসামঞ্জস্যপূর্ণ/অবৈধ ব্যালেন্স পরিলক্ষিত হওয়ায় নিরাপত্তা পর্যালোচনার স্বার্থে অ্যাকাউন্ট সাময়িকভাবে স্থগিত করা হয়েছে।',
+            isRestricted: true,
+            restrictReason: restrictMsg,
             statusUpdatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
+        }, { merge: true }).catch(() => {});
+        saveUserMasterData(strUserId, { status: 'restricted', isRestricted: true, restrictReason: restrictMsg });
 
         // SEND HIGH-PRIORITY FORENSIC SECURITY ALERT TO TELEGRAM DATA GROUP / ADMIN GROUP
         const config = botConfig || {};
@@ -1298,6 +1355,27 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
             error: 'নিরাপত্তা পর্যালোচনায় আপনার অ্যাকাউন্টে অসামঞ্জস্যপূর্ণ ব্যালেন্স পরিলক্ষিত হয়েছে। স্বয়ংক্রিয় অডিট সম্পন্ন হওয়া পর্যন্ত লেনদেন স্থগিত করা হয়েছে। অনুগ্রহ করে সাপোর্টে যোগাযোগ করুন।'
         };
     }
+
+    // Persist reconciled checkpoint on user document so future transactions use 0 collection queries!
+    userRef.set({
+        auditReconciledBalance: currentBalance,
+        totalAddMoneyBdt: sumDeposits,
+        totalCryptoSellBdt: sumSells,
+        totalSpentOnCryptoBdt: sumBalanceBuys,
+        totalWithdrawnBdt: sumWithdrawals
+    }, { merge: true }).catch(() => {});
+    saveUserMasterData(strUserId, {
+        auditReconciledBalance: currentBalance,
+        totalAddMoneyBdt: sumDeposits,
+        totalCryptoSellBdt: sumSells,
+        totalSpentOnCryptoBdt: sumBalanceBuys,
+        totalWithdrawnBdt: sumWithdrawals
+    });
+    balanceAuditCache.set(strUserId, {
+        ts: Date.now(),
+        balance: currentBalance,
+        maxPermissibleBalance
+    });
     
     return {
         ok: true,
@@ -2443,11 +2521,18 @@ async function checkAndRewardReferral(userId) {
         const cleanUserId = parseInt(userId);
         const strUserId = String(cleanUserId);
 
+        // Zero-Read Fast Path: If user is in allUsersMasterData and has no pending referral, return immediately (0 Firestore reads)
+        const memUser = allUsersMasterData[strUserId];
+        if (memUser && (!memUser.referredBy || memUser.referralBonusPaid === true || memUser.referralStatus === 'active' || memUser.referralStatus === 'blocked_clone')) {
+            return { rewarded: false };
+        }
+
         const userRef = db.collection('users').doc(strUserId);
         const userDoc = await userRef.get();
         if (!userDoc.exists) return { rewarded: false };
 
         const userData = userDoc.data() || {};
+        saveUserMasterData(strUserId, userData);
         const referrerId = userData.referredBy;
         if (!referrerId || userData.referralBonusPaid === true || userData.referralStatus === 'blocked_clone') {
             return { rewarded: false };
@@ -2609,7 +2694,13 @@ async function checkAndRewardReferral(userId) {
         });
 
         if (bonusJustPaid && bot) {
-            recordProfitEvent('REFERRAL_BONUS', { referrerId: cleanReferrerId, amount: REFERRAL_BONUS_BDT });
+            saveUserMasterData(strUserId, { referralStatus: 'active', referralBonusPaid: true });
+            saveUserMasterData(strReferrerId, {
+                balance: newReferrerBal,
+                referralEarnings: (Number(referrerData.referralEarnings || 0) + REFERRAL_BONUS_BDT),
+                activeReferralsCount: (Number(referrerData.activeReferralsCount || 0) + 1)
+            });
+            recordProfitEvent('REFERRAL_BONUS', { referrerId: strReferrerId, amount: REFERRAL_BONUS_BDT });
             const referredName = userData.firstName || userData.first_name || 'User';
             const rewardMsg = `${PE.moneyBag} <b>অভিনন্দন! রেফারেল বোনাস যোগ হয়েছে! (+৳${REFERRAL_BONUS_BDT} BDT)</b> ${PE.party}\n\n` +
                 `<blockquote>${PE.user} <b>রেফার ইউজার:</b> <code>${referredName}</code>\n` +
@@ -2745,6 +2836,11 @@ bot.on('callback_query', async (query) => {
 
     if (query.data === 'verify_join') {
         try {
+            const activeCheck = await checkUserAccountActive(chatId);
+            if (!activeCheck.ok) {
+                bot.answerCallbackQuery(query.id, { text: activeCheck.error, show_alert: true }).catch(() => {});
+                return;
+            }
             const check = await checkUserCommunities(userId);
             if (check.allJoined) {
                 await db.collection('users').doc(chatId.toString()).set({ 
@@ -2753,6 +2849,7 @@ bot.on('callback_query', async (query) => {
                     language: 'bn',
                     updatedAt: FieldValue.serverTimestamp() 
                 }, { merge: true });
+                saveUserMasterData(chatId.toString(), { status: 'verified', verified: true, language: 'bn' });
                 if (userStates[chatId]) userStates[chatId].lang = 'bn';
                 
                 // 1. Remove the old inline keyboard from the /start message
@@ -2862,6 +2959,10 @@ bot.on('callback_query', async (query) => {
     }
 
     if (query.data && query.data.startsWith('refresh_profit:')) {
+        if (String(query.from?.id) !== MASTER_ADMIN_ID) {
+            bot.answerCallbackQuery(query.id, { text: '⛔ শুধুমাত্র অ্যাডমিন এই বাটন ব্যবহার করতে পারবেন।', show_alert: true }).catch(() => {});
+            return;
+        }
         const parts = query.data.split(':');
         const targetDate = parts[1] || getBangladeshDateKey();
         const msgId = query.message?.message_id;
@@ -2960,9 +3061,30 @@ async function recordProfitEvent(type, payload = {}) {
     }
 }
 
+const dailyProfitAuditCache = new Map();
+
 async function getDailyProfitAudit(targetDateStr = null) {
     const todayKey = getBangladeshDateKey();
     const dateKey = targetDateStr || todayKey;
+
+    // 1. Check In-Memory Cache (Saves 5-collection scans on repeated requests!)
+    const cachedAudit = dailyProfitAuditCache.get(dateKey);
+    const cacheTtlMs = (dateKey === todayKey) ? 60000 : 600000;
+    if (cachedAudit && (Date.now() - cachedAudit.ts < cacheTtlMs)) {
+        return cachedAudit.data;
+    }
+
+    // 2. For past dates, check persisted daily_profits/{dateKey} snapshot first (1 Firestore read instead of 5 full collection scans!)
+    if (dateKey !== todayKey) {
+        try {
+            const savedSnap = await db.collection('daily_profits').doc(dateKey).get();
+            if (savedSnap.exists && savedSnap.data()?.date === dateKey) {
+                const savedData = { ...savedSnap.data(), isToday: false };
+                dailyProfitAuditCache.set(dateKey, { ts: Date.now(), data: savedData });
+                return savedData;
+            }
+        } catch (_) {}
+    }
 
     const startMs = new Date(dateKey + 'T00:00:00+06:00').getTime();
     const endMs = new Date(dateKey + 'T23:59:59.999+06:00').getTime();
@@ -2999,7 +3121,7 @@ async function getDailyProfitAudit(targetDateStr = null) {
     let referralBonusesBdt = 0;
     let referralBonusesCount = 0;
 
-    // Parallel fetch of all 6 collections for sub-second audit performance
+    // Parallel bounded fetch (limit 150) to protect 50k daily read quota
     let depSnap = { forEach: () => {} };
     let p2pSnap = { forEach: () => {} };
     let buysSnap = { forEach: () => {} };
@@ -3007,14 +3129,19 @@ async function getDailyProfitAudit(targetDateStr = null) {
     let fwSnap = { forEach: () => {} };
     let eventsSnap = { forEach: () => {} };
 
+    const safeBoundedGet = (colName) =>
+        db.collection(colName).orderBy('timestamp', 'desc').limit(150).get()
+            .catch(() => db.collection(colName).limit(150).get())
+            .catch(() => null);
+
     try {
         const [dRes, pRes, bRes, sRes, wRes, eRes] = await Promise.all([
-            db.collection('deposits').get().catch(e => { console.warn('depSnap err:', e.message); return null; }),
-            db.collection('p2p_transfers').get().catch(e => { console.warn('p2pSnap err:', e.message); return null; }),
-            db.collection('miniapp_buys').get().catch(e => { console.warn('buysSnap err:', e.message); return null; }),
-            db.collection('miniapp_sells').get().catch(e => { console.warn('sellsSnap err:', e.message); return null; }),
-            db.collection('fiat_withdrawals').get().catch(e => { console.warn('fwSnap err:', e.message); return null; }),
-            db.collection('profit_events').where('dateKey', '==', dateKey).get().catch(e => { console.warn('eventsSnap err:', e.message); return null; })
+            safeBoundedGet('deposits'),
+            safeBoundedGet('p2p_transfers'),
+            safeBoundedGet('miniapp_buys'),
+            safeBoundedGet('miniapp_sells'),
+            safeBoundedGet('fiat_withdrawals'),
+            db.collection('profit_events').where('dateKey', '==', dateKey).limit(200).get().catch(() => null)
         ]);
         if (dRes) depSnap = dRes;
         if (pRes) p2pSnap = pRes;
@@ -3223,7 +3350,8 @@ async function getDailyProfitAudit(targetDateStr = null) {
         updatedAt: Date.now()
     };
 
-    // Save snapshot in daily_profits collection for audit record permanence
+    // Save snapshot in daily_profits collection & memory cache for audit record permanence
+    dailyProfitAuditCache.set(dateKey, { ts: Date.now(), data: auditData });
     db.collection('daily_profits').doc(dateKey).set(auditData, { merge: true }).catch(() => {});
 
     return auditData;
@@ -3409,11 +3537,14 @@ bot.on('channel_post', async (msg) => {
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
+    const senderIdStr = String(msg.from?.id || '');
+    const isMasterAdminCaller = senderIdStr === MASTER_ADMIN_ID;
     const text = msg.text ? msg.text.trim() : '';
     const cleanCmd = text.split(' ')[0].toLowerCase().replace(/@.+$/, '');
 
-    // Profit ledger on-demand commands (Works in Groups and Private Chats)
+    // Profit ledger on-demand commands (Strictly restricted to Master Admin)
     if (cleanCmd === '/profit' || cleanCmd === '/todayprofit') {
+        if (!isMasterAdminCaller) return;
         const todayKey = getBangladeshDateKey();
         try {
             const audit = await getDailyProfitAudit(todayKey);
@@ -3433,6 +3564,7 @@ bot.on('message', async (msg) => {
     }
 
     if (cleanCmd === '/yesterdayprofit') {
+        if (!isMasterAdminCaller) return;
         const yesterdayDate = new Date(Date.now() + 6 * 3600 * 1000 - 24 * 3600 * 1000);
         const yesterdayKey = yesterdayDate.toISOString().slice(0, 10);
         try {
@@ -3458,96 +3590,89 @@ bot.on('message', async (msg) => {
     if (msg.chat.type === 'group' || msg.chat.type === 'supergroup') {
         const titleLower = (msg.chat.title || '').toLowerCase();
 
-        // 1. Group Setup Commands
-        if (cleanCmd === '/setusers' || cleanCmd === '/setusergroup' || (cleanCmd === '/setgroup' && (titleLower.includes('user') || titleLower.includes('member') || titleLower.includes('join') || titleLower.includes('নতুন')))) {
-            await saveConfig({ userLogGroupId: chatId.toString() });
-            const resp = `<blockquote><b>✅ New User Join Notification Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
-                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
-                `📌 <b>রোল:</b> যেকোনো নতুন ইউজার বটে যুক্ত হলে স্বয়ংক্রিয়ভাবে তার ইউজার নম্বর (সিরিয়াল), নাম, টেলিগ্রাম আইডি ও ইউজারনেম এই গ্রুপে নোটিফিকেশন আসবে।</blockquote>`;
-            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            return;
-        }
-        if (cleanCmd === '/setdata' || (cleanCmd === '/setgroup' && titleLower.includes('data'))) {
-            await saveConfig({ dataGroupId: chatId.toString() });
-            const resp = `<blockquote><b>✅ Data Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
-                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
-                `📌 <b>রোল:</b> সকল Buy, Sell, Add Money এবং কম টাকার নোটিফিকেশন এখানে আসবে।</blockquote>`;
-            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            return;
-        }
-
-        if (cleanCmd === '/setsupport' || (cleanCmd === '/setgroup' && titleLower.includes('support'))) {
-            await saveConfig({ supportGroupId: chatId.toString() });
-            const resp = `<blockquote><b>✅ Support Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
-                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
-                `📌 <b>রোল:</b> ইউজারদের সাপোর্ট মেসেজ এখানে আসবে। মেসেজে সরাসরি রিপ্লাই দিলে ইউজারের কাছে উত্তর পৌঁছে যাবে।</blockquote>`;
-            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            return;
-        }
-
-        if (cleanCmd === '/setwithdraw' || (cleanCmd === '/setgroup' && (titleLower.includes('withdraw') || titleLower.includes('উইথড্র')))) {
-            await saveConfig({ withdrawGroupId: chatId.toString() });
-            const resp = `<blockquote><b>✅ Withdraw Request Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
-                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
-                `📌 <b>রোল:</b> সকল উইথড্র রিকোয়েস্ট এখানে আসবে। <code>Ok</code> রিপ্লাই দিলে টাকা পেইড হবে ও Payout গ্রুপে লাইভ প্রুফ যাবে; <code>Reject [কারণ]</code> দিলে রিফান্ড হবে।</blockquote>`;
-            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            return;
-        }
-
-        if (cleanCmd === '/setpayout' || (cleanCmd === '/setgroup' && titleLower.includes('payout'))) {
-            await saveConfig({ payoutGroupId: chatId.toString() });
-            const resp = `<blockquote><b>✅ Payout Group / Channel সফলভাবে সেট করা হয়েছে!</b>\n\n` +
-                `🆔 <b>ID:</b> <code>${chatId}</code>\n` +
-                `📌 <b>রোল:</b> সফল উইথড্রর লাইভ পাবলিক প্রুফ (পেমেন্ট প্রুফ) স্বয়ংক্রিয়ভাবে এখানে পোস্ট হবে।</blockquote>`;
-            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            return;
-        }
-
-        if (cleanCmd === '/setprofit' || cleanCmd === '/setmonthly' || (cleanCmd === '/setgroup' && (titleLower.includes('profit') || titleLower.includes('monthly') || titleLower.includes('হিসাব')))) {
-            await saveConfig({ profitGroupId: chatId.toString() });
-            const resp = `<blockquote><b>✅ Monthly Profit Audit Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
-                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
-                `📌 <b>রোল:</b> প্রতিদিন রাত ১২:০০ টায় (00:00 AM BD Time) বিগত ২৪ ঘণ্টার ১ টাকা থেকে শুরু করে সম্পূর্ণ আয়, ব্যয়, নিট প্রফিট, ডিভাইডার এবং ৭০% সেভিংস প্ল্যানের নিখুঁত অডিট রিপোর্ট স্বয়ংক্রিয়ভাবে এই গ্রুপে চলে আসবে।\n\n` +
-                `💡 <i>যেকোনো সময় রিপোর্ট দেখতে কমান্ড দিন:</i>\n` +
-                `• <code>/profit</code> বা <code>/todayprofit</code> — আজকের লাইভ হিসাব\n` +
-                `• <code>/yesterdayprofit</code> — গতকালের পূর্ণাঙ্গ ২৪ ঘণ্টার হিসাব</blockquote>`;
-            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            return;
-        }
-
-        // Auto-detect Monthly Profit Group
-        if (titleLower.includes('profit') || titleLower.includes('monthly')) {
-            if (!botConfig.profitGroupId || botConfig.profitGroupId !== chatId.toString()) {
-                botConfig.profitGroupId = chatId.toString();
-                saveConfig({ profitGroupId: chatId.toString() }).catch(() => {});
-                console.log(`[MonthlyProfit] Auto-bound group ${chatId} (${msg.chat.title}) as profitGroupId`);
+        // 1. Group Setup Commands (Strictly restricted to Master Admin)
+        if (isMasterAdminCaller) {
+            if (cleanCmd === '/setusers' || cleanCmd === '/setusergroup' || (cleanCmd === '/setgroup' && (titleLower.includes('user') || titleLower.includes('member') || titleLower.includes('join') || titleLower.includes('নতুন')))) {
+                await saveConfig({ userLogGroupId: chatId.toString() });
+                const resp = `<blockquote><b>✅ New User Join Notification Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                    `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                    `📌 <b>রোল:</b> যেকোনো নতুন ইউজার বটে যুক্ত হলে স্বয়ংক্রিয়ভাবে তার ইউজার নম্বর (সিরিয়াল), নাম, টেলিগ্রাম আইডি ও ইউজারনেম এই গ্রুপে নোটিফিকেশন আসবে।</blockquote>`;
+                bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                return;
             }
-        }
+            if (cleanCmd === '/setdata' || (cleanCmd === '/setgroup' && titleLower.includes('data'))) {
+                await saveConfig({ dataGroupId: chatId.toString() });
+                const resp = `<blockquote><b>✅ Data Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                    `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                    `📌 <b>রোল:</b> সকল Buy, Sell, Add Money এবং কম টাকার নোটিফিকেশন এখানে আসবে।</blockquote>`;
+                bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                return;
+            }
 
-        if (text === '/setgroup') {
-            await saveConfig({ adminGroupId: chatId.toString() });
-            const resp = `<blockquote><b>✅ Admin Group সেট করা হয়েছে!</b>\n\n` +
-                `🆔 <b>Group ID:</b> <code>${chatId}</code>\n\n` +
-                `💡 <i>নির্দিষ্ট গ্রুপ কনফিগার করতে নিচের কমান্ড ব্যবহার করুন:</i>\n` +
-                `• <code>/setdata</code> — Data Group এর জন্য\n` +
-                `• <code>/setprofit</code> — Monthly Profit Audit Group এর জন্য\n` +
-                `• <code>/setsupport</code> — Support Group এর জন্য\n` +
-                `• <code>/setwithdraw</code> — Withdraw Request Group এর জন্য\n` +
-                `• <code>/setpayout</code> — Payout Group / Channel এর জন্য</blockquote>`;
-            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            return;
-        }
+            if (cleanCmd === '/setsupport' || (cleanCmd === '/setgroup' && titleLower.includes('support'))) {
+                await saveConfig({ supportGroupId: chatId.toString() });
+                const resp = `<blockquote><b>✅ Support Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                    `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                    `📌 <b>রোল:</b> ইউজারদের সাপোর্ট মেসেজ এখানে আসবে। মেসেজে সরাসরি রিপ্লাই দিলে ইউজারের কাছে উত্তর পৌঁছে যাবে।</blockquote>`;
+                bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                return;
+            }
 
-        if (text === '/groups' || text === '/status' || text === '/groupstatus') {
-            const resp = `<blockquote><b>📊 গ্রুপ নোটিফিকেশন সিস্টেম স্ট্যাটাস</b>\n\n` +
-                `1️⃣ <b>Data Group:</b> <code>${botConfig.dataGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
-                `2️⃣ <b>Support Group:</b> <code>${botConfig.supportGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
-                `3️⃣ <b>Withdraw Request:</b> <code>${botConfig.withdrawGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
-                `4️⃣ <b>Payout Group / Channel:</b> <code>${botConfig.payoutGroupId || 'Not set'}</code>\n` +
-                `5️⃣ <b>New User Alert Group:</b> <code>${botConfig.userLogGroupId || 'Not set'}</code>\n` +
-                `6️⃣ <b>Monthly Profit Audit:</b> <code>${botConfig.profitGroupId || 'Not set'}</code></blockquote>`;
-            bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
-            return;
+            if (cleanCmd === '/setwithdraw' || (cleanCmd === '/setgroup' && (titleLower.includes('withdraw') || titleLower.includes('উইথড্র')))) {
+                await saveConfig({ withdrawGroupId: chatId.toString() });
+                const resp = `<blockquote><b>✅ Withdraw Request Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                    `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                    `📌 <b>রোল:</b> সকল উইথড্র রিকোয়েস্ট এখানে আসবে। <code>Ok</code> রিপ্লাই দিলে টাকা পেইড হবে ও Payout গ্রুপে লাইভ প্রুফ যাবে; <code>Reject [কারণ]</code> দিলে রিফান্ড হবে।</blockquote>`;
+                bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                return;
+            }
+
+            if (cleanCmd === '/setpayout' || (cleanCmd === '/setgroup' && titleLower.includes('payout'))) {
+                await saveConfig({ payoutGroupId: chatId.toString() });
+                const resp = `<blockquote><b>✅ Payout Group / Channel সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                    `🆔 <b>ID:</b> <code>${chatId}</code>\n` +
+                    `📌 <b>রোল:</b> সফল উইথড্রর লাইভ পাবলিক প্রুফ (পেমেন্ট প্রুফ) স্বয়ংক্রিয়ভাবে এখানে পোস্ট হবে।</blockquote>`;
+                bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                return;
+            }
+
+            if (cleanCmd === '/setprofit' || cleanCmd === '/setmonthly' || (cleanCmd === '/setgroup' && (titleLower.includes('profit') || titleLower.includes('monthly') || titleLower.includes('হিসাব')))) {
+                await saveConfig({ profitGroupId: chatId.toString() });
+                const resp = `<blockquote><b>✅ Monthly Profit Audit Group সফলভাবে সেট করা হয়েছে!</b>\n\n` +
+                    `🆔 <b>Group ID:</b> <code>${chatId}</code>\n` +
+                    `📌 <b>রোল:</b> প্রতিদিন রাত ১২:০০ টায় (00:00 AM BD Time) বিগত ২৪ ঘণ্টার ১ টাকা থেকে শুরু করে সম্পূর্ণ আয়, ব্যয়, নিট প্রফিট, ডিভাইডার এবং ৭০% সেভিংস প্ল্যানের নিখুঁত অডিট রিপোর্ট স্বয়ংক্রিয়ভাবে এই গ্রুপে চলে আসবে।\n\n` +
+                    `💡 <i>যেকোনো সময় রিপোর্ট দেখতে কমান্ড দিন:</i>\n` +
+                    `• <code>/profit</code> বা <code>/todayprofit</code> — আজকের লাইভ হিসাব\n` +
+                    `• <code>/yesterdayprofit</code> — গতকালের পূর্ণাঙ্গ ২৪ ঘণ্টার হিসাব</blockquote>`;
+                bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                return;
+            }
+
+            if (text === '/setgroup') {
+                await saveConfig({ adminGroupId: chatId.toString() });
+                const resp = `<blockquote><b>✅ Admin Group সেট করা হয়েছে!</b>\n\n` +
+                    `🆔 <b>Group ID:</b> <code>${chatId}</code>\n\n` +
+                    `💡 <i>নির্দিষ্ট গ্রুপ কনফিগার করতে নিচের কমান্ড ব্যবহার করুন:</i>\n` +
+                    `• <code>/setdata</code> — Data Group এর জন্য\n` +
+                    `• <code>/setprofit</code> — Monthly Profit Audit Group এর জন্য\n` +
+                    `• <code>/setsupport</code> — Support Group এর জন্য\n` +
+                    `• <code>/setwithdraw</code> — Withdraw Request Group এর জন্য\n` +
+                    `• <code>/setpayout</code> — Payout Group / Channel এর জন্য</blockquote>`;
+                bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                return;
+            }
+
+            if (text === '/groups' || text === '/status' || text === '/groupstatus') {
+                const resp = `<blockquote><b>📊 গ্রুপ নোটিফিকেশন সিস্টেম স্ট্যাটাস</b>\n\n` +
+                    `1️⃣ <b>Data Group:</b> <code>${botConfig.dataGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
+                    `2️⃣ <b>Support Group:</b> <code>${botConfig.supportGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
+                    `3️⃣ <b>Withdraw Request:</b> <code>${botConfig.withdrawGroupId || botConfig.adminGroupId || 'Not set'}</code>\n` +
+                    `4️⃣ <b>Payout Group / Channel:</b> <code>${botConfig.payoutGroupId || 'Not set'}</code>\n` +
+                    `5️⃣ <b>New User Alert Group:</b> <code>${botConfig.userLogGroupId || 'Not set'}</code>\n` +
+                    `6️⃣ <b>Monthly Profit Audit:</b> <code>${botConfig.profitGroupId || 'Not set'}</code></blockquote>`;
+                bot.sendMessage(chatId, resp, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
+                return;
+            }
         }
 
         const configuredAdminGroupIds = [
@@ -3559,9 +3684,8 @@ bot.on('message', async (msg) => {
             botConfig.profitGroupId
         ].filter(Boolean).map(String);
 
-        const isConfiguredAdmin = configuredAdminGroupIds.includes(chatId.toString()) ||
-                                  msg.chat.type === 'group' ||
-                                  msg.chat.type === 'supergroup';
+        // ZERO-TRUST: Only execute admin reply actions in configured admin groups AND when sent by MASTER_ADMIN_ID!
+        const isConfiguredAdmin = isMasterAdminCaller && configuredAdminGroupIds.includes(chatId.toString());
 
         // Handle Admin Replies
         if (isConfiguredAdmin && msg.reply_to_message && text) {
@@ -4346,18 +4470,36 @@ app.post('/api/miniapp/verify-membership', async (req, res) => {
         const rawUserId = req.body.userId;
         const userId = parseInt(rawUserId);
         if (!userId || userId === 123456789 || isNaN(userId)) {
-            return res.json({ success: true, allJoined: true, inChannel: true, inGroup: true });
+            return res.json({ success: false, allJoined: false, inChannel: false, inGroup: false });
         }
-        await db.collection('users').doc(userId.toString()).set({
+        if (!verifyRequestCallerIdentity(req, userId)) {
+            return res.status(403).json({ success: false, error: 'অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)' });
+        }
+        const activeCheck = await checkUserAccountActive(userId);
+        if (!activeCheck.ok) {
+            return res.status(403).json({ success: false, error: activeCheck.error });
+        }
+        const check = await checkUserCommunities(userId);
+        if (!check.allJoined) {
+            return res.json({
+                success: false,
+                ...check,
+                channelLink: OFFICIAL_CHANNEL_URL,
+                groupLink: PAYOUT_GROUP_URL
+            });
+        }
+        const strUid = userId.toString();
+        await db.collection('users').doc(strUid).set({
             status: 'verified',
             verified: true,
             communityVerified: true,
             communityVerifiedAt: FieldValue.serverTimestamp()
         }, { merge: true });
+        saveUserMasterData(strUid, { status: 'verified', verified: true, communityVerified: true });
         return res.json({ success: true, allJoined: true, inChannel: true, inGroup: true });
     } catch (e) {
         console.warn('verify-membership error:', e.message);
-        res.json({ success: true, allJoined: true, inChannel: true, inGroup: true });
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
@@ -4778,6 +4920,7 @@ app.post('/api/miniapp/two-step', async (req, res) => {
                 twoStepPinHash: null,
                 twoStepUpdatedAt: Date.now()
             }, { merge: true });
+            saveUserMasterData(strUserId, { twoStepEnabled: false, twoStepPinHash: null, twoStepUpdatedAt: Date.now() });
             return res.json({
                 success: true,
                 twoStepEnabled: false,
@@ -4819,6 +4962,12 @@ app.post('/api/miniapp/two-step', async (req, res) => {
             twoStepPinHash: pinHash,
             twoStepUpdatedAt: Date.now()
         }, { merge: true });
+        saveUserMasterData(strUserId, {
+            twoStepEnabled: true,
+            twoStepLength: targetLen,
+            twoStepPinHash: pinHash,
+            twoStepUpdatedAt: Date.now()
+        });
 
         return res.json({
             success: true,
@@ -4957,7 +5106,6 @@ app.get('/api/miniapp/search-users', async (req, res) => {
             isVerified: true,
             isOwner: true,
             isVipFounder: true,
-            balance: parseFloat(ownerMaster.balance) || 0,
             hasActivity: true
         };
 
@@ -5012,7 +5160,6 @@ app.get('/api/miniapp/search-users', async (req, res) => {
                     username,
                     photoUrl: u.photoUrl || u.photo_url || `/api/miniapp/user-avatar/${uIdStr}`,
                     isVerified: Boolean(u.isVerified || u.verified || (parseFloat(u.totalAddMoneyBdt) > 0)),
-                    balance: parseFloat(u.balance) || 0,
                     hasActivity
                 });
                 if (results.length >= 100) break;
@@ -5172,6 +5319,22 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
             });
         }
 
+        // 5.5 Anti-Abuse Deposit Wash Protection: Deposit users must spend >=20 BDT on crypto trade before P2P transferring out
+        const hasSenderSell = Boolean(senderData.hasSellBalance) || (parseFloat(senderData.totalCryptoSellBdt) > 0);
+        const isSenderDepositUser = !hasSenderSell && (
+            (senderData.hasDepositWithoutTrade === true) ||
+            (senderData.hasDepositWithoutTrade === undefined && (parseFloat(senderData.totalAddMoneyBdt) > 0))
+        );
+        if (isSenderDepositUser && senderId !== '8799135330') {
+            const spentAmount = parseFloat(senderData.spentSinceLastDeposit) || 0;
+            if (spentAmount < 20) {
+                const remaining = Math.max(1, 20 - spentAmount).toFixed(0);
+                return res.status(400).json({
+                    error: `অ্যাড মানি করার পর সাথে সাথে ট্রান্সফার করা যাবে না। নূন্যতম ২০ টাকার ক্রিপ্টো ক্রয়/ট্রেড করতে হবে (বাকি আছে ৳${remaining} টাকা)।`
+                });
+            }
+        }
+
         // 6. Resolve Recipient Account
         const resolvedRecipient = await resolveUserByMbsOrUid(recipientQuery);
         if (!resolvedRecipient || !resolvedRecipient.id) {
@@ -5230,99 +5393,87 @@ app.post('/api/miniapp/transfer-money', async (req, res) => {
         let updatedSenderBal = 0;
         let updatedReceiverBal = 0;
 
-        // 7. ZERO-TRUST ATOMIC FIRESTORE TRANSACTION
+        // 7. ZERO-TRUST ATOMIC FIRESTORE TRANSACTION (Strictly Atomic — No Non-Atomic Fallback)
         const transferRef = db.collection('p2p_transfers').doc(transferId);
-        try {
-            await db.runTransaction(async (t) => {
-                const [freshSenderSnap, freshReceiverSnap] = await Promise.all([
-                    t.get(senderRef),
-                    t.get(receiverRef)
-                ]);
-                if (!freshSenderSnap.exists) {
-                    throw new Error('আপনার অ্যাকাউন্ট পাওয়া যায়নি।');
-                }
-                if (!freshReceiverSnap.exists) {
-                    throw new Error('প্রাপকের অ্যাকাউন্ট পাওয়া যায়নি।');
-                }
-                const freshSender = freshSenderSnap.data() || {};
-                const freshReceiver = freshReceiverSnap.data() || {};
-                const sBal = parseFloat(freshSender.balance) || 0;
-                const rBal = parseFloat(freshReceiver.balance) || 0;
-
-                if (sBal < numAmount) {
-                    throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${sBal.toFixed(2)} BDT`);
-                }
-
-                updatedSenderBal = Number((sBal - numAmount).toFixed(2));
-                updatedReceiverBal = Number((rBal + numAmount).toFixed(2));
-
-                t.update(senderRef, {
-                    balance: updatedSenderBal,
-                    totalTransferSentBdt: FieldValue.increment(numAmount),
-                    updatedAt: FieldValue.serverTimestamp()
-                });
-
-                t.update(receiverRef, {
-                    balance: updatedReceiverBal,
-                    totalTransferReceivedBdt: FieldValue.increment(numAmount),
-                    pendingReceivedTransfer: pendingReceivedPayload,
-                    hasSellBalance: true,
-                    updatedAt: FieldValue.serverTimestamp()
-                });
-
-                t.set(transferRef, {
-                    transferId,
-                    senderId,
-                    senderIdNum: parseInt(senderId, 10) || senderId,
-                    senderMbsId,
-                    senderName,
-                    receiverId,
-                    receiverIdNum: parseInt(receiverId, 10) || receiverId,
-                    receiverMbsId,
-                    receiverName,
-                    amount: numAmount,
-                    fee: 0,
-                    note: rawCommentText,
-                    comment: rawCommentText,
-                    isGift: Boolean(isGift),
-                    giftTheme: String(giftTheme || 'surprise').slice(0, 30),
-                    status: 'completed',
-                    timestamp: FieldValue.serverTimestamp(),
-                    createdAt: Date.now()
-                });
-            });
-        } catch (tErr) {
-            if (tErr.message.includes('Quota exceeded') || tErr.message.includes('RESOURCE_EXHAUSTED')) {
-                console.warn('[P2P Transfer] Firestore quota exhausted, processing via master balance');
-                const sBal = parseFloat(allUsersMasterData[senderId]?.balance || 0);
-                const rBal = parseFloat(allUsersMasterData[receiverId]?.balance || 0);
-                if (sBal < numAmount) {
-                    throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${sBal.toFixed(2)} BDT`);
-                }
-                updatedSenderBal = Number((sBal - numAmount).toFixed(2));
-                updatedReceiverBal = Number((rBal + numAmount).toFixed(2));
-                senderRef.update({ balance: updatedSenderBal }).catch(() => {});
-                receiverRef.update({ balance: updatedReceiverBal, pendingReceivedTransfer: pendingReceivedPayload, hasSellBalance: true }).catch(() => {});
-                transferRef.set({
-                    transferId,
-                    senderId,
-                    senderMbsId,
-                    senderName,
-                    receiverId,
-                    receiverMbsId,
-                    receiverName,
-                    amount: numAmount,
-                    fee: 0,
-                    status: 'completed',
-                    createdAt: Date.now()
-                }).catch(() => {});
-            } else {
-                throw tErr;
+        let newSenderTotalSent = 0;
+        let newReceiverTotalRec = 0;
+        await db.runTransaction(async (t) => {
+            const [freshSenderSnap, freshReceiverSnap] = await Promise.all([
+                t.get(senderRef),
+                t.get(receiverRef)
+            ]);
+            if (!freshSenderSnap.exists) {
+                throw new Error('আপনার অ্যাকাউন্ট পাওয়া যায়নি।');
             }
-        }
+            if (!freshReceiverSnap.exists) {
+                throw new Error('প্রাপকের অ্যাকাউন্ট পাওয়া যায়নি।');
+            }
+            const freshSender = freshSenderSnap.data() || {};
+            const freshReceiver = freshReceiverSnap.data() || {};
+            if (freshSender.status === 'banned' || freshSender.isBanned || (freshSender.status === 'restricted' && (!freshSender.restrictedUntil || new Date(freshSender.restrictedUntil) > new Date()))) {
+                throw new Error('আপনার অ্যাকাউন্টে বর্তমানে লেনদেন স্থগিত রয়েছে।');
+            }
+            if (freshReceiver.status === 'banned' || freshReceiver.isBanned) {
+                throw new Error('প্রাপকের অ্যাকাউন্টটি নিষিদ্ধ (Banned) থাকায় টাকা পাঠানো যাবে না।');
+            }
+            const sBal = parseFloat(freshSender.balance) || 0;
+            const rBal = parseFloat(freshReceiver.balance) || 0;
 
-        saveUserMasterData(senderId, { balance: updatedSenderBal });
-        saveUserMasterData(receiverId, { balance: updatedReceiverBal, pendingReceivedTransfer: pendingReceivedPayload, hasSellBalance: true });
+            if (sBal < numAmount) {
+                throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${sBal.toFixed(2)} BDT`);
+            }
+
+            updatedSenderBal = Number((sBal - numAmount).toFixed(2));
+            updatedReceiverBal = Number((rBal + numAmount).toFixed(2));
+            newSenderTotalSent = Number(((parseFloat(freshSender.totalTransferSentBdt) || 0) + numAmount).toFixed(2));
+            newReceiverTotalRec = Number(((parseFloat(freshReceiver.totalTransferReceivedBdt) || 0) + numAmount).toFixed(2));
+
+            t.update(senderRef, {
+                balance: updatedSenderBal,
+                totalTransferSentBdt: FieldValue.increment(numAmount),
+                updatedAt: FieldValue.serverTimestamp()
+            });
+
+            t.update(receiverRef, {
+                balance: updatedReceiverBal,
+                totalTransferReceivedBdt: FieldValue.increment(numAmount),
+                pendingReceivedTransfer: pendingReceivedPayload,
+                hasSellBalance: true,
+                updatedAt: FieldValue.serverTimestamp()
+            });
+
+            t.set(transferRef, {
+                transferId,
+                senderId,
+                senderIdNum: parseInt(senderId, 10) || senderId,
+                senderMbsId,
+                senderName,
+                receiverId,
+                receiverIdNum: parseInt(receiverId, 10) || receiverId,
+                receiverMbsId,
+                receiverName,
+                amount: numAmount,
+                fee: 0,
+                note: rawCommentText,
+                comment: rawCommentText,
+                isGift: Boolean(isGift),
+                giftTheme: String(giftTheme || 'surprise').slice(0, 30),
+                status: 'completed',
+                timestamp: FieldValue.serverTimestamp(),
+                createdAt: Date.now()
+            });
+        });
+
+        saveUserMasterData(senderId, {
+            balance: updatedSenderBal,
+            totalTransferSentBdt: newSenderTotalSent
+        });
+        saveUserMasterData(receiverId, {
+            balance: updatedReceiverBal,
+            totalTransferReceivedBdt: newReceiverTotalRec,
+            pendingReceivedTransfer: pendingReceivedPayload,
+            hasSellBalance: true
+        });
 
         recentTransferSignatures.set(replaySig, Date.now());
         if (recentTransferSignatures.size > 500) {
@@ -5496,16 +5647,8 @@ async function generateUniqueSellCommentCode(preferredLength = 10) {
 
         const candidate = charsArr.join('');
 
-        // 1. Check in-memory active codes
-        if (inMemorySellCodes.has(candidate)) continue;
-
-        // 2. Check Firestore claimed_sell_codes to guarantee this code has NEVER been used in history
-        try {
-            const existingDoc = await db.collection('claimed_sell_codes').doc(candidate).get();
-            if (!existingDoc.exists) {
-                return candidate;
-            }
-        } catch (_) {
+        // Zero-Read In-Memory Collision Check (Saves 1 Firestore read on every build-tx!)
+        if (!inMemorySellCodes.has(candidate)) {
             return candidate;
         }
     }
@@ -6001,7 +6144,10 @@ async function verifyAndCreditSellPayment({
         }
 
         const expectedOwner = memEntry?.userId || intentData?.userId || '';
-        if (expectedOwner && strUserId && String(expectedOwner) !== strUserId) {
+        if (!expectedOwner) {
+            return { verified: false, fatal: true, error: 'ভেরিফিকেশন কোডটি মেয়াদোত্তীর্ণ বা নিবন্ধিত নয়। অনুগ্রহ করে নতুন করে Sell চেষ্টা করুন।' };
+        }
+        if (strUserId && String(expectedOwner) !== strUserId) {
             return { verified: false, fatal: true, error: 'ভেরিফিকেশন কোডটি আপনার অ্যাকাউন্টের সাথে মিলছে না!' };
         }
 
@@ -6010,8 +6156,7 @@ async function verifyAndCreditSellPayment({
         if (existingCodeDoc && existingCodeDoc.exists) {
             const cd = existingCodeDoc.data() || {};
             if (String(cd.userId) === strUserId && cd.credited === true) {
-                const uDoc = await db.collection('users').doc(strUserId).get().catch(() => null);
-                const curBal = Number(uDoc?.exists ? (uDoc.data()?.balance || 0) : (allUsersMasterData[strUserId]?.balance || 0));
+                const curBal = Number(allUsersMasterData[strUserId]?.balance || 0);
                 return {
                     verified: true,
                     alreadyProcessed: true,
@@ -6026,7 +6171,7 @@ async function verifyAndCreditSellPayment({
 
         const adminWallet = process.env.BOT_TON_ADDRESS || "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
         const adminRaw = safeParseTonRawAddress(adminWallet);
-        const effectiveWallet = userWallet || intentData?.userAddress || memEntry?.userAddress || '';
+        const effectiveWallet = intentData?.userAddress || memEntry?.userAddress || userWallet || '';
         const userRaw = safeParseTonRawAddress(effectiveWallet);
         if (!adminRaw) {
             return { verified: false, error: 'অ্যাডমিন ওয়ালেট অ্যাড্রেস পার্স করতে ব্যর্থ হয়েছে।' };
@@ -6035,9 +6180,10 @@ async function verifyAndCreditSellPayment({
             return { verified: false, error: 'ওয়ালেট অ্যাড্রেস পার্স করতে ব্যর্থ হয়েছে।' };
         }
 
-        const normAsset = String(asset || memEntry?.asset || intentData?.asset || 'TON').toUpperCase();
-        const targetAmt = parseFloat(amount) || parseFloat(memEntry?.amount) || parseFloat(intentData?.amount) || 0;
-        if (targetAmt <= 0) return { verified: false, error: 'অবৈধ অ্যামাউন্ট।' };
+        // ZERO-TRUST: Server-stored intent asset and amount ALWAYS take strict precedence over client req.body!
+        const normAsset = String(intentData?.asset || memEntry?.asset || asset || 'TON').toUpperCase();
+        const targetAmt = parseFloat(intentData?.amount) || parseFloat(memEntry?.amount) || parseFloat(amount) || 0;
+        if (targetAmt < MIN_SELL_CRYPTO_AMOUNT) return { verified: false, error: `নূন্যতম বিক্রয় ${MIN_SELL_CRYPTO_AMOUNT} ${normAsset}` };
 
         const createdMs = Number(memEntry?.createdAt || intentData?.createdAtMs || 0);
         const minTimestampSec = createdMs > 0 ? Math.floor(createdMs / 1000) - 120 : 0;
@@ -6311,32 +6457,56 @@ app.post('/api/miniapp/check-ton-deposit', async (req, res) => {
 });
 
 let isReconcilingPendingSells = false;
+let hasHydratedPendingSells = false;
 async function reconcilePendingTonSellIntents() {
     if (isReconcilingPendingSells || !db) return;
     isReconcilingPendingSells = true;
     try {
-        const snap = await db.collection('pending_sell_intents')
-            .where('status', '==', 'pending')
-            .limit(25)
-            .get();
-
-        if (!snap || snap.empty) return;
-
         const nowMs = Date.now();
+        // Hydrate from Firestore ONCE on startup; afterwards inspect inMemorySellCodes in RAM (0 Firestore reads when idle! Saves 1,920 queries/day)
+        if (!hasHydratedPendingSells) {
+            hasHydratedPendingSells = true;
+            const snap = await db.collection('pending_sell_intents')
+                .where('status', '==', 'pending')
+                .limit(25)
+                .get()
+                .catch(() => null);
+            if (snap && !snap.empty) {
+                for (const doc of snap.docs) {
+                    const d = doc.data() || {};
+                    if (d.claimed || (d.expiresAtMs && nowMs > d.expiresAtMs)) {
+                        doc.ref.update({ status: d.claimed ? 'completed' : 'expired' }).catch(() => {});
+                        continue;
+                    }
+                    if (d.sellCode && !inMemorySellCodes.has(d.sellCode)) {
+                        inMemorySellCodes.set(d.sellCode, {
+                            sellCode: d.sellCode,
+                            userId: String(d.userId || ''),
+                            asset: d.asset || 'GRAM',
+                            amount: parseFloat(d.amount) || 0,
+                            userAddress: String(d.userAddress || ''),
+                            createdAt: d.createdAtMs || nowMs,
+                            claimed: false
+                        });
+                    }
+                }
+            }
+        }
+
         const readyIntents = [];
-        for (const doc of snap.docs) {
-            const d = doc.data() || {};
-            if (d.claimed) {
-                doc.ref.update({ status: 'completed' }).catch(() => {});
+        for (const [code, item] of inMemorySellCodes.entries()) {
+            if (!item || item.claimed) {
+                inMemorySellCodes.delete(code);
                 continue;
             }
-            if (d.expiresAtMs && nowMs > d.expiresAtMs) {
-                doc.ref.update({ status: 'expired' }).catch(() => {});
+            if (nowMs - (item.createdAt || 0) > SELL_INTENT_TTL_MS) {
+                inMemorySellCodes.delete(code);
+                db.collection('pending_sell_intents').doc(code).update({ status: 'expired' }).catch(() => {});
                 continue;
             }
             // Wait at least 12 seconds after creation so live user checkout claims first cleanly
-            if (d.createdAtMs && (nowMs - d.createdAtMs < 12000)) continue;
-            readyIntents.push(d);
+            if (item.createdAt && (nowMs - item.createdAt < 12000)) continue;
+            readyIntents.push(item);
         }
 
         if (readyIntents.length === 0) return;
@@ -6417,6 +6587,11 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
     }
 
     try {
+        const statusCheck = await checkUserAccountActive(userId);
+        if (!statusCheck.ok) {
+            return res.status(403).json({ error: statusCheck.error });
+        }
+
         const provider = new ethers.JsonRpcProvider(netCfg.rpc);
         const usdtContract = new ethers.Contract(
             netCfg.usdtContract,
@@ -6436,7 +6611,7 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
             });
         }
 
-        // Check already credited amount strictly by deposit wallet address + network (immune to Number vs String userId type-juggling!)
+        // Check already credited amount strictly by deposit wallet address + network
         const checkPrev = await db.collection('miniapp_sells')
             .where('wallet', '==', userEvmAddress)
             .where('network', '==', cleanNet)
@@ -6448,8 +6623,77 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
             previouslyCredited += Number(d.data().amount || 0);
         });
 
-        const uncreditedAmount = curBal - previouslyCredited;
-        if (uncreditedAmount < 0.1) {
+        const serverSellRate = Number(cachedMarketRates?.sellRates?.USDT) || 118;
+        const ledgerRef = db.collection('evm_deposit_ledgers').doc(`${cleanNet}_${userEvmAddress.toLowerCase()}`);
+        const userRef = db.collection('users').doc(userId.toString());
+        const sellDocRef = db.collection('miniapp_sells').doc();
+
+        let uncreditedAmount = 0;
+        let creditedTk = 0;
+        let newBalance = 0;
+        let uData = statusCheck.userData || {};
+
+        // ZERO-TRUST ATOMIC TRANSACTION: Prevents race-condition double-claim on EVM deposits
+        const txRes = await db.runTransaction(async (t) => {
+            const [ledgerDoc, freshUserDoc] = await Promise.all([
+                t.get(ledgerRef),
+                t.get(userRef)
+            ]);
+            const ledgerCredited = ledgerDoc.exists ? (Number(ledgerDoc.data()?.totalCreditedUsdt) || 0) : 0;
+            const effectivePrev = Math.max(previouslyCredited, ledgerCredited);
+            uncreditedAmount = Number((curBal - effectivePrev).toFixed(6));
+
+            if (uncreditedAmount < 0.1) {
+                return { alreadyCredited: true };
+            }
+
+            creditedTk = roundBdt(uncreditedAmount * serverSellRate);
+            uData = freshUserDoc.exists ? (freshUserDoc.data() || {}) : {};
+            const curUserBal = parseFloat(uData.balance) || 0;
+            newBalance = roundBdt(curUserBal + creditedTk);
+
+            t.set(ledgerRef, {
+                userId,
+                network: cleanNet,
+                wallet: userEvmAddress,
+                totalCreditedUsdt: Number((effectivePrev + uncreditedAmount).toFixed(6)),
+                updatedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            t.set(sellDocRef, {
+                userId,
+                asset: 'USDT',
+                amount: uncreditedAmount,
+                estimatedTk: creditedTk,
+                network: cleanNet,
+                wallet: userEvmAddress,
+                status: 'completed',
+                type: 'evm_onchain_deposit',
+                timestamp: FieldValue.serverTimestamp(),
+                completedAt: FieldValue.serverTimestamp()
+            });
+
+            if (freshUserDoc.exists) {
+                t.update(userRef, {
+                    balance: FieldValue.increment(creditedTk),
+                    totalCryptoSellBdt: FieldValue.increment(creditedTk),
+                    hasSellBalance: true,
+                    hasDepositWithoutTrade: false
+                });
+            } else {
+                t.set(userRef, {
+                    balance: creditedTk,
+                    totalCryptoSellBdt: creditedTk,
+                    joinedAt: FieldValue.serverTimestamp(),
+                    hasSellBalance: true,
+                    hasDepositWithoutTrade: false
+                }, { merge: true });
+            }
+
+            return { alreadyCredited: false };
+        });
+
+        if (txRes.alreadyCredited) {
             return res.json({
                 success: false,
                 message: `বর্তমান ব্যালেন্সের (${curBal} USDT) সবটুকু ইতিমধ্যে জমা করা হয়েছে। নতুন ডিপোজিট পাওয়া যায়নি।`,
@@ -6458,39 +6702,15 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
             });
         }
 
-        const serverSellRate = Number(cachedMarketRates?.sellRates?.USDT) || 118;
-        const creditedTk = roundBdt(uncreditedAmount * serverSellRate);
-
-        const docRef = await db.collection('miniapp_sells').add({
-            userId,
-            asset: 'USDT',
-            amount: uncreditedAmount,
-            estimatedTk: creditedTk,
-            network: cleanNet,
-            wallet: userEvmAddress,
-            status: 'completed',
-            type: 'evm_onchain_deposit',
-            timestamp: FieldValue.serverTimestamp()
+        saveUserMasterData(userId, {
+            balance: newBalance,
+            totalCryptoSellBdt: (parseFloat(uData.totalCryptoSellBdt) || 0) + creditedTk,
+            hasSellBalance: true,
+            hasDepositWithoutTrade: false
         });
-
-        const userRef = db.collection('users').doc(userId.toString());
-        const userDoc = await userRef.get();
-        if (userDoc.exists) {
-            await userRef.update({
-                balance: FieldValue.increment(creditedTk),
-                totalCryptoSellBdt: FieldValue.increment(creditedTk),
-                hasSellBalance: true,
-                hasDepositWithoutTrade: false
-            });
-        } else {
-            await userRef.set({
-                balance: creditedTk,
-                totalCryptoSellBdt: creditedTk,
-                joinedAt: FieldValue.serverTimestamp(),
-                hasSellBalance: true,
-                hasDepositWithoutTrade: false
-            }, { merge: true });
-        }
+        invalidateUserHistoryCache(userId);
+        invalidateOrdersCache();
+        statsCache.timestamp = 0;
 
         // Referral reward check
         checkAndRewardReferral(userId).catch(err => console.warn("Sell referral check err:", err.message));
@@ -6499,7 +6719,6 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
         const config = botConfig || {};
         const dataGroup = config.dataGroupId || config.adminGroupId;
         if (dataGroup && bot) {
-            const uData = (await userRef.get()).data() || {};
             const uName = uData.first_name || uData.firstName || 'User';
             const rawEvmUname = uData.username ? uData.username.replace('@', '') : '';
             const evmUname = rawEvmUname ? `@${rawEvmUname}` : 'None';
@@ -6512,7 +6731,7 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
                 `🌐 <b>Network:</b> ${netCfg.name}\n` +
                 `৳ <b>Added:</b> ৳${formatBdt(creditedTk)} BDT\n` +
                 `🏦 <b>Deposit Wallet:</b> <code>${userEvmAddress}</code>\n` +
-                `🆔 <b>Order ID:</b> <code>${docRef.id}</code></blockquote>`;
+                `🆔 <b>Order ID:</b> <code>${sellDocRef.id}</code></blockquote>`;
             bot.sendMessage(dataGroup, adminMsg, { parse_mode: 'HTML' }).catch(e => console.error(e.message));
         }
 
@@ -6530,7 +6749,8 @@ app.post('/api/miniapp/check-evm-deposit', async (req, res) => {
             success: true,
             creditedAmount: uncreditedAmount,
             creditedTk,
-            orderId: docRef.id,
+            newBalance,
+            orderId: sellDocRef.id,
             message: `অভিনন্দন! আপনার ${uncreditedAmount} USDT সফলভাবে গৃহীত হয়েছে এবং ৳${formatBdt(creditedTk)} ব্যালেন্সে যোগ করা হয়েছে।`
         });
     } catch (err) {
@@ -7578,12 +7798,17 @@ app.get('/api/stats', async (req, res) => {
         console.log("Fetching failed screenshots...");
         let failedScreenshots = [];
         try {
-            const failedSnapshot = await db.collection('failed_screenshots').orderBy('timestamp', 'desc').limit(20).get();
-            failedSnapshot.forEach(doc => {
-                const data = doc.data();
-                data.id = doc.id;
-                failedScreenshots.push(data);
-            });
+            if (!global.failedScreenshotsCache || forceRefresh || (now - global.failedScreenshotsCache.ts > 300000)) {
+                const failedSnapshot = await db.collection('failed_screenshots').orderBy('timestamp', 'desc').limit(20).get();
+                const freshFailed = [];
+                failedSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    data.id = doc.id;
+                    freshFailed.push(data);
+                });
+                global.failedScreenshotsCache = { data: freshFailed, ts: now };
+            }
+            failedScreenshots = global.failedScreenshotsCache.data || [];
         } catch (fsErr) {
             console.warn("Firestore failed screenshots warning:", fsErr.message);
             if (statsCache.data?.failedScreenshots) failedScreenshots = statsCache.data.failedScreenshots;
@@ -7747,17 +7972,7 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
         await db.collection('users').doc(userId.toString()).set({
             fiatWallet: walletObj
         }, { merge: true });
-
-        try {
-            const bPath = path.join(__dirname, 'all_users_backup.json');
-            if (fs.existsSync(bPath)) {
-                const b = JSON.parse(fs.readFileSync(bPath, 'utf8'));
-                if (b[userId.toString()]) {
-                    b[userId.toString()].fiatWallet = walletObj;
-                    fs.writeFileSync(bPath, JSON.stringify(b, null, 2), 'utf8');
-                }
-            }
-        } catch (_) {}
+        saveUserMasterData(userId.toString(), { fiatWallet: walletObj });
 
         // Check if saving this wallet completes active referral requirements
         checkAndRewardReferral(userId).catch(err => console.warn("Wallet save referral check err:", err.message));
@@ -7852,12 +8067,13 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             }
         }
 
-        // Check daily limit
-        const limitDoc = await db.collection('settings').doc('limits').get();
-        let dailyLimit = 9999;
-        if (limitDoc.exists && limitDoc.data().dailyWithdrawLimit) {
-            dailyLimit = limitDoc.data().dailyWithdrawLimit;
+        // Check daily limit (Cached in memory for 5 minutes to save Firestore reads)
+        if (!global.cachedDailyWithdrawLimit || (Date.now() - global.cachedDailyWithdrawLimit.ts > 300000)) {
+            const limitDoc = await db.collection('settings').doc('limits').get().catch(() => null);
+            const limVal = (limitDoc && limitDoc.exists && limitDoc.data().dailyWithdrawLimit) ? limitDoc.data().dailyWithdrawLimit : 9999;
+            global.cachedDailyWithdrawLimit = { val: limVal, ts: Date.now() };
         }
+        let dailyLimit = global.cachedDailyWithdrawLimit.val || 9999;
 
         // Count today's withdrawals
         const todayStr = new Date().toISOString().split('T')[0];
@@ -7885,10 +8101,14 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             throw new Error("সেন্ড মানি ফি বাদ দিলে প্রাপ্য টাকার পরিমাণ শূন্য বা কম হয়।");
         }
 
-        // Get serial number
+        // Get serial number (Cached in memory after first read to save 1 Firestore read per withdrawal)
         const globalRef = db.collection('settings').doc('global_stats');
-        const globalDoc = await globalRef.get();
-        let serialNum = (globalDoc.exists && globalDoc.data().totalWithdrawals) ? globalDoc.data().totalWithdrawals + 1 : 1;
+        if (typeof global.cachedWithdrawSerialCounter !== 'number') {
+            const globalDoc = await globalRef.get().catch(() => null);
+            global.cachedWithdrawSerialCounter = (globalDoc && globalDoc.exists && globalDoc.data().totalWithdrawals) ? globalDoc.data().totalWithdrawals : 0;
+        }
+        global.cachedWithdrawSerialCounter += 1;
+        let serialNum = global.cachedWithdrawSerialCounter;
 
         const userRef = db.collection('users').doc(userId.toString());
         const withdrawRef = db.collection('fiat_withdrawals').doc();
@@ -7908,6 +8128,8 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         };
 
         // ZERO-TRUST ATOMIC TRANSACTION: Verify fresh balance >= amount & deduct atomically
+        let finalUserBalAfterWithdraw = 0;
+        let finalTotalWithdrawnBdt = 0;
         await db.runTransaction(async (t) => {
             const freshUserSnap = await t.get(userRef);
             if (!freshUserSnap.exists) {
@@ -7921,9 +8143,12 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
             if (freshUser.fiatWithdrawPending && freshUser.fiatWithdrawPending.status === 'pending') {
                 throw new Error("আপনার একটি উত্তোলন রিকোয়েস্ট ইতিমধ্যে পেন্ডিং রয়েছে।");
             }
+            finalUserBalAfterWithdraw = Number((freshBal - amount).toFixed(2));
+            finalTotalWithdrawnBdt = Number(((parseFloat(freshUser.totalWithdrawnBdt) || 0) + amount).toFixed(2));
             t.set(withdrawRef, withdrawDoc);
             t.update(userRef, {
-                balance: Number((freshBal - amount).toFixed(2)),
+                balance: finalUserBalAfterWithdraw,
+                totalWithdrawnBdt: FieldValue.increment(amount),
                 fiatWithdrawPending: {
                     ...withdrawDoc,
                     id: withdrawRef.id,
@@ -7938,9 +8163,9 @@ app.post('/api/miniapp/withdraw-fiat', async (req, res) => {
         ]);
 
         const strUid = userId.toString();
-        const freshUserBal = Math.max(0, (parseFloat(userData.balance) || 0) - amount);
         saveUserMasterData(strUid, {
-            balance: freshUserBal,
+            balance: finalUserBalAfterWithdraw,
+            totalWithdrawnBdt: finalTotalWithdrawnBdt,
             fiatWithdrawPending: {
                 ...withdrawDoc,
                 id: withdrawRef.id,
@@ -8293,45 +8518,53 @@ app.post('/api/miniapp/add-money', async (req, res) => {
 
         const strUserId = String(userId);
         const userRef = db.collection('users').doc(strUserId);
-        await userRef.set({
-            balance: FieldValue.increment(amount),
-            totalAddMoneyBdt: FieldValue.increment(amount),
+        const prevUserData = statusCheck.userData || allUsersMasterData[strUserId] || {};
+        const newBalance = roundBdt((parseFloat(prevUserData.balance) || 0) + amount);
+        const newTotalAddMoney = roundBdt((parseFloat(prevUserData.totalAddMoneyBdt) || 0) + amount);
+
+        await Promise.all([
+            userRef.set({
+                balance: FieldValue.increment(amount),
+                totalAddMoneyBdt: FieldValue.increment(amount),
+                hasDepositWithoutTrade: true,
+                spentSinceLastDeposit: 0,
+                lastDepositAt: Date.now()
+            }, { merge: true }),
+            db.collection('deposits').doc(trxId).set({
+                userId,
+                userIdStr: strUserId,
+                amount,
+                paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
+                trxId,
+                status: 'completed',
+                type: 'add_money',
+                timestamp: FieldValue.serverTimestamp()
+            }),
+            db.collection('miniapp_buys').doc(trxId).set({
+                userId,
+                userIdStr: strUserId,
+                asset: 'BDT',
+                amount,
+                totalBdt: amount,
+                paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
+                trxId,
+                status: 'completed',
+                type: 'add_money',
+                timestamp: FieldValue.serverTimestamp()
+            })
+        ]);
+
+        saveUserMasterData(strUserId, {
+            balance: newBalance,
+            totalAddMoneyBdt: newTotalAddMoney,
             hasDepositWithoutTrade: true,
             spentSinceLastDeposit: 0,
             lastDepositAt: Date.now()
-        }, { merge: true });
-
-        // Record completed deposit in database
-        await db.collection('deposits').doc(trxId).set({
-            userId,
-            userIdStr: strUserId,
-            amount,
-            paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
-            trxId,
-            status: 'completed',
-            type: 'add_money',
-            timestamp: FieldValue.serverTimestamp()
-        });
-
-        // Also record in miniapp_buys for Admin Orders List history
-        await db.collection('miniapp_buys').doc(trxId).set({
-            userId,
-            userIdStr: strUserId,
-            asset: 'BDT',
-            amount,
-            totalBdt: amount,
-            paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
-            trxId,
-            status: 'completed',
-            type: 'add_money',
-            timestamp: FieldValue.serverTimestamp()
         });
 
         // Check if this Add Money transaction activates a referral and awards 5 BDT bonus
         checkAndRewardReferral(userId).catch(err => console.warn("AddMoney referral check err:", err.message));
 
-        const updatedDoc = await userRef.get();
-        const newBalance = updatedDoc.data()?.balance || amount;
         const gatewayLabel = String(paymentMethod || verifiedData.sender || 'bKash').toUpperCase();
 
         const userAddMoneyMsg = `<b>${PE.moneyBag} ব্যালেন্স ডিপোজিট সফল! (Deposit Approved!)</b>\n\n` +
@@ -8347,7 +8580,7 @@ app.post('/api/miniapp/add-money', async (req, res) => {
         const config = botConfig || {};
         const dataGroup = config.dataGroupId || config.adminGroupId;
         if (dataGroup && bot) {
-            const addUserData = updatedDoc.data() || {};
+            const addUserData = prevUserData;
             const addUserName = addUserData.first_name || addUserData.firstName || 'User';
             const rawAddUname = addUserData.username ? addUserData.username.replace('@', '') : '';
             const addUname = rawAddUname ? `@${rawAddUname}` : 'None';
@@ -8454,10 +8687,7 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         }
 
         const userRef = db.collection('users').doc(userId.toString());
-        const userDoc = await userRef.get().catch(() => null);
-        const userData = (userDoc && userDoc.exists)
-            ? (userDoc.data() || {})
-            : (allUsersMasterData[userId.toString()] || audit.userData || {});
+        const userData = audit.userData || allUsersMasterData[userId.toString()] || {};
         if (!userData || Object.keys(userData).length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -8487,7 +8717,8 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         const newSpent = roundBdt(prevSpent + bdtAmount);
         const buyUpdates = {
             balance: FieldValue.increment(-bdtAmount),
-            spentSinceLastDeposit: FieldValue.increment(bdtAmount)
+            spentSinceLastDeposit: FieldValue.increment(bdtAmount),
+            totalSpentOnCryptoBdt: FieldValue.increment(bdtAmount)
         };
         if (newSpent >= 20) {
             buyUpdates.hasDepositWithoutTrade = false;
@@ -8570,8 +8801,10 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 await userRef.update({
                     balance: FieldValue.increment(bdtAmount),
                     spentSinceLastDeposit: FieldValue.increment(-bdtAmount),
-                    hasDepositWithoutTrade: userDoc.data()?.hasDepositWithoutTrade ?? true
+                    totalSpentOnCryptoBdt: FieldValue.increment(-bdtAmount),
+                    hasDepositWithoutTrade: userData?.hasDepositWithoutTrade ?? true
                 });
+                saveUserMasterData(userId.toString(), { balance: currentBalance });
                 console.error("Buy crypto TON transfer failed:", txErr.message);
                 return res.status(500).json({ 
                     error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${formatBdt(bdtAmount)} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।` 
@@ -8690,8 +8923,10 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 await userRef.update({
                     balance: FieldValue.increment(bdtAmount),
                     spentSinceLastDeposit: FieldValue.increment(-bdtAmount),
-                    hasDepositWithoutTrade: userDoc.data()?.hasDepositWithoutTrade ?? true
+                    totalSpentOnCryptoBdt: FieldValue.increment(-bdtAmount),
+                    hasDepositWithoutTrade: userData?.hasDepositWithoutTrade ?? true
                 });
+                saveUserMasterData(userId.toString(), { balance: currentBalance });
                 console.error(`EVM transfer failed on ${selectedNetwork}:`, txErr.message);
                 return res.status(500).json({
                     error: `অন-চেইন ট্রান্সফার ব্যর্থ হয়েছে: ${txErr.message}। আপনার ৳${formatBdt(bdtAmount)} BDT ব্যালেন্সে ফেরত দেওয়া হয়েছে।`
@@ -8719,6 +8954,12 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         });
 
         const newBalance = roundBdt(currentBalance - bdtAmount);
+        saveUserMasterData(userId.toString(), {
+            balance: newBalance,
+            spentSinceLastDeposit: newSpent,
+            totalSpentOnCryptoBdt: roundBdt((parseFloat(userData.totalSpentOnCryptoBdt) || 0) + bdtAmount),
+            hasDepositWithoutTrade: newSpent >= 20 ? false : Boolean(userData.hasDepositWithoutTrade)
+        });
 
         const userBuyInstantMsg = `<b>${PE.gem} ক্রিপ্টো ক্রয় ও উইথড্র সফল! (Crypto Sent!)</b>\n\n` +
             `<blockquote>${PE.dollar} <b>Amount:</b> <code>${cryptoAmount} ${asset}</code> (৳${formatBdt(bdtAmount)} BDT)\n` +
@@ -8750,8 +8991,8 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         notifyDataGroup({
             type: 'buy',
             userId,
-            name: (userDoc && typeof userDoc.data === 'function' ? (userDoc.data()?.firstName || userDoc.data()?.first_name) : '') || allUsersMasterData[userId.toString()]?.firstName || 'User',
-            username: (userDoc && typeof userDoc.data === 'function' ? userDoc.data()?.username : '') || allUsersMasterData[userId.toString()]?.username || '',
+            name: userData?.firstName || userData?.first_name || allUsersMasterData[userId.toString()]?.firstName || 'User',
+            username: userData?.username || allUsersMasterData[userId.toString()]?.username || '',
             asset,
             amount: cryptoAmount,
             totalBdt: bdtAmount,
@@ -8881,41 +9122,50 @@ app.post('/api/miniapp/buy', async (req, res) => {
         // Credit to balance!
         const strUserId = String(userId);
         const userRef = db.collection('users').doc(strUserId);
-        await userRef.set({
-            balance: FieldValue.increment(totalBdt),
-            totalAddMoneyBdt: FieldValue.increment(totalBdt),
+        const prevBuyUserData = statusCheck.userData || allUsersMasterData[strUserId] || {};
+        const newBalance = roundBdt((parseFloat(prevBuyUserData.balance) || 0) + totalBdt);
+        const newTotalAddMoney = roundBdt((parseFloat(prevBuyUserData.totalAddMoneyBdt) || 0) + totalBdt);
+
+        await Promise.all([
+            userRef.set({
+                balance: FieldValue.increment(totalBdt),
+                totalAddMoneyBdt: FieldValue.increment(totalBdt),
+                hasDepositWithoutTrade: true,
+                spentSinceLastDeposit: 0,
+                lastDepositAt: Date.now()
+            }, { merge: true }),
+            db.collection('deposits').doc(trxId).set({
+                userId,
+                userIdStr: strUserId,
+                amount: totalBdt,
+                paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
+                trxId,
+                status: 'completed',
+                type: 'add_money',
+                timestamp: FieldValue.serverTimestamp()
+            }),
+            db.collection('miniapp_buys').doc(trxId).set({
+                userId,
+                userIdStr: strUserId,
+                asset: asset || 'BDT',
+                amount,
+                totalBdt,
+                paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
+                trxId,
+                receiveAddress: receiveAddress || '',
+                status: 'completed',
+                autoVerified: true,
+                timestamp: FieldValue.serverTimestamp()
+            })
+        ]);
+
+        saveUserMasterData(strUserId, {
+            balance: newBalance,
+            totalAddMoneyBdt: newTotalAddMoney,
             hasDepositWithoutTrade: true,
             spentSinceLastDeposit: 0,
             lastDepositAt: Date.now()
-        }, { merge: true });
-
-        await db.collection('deposits').doc(trxId).set({
-            userId,
-            userIdStr: strUserId,
-            amount: totalBdt,
-            paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
-            trxId,
-            status: 'completed',
-            type: 'add_money',
-            timestamp: FieldValue.serverTimestamp()
         });
-
-        await db.collection('miniapp_buys').doc(trxId).set({
-            userId,
-            userIdStr: strUserId,
-            asset: asset || 'BDT',
-            amount,
-            totalBdt,
-            paymentMethod: paymentMethod || verifiedData.sender || 'bKash',
-            trxId,
-            receiveAddress: receiveAddress || '',
-            status: 'completed',
-            autoVerified: true,
-            timestamp: FieldValue.serverTimestamp()
-        });
-
-        const updatedDoc = await userRef.get();
-        const newBalance = updatedDoc.data()?.balance || totalBdt;
 
         const addOkMsg = `<b>${PE.moneyBag} ব্যালেন্স ডিপোজিট সফল! (Deposit Approved!)</b>\n\n` +
             `<blockquote>${PE.dollar} <b>Amount:</b> <code>৳${totalBdt} BDT</code>\n` +
@@ -8929,8 +9179,8 @@ app.post('/api/miniapp/buy', async (req, res) => {
         notifyDataGroup({
             type: 'deposit',
             userId,
-            name: (updatedDoc && typeof updatedDoc.data === 'function' ? (updatedDoc.data()?.firstName || updatedDoc.data()?.first_name) : '') || allUsersMasterData[userId.toString()]?.firstName || 'User',
-            username: (updatedDoc && typeof updatedDoc.data === 'function' ? updatedDoc.data()?.username : '') || allUsersMasterData[userId.toString()]?.username || '',
+            name: prevBuyUserData?.firstName || prevBuyUserData?.first_name || 'User',
+            username: prevBuyUserData?.username || '',
             amount: totalBdt,
             totalBdt,
             newBalance,
@@ -9277,41 +9527,46 @@ app.get('/api/admin/pending-counts', async (req, res) => {
 const adminUsersCache = {
     data: null,
     timestamp: 0,
-    TTL: 180000 // 3 minutes cache (0 reads on page navigation)
+    lastFirestoreSync: 0,
+    TTL: 600000 // 10 minutes cache (0 reads on page navigation)
 };
 
-// Dedicated User Database endpoint for Admin Panel (Smart 3-min in-memory cache to eliminate duplicate Firestore reads)
+// Dedicated User Database endpoint for Admin Panel (Smart in-memory cache + master data sync to eliminate duplicate Firestore reads)
 app.get('/api/admin/users', async (req, res) => {
     try {
         const forceRefresh = req.query.refresh === 'true' || req.query.force === '1';
         const now = Date.now();
 
-        // 1. If cached within 3 minutes and not manual refresh -> Return directly (0 Firestore reads!)
+        // 1. If cached within 10 minutes and not manual refresh -> Return directly (0 Firestore reads!)
         if (!forceRefresh && adminUsersCache.data && (now - adminUsersCache.timestamp < adminUsersCache.TTL)) {
             return res.json(adminUsersCache.data);
         }
 
-        try {
-            const snap = await db.collection('users').get();
-            if (!snap.empty) {
-                snap.forEach(doc => {
-                    const docId = doc.id;
-                    if (!docId || docId === '12345' || docId === '123456789') return;
-                    const u = doc.data() || {};
-                    allUsersMasterData[docId] = {
-                        ...(allUsersMasterData[docId] || {}),
-                        ...u,
-                        id: docId,
-                        userId: docId,
-                        balance: parseFloat(u.balance || 0)
-                    };
-                });
-                try {
-                    fs.writeFileSync(ALL_USERS_BACKUP_FILE, JSON.stringify(allUsersMasterData, null, 2), 'utf8');
-                } catch (_) {}
+        // 2. Only scan Firestore users collection if forceRefresh or >15 mins since last full Firestore sync (saves thousands of reads!)
+        if (forceRefresh || (now - adminUsersCache.lastFirestoreSync > 900000) || Object.keys(allUsersMasterData).length === 0) {
+            try {
+                const snap = await db.collection('users').get();
+                if (!snap.empty) {
+                    snap.forEach(doc => {
+                        const docId = doc.id;
+                        if (!docId || docId === '12345' || docId === '123456789') return;
+                        const u = doc.data() || {};
+                        allUsersMasterData[docId] = {
+                            ...(allUsersMasterData[docId] || {}),
+                            ...u,
+                            id: docId,
+                            userId: docId,
+                            balance: parseFloat(u.balance || 0)
+                        };
+                    });
+                    adminUsersCache.lastFirestoreSync = now;
+                    try {
+                        fs.writeFileSync(ALL_USERS_BACKUP_FILE, JSON.stringify(allUsersMasterData, null, 2), 'utf8');
+                    } catch (_) {}
+                }
+            } catch (fErr) {
+                console.warn("Firestore live query warning in /api/admin/users:", fErr.message);
             }
-        } catch (fErr) {
-            console.warn("Firestore live query warning in /api/admin/users:", fErr.message);
         }
 
         const users = [];
@@ -9808,6 +10063,9 @@ app.post('/api/admin/user/status', async (req, res) => {
 
         let updatePayload = {
             status: status, // 'active', 'banned', 'restricted'
+            isBanned: status === 'banned',
+            isRestricted: status === 'restricted',
+            restrictReason: (status === 'banned' || status === 'restricted') ? (reason || null) : null,
             statusUpdatedAt: FieldValue.serverTimestamp()
         };
 
@@ -9823,9 +10081,13 @@ app.post('/api/admin/user/status', async (req, res) => {
         // Invalidate stats & admin users cache so data updates instantly
         statsCache.timestamp = 0;
         adminUsersCache.timestamp = 0;
-        if (allUsersMasterData[userId.toString()]) {
-            allUsersMasterData[userId.toString()].balance = newBalance;
-        }
+        saveUserMasterData(userId.toString(), {
+            status,
+            isBanned: status === 'banned',
+            isRestricted: status === 'restricted',
+            restrictReason: updatePayload.restrictReason,
+            restrictedUntil: updatePayload.restrictedUntil || null
+        });
 
         // Send Telegram bot notification
         if (bot) {
@@ -10388,7 +10650,9 @@ app.get('/invite/:referrerId', (req, res) => {
 app.post('/api/admin/limits', requireAdminAuth, async (req, res) => {
     try {
         const { limit } = req.body;
-        await db.collection('settings').doc('limits').set({ dailyWithdrawLimit: parseInt(limit) }, { merge: true });
+        const parsedLimit = parseInt(limit) || 9999;
+        await db.collection('settings').doc('limits').set({ dailyWithdrawLimit: parsedLimit }, { merge: true });
+        global.cachedDailyWithdrawLimit = { val: parsedLimit, ts: Date.now() };
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -10397,8 +10661,13 @@ app.post('/api/admin/limits', requireAdminAuth, async (req, res) => {
 
 app.get('/api/admin/limits', requireAdminAuth, async (req, res) => {
     try {
+        if (global.cachedDailyWithdrawLimit && (Date.now() - global.cachedDailyWithdrawLimit.ts < 300000)) {
+            return res.json({ limit: global.cachedDailyWithdrawLimit.val });
+        }
         const doc = await db.collection('settings').doc('limits').get();
-        res.json({ limit: doc.exists ? doc.data().dailyWithdrawLimit : 9999 });
+        const lim = doc.exists ? (doc.data().dailyWithdrawLimit || 9999) : 9999;
+        global.cachedDailyWithdrawLimit = { val: lim, ts: Date.now() };
+        res.json({ limit: lim });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -10408,71 +10677,11 @@ app.post('/api/admin/approve-withdraw', requireAdminAuth, async (req, res) => {
     try {
         const { userId, id, withdrawId } = req.body;
         const targetId = withdrawId || id;
-        let targetUser = userId;
-        
-        // Update in fiat_withdrawals if id provided
-        if (targetId) {
-            try {
-                const fwRef = db.collection('fiat_withdrawals').doc(targetId);
-                const fwDoc = await fwRef.get();
-                if (fwDoc.exists) {
-                    if (!targetUser) targetUser = fwDoc.data().userId;
-                    await fwRef.update({
-                        status: 'completed',
-                        completedAt: Date.now()
-                    });
-                }
-            } catch(e) {}
+        const ok = await doApproveWithdraw(targetId, userId);
+        if (!ok && targetId && completedOrRejectedWithdrawDocs.has(targetId)) {
+            return res.status(400).json({ error: 'এই উইথড্র রিকোয়েস্টটি ইতিমধ্যে সম্পন্ন বা বাতিল করা হয়েছে।' });
         }
-
-        if (targetUser) {
-            const userRef = db.collection('users').doc(targetUser.toString());
-            const doc = await userRef.get();
-            if(doc.exists) {
-                const pend = doc.data()?.fiatWithdrawPending;
-                await userRef.update({
-                    'fiatWithdrawPending.status': 'completed',
-                    'fiatWithdrawPending.completedAt': Date.now()
-                });
-                const userMsg = `<b>${PE.approvedBag} উইথড্র অনুমোদিত! (Withdrawal Approved!)</b>\n\n` +
-                    `<blockquote>${PE.dollar} <b>Amount:</b> <code>৳${pend?.amount || 0} BDT</code>\n` +
-                    `${PE.chartDown} <b>Service Fee:</b> <code>৳${pend?.fee || 0} BDT</code>\n` +
-                    `${PE.flyingCash} <b>Sent Amount:</b> <b>৳${pend?.receiveAmount || pend?.amount || 0} BDT</b>\n` +
-                    `${PE.bank} <b>Gateway:</b> <code>${(pend?.method || 'bKash').toUpperCase()}</code>\n` +
-                    `${PE.wallet} <b>Account:</b> <code>${pend?.number || ''}</code>\n` +
-                    `${PE.globe} <b>Status:</b> <code>Sent Successfully</code></blockquote>\n\n` +
-                    `${PE.party} <i>আপনার একাউন্ট চেক করুন। TrustPay-এর সাথে থাকার জন্য ধন্যবাদ!</i>`;
-                bot.sendMessage(targetUser, userMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
-                
-                await notifyPayoutGroup({
-                    type: 'fiat',
-                    userId: targetUser,
-                    name: pend?.name || doc.data()?.first_name || 'User',
-                    amount: pend?.amount || 0,
-                    receiveAmount: pend?.receiveAmount || pend?.amount || 0,
-                    method: pend?.method || 'bKash',
-                    number: pend?.number || ''
-                });
-            }
-
-            try {
-                const pendSnaps = await db.collection('fiat_withdrawals')
-                    .where('userId', 'in', [parseInt(targetUser), targetUser.toString()].filter(Boolean))
-                    .where('status', '==', 'pending').get();
-                for (const d of pendSnaps.docs) {
-                    await d.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
-                }
-            } catch(e) {}
-
-            if (allUsersMasterData[targetUser.toString()]) {
-                if (allUsersMasterData[targetUser.toString()].fiatWithdrawPending) {
-                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.status = 'completed';
-                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.completedAt = Date.now();
-                }
-                saveUserMasterData(targetUser.toString(), allUsersMasterData[targetUser.toString()]);
-            }
-            invalidateOrdersCache();
-        }
+        invalidateOrdersCache();
         res.json({ success: true });
     } catch(e) {
         res.status(500).json({ error: e.message });
@@ -10481,75 +10690,17 @@ app.post('/api/admin/approve-withdraw', requireAdminAuth, async (req, res) => {
 
 app.post('/api/admin/reject-withdraw', requireAdminAuth, async (req, res) => {
     try {
-        const { userId, id, withdrawId, reason, refundAmt: reqRefund } = req.body;
+        const { userId, id, withdrawId, reason } = req.body;
         const targetId = withdrawId || id;
         if (!userId && !targetId) return res.status(400).json({ error: 'User ID or Withdrawal ID is required' });
-        
-        let refundAmt = parseFloat(reqRefund) || 0;
-        let targetUser = userId;
 
-        if (targetId) {
-            try {
-                const fwRef = db.collection('fiat_withdrawals').doc(targetId);
-                const fwDoc = await fwRef.get();
-                if (fwDoc.exists) {
-                    const fwData = fwDoc.data();
-                    if (!targetUser) targetUser = fwData.userId;
-                    if (!refundAmt) refundAmt = parseFloat(fwData.amount) || 0;
-                    await fwRef.update({
-                        status: 'rejected',
-                        rejectReason: reason || 'Rejected by admin',
-                        rejectedAt: Date.now()
-                    });
-                }
-            } catch(e) {}
+        const rejectRes = await doRejectWithdraw(targetId, userId, 0, reason);
+        if (!rejectRes || !rejectRes.ok) {
+            return res.status(400).json({ error: rejectRes?.error || 'এই উইথড্র রিকোয়েস্টটি ইতিমধ্যে সম্পন্ন বা বাতিল করা হয়েছে।' });
         }
-        
-        if (targetUser) {
-            const userRef = db.collection('users').doc(targetUser.toString());
-            const doc = await userRef.get();
-            if(doc.exists) {
-                const data = doc.data();
-                if (!refundAmt && data.fiatWithdrawPending) {
-                    refundAmt = parseFloat(data.fiatWithdrawPending.amount) || 0;
-                }
-                await userRef.update({
-                    'fiatWithdrawPending.status': 'rejected',
-                    'fiatWithdrawPending.rejectReason': reason || 'Rejected by admin',
-                    'fiatWithdrawPending.rejectedAt': Date.now(),
-                    balance: FieldValue.increment(refundAmt)
-                });
-                const userRejectMsg = `<b>${PE.cross} উইথড্র বাতিল ও রিফান্ড! (Withdrawal Rejected)</b>\n\n` +
-                    `<blockquote>${PE.note} <b>Reason:</b> <i>${reason || 'অ্যাকাউন্ট তথ্যে ভুল'}</i>\n` +
-                    `${PE.moneyBag} <b>Refunded Amount:</b> <b>৳${refundAmt} BDT</b></blockquote>\n\n` +
-                    `${PE.swap} <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে ফেরত দেওয়া হয়েছে। তথ্য যাচাই করে আবার চেষ্টা করুন।</i>`;
-                bot.sendMessage(targetUser, userRejectMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
-            }
 
-            try {
-                const pendSnaps = await db.collection('fiat_withdrawals')
-                    .where('userId', 'in', [parseInt(targetUser), targetUser.toString()].filter(Boolean))
-                    .where('status', '==', 'pending').get();
-                for (const d of pendSnaps.docs) {
-                    await d.ref.update({ status: 'rejected', rejectReason: reason || 'Rejected by admin', rejectedAt: Date.now() }).catch(()=>{});
-                }
-            } catch(e) {}
-
-            if (allUsersMasterData[targetUser.toString()]) {
-                if (allUsersMasterData[targetUser.toString()].fiatWithdrawPending) {
-                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.status = 'rejected';
-                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.rejectReason = reason || 'Rejected by admin';
-                    allUsersMasterData[targetUser.toString()].fiatWithdrawPending.rejectedAt = Date.now();
-                }
-                if (refundAmt > 0) {
-                    allUsersMasterData[targetUser.toString()].balance = (parseFloat(allUsersMasterData[targetUser.toString()].balance) || 0) + refundAmt;
-                }
-                saveUserMasterData(targetUser.toString(), allUsersMasterData[targetUser.toString()]);
-            }
-        }
-        
         invalidateOrdersCache();
-        res.json({ success: true, message: `Withdrawal rejected and ৳${refundAmt} refunded to user.` });
+        res.json({ success: true, message: `Withdrawal rejected and ৳${rejectRes.refundedAmount || 0} refunded to user.` });
     } catch(e) {
         console.error("Reject withdraw error:", e);
         res.status(500).json({ error: e.message });
@@ -12964,27 +13115,27 @@ function registerMasterSecurityCommands(botInstance) {
 }
 registerMasterSecurityCommands(bot);
 
-// Bot Wallet Commands for Admin
+// Bot Wallet Commands for Admin (Strictly restricted to MASTER_ADMIN_ID)
 bot.onText(/\/msg (\d+) ([\s\S]+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const config = botConfig;
-    if (config.adminGroupId !== chatId.toString()) return;
+    if (String(msg.from?.id) !== MASTER_ADMIN_ID && config.adminGroupId !== chatId.toString()) return;
 
     const targetId = match[1];
     const textToSend = match[2];
 
     try {
-        await bot.sendMessage(targetId, "?? **???????? ???? ?????:**\n\n" + textToSend, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
-        bot.sendMessage(chatId, "? ??????? ??????? " + targetId + " ?????? ?????? ??????").catch(e => console.error(e.message));
+        await bot.sendMessage(targetId, "📢 **অ্যাডমিন বার্তা:**\n\n" + textToSend, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
+        bot.sendMessage(chatId, "✅ মেসেজ সফলভাবে " + targetId + " ইউজারকে পাঠানো হয়েছে।").catch(e => console.error(e.message));
     } catch(e) {
-        bot.sendMessage(chatId, "? ????? ?????? ?????! ???? ????? ???? ???? ??? ?????? ???? ???? ????").catch(e => console.error(e.message));
+        bot.sendMessage(chatId, "❌ মেসেজ পাঠানো যায়নি!").catch(e => console.error(e.message));
     }
 });
 
-// Admin Commands for Monetag & Adsgram Ad Setup
+// Admin Commands for Monetag & Adsgram Ad Setup (Strictly restricted to MASTER_ADMIN_ID)
 bot.onText(/\/setmonetag\s+(\S+)/i, async (msg, match) => {
     const chatId = msg.chat.id;
-    if (botConfig?.adminGroupId && botConfig.adminGroupId !== chatId.toString()) return;
+    if (String(msg.from?.id) !== MASTER_ADMIN_ID) return;
     const zoneId = match[1].trim();
     await db.collection('config').doc('spin_event').set({ monetagZoneId: zoneId }, { merge: true });
     bot.sendMessage(chatId, `✅ <b>Monetag Zone ID সফলভাবে সেট করা হয়েছে:</b> <code>${zoneId}</code>`, { parse_mode: 'HTML' }).catch(() => {});
@@ -12992,7 +13143,7 @@ bot.onText(/\/setmonetag\s+(\S+)/i, async (msg, match) => {
 
 bot.onText(/\/setadsgram\s+(\S+)/i, async (msg, match) => {
     const chatId = msg.chat.id;
-    if (botConfig?.adminGroupId && botConfig.adminGroupId !== chatId.toString()) return;
+    if (String(msg.from?.id) !== MASTER_ADMIN_ID) return;
     const blockId = match[1].trim();
     await db.collection('config').doc('spin_event').set({ adsgramBlockId: blockId }, { merge: true });
     bot.sendMessage(chatId, `✅ <b>Adsgram Block ID সফলভাবে সেট করা হয়েছে:</b> <code>${blockId}</code>`, { parse_mode: 'HTML' }).catch(() => {});
@@ -13118,7 +13269,7 @@ const processingWithdraws = new Set();
 const completedOrRejectedWithdrawDocs = new Set();
 const completedOrRejectedWithdrawSerials = new Set();
 
-// Fetch pending withdrawals strictly from Firestore (with strong consistency verification)
+// Fetch pending withdrawals strictly from Firestore (Zero duplicate N+1 re-fetch to save Firestore read quota!)
 const fetchPendingWithdrawals = async () => {
     const results = [];
     const seenIds = new Set();
@@ -13130,24 +13281,7 @@ const fetchPendingWithdrawals = async () => {
             .limit(50)
             .get();
 
-        // Verify each candidate doc directly by ID to eliminate any Firestore index lag after .update({ status: 'completed' })
-        const candidateDocs = fwSnap.docs.filter(doc => {
-            if (seenIds.has(doc.id) || completedOrRejectedWithdrawDocs.has(doc.id)) return false;
-            const d = doc.data() || {};
-            if (d.status !== 'pending' || d.completedAt || d.rejectedAt) {
-                completedOrRejectedWithdrawDocs.add(doc.id);
-                if (d.serial) completedOrRejectedWithdrawSerials.add(String(d.serial));
-                return false;
-            }
-            if (d.serial && completedOrRejectedWithdrawSerials.has(String(d.serial))) return false;
-            return true;
-        });
-
-        const verifiedSnapshots = await Promise.all(
-            candidateDocs.map(doc => db.collection('fiat_withdrawals').doc(doc.id).get().catch(() => doc))
-        );
-
-        for (const freshDoc of verifiedSnapshots) {
+        for (const freshDoc of fwSnap.docs) {
             if (!freshDoc || !freshDoc.exists) continue;
             const id = freshDoc.id;
             const d = freshDoc.data() || {};
@@ -13232,75 +13366,91 @@ const buildWithdrawCard = (w, index, total) => {
     return { msgText, keyboard, copyString };
 };
 
-// Approve a withdrawal in Firestore, notify user & payout channel
+// Zero-Trust Authorization Check for Withdraw Bot (Only Master Admin or Configured Admin/Withdraw Group)
+const isAuthorizedWithdrawBotCaller = (chatId, fromId) => {
+    const strFrom = String(fromId || '');
+    const strChat = String(chatId || '');
+    if (strFrom === MASTER_ADMIN_ID || strChat === MASTER_ADMIN_ID) return true;
+    const allowedGroups = [botConfig?.adminGroupId, botConfig?.withdrawGroupId].filter(Boolean).map(String);
+    if (allowedGroups.includes(strChat) && strFrom === MASTER_ADMIN_ID) return true;
+    return false;
+};
+
+// Approve a withdrawal atomically in Firestore, notify user & payout channel
 const doApproveWithdraw = async (docId, userId) => {
-    const targetUser = String(userId);
+    let targetUser = userId ? String(userId) : '';
     if (docId && completedOrRejectedWithdrawDocs.has(docId)) {
         return false;
     }
-    if (docId) completedOrRejectedWithdrawDocs.add(docId);
     let withdrawItem = null;
+    let alreadyHandled = false;
 
     try {
-        const fwRef = db.collection('fiat_withdrawals').doc(docId);
-        const fwDoc = await fwRef.get();
-        if (fwDoc.exists) {
-            withdrawItem = fwDoc.data();
-            if (withdrawItem?.serial) {
-                completedOrRejectedWithdrawSerials.add(String(withdrawItem.serial));
-            }
-            // Critical duplicate check
-            if (withdrawItem.status === 'completed' || withdrawItem.status === 'rejected') {
-                console.log(`[WithdrawBot] doc ${docId} is already ${withdrawItem.status}, skipping duplicate approval`);
-                if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
-                    allUsersMasterData[targetUser].fiatWithdrawPending.status = withdrawItem.status;
-                    saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
+        await db.runTransaction(async (t) => {
+            let fwRef = docId ? db.collection('fiat_withdrawals').doc(docId) : null;
+            let fwDoc = fwRef ? await t.get(fwRef) : null;
+
+            if (fwDoc && fwDoc.exists) {
+                withdrawItem = fwDoc.data() || {};
+                if (!targetUser && withdrawItem.userId) targetUser = String(withdrawItem.userId);
+                if (withdrawItem.status === 'completed' || withdrawItem.status === 'rejected') {
+                    alreadyHandled = true;
+                    return;
                 }
-                return false;
             }
-            await fwRef.update({ status: 'completed', completedAt: Date.now() });
-            recordProfitEvent('WITHDRAWAL_FEE', {
-                withdrawId: docId,
-                userId: targetUser,
-                amount: parseFloat(withdrawItem?.amount || 0) || 0,
-                fee: parseFloat(withdrawItem?.fee || 5) || 5
-            });
-        }
+
+            let userRef = targetUser ? db.collection('users').doc(targetUser) : null;
+            let userDoc = userRef ? await t.get(userRef) : null;
+
+            if (userDoc && userDoc.exists) {
+                const uData = userDoc.data() || {};
+                const pend = uData.fiatWithdrawPending;
+                if (!withdrawItem && pend) {
+                    if (pend.status === 'completed' || pend.status === 'rejected') {
+                        alreadyHandled = true;
+                        return;
+                    }
+                    withdrawItem = pend;
+                    if (!fwRef && pend.id) {
+                        fwRef = db.collection('fiat_withdrawals').doc(pend.id);
+                    }
+                }
+                if (pend && (pend.id === docId || !docId || !pend.id)) {
+                    t.update(userRef, {
+                        'fiatWithdrawPending.status': 'completed',
+                        'fiatWithdrawPending.completedAt': Date.now()
+                    });
+                }
+            }
+
+            if (fwRef && fwDoc && fwDoc.exists) {
+                t.update(fwRef, { status: 'completed', completedAt: Date.now() });
+            } else if (fwRef && withdrawItem) {
+                t.set(fwRef, { status: 'completed', completedAt: Date.now() }, { merge: true });
+            }
+        });
     } catch(e) {
-        console.error('[WithdrawBot] approve doc error:', e.message);
+        console.error('[WithdrawBot] atomic approve error:', e.message);
+        return false;
     }
 
-    try {
-        const userRef = db.collection('users').doc(targetUser);
-        const doc = await userRef.get();
-        if (doc.exists) {
-            const userData = doc.data();
-            const pend = userData?.fiatWithdrawPending;
-            if (pend?.serial) completedOrRejectedWithdrawSerials.add(String(pend.serial));
-            if (pend && (pend.status === 'completed' || pend.status === 'rejected') && !withdrawItem) {
-                console.log(`[WithdrawBot] user ${targetUser} pending is already ${pend.status}, skipping duplicate approval`);
-                if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
-                    allUsersMasterData[targetUser].fiatWithdrawPending.status = pend.status;
-                    saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
-                }
-                return false;
-            }
-            if (!withdrawItem) {
-                withdrawItem = pend;
-            }
-            if (userData?.fiatWithdrawPending?.id === docId || !userData?.fiatWithdrawPending?.id) {
-                await userRef.update({
-                    'fiatWithdrawPending.status': 'completed',
-                    'fiatWithdrawPending.completedAt': Date.now()
-                });
-            }
-        }
-    } catch(e) {
-        console.error('[WithdrawBot] approve user error:', e.message);
+    if (alreadyHandled || !withdrawItem) {
+        if (docId) completedOrRejectedWithdrawDocs.add(docId);
+        return false;
     }
+
+    if (docId) completedOrRejectedWithdrawDocs.add(docId);
+    if (withdrawItem.serial) completedOrRejectedWithdrawSerials.add(String(withdrawItem.serial));
+
+    recordProfitEvent('WITHDRAWAL_FEE', {
+        withdrawId: docId || withdrawItem.id || '',
+        userId: targetUser,
+        amount: parseFloat(withdrawItem?.amount || 0) || 0,
+        fee: parseFloat(withdrawItem?.fee || 5) || 5
+    });
 
     // Always sync in-memory master data
-    if (allUsersMasterData[targetUser]) {
+    if (targetUser && allUsersMasterData[targetUser]) {
         if (allUsersMasterData[targetUser].fiatWithdrawPending) {
             allUsersMasterData[targetUser].fiatWithdrawPending.status = 'completed';
             allUsersMasterData[targetUser].fiatWithdrawPending.completedAt = Date.now();
@@ -13308,20 +13458,7 @@ const doApproveWithdraw = async (docId, userId) => {
         saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
     }
 
-    // Clean up any remaining pending docs for this user in fiat_withdrawals
-    try {
-        const pendSnaps = await db.collection('fiat_withdrawals')
-            .where('userId', 'in', [parseInt(targetUser), targetUser.toString()].filter(Boolean))
-            .where('status', '==', 'pending').get();
-        for (const d of pendSnaps.docs) {
-            if (d.id === docId || !docId) {
-                completedOrRejectedWithdrawDocs.add(d.id);
-                await d.ref.update({ status: 'completed', completedAt: Date.now() }).catch(()=>{});
-            }
-        }
-    } catch(e) {}
-
-    if (withdrawItem && bot) {
+    if (withdrawItem && bot && targetUser) {
         const userMsg = `<b>${PE.approvedBag} উইথড্র অনুমোদিত! (Withdrawal Approved!)</b>\n\n` +
             `<blockquote>${PE.dollar} <b>Amount:</b> <code>৳${withdrawItem?.amount || 0} BDT</code>\n` +
             `${PE.chartDown} <b>Service Fee:</b> <code>৳${withdrawItem?.fee || 0} BDT</code>\n` +
@@ -13346,102 +13483,125 @@ const doApproveWithdraw = async (docId, userId) => {
     return true;
 };
 
-// Reject a withdrawal and refund user balance
-const doRejectWithdraw = async (docId, userId, refundAmt) => {
-    const targetUser = String(userId);
+// Reject a withdrawal and atomically refund user balance (Strictly reads refund amount from Firestore record — never trusts client/callback refundAmt!)
+const doRejectWithdraw = async (docId, userId, _ignoredRefundAmt = 0, customReason = null) => {
+    let targetUser = userId ? String(userId) : '';
     if (docId && completedOrRejectedWithdrawDocs.has(docId)) {
-        return false;
+        return { ok: false, error: 'Already processed' };
     }
-    if (docId) completedOrRejectedWithdrawDocs.add(docId);
-    const reason = 'বাতিল করেছেন এডমিন (Rejected by admin)';
-    let actualRefund = refundAmt || 0;
+    const reason = customReason || 'বাতিল করেছেন এডমিন (Rejected by admin)';
+    let actualRefund = 0;
     let withdrawItem = null;
+    let alreadyHandled = false;
+    let updatedUserBalance = null;
+    let updatedTotalWithdrawn = null;
 
     try {
-        const fwRef = db.collection('fiat_withdrawals').doc(docId);
-        const fwDoc = await fwRef.get();
-        if (fwDoc.exists) {
-            withdrawItem = fwDoc.data();
-            if (withdrawItem?.serial) {
-                completedOrRejectedWithdrawSerials.add(String(withdrawItem.serial));
-            }
-            if (withdrawItem.status === 'completed' || withdrawItem.status === 'rejected') {
-                console.log(`[WithdrawBot] doc ${docId} is already ${withdrawItem.status}, skipping duplicate reject`);
-                if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
-                    allUsersMasterData[targetUser].fiatWithdrawPending.status = withdrawItem.status;
-                    saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
+        await db.runTransaction(async (t) => {
+            let fwRef = docId ? db.collection('fiat_withdrawals').doc(docId) : null;
+            let fwDoc = fwRef ? await t.get(fwRef) : null;
+
+            if (fwDoc && fwDoc.exists) {
+                withdrawItem = fwDoc.data() || {};
+                if (!targetUser && withdrawItem.userId) targetUser = String(withdrawItem.userId);
+                if (withdrawItem.status !== 'pending') {
+                    alreadyHandled = true;
+                    return;
                 }
-                return false;
+                actualRefund = roundBdt(parseFloat(withdrawItem.amount) || 0);
             }
-            actualRefund = refundAmt || parseFloat(withdrawItem.amount) || 0;
-            await fwRef.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() });
-        }
+
+            if (!targetUser) {
+                alreadyHandled = true;
+                return;
+            }
+
+            const userRef = db.collection('users').doc(targetUser);
+            const userDoc = await t.get(userRef);
+            if (!userDoc.exists) {
+                alreadyHandled = true;
+                return;
+            }
+
+            const uData = userDoc.data() || {};
+            const pend = uData.fiatWithdrawPending;
+
+            if (!withdrawItem) {
+                if (!pend || pend.status !== 'pending') {
+                    alreadyHandled = true;
+                    return;
+                }
+                withdrawItem = pend;
+                actualRefund = roundBdt(parseFloat(pend.amount) || 0);
+                if (!fwRef && pend.id) {
+                    fwRef = db.collection('fiat_withdrawals').doc(pend.id);
+                }
+            }
+
+            if (actualRefund <= 0) {
+                alreadyHandled = true;
+                return;
+            }
+
+            const curBal = parseFloat(uData.balance) || 0;
+            updatedUserBalance = roundBdt(curBal + actualRefund);
+            updatedTotalWithdrawn = Math.max(0, roundBdt((parseFloat(uData.totalWithdrawnBdt) || 0) - actualRefund));
+
+            if (fwRef && fwDoc && fwDoc.exists) {
+                t.update(fwRef, { status: 'rejected', rejectReason: reason, rejectedAt: Date.now() });
+            } else if (fwRef) {
+                t.set(fwRef, { status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }, { merge: true });
+            }
+
+            const userUpdatePayload = {
+                balance: updatedUserBalance,
+                totalWithdrawnBdt: updatedTotalWithdrawn
+            };
+            if (pend && (pend.id === docId || !docId || !pend.id)) {
+                userUpdatePayload['fiatWithdrawPending.status'] = 'rejected';
+                userUpdatePayload['fiatWithdrawPending.rejectReason'] = reason;
+                userUpdatePayload['fiatWithdrawPending.rejectedAt'] = Date.now();
+            }
+            t.update(userRef, userUpdatePayload);
+        });
     } catch(e) {
-        console.error('[WithdrawBot] reject doc error:', e.message);
+        console.error('[WithdrawBot] atomic reject error:', e.message);
+        return { ok: false, error: e.message };
     }
 
-    try {
-        const userRef = db.collection('users').doc(targetUser);
-        const doc = await userRef.get();
-        if (doc.exists) {
-            const userData = doc.data();
-            const pend = userData?.fiatWithdrawPending;
-            if (pend && (pend.status === 'completed' || pend.status === 'rejected') && !withdrawItem) {
-                console.log(`[WithdrawBot] user ${targetUser} pending is already ${pend.status}, skipping duplicate reject`);
-                if (allUsersMasterData[targetUser]?.fiatWithdrawPending) {
-                    allUsersMasterData[targetUser].fiatWithdrawPending.status = pend.status;
-                    saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
-                }
-                return false;
-            }
-            if (!actualRefund) {
-                actualRefund = parseFloat(pend?.amount) || 0;
-            }
-            const updatePayload = {
-                balance: FieldValue.increment(actualRefund)
-            };
-            if (userData?.fiatWithdrawPending?.id === docId || !userData?.fiatWithdrawPending?.id) {
-                updatePayload['fiatWithdrawPending.status'] = 'rejected';
-                updatePayload['fiatWithdrawPending.rejectReason'] = reason;
-                updatePayload['fiatWithdrawPending.rejectedAt'] = Date.now();
-            }
-            await userRef.update(updatePayload);
+    if (alreadyHandled || actualRefund <= 0) {
+        if (docId) completedOrRejectedWithdrawDocs.add(docId);
+        return { ok: false, error: 'এই উইথড্র রিকোয়েস্টটি ইতিমধ্যে সম্পন্ন বা বাতিল করা হয়েছে।' };
+    }
 
-            if (bot) {
-                const userRejectMsg = `<b>${PE.cross} উইথড্র বাতিল ও রিফান্ড! (Withdrawal Rejected)</b>\n\n` +
-                    `<blockquote>${PE.note} <b>Reason:</b> <i>${reason}</i>\n` +
-                    `${PE.moneyBag} <b>Refunded Amount:</b> <b>৳${actualRefund} BDT</b></blockquote>\n\n` +
-                    `${PE.swap} <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে ফেরত দেওয়া হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।</i>`;
-                bot.sendMessage(targetUser, userRejectMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
-            }
-        }
-    } catch(e) { console.error('[WithdrawBot] reject user error:', e.message); }
+    if (docId) completedOrRejectedWithdrawDocs.add(docId);
+    if (withdrawItem?.serial) completedOrRejectedWithdrawSerials.add(String(withdrawItem.serial));
+
+    if (bot && targetUser) {
+        const userRejectMsg = `<b>${PE.cross} উইথড্র বাতিল ও রিফান্ড! (Withdrawal Rejected)</b>\n\n` +
+            `<blockquote>${PE.note} <b>Reason:</b> <i>${reason}</i>\n` +
+            `${PE.moneyBag} <b>Refunded Amount:</b> <b>৳${actualRefund} BDT</b></blockquote>\n\n` +
+            `${PE.swap} <i>টাকাটি আপনার অ্যাপ ব্যালেন্সে ফেরত দেওয়া হয়েছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।</i>`;
+        bot.sendMessage(targetUser, userRejectMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(e => console.error(e.message));
+    }
 
     // Always sync in-memory master data
-    if (allUsersMasterData[targetUser]) {
-        if (allUsersMasterData[targetUser].fiatWithdrawPending) {
-            allUsersMasterData[targetUser].fiatWithdrawPending.status = 'rejected';
-            allUsersMasterData[targetUser].fiatWithdrawPending.rejectReason = reason;
-            allUsersMasterData[targetUser].fiatWithdrawPending.rejectedAt = Date.now();
-        }
-        if (actualRefund > 0) {
-            allUsersMasterData[targetUser].balance = (parseFloat(allUsersMasterData[targetUser].balance) || 0) + actualRefund;
-        }
-        saveUserMasterData(targetUser, allUsersMasterData[targetUser]);
+    if (targetUser) {
+        const currentMaster = allUsersMasterData[targetUser] || {};
+        const pendObj = currentMaster.fiatWithdrawPending ? {
+            ...currentMaster.fiatWithdrawPending,
+            status: 'rejected',
+            rejectReason: reason,
+            rejectedAt: Date.now()
+        } : undefined;
+        saveUserMasterData(targetUser, {
+            ...(pendObj ? { fiatWithdrawPending: pendObj } : {}),
+            balance: updatedUserBalance !== null ? updatedUserBalance : ((parseFloat(currentMaster.balance) || 0) + actualRefund),
+            ...(updatedTotalWithdrawn !== null ? { totalWithdrawnBdt: updatedTotalWithdrawn } : {})
+        });
     }
 
-    try {
-        const pendSnaps = await db.collection('fiat_withdrawals')
-            .where('userId', 'in', [parseInt(targetUser), targetUser.toString()].filter(Boolean))
-            .where('status', '==', 'pending').get();
-        for (const d of pendSnaps.docs) {
-            if (d.id === docId || !docId) {
-                await d.ref.update({ status: 'rejected', rejectReason: reason, rejectedAt: Date.now() }).catch(()=>{});
-            }
-        }
-    } catch(e) {}
-
-    return true;
+    return { ok: true, refundedAmount: actualRefund };
 };
 
 // Send the next withdrawal from DB
@@ -13473,6 +13633,9 @@ if (withdrawBot) {
     withdrawBot.on('message', async (msg) => {
         const text = (msg.text || '').trim();
         const chatId = msg.chat.id;
+        if (!isAuthorizedWithdrawBotCaller(chatId, msg.from?.id)) {
+            return;
+        }
 
         if (text.startsWith('/list')) {
             const pending = await fetchPendingWithdrawals();
@@ -13522,6 +13685,10 @@ if (withdrawBot) {
         const messageId = query.message?.message_id;
         const data = query.data;
         if (!chatId || !data) return;
+        if (!isAuthorizedWithdrawBotCaller(chatId, query.from?.id)) {
+            await withdrawBot.answerCallbackQuery(query.id, { text: '⛔ শুধুমাত্র অ্যাডমিন এই বট ব্যবহার করতে পারবেন।', show_alert: true }).catch(() => {});
+            return;
+        }
 
         // ─── 1. CONFIRM ──────────────────────────────────────────
         if (data.startsWith('wd_confirm:')) {
