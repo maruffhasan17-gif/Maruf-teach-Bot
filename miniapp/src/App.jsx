@@ -11423,246 +11423,366 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  const [showWalletModal, setShowWalletModal] = useState(false);
-  const [walletMethod, setWalletMethod] = useState('bKash');
-  const [showMethodDropdown, setShowMethodDropdown] = useState(false);
-  const [walletNumber, setWalletNumber] = useState('');
-  const [walletName, setWalletName] = useState('');
+  // Inline Wallet Setup Drawer State (Replaces old clunky popup modal)
+  const [isEditingWallet, setIsEditingWallet] = useState(false);
+  const [walletMethod, setWalletMethod] = useState(() => fiatWallet?.method || 'bKash');
+  const [walletNumber, setWalletNumber] = useState(() => fiatWallet?.number || '');
+  const [walletName, setWalletName] = useState(() => fiatWallet?.name || '');
   const [isSaving, setIsSaving] = useState(false);
   const [txStatus, setTxStatus] = useState(null);
   const [txMessage, setTxMessage] = useState('');
 
   useEffect(() => {
     if (setIsModalOpen) {
-      setIsModalOpen(showWalletModal || showLanguageModal || !!txStatus);
+      setIsModalOpen(showLanguageModal || !!txStatus);
     }
-  }, [showWalletModal, showLanguageModal, txStatus, setIsModalOpen]);
-  
+  }, [showLanguageModal, txStatus, setIsModalOpen]);
+
+  const openInlineWalletEditor = () => {
+    playAppSound('tap');
+    setWalletMethod(fiatWallet?.method || 'bKash');
+    setWalletNumber(fiatWallet?.number || '');
+    setWalletName(fiatWallet?.name || user?.first_name || '');
+    setIsEditingWallet(true);
+  };
+
   const handleWithdrawClick = () => {
-      if (fiatWallet) {
-          onGoToWithdraw();
-      } else {
-          setShowWalletModal(true);
-      }
+    if (fiatWallet) {
+      onGoToWithdraw();
+    } else {
+      openInlineWalletEditor();
+    }
   };
 
   const handleSaveWallet = async () => {
-      if (!walletNumber || !walletName) return;
-      setIsSaving(true);
-      try {
-          await saveFiatWallet({
-              userId: user?.id || 123456789,
-              method: walletMethod,
-              number: walletNumber,
-              name: walletName
-          });
-          setFiatWallet({ method: walletMethod, number: walletNumber, name: walletName });
-          setShowWalletModal(false);
-          playAppSound('success');
-          onGoToWithdraw();
-      } catch (e) {
-          playAppSound('error');
-          WebApp.showAlert(e.message || 'Failed to save wallet');
-      } finally {
-          setIsSaving(false);
-      }
+    if (!walletNumber || !walletName) return;
+    setIsSaving(true);
+    try {
+      await saveFiatWallet({
+        userId: user?.id || 123456789,
+        method: walletMethod,
+        number: walletNumber,
+        name: walletName
+      });
+      setFiatWallet({ method: walletMethod, number: walletNumber, name: walletName });
+      setIsEditingWallet(false);
+      playAppSound('success');
+    } catch (e) {
+      playAppSound('error');
+      WebApp.showAlert(e.message || 'Failed to save wallet');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <div className="space-y-3.5 max-w-md mx-auto pb-24 relative">
-      {/* 1. EXECUTIVE USER VIP IDENTITY CARD */}
-      <div className={`rounded-3xl border transition-colors p-4 shadow-sm relative overflow-hidden ${
-        darkMode 
-          ? 'bg-slate-900/95 border-slate-800 text-white' 
-          : 'bg-white border-slate-200/90 text-slate-900'
+      {/* =========================================================================
+          1. UNIFIED EXECUTIVE PROFILE & PAYOUT SUITE CARD
+          (Combines Identity + Inline Payout Wallet + Full-Width 3D Withdraw CTA)
+          ========================================================================= */}
+      <div className={`rounded-[28px] border transition-all p-4 sm:p-5 relative overflow-hidden ${
+        darkMode
+          ? 'bg-[#0D1322]/95 border-white/[0.07] text-white shadow-[0_12px_32px_rgba(0,0,0,0.45)]'
+          : 'bg-white border-slate-200/80 text-slate-900 shadow-[0_12px_32px_-10px_rgba(79,70,229,0.12)]'
       }`}>
-        {/* Zero-lag radial aura glow behind card */}
+        {/* Subtle Top-Right Royal Violet Ambient Glow */}
         <div
-          className="absolute -top-12 -right-12 w-48 h-48 rounded-full pointer-events-none"
+          className="absolute -top-16 -right-16 w-56 h-56 rounded-full pointer-events-none"
           style={{
-            background: 'radial-gradient(circle, rgba(147,51,234,0.14) 0%, rgba(79,70,229,0.06) 50%, transparent 70%)'
+            background: darkMode
+              ? 'radial-gradient(circle, rgba(139,92,246,0.18) 0%, rgba(79,70,229,0.06) 50%, transparent 70%)'
+              : 'radial-gradient(circle, rgba(139,92,246,0.12) 0%, rgba(99,102,241,0.04) 55%, transparent 72%)'
           }}
         />
 
-        <div className="relative z-10 flex items-center justify-between gap-3">
-          {/* Avatar & User Details */}
+        {/* PART A: USER IDENTITY HEADER */}
+        <div className="relative z-10 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className="relative">
-              <UserAvatarBox
-                userId={user?.id}
-                photoUrl={user?.photo_url}
-                name={user?.first_name}
-                sizeClass="w-13 h-13 rounded-2xl text-xl"
-              />
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[10px] text-white shadow-2xs font-bold">
+            {/* Avatar with Gradient Ring & Verified Badge */}
+            <div className="relative shrink-0">
+              <div className={`p-[3px] rounded-[20px] ${
+                darkMode
+                  ? 'bg-gradient-to-tr from-violet-500 via-indigo-500 to-purple-500 shadow-[0_6px_18px_rgba(124,58,237,0.3)]'
+                  : 'bg-gradient-to-tr from-violet-500 via-indigo-500 to-purple-400 shadow-[0_6px_16px_rgba(124,58,237,0.2)]'
+              }`}>
+                <div className="rounded-[17px] overflow-hidden bg-white dark:bg-slate-900">
+                  <UserAvatarBox
+                    userId={user?.id}
+                    photoUrl={user?.photo_url}
+                    name={user?.first_name}
+                    sizeClass="w-14 h-14 rounded-[17px] text-xl"
+                  />
+                </div>
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#0D1322] flex items-center justify-center text-[10px] text-white shadow-2xs font-bold">
                 ✓
               </div>
             </div>
 
+            {/* User Name, Handle & Copyable MBS ID Pill */}
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h2 className="text-base font-black leading-tight truncate text-slate-900 dark:text-white">
+                <h2 className="text-[17px] font-black leading-tight truncate text-slate-900 dark:text-white">
                   {user?.first_name || 'User'}
                 </h2>
+                <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold inline-flex items-center gap-1 shrink-0 border ${
+                  darkMode
+                    ? 'bg-emerald-500/12 text-emerald-400 border-emerald-500/25'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                }`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span>{lang === 'bn' ? 'ভেরিফাইড' : 'Verified'}</span>
+                </span>
               </div>
-              <p className="text-slate-400 text-xs font-medium truncate mt-0.5">
+
+              <p className="text-slate-400 dark:text-slate-500 text-xs font-semibold truncate mt-0.5">
                 @{user?.username || 'user'}
               </p>
-              
-              {/* MBS ID Badge with Copy */}
+
               <button
                 type="button"
                 onClick={handleCopyId}
-                className={`inline-flex items-center gap-1.5 text-[10.5px] font-mono font-bold px-2.5 py-1 rounded-xl cursor-pointer mt-1.5 transition-all select-none active:scale-95 border ${
+                className={`inline-flex items-center gap-1.5 text-[10.5px] font-mono font-bold px-2.5 py-1 rounded-full cursor-pointer mt-2 transition-all select-none active:scale-95 border ${
                   copiedId
-                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800'
-                    : 'text-slate-600 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/80 border-slate-200/80 dark:border-slate-700/80'
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/35'
+                    : darkMode
+                      ? 'bg-violet-500/10 text-violet-300 border-violet-500/25 hover:bg-violet-500/20'
+                      : 'bg-violet-50/80 text-violet-700 border-violet-200/80 hover:bg-violet-100/70'
                 }`}
                 title="Copy ID"
               >
                 <span>ID: {displayId}</span>
                 {copiedId ? (
-                  <Check size={11} className="text-emerald-600 dark:text-emerald-400" />
+                  <Check size={11} className="text-emerald-500" />
                 ) : (
-                  <Copy size={11} className="text-slate-400" />
+                  <Copy size={11} className="opacity-75" />
                 )}
               </button>
             </div>
           </div>
 
-          {/* Quick Controls: Dark Mode Toggle */}
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            {/* Theme Toggle Button */}
-            <button
-              type="button"
-              onClick={onToggleDarkMode}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-black transition-all duration-300 active:scale-95 cursor-pointer shadow-2xs ${
-                darkMode
-                  ? 'bg-slate-800 border-slate-700 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.2)]'
-                  : 'bg-indigo-50/80 border-indigo-200/80 text-indigo-700 hover:bg-indigo-100'
+          {/* Theme Toggle Pill */}
+          <button
+            type="button"
+            onClick={onToggleDarkMode}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[11px] font-black transition-all active:scale-95 cursor-pointer shrink-0 ${
+              darkMode
+                ? 'bg-white/[0.06] border-white/10 text-amber-300 hover:bg-white/10'
+                : 'bg-slate-100/80 border-slate-200/80 text-slate-700 hover:bg-slate-200/70'
+            }`}
+          >
+            {darkMode ? <Sun size={13} className="text-amber-300" /> : <CrescentMoonIcon size={13} isDark={false} />}
+            <span>{darkMode ? (lang === 'bn' ? 'লাইট' : 'Light') : (lang === 'bn' ? 'ডার্ক' : 'Dark')}</span>
+          </button>
+        </div>
+
+        {/* Soft Gradient Divider */}
+        <div className={`h-px w-full my-4 ${
+          darkMode
+            ? 'bg-gradient-to-r from-transparent via-white/10 to-transparent'
+            : 'bg-gradient-to-r from-transparent via-slate-200 to-transparent'
+        }`} />
+
+        {/* PART B: PAYOUT WALLET SLOT OR INLINE DRAWER (Zero Popup Modal) */}
+        <div className="relative z-10 space-y-3">
+          {!isEditingWallet ? (
+            <div
+              onClick={openInlineWalletEditor}
+              className={`rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 cursor-pointer active:scale-[0.99] ${
+                fiatWallet
+                  ? (darkMode
+                      ? 'bg-gradient-to-r from-violet-950/35 via-white/[0.03] to-indigo-950/30 border-violet-500/25 hover:border-violet-500/40'
+                      : 'bg-gradient-to-r from-violet-50/60 via-slate-50/40 to-indigo-50/50 border-violet-200/70 hover:border-violet-300')
+                  : (darkMode
+                      ? 'bg-white/[0.03] hover:bg-white/[0.05] border-white/[0.08]'
+                      : 'bg-slate-50/80 hover:bg-slate-100/70 border-slate-200/80')
               }`}
             >
-              {darkMode ? <Sun size={14} className="text-amber-300" /> : <CrescentMoonIcon size={14} isDark={false} />}
-              <span>{darkMode ? (lang === 'bn' ? 'লাইট মোড' : 'Light') : (lang === 'bn' ? 'ডার্ক মোড' : 'Dark')}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. EXECUTIVE BALANCE & WITHDRAWAL HUB CARD */}
-      <div className={`rounded-3xl border transition-all p-5 shadow-sm space-y-4 relative overflow-hidden ${
-        darkMode 
-          ? 'bg-slate-900/95 border-slate-800 text-white' 
-          : 'bg-white border-slate-200/90 text-slate-900'
-      }`}>
-        {/* Header: Available Balance + Verified Pill */}
-        <div className="flex justify-between items-start">
-          <div>
-            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">
-              {lang === 'bn' ? 'অ্যাভেইলেবল ব্যালেন্স' : 'Available Balance'}
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
-                {balance}
-              </span>
-              <span className="text-base font-black text-indigo-600 dark:text-indigo-400">
-                BDT
-              </span>
+              {fiatWallet ? (
+                <>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      style={{ backgroundColor: '#ffffff' }}
+                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1.5 flex items-center justify-center shrink-0 shadow-2xs tp-payment-logo-box"
+                    >
+                      <img
+                        src={getPaymentLogo(fiatWallet.method)}
+                        alt={fiatWallet.method}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-black text-slate-900 dark:text-white leading-tight">
+                          {fiatWallet.method} Personal
+                        </span>
+                        <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black">
+                          ACTIVE
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-violet-700 dark:text-violet-300 block mt-0.5 truncate">
+                        {fiatWallet.number} {fiatWallet.name ? `• ${fiatWallet.name}` : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shrink-0 border ${
+                    darkMode
+                      ? 'bg-white/[0.06] border-white/10 text-violet-300'
+                      : 'bg-white border-slate-200/90 text-violet-700 shadow-2xs'
+                  }`}>
+                    <Edit3 size={12} />
+                    <span>{lang === 'bn' ? 'পরিবর্তন' : 'Edit'}</span>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center -space-x-2 shrink-0">
+                      <div
+                        style={{ backgroundColor: '#ffffff' }}
+                        className="w-9 h-9 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shadow-2xs relative z-10 tp-payment-logo-box"
+                      >
+                        <img src={getPaymentLogo('bKash')} alt="bKash" className="w-full h-full object-contain" />
+                      </div>
+                      <div
+                        style={{ backgroundColor: '#ffffff' }}
+                        className="w-9 h-9 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shadow-2xs relative z-0 tp-payment-logo-box"
+                      >
+                        <img src={getPaymentLogo('Nagad')} alt="Nagad" className="w-full h-full object-contain" />
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight truncate">
+                        {lang === 'bn' ? 'ক্যাশআউট ওয়ালেট যুক্ত করুন' : 'Link Cashout Wallet'}
+                      </span>
+                      <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 block truncate">
+                        {lang === 'bn' ? 'টাকা তুলতে bKash বা Nagad নাম্বার সেট করুন' : 'Set bKash or Nagad number for cashout'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 border ${
+                    darkMode
+                      ? 'bg-violet-500/20 border-violet-500/35 text-violet-300'
+                      : 'bg-violet-50 border-violet-200 text-violet-700'
+                  }`}>
+                    {lang === 'bn' ? '+ সেটআপ' : '+ Setup'}
+                  </span>
+                </>
+              )}
             </div>
-          </div>
-          
-          <div className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 text-[10.5px] font-black flex items-center gap-1.5 shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{lang === 'bn' ? 'ভেরিফাইড একাউন্ট' : 'Verified'}</span>
-          </div>
-        </div>
-
-        {/* Saved Payout Wallet Box */}
-        <div className={`rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 ${
-          darkMode 
-            ? 'bg-slate-800/50 border-slate-700/70' 
-            : 'bg-slate-50 border-slate-200/80'
-        }`}>
-          {fiatWallet ? (
-            <>
-              <div className="flex items-center gap-3 min-w-0">
-                <div style={{ backgroundColor: '#ffffff' }} className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box">
-                  <img 
-                    src={getPaymentLogo(fiatWallet.method)} 
-                    alt={fiatWallet.method} 
-                    className="w-full h-full object-contain" 
-                  />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight">
-                    {fiatWallet.method} Wallet
-                  </span>
-                  <span className="text-[11.5px] font-mono font-bold text-slate-600 dark:text-slate-300 block mt-0.5 truncate">
-                    {fiatWallet.number} {fiatWallet.name ? `• ${fiatWallet.name}` : ''}
-                  </span>
-                </div>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => {
-                  setWalletMethod(fiatWallet.method || 'bKash');
-                  setWalletNumber(fiatWallet.number || '');
-                  setWalletName(fiatWallet.name || '');
-                  setShowWalletModal(true);
-                }}
-                className="px-3 py-1.5 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 rounded-xl transition-all border border-slate-200 dark:border-slate-700 shadow-2xs flex items-center gap-1.5 text-xs font-bold active:scale-95 shrink-0 cursor-pointer"
-              >
-                <Edit3 size={13} />
-                <span>{lang === 'bn' ? 'পরিবর্তন' : 'Edit'}</span>
-              </button>
-            </>
           ) : (
-            <>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black shrink-0 text-base">
-                  +
-                </div>
-                <div>
-                  <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight">
-                    {lang === 'bn' ? 'কোন ওয়ালেট যুক্ত নেই' : 'No Payout Wallet'}
-                  </span>
-                  <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 block">
-                    {lang === 'bn' ? 'টাকা তুলতে bKash বা Nagad ওয়ালেট যুক্ত করুন' : 'Add bKash or Nagad to cashout'}
-                  </span>
-                </div>
+            /* SMOOTH INLINE WALLET SETUP (No Modal Popup!) */
+            <div className={`p-3.5 rounded-2xl border space-y-3 animate-in fade-in duration-200 ${
+              darkMode
+                ? 'bg-white/[0.03] border-violet-500/30'
+                : 'bg-violet-50/40 border-violet-200/80'
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-violet-600 dark:text-violet-400">
+                  {lang === 'bn' ? 'পেআউট ওয়ালেট সেটআপ' : 'Payout Wallet Setup'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingWallet(false)}
+                  className="w-6 h-6 rounded-full bg-slate-200/70 dark:bg-white/10 text-slate-500 dark:text-slate-300 flex items-center justify-center cursor-pointer active:scale-90"
+                >
+                  <X size={13} />
+                </button>
               </div>
-              <button 
-                type="button" 
-                onClick={() => setShowWalletModal(true)}
-                className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-xs font-black shadow-xs active:scale-95 shrink-0 cursor-pointer"
-              >
-                {lang === 'bn' ? '+ যুক্ত করুন' : '+ Add'}
-              </button>
-            </>
-          )}
-        </div>
 
-        {/* Primary Withdraw Action Button (Tactile 3D Button with Purple Gradient) */}
-        <button
-          type="button"
-          onClick={handleWithdrawClick}
-          disabled={withdrawing}
-          className="w-full h-[52px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm flex items-center justify-center gap-2.5 border-t border-purple-300/40 shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3,0_6px_12px_rgba(79,70,229,0.25)] transition-all duration-150 disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 cursor-pointer"
-        >
-          <Wallet size={18} />
-          <span>{lang === 'bn' ? 'টাকা তুলুন (WITHDRAW)' : 'WITHDRAW FUNDS'}</span>
-        </button>
+              {/* 1-Tap Method Switcher (bKash / Nagad) */}
+              <div className="grid grid-cols-2 gap-2">
+                {['bKash', 'Nagad'].map((method) => {
+                  const active = walletMethod === method;
+                  return (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => {
+                        playAppSound('tap');
+                        setWalletMethod(method);
+                      }}
+                      className={`h-10 px-3 rounded-xl border flex items-center justify-center gap-2 transition cursor-pointer active:scale-95 ${
+                        active
+                          ? 'bg-violet-600 text-white border-violet-600 shadow-xs font-black'
+                          : (darkMode ? 'bg-slate-900/80 border-white/10 text-slate-300 font-bold' : 'bg-white border-slate-200 text-slate-700 font-bold')
+                      }`}
+                    >
+                      <div
+                        style={{ backgroundColor: '#ffffff' }}
+                        className="w-5 h-5 rounded-md bg-white p-0.5 flex items-center justify-center shrink-0 tp-payment-logo-box"
+                      >
+                        <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
+                      </div>
+                      <span className="text-xs">{method}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Clean Compact Inputs */}
+              <div className="grid grid-cols-1 gap-2">
+                <input
+                  type="tel"
+                  placeholder={lang === 'bn' ? `${walletMethod} নাম্বার (যেমন: 017XXXXXXXX)` : `${walletMethod} Number (e.g. 017XXXXXXXX)`}
+                  value={walletNumber}
+                  onChange={(e) => setWalletNumber(e.target.value)}
+                  className={`w-full h-10 px-3.5 rounded-xl text-xs font-bold outline-none border transition ${
+                    darkMode
+                      ? 'bg-slate-900/90 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-500'
+                      : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-violet-500'
+                  }`}
+                />
+                <input
+                  type="text"
+                  placeholder={lang === 'bn' ? 'একাউন্টের নাম (Account Name)' : 'Account Holder Name'}
+                  value={walletName}
+                  onChange={(e) => setWalletName(e.target.value)}
+                  className={`w-full h-10 px-3.5 rounded-xl text-xs font-bold outline-none border transition ${
+                    darkMode
+                      ? 'bg-slate-900/90 border-white/10 text-white placeholder:text-slate-500 focus:border-violet-500'
+                      : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-violet-500'
+                  }`}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveWallet}
+                disabled={!walletNumber || !walletName || isSaving}
+                className="w-full h-10 rounded-xl bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.99] transition disabled:opacity-50 cursor-pointer"
+              >
+                {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.5} />}
+                <span>{lang === 'bn' ? 'ওয়ালেট সেভ করুন' : 'Save Wallet'}</span>
+              </button>
+            </div>
+          )}
+
+          {/* Primary Withdraw Action Button (Tactile 3D Button with Vibrant Purple-Indigo-Violet Gradient) */}
+          <button
+            type="button"
+            onClick={handleWithdrawClick}
+            disabled={withdrawing}
+            className="w-full h-[52px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-sm flex items-center justify-center gap-2.5 border-t border-purple-300/40 shadow-[0_5px_0_#3730a3,0_12px_24px_rgba(79,70,229,0.35)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3,0_6px_12px_rgba(79,70,229,0.25)] transition-all duration-150 disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 cursor-pointer select-none"
+          >
+            <Wallet size={18} />
+            <span>{lang === 'bn' ? 'টাকা তুলুন (WITHDRAW)' : 'WITHDRAW FUNDS'}</span>
+          </button>
+        </div>
       </div>
 
-      {/* 3. SERVICES & NAVIGATION MENU CARD (Includes Refer & Earn + Security + History + Support + Guide) */}
-      <div className={`p-2.5 rounded-3xl border transition-all shadow-sm space-y-1 ${
-        darkMode 
-          ? 'bg-slate-900/95 border-slate-800 text-white' 
-          : 'bg-white border-slate-200/90 text-slate-900'
+      {/* =========================================================================
+          2. SERVICES & SETTINGS MENU CARD (Original 6 Essential Profile Rows)
+          ========================================================================= */}
+      <div className={`p-2.5 rounded-[28px] border transition-all shadow-sm space-y-1 ${
+        darkMode
+          ? 'bg-[#0D1322]/95 border-white/[0.07] text-white'
+          : 'bg-white border-slate-200/80 text-slate-900'
       }`}>
-        {/* Refer & Earn Row */}
-        <div 
-          onClick={onGoToReferral} 
+        {/* 1. Refer & Earn Row */}
+        <div
+          onClick={onGoToReferral}
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -11686,11 +11806,11 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
           <ChevronRight size={16} className="text-slate-400 group-hover:text-fuchsia-600 dark:group-hover:text-fuchsia-400 transition-colors shrink-0" />
         </div>
 
-        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+        <div className="h-px bg-slate-100 dark:bg-slate-800/80 w-full" />
 
-        {/* Language Selection Row */}
-        <div 
-          onClick={() => setShowLanguageModal(true)} 
+        {/* 2. Language Selection Row */}
+        <div
+          onClick={() => setShowLanguageModal(true)}
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -11714,11 +11834,11 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
           <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors shrink-0" />
         </div>
 
-        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+        <div className="h-px bg-slate-100 dark:bg-slate-800/80 w-full" />
 
-        {/* 2-Step Security Verification Row */}
-        <div 
-          onClick={onGoToTwoStep} 
+        {/* 3. 2-Step Security Verification Row */}
+        <div
+          onClick={onGoToTwoStep}
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -11746,11 +11866,11 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
           <ChevronRight size={16} className="text-slate-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors shrink-0" />
         </div>
 
-        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+        <div className="h-px bg-slate-100 dark:bg-slate-800/80 w-full" />
 
-        {/* History Row */}
-        <div 
-          onClick={onGoToHistory} 
+        {/* 4. History Row */}
+        <div
+          onClick={onGoToHistory}
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
         >
           <div className="flex items-center gap-3">
@@ -11769,11 +11889,11 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
           <ChevronRight size={16} className="text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors" />
         </div>
 
-        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+        <div className="h-px bg-slate-100 dark:bg-slate-800/80 w-full" />
 
-        {/* Customer Support Row */}
-        <div 
-          onClick={onGoToSupport} 
+        {/* 5. Customer Support Row */}
+        <div
+          onClick={onGoToSupport}
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
         >
           <div className="flex items-center gap-3">
@@ -11792,17 +11912,17 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
           <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
         </div>
 
-        <div className="h-px bg-slate-100 dark:bg-slate-800 w-full" />
+        <div className="h-px bg-slate-100 dark:bg-slate-800/80 w-full" />
 
-        {/* Video Guide Row */}
-        <div 
+        {/* 6. Video Guide Row */}
+        <div
           onClick={() => {
             if (window.Telegram?.WebApp?.openLink) {
               window.Telegram.WebApp.openLink('https://youtu.be/n1yri5vWLWE');
             } else {
               window.open('https://youtu.be/n1yri5vWLWE', '_blank');
             }
-          }} 
+          }}
           className="p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all group"
         >
           <div className="flex items-center gap-3">
@@ -11822,75 +11942,124 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
         </div>
       </div>
 
-      {/* Wallet Setup Modal */}
-      {showWalletModal && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-300">
-              <div className={`relative w-full max-w-[340px] p-6 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 slide-in-from-bottom-4 overflow-hidden ${
-                darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
-              }`}>
-                  <div className="flex justify-between items-center mb-5 relative z-10">
-                      <h3 className="text-xl font-extrabold text-slate-900">Wallet Setup</h3>
-                      <button onClick={() => setShowWalletModal(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:text-gray-800">
-                          <X size={16} strokeWidth={3} />
-                      </button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                      <div>
-                          <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Select Method</label>
-                          <div className="relative">
-                              <div onClick={() => setShowMethodDropdown(!showMethodDropdown)} className="w-full h-[52px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 flex items-center justify-between cursor-pointer hover:border-[var(--color-brand)]/50 transition-all">
-                                  <div className="flex items-center gap-3">
-                                      <div style={{ backgroundColor: '#ffffff' }} className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
-                                       <img src={getPaymentLogo(walletMethod)} alt={walletMethod} className="w-full h-full object-contain" />
-                                   </div>
-                                      <span className="font-bold text-[var(--color-text-primary)]">{walletMethod}</span>
-                                  </div>
-                                  <ChevronRight size={16} className={`text-gray-400 transition-transform ${showMethodDropdown ? '-rotate-90' : 'rotate-90'}`} />
-                              </div>
-                              
-                              {showMethodDropdown && (
-                                  <>
-                                      <div className="fixed inset-0 z-40" onClick={() => setShowMethodDropdown(false)}></div>
-                                      <div className="tp-wallet-dropdown absolute top-full left-0 right-0 mt-2 bg-white rounded-[14px] premium-shadow border border-[var(--color-border)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                                          {['bKash', 'Nagad'].filter(method => method !== walletMethod).map(method => (
-                                              <button key={method} onClick={() => { setWalletMethod(method); setShowMethodDropdown(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                                                  <div style={{ backgroundColor: '#ffffff' }} className="w-8 h-8 rounded-lg tp-payment-logo-box bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 shadow-2xs">
-                                                   <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
-                                               </div>
-                                                  <span className="font-bold text-[14px] text-[var(--color-text-primary)]">{method}</span>
-                                              </button>
-                                          ))}
-                                      </div>
-                                  </>
-                              )}
-                          </div>
-                      </div>
-                      
-                      <div>
-                          <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Wallet Number</label>
-                          <input type="tel" placeholder="e.g. 017XXXXXXXX" value={walletNumber} onChange={(e) => setWalletNumber(e.target.value)} className="w-full h-[52px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 font-bold text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:ring-2 focus:ring-[var(--color-brand)]/20 transition-all placeholder:text-gray-300 placeholder:font-medium" />
-                      </div>
-
-                      <div>
-                          <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Account Name</label>
-                          <input type="text" placeholder="Enter Full Name" value={walletName} onChange={(e) => setWalletName(e.target.value)} className="w-full h-[52px] bg-gray-50 border border-gray-200 rounded-[16px] px-4 font-bold text-[var(--color-text-primary)] outline-none focus:border-[var(--color-brand)] focus:ring-2 focus:ring-[var(--color-brand)]/20 transition-all placeholder:text-gray-300 placeholder:font-medium" />
-                      </div>
-                  </div>
-
-                  <div className="mt-6">
-                      <button
-                          type="button"
-                          onClick={handleSaveWallet}
-                          disabled={!walletNumber || !walletName || isSaving}
-                          className="w-full h-[48px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md disabled:opacity-50 cursor-pointer"
-                      >
-                          {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                          <span>{lang === 'bn' ? 'ওয়ালেট সেভ করুন' : 'SAVE WALLET'}</span>
-                      </button>
-                  </div>
+      {/* Interactive Language Selector Popup Modal */}
+      {showLanguageModal && (
+        <div
+          onClick={() => setShowLanguageModal(false)}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className={`relative w-full max-w-[340px] p-5 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 slide-in-from-bottom-4 overflow-hidden ${
+              darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+            }`}
+          >
+            <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-100 dark:border-blue-800/60 shadow-2xs">
+                  <Globe size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                    {lang === 'bn' ? 'ভাষা নির্বাচন করুন' : 'Select Language'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
+                    {lang === 'bn' ? 'আপনার পছন্দের ভাষা বেছে নিন' : 'Choose your preferred language'}
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowLanguageModal(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSetLang) onSetLang('bn');
+                  if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                  }
+                  setShowLanguageModal(false);
+                }}
+                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between transition-all duration-200 active:scale-[0.98] cursor-pointer ${
+                  lang === 'bn'
+                    ? 'bg-blue-500/10 border-blue-500/50 shadow-xs ring-1 ring-blue-500/30'
+                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl select-none leading-none">🇧🇩</span>
+                  <div className="text-left">
+                    <span className={`text-sm font-black block leading-tight ${
+                      lang === 'bn' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'
+                    }`}>
+                      বাংলা
+                    </span>
+                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+                      Bengali Language
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                  lang === 'bn'
+                    ? 'border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 shadow-[0_0_8px_rgba(37,99,235,0.35)]'
+                    : 'border-slate-300 dark:border-slate-600 bg-transparent'
+                }`}>
+                  {lang === 'bn' && (
+                    <div className="w-2 h-2 rounded-full bg-white animate-in zoom-in-75 duration-150" />
+                  )}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSetLang) onSetLang('en');
+                  if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                  }
+                  setShowLanguageModal(false);
+                }}
+                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between transition-all duration-200 active:scale-[0.98] cursor-pointer ${
+                  lang === 'en'
+                    ? 'bg-blue-500/10 border-blue-500/50 shadow-xs ring-1 ring-blue-500/30'
+                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl select-none leading-none">🇺🇸</span>
+                  <div className="text-left">
+                    <span className={`text-sm font-black block leading-tight ${
+                      lang === 'en' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'
+                    }`}>
+                      English
+                    </span>
+                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
+                      ইংরেজি ভাষা
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+                  lang === 'en'
+                    ? 'border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 shadow-[0_0_8px_rgba(37,99,235,0.35)]'
+                    : 'border-slate-300 dark:border-slate-600 bg-transparent'
+                }`}>
+                  {lang === 'en' && (
+                    <div className="w-2 h-2 rounded-full bg-white animate-in zoom-in-75 duration-150" />
+                  )}
+                </div>
+              </button>
+            </div>
           </div>
+        </div>
       )}
 
       {txStatus && (
@@ -11921,132 +12090,6 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
                   </button>
               </div>
            </div>
-        </div>
-      )}
-
-      {/* Interactive Language Selector Popup Modal */}
-      {showLanguageModal && (
-        <div 
-          onClick={() => setShowLanguageModal(false)}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200"
-        >
-          <div 
-            onClick={e => e.stopPropagation()}
-            className={`relative w-full max-w-[340px] p-5 rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 slide-in-from-bottom-4 overflow-hidden ${
-              darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
-            }`}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-100 dark:border-blue-800/60 shadow-2xs">
-                  <Globe size={18} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
-                    {lang === 'bn' ? 'ভাষা নির্বাচন করুন' : 'Select Language'}
-                  </h3>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">
-                    {lang === 'bn' ? 'আপনার পছন্দের ভাষা বেছে নিন' : 'Choose your preferred language'}
-                  </p>
-                </div>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setShowLanguageModal(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            {/* Language Options List */}
-            <div className="space-y-2.5">
-              {/* 1. Bengali Option */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onSetLang) onSetLang('bn');
-                  if (window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
-                  }
-                  setShowLanguageModal(false);
-                }}
-                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between transition-all duration-200 active:scale-[0.98] cursor-pointer ${
-                  lang === 'bn'
-                    ? 'bg-blue-500/10 border-blue-500/50 shadow-xs ring-1 ring-blue-500/30'
-                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl select-none leading-none">🇧🇩</span>
-                  <div className="text-left">
-                    <span className={`text-sm font-black block leading-tight ${
-                      lang === 'bn' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'
-                    }`}>
-                      বাংলা
-                    </span>
-                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
-                      Bengali Language
-                    </span>
-                  </div>
-                </div>
-
-                {/* Animated Radio Circle: Filled when selected, hollow when unselected */}
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-                  lang === 'bn'
-                    ? 'border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 shadow-[0_0_8px_rgba(37,99,235,0.35)]'
-                    : 'border-slate-300 dark:border-slate-600 bg-transparent'
-                }`}>
-                  {lang === 'bn' && (
-                    <div className="w-2 h-2 rounded-full bg-white animate-in zoom-in-75 duration-150" />
-                  )}
-                </div>
-              </button>
-
-              {/* 2. English Option */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (onSetLang) onSetLang('en');
-                  if (window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
-                  }
-                  setShowLanguageModal(false);
-                }}
-                className={`w-full p-3.5 rounded-2xl border flex items-center justify-between transition-all duration-200 active:scale-[0.98] cursor-pointer ${
-                  lang === 'en'
-                    ? 'bg-blue-500/10 border-blue-500/50 shadow-xs ring-1 ring-blue-500/30'
-                    : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl select-none leading-none">🇺🇸</span>
-                  <div className="text-left">
-                    <span className={`text-sm font-black block leading-tight ${
-                      lang === 'en' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-800 dark:text-slate-200'
-                    }`}>
-                      English
-                    </span>
-                    <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium">
-                      ইংরেজি ভাষা
-                    </span>
-                  </div>
-                </div>
-
-                {/* Animated Radio Circle: Filled when selected, hollow when unselected */}
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-                  lang === 'en'
-                    ? 'border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 shadow-[0_0_8px_rgba(37,99,235,0.35)]'
-                    : 'border-slate-300 dark:border-slate-600 bg-transparent'
-                }`}>
-                  {lang === 'en' && (
-                    <div className="w-2 h-2 rounded-full bg-white animate-in zoom-in-75 duration-150" />
-                  )}
-                </div>
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
