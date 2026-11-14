@@ -585,7 +585,7 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
     )}
 
     {/* Persistently mounted primary tab backgrounds (Home, Add Money, Profile) for 0ms instant tab switching */}
-    <div className={page === 'home' || page === 'add-money' ? 'opacity-100' : 'opacity-0'}>
+    <div className={`transform-gpu will-change-[opacity] pointer-events-none ${page === 'home' || page === 'add-money' ? 'opacity-100' : 'opacity-0'}`}>
       <div
         className="absolute -top-16 -right-16 w-[340px] h-[360px] pointer-events-none"
         style={{
@@ -595,7 +595,7 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
         }}
       />
       <div
-        className="absolute -left-6 bottom-16 w-[230px] pointer-events-none select-none overflow-hidden"
+        className="absolute -left-6 bottom-16 w-[230px] pointer-events-none select-none overflow-hidden transform-gpu"
         style={{
           WebkitMaskImage: 'linear-gradient(to top, black 80%, transparent 100%)',
           maskImage: 'linear-gradient(to top, black 80%, transparent 100%)'
@@ -605,6 +605,7 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
           src={roseBotanicalArt}
           alt=""
           aria-hidden="true"
+          loading="eager"
           decoding="async"
           draggable={false}
           className={`w-full h-auto ${darkMode ? 'opacity-[0.35] brightness-125' : 'opacity-[0.78]'}`}
@@ -612,7 +613,7 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
       </div>
     </div>
 
-    <div className={page === 'profile' ? 'opacity-100' : 'opacity-0'}>
+    <div className={`transform-gpu will-change-[opacity] pointer-events-none ${page === 'profile' ? 'opacity-100' : 'opacity-0'}`}>
       <div
         className="absolute -top-12 -right-12 w-[300px] h-[340px] pointer-events-none"
         style={{
@@ -622,7 +623,7 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
         }}
       />
       <div
-        className="absolute -right-3 top-2 w-[210px] pointer-events-none select-none overflow-hidden"
+        className="absolute -right-3 top-2 w-[210px] pointer-events-none select-none overflow-hidden transform-gpu"
         style={{
           WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
           maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)'
@@ -632,6 +633,7 @@ const PageBackgroundFlowers = ({ page = 'home', darkMode = false }) => (
           src={roseBranchArt}
           alt=""
           aria-hidden="true"
+          loading="eager"
           decoding="async"
           draggable={false}
           className={`w-full h-auto ${darkMode ? 'opacity-[0.45] brightness-125' : 'opacity-[0.88]'}`}
@@ -3018,7 +3020,8 @@ function UserAvatarBox({ userId, photoUrl, avatarDataUrl, name = 'U', sizeClass 
   const externalPhotoUrl = photoUrl && !String(photoUrl).startsWith('data:image/') && !String(photoUrl).startsWith('/api/miniapp/user-avatar')
     ? photoUrl
     : '';
-  const candidates = Array.from(new Set([directDataUrl, proxyUrl, externalPhotoUrl].filter(Boolean)));
+  // Prioritize instant local/Telegram CDN photoUrl before hitting backend avatar proxy to prevent initial Profile tab lag
+  const candidates = Array.from(new Set([directDataUrl, externalPhotoUrl, proxyUrl].filter(Boolean)));
   const activeSrc = candidates[imgIndex] || '';
   const initial = (name || 'U').trim().charAt(0).toUpperCase() || 'U';
 
@@ -3027,11 +3030,13 @@ function UserAvatarBox({ userId, photoUrl, avatarDataUrl, name = 'U', sizeClass 
   }, [userId, photoUrl, avatarDataUrl]);
 
   return (
-    <div className={`${sizeClass} bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 text-white font-black flex items-center justify-center shadow-md shadow-purple-600/25 shrink-0 select-none overflow-hidden relative`}>
+    <div className={`${sizeClass} bg-gradient-to-tr from-purple-600 via-indigo-600 to-violet-500 text-white font-black flex items-center justify-center shadow-md shadow-purple-600/25 shrink-0 select-none overflow-hidden relative transform-gpu`}>
       {activeSrc ? (
         <img
           src={activeSrc}
           alt={name || 'User'}
+          loading="eager"
+          decoding="async"
           className="w-full h-full object-cover"
           onError={() => setImgIndex(prev => prev + 1)}
         />
@@ -6000,11 +6005,37 @@ export default function App() {
       const target = String(sp || search.get('tab') || search.get('page') || search.get('startapp') || hash.get('startapp') || '').toLowerCase();
       if (target === 'giveaway' || target === 'giveaway_page') {
         setActiveTab('giveaway');
+      } else if (target === 'profile' || target === 'add-money') {
+        setActiveTab(target);
       }
     } catch (_) {}
   }, []);
 
-  const [fiatWallet, setFiatWallet] = useState(null);
+  const [fiatWallet, setFiatWalletState] = useState(() => {
+    try {
+      const u = resolveTelegramUser();
+      const uid = (u?.id && Number(u.id) !== GUEST_ID) ? u.id : localStorage.getItem('tp_active_uid');
+      if (uid && Number(uid) !== GUEST_ID) {
+        const cached = localStorage.getItem('tp_fiat_wallet_' + uid);
+        if (cached) return JSON.parse(cached);
+      }
+    } catch (_) {}
+    return null;
+  });
+  const setFiatWallet = useCallback((nextWallet) => {
+    setFiatWalletState(nextWallet);
+    try {
+      const u = resolveTelegramUser();
+      const uid = (u?.id && Number(u.id) !== GUEST_ID) ? u.id : localStorage.getItem('tp_active_uid');
+      if (uid && Number(uid) !== GUEST_ID) {
+        if (nextWallet) {
+          localStorage.setItem('tp_fiat_wallet_' + uid, JSON.stringify(nextWallet));
+        } else {
+          localStorage.removeItem('tp_fiat_wallet_' + uid);
+        }
+      }
+    } catch (_) {}
+  }, []);
   const [fiatWithdrawPending, setFiatWithdrawPending] = useState(null);
   const [withdrawConfig, setWithdrawConfig] = useState(() => ({
     withdrawEnabled: true,
@@ -6015,7 +6046,16 @@ export default function App() {
     nagadDisabledNotice: ''
   }));
   const [pendingReceivedTransfer, setPendingReceivedTransfer] = useState(null);
-  const [mbsId, setMbsId] = useState(null);
+  const [mbsId, setMbsId] = useState(() => {
+    try {
+      const u = resolveTelegramUser();
+      const uid = (u?.id && Number(u.id) !== GUEST_ID) ? u.id : localStorage.getItem('tp_active_uid');
+      if (uid && Number(uid) !== GUEST_ID) {
+        return localStorage.getItem('tp_mbs_id_' + uid) || null;
+      }
+    } catch (_) {}
+    return null;
+  });
   const [user, setUser] = useState(() => resolveTelegramUser());
   const [twoStepEnabled, setTwoStepEnabled] = useState(() => {
     try {
@@ -6194,12 +6234,14 @@ export default function App() {
         setBalanceLoaded(true);
       }
       setGiveawayHoldBdt(roundBdt(data.giveawayHoldBdt || 0));
-      // Preload giveaway status ONCE per session so opening Giveaway tab is 0ms instant without read spam
+      // Defer giveaway preload by 1800ms so initial entry & Profile tab click have zero network/render contention
       if (giveawayPreloadedRef.current !== String(targetId)) {
         giveawayPreloadedRef.current = String(targetId);
-        fetchGiveawayStatus(targetId).then((gwRes) => {
-          if (gwRes) setGiveawayCache({ ...gwRes, _cachedAt: Date.now() });
-        }).catch(() => {});
+        setTimeout(() => {
+          fetchGiveawayStatus(targetId).then((gwRes) => {
+            if (gwRes) setGiveawayCache({ ...gwRes, _cachedAt: Date.now() });
+          }).catch(() => {});
+        }, 1800);
       }
       setFiatWallet(data.fiatWallet || null);
       if (data.withdrawConfig) {
@@ -6225,7 +6267,7 @@ export default function App() {
       if (incomingTrf && incomingTrf.transferId) {
         let seenTrf = false;
         try {
-          seenTrf = localStorage.getItem(`tp_seen_trf_${incomingTrf.transferId}`) === 'dismissed';
+          seenTrf = localStorage.setItem ? localStorage.getItem(`tp_seen_trf_${incomingTrf.transferId}`) === 'dismissed' : false;
         } catch (_) {}
         if (seenTrf) {
           setPendingReceivedTransfer(null);
@@ -6240,7 +6282,12 @@ export default function App() {
       } else {
         setPendingReceivedTransfer(null);
       }
-      if (data.mbsId) setMbsId(data.mbsId);
+      if (data.mbsId) {
+        setMbsId(data.mbsId);
+        try {
+          localStorage.setItem('tp_mbs_id_' + targetId, String(data.mbsId));
+        } catch (_) {}
+      }
       const nextTwoStepEnabled = Boolean(data.twoStepEnabled);
       const nextTwoStepLen = Number(data.twoStepLength) === 6 ? 6 : 4;
       setTwoStepEnabled(nextTwoStepEnabled);
@@ -6301,8 +6348,8 @@ export default function App() {
       } catch (_) {}
     };
 
-    syncNotifications();
-    return () => { alive = false; };
+    const notifTimer = setTimeout(syncNotifications, 1400);
+    return () => { alive = false; clearTimeout(notifTimer); };
   }, [user?.id, lang]);
 
   const performCommunityCheck = async (silent = false) => {
@@ -6447,13 +6494,17 @@ export default function App() {
       if (resolvedUser.id && Number(resolvedUser.id) !== GUEST_ID) {
         loadData(resolvedUser.id);
         checkCommunityJoinStatus(resolvedUser.id);
-        syncUserProfile({
-          userId: resolvedUser.id,
-          username: resolvedUser.username || '',
-          firstName: resolvedUser.first_name || '',
-          lastName: resolvedUser.last_name || '',
-          photoUrl: resolvedUser.photo_url || ''
-        });
+        const sp = window.Telegram?.WebApp?.initDataUnsafe?.start_param || WebApp?.initDataUnsafe?.start_param || '';
+        const syncDelay = String(sp).startsWith('ref_') ? 0 : 1200;
+        setTimeout(() => {
+          syncUserProfile({
+            userId: resolvedUser.id,
+            username: resolvedUser.username || '',
+            firstName: resolvedUser.first_name || '',
+            lastName: resolvedUser.last_name || '',
+            photoUrl: resolvedUser.photo_url || ''
+          });
+        }, syncDelay);
       }
     };
 
@@ -6589,9 +6640,9 @@ export default function App() {
             </div>
           )}
 
-          {/* PERSISTENT MAIN TABS (Pre-laid-out & pre-decoded for 0ms butter-smooth navbar switching) */}
+          {/* PERSISTENT MAIN TABS (Pre-laid-out at full geometry & GPU-promoted for 0ms zero-reflow navbar switching) */}
           
-          <div className={activeTab === 'home' ? 'block' : 'fixed top-0 left-0 w-full h-0 overflow-hidden opacity-0 pointer-events-none -z-50 select-none'}>
+          <div className={activeTab === 'home' ? 'block transform-gpu' : 'fixed top-0 left-0 right-0 max-w-md mx-auto px-4 opacity-0 pointer-events-none -z-50 select-none invisible transform-gpu'}>
               <HomePage 
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
                   isHomeActive={activeTab === 'home'}
@@ -6599,6 +6650,7 @@ export default function App() {
                   onOpenGiveaway={() => setActiveTab('giveaway')}
                   balance={balance} 
                   balanceLoaded={balanceLoaded}
+                  appMarketRates={appMarketRates}
                   user={user} 
                   mbsId={mbsId}
                   lang={lang}
@@ -6631,7 +6683,7 @@ export default function App() {
               />
           </div>
 
-          <div className={activeTab === 'add-money' ? 'block' : 'fixed top-0 left-0 w-full h-0 overflow-hidden opacity-0 pointer-events-none -z-50 select-none'}>
+          <div className={activeTab === 'add-money' ? 'block transform-gpu' : 'fixed top-0 left-0 right-0 max-w-md mx-auto px-4 opacity-0 pointer-events-none -z-50 select-none invisible transform-gpu'}>
               {restrictionInfo?.isRestricted ? (
                   <RestrictedNoticeScreen 
                       onBack={() => setActiveTab('home')}
@@ -6664,7 +6716,7 @@ export default function App() {
               )}
           </div>
 
-          <div className={activeTab === 'profile' ? 'block' : 'fixed top-0 left-0 w-full h-0 overflow-hidden opacity-0 pointer-events-none -z-50 select-none'}>
+          <div className={activeTab === 'profile' ? 'block transform-gpu' : 'fixed top-0 left-0 right-0 max-w-md mx-auto px-4 opacity-0 pointer-events-none -z-50 select-none invisible transform-gpu'}>
               <ProfilePage 
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
                   user={user} 
@@ -7512,6 +7564,7 @@ function CryptoAssetSelectModal({
 function HomePage({ 
   balance, 
   balanceLoaded = false, 
+  appMarketRates,
   isHomeActive = false,
   giveawayHoldBdt = 0,
   onOpenGiveaway,
@@ -7577,21 +7630,17 @@ function HomePage({
   });
 
   useEffect(() => {
-    let isMounted = true;
-    fetchMarketRates().then(data => {
-      if (!isMounted || !data?.buyRates) return;
-      setMarketRates({
-        USDT: Number(data.buyRates.USDT) || 130,
-        GRAM: Number(data.buyRates.GRAM) || 160,
-        realGramUsdt: Number(data.realGramUsdt) || 1.23,
-        sellRates: {
-          USDT: Number(data.sellRates?.USDT) || 118,
-          GRAM: Number(data.sellRates?.GRAM) || 120
-        }
-      });
-    }).catch(() => {});
-    return () => { isMounted = false; };
-  }, []);
+    if (!appMarketRates?.buyRates) return;
+    setMarketRates(prev => ({
+      ...prev,
+      USDT: Number(appMarketRates.buyRates.USDT) || 130,
+      GRAM: Number(appMarketRates.buyRates.GRAM) || 160,
+      sellRates: {
+        USDT: Number(appMarketRates.sellRates?.USDT) || 118,
+        GRAM: Number(appMarketRates.sellRates?.GRAM) || 120
+      }
+    }));
+  }, [appMarketRates]);
 
   const numericBal = Number(balance || 0);
   const usdEquiv = (numericBal / 125).toFixed(2);
