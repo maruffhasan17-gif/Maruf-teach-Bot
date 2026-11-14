@@ -10808,12 +10808,14 @@ function SellCryptoPage({
                     </div>
                 </div>
 
-                {/* 2. ADDRESS FIELD (Opaque Solid Background + QR Button) */}
+                {/* 2. CONNECTED WALLET FIELD */}
                 <div>
                     <label className={`text-xs font-black uppercase tracking-wider block mb-1.5 ${
                         darkMode ? 'text-slate-300' : 'text-slate-700'
                     }`}>
-                        Deposit Address ({selectedNetwork})
+                        {selectedNetwork === 'TON'
+                            ? (lang === 'bn' ? 'আপনার কানেক্টেড ওয়ালেট (TON)' : 'Your Connected Wallet (TON)')
+                            : `Deposit Address (${selectedNetwork})`}
                     </label>
 
                     {selectedNetwork === 'TON' ? (
@@ -10821,22 +10823,14 @@ function SellCryptoPage({
                             <div className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-2.5 shadow-xs ${
                                 darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
                             }`}>
-                                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate select-all">
+                                <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 truncate">
                                     {userTonAddress}
                                 </span>
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(userTonAddress);
-                                            setCopiedAddress(true);
-                                            setTimeout(() => setCopiedAddress(false), 2000);
-                                        }}
-                                        className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60 font-bold text-xs flex items-center gap-1 hover:bg-purple-100 active:scale-95 transition-all cursor-pointer"
-                                    >
-                                        {copiedAddress ? <Check size={13} /> : <Copy size={13} />}
-                                        <span>{copiedAddress ? 'Copied' : 'Copy'}</span>
-                                    </button>
+                                    <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 font-black text-[10px] flex items-center gap-1">
+                                        <Check size={12} />
+                                        <span>{lang === 'bn' ? 'কানেক্টেড' : 'Connected'}</span>
+                                    </span>
                                 </div>
                             </div>
                         ) : (
