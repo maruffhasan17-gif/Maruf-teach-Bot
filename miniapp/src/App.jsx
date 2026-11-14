@@ -13066,10 +13066,10 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
             <div className="p-5 rounded-3xl bg-white/95 dark:bg-slate-900/90 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3">
                 <div className="flex justify-between items-center">
                     <span className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        {lang === 'bn' ? 'উত্তোলনের পরিমাণ (২৫ – ৫,০০০ BDT)' : 'Amount (25 – 5,000 BDT)'}
+                        {lang === 'bn' ? 'উত্তোলনের পরিমাণ' : 'Withdraw Amount'}
                     </span>
                     <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
-                        Min ৳25 • Max ৳5,000
+                        {lang === 'bn' ? 'সর্বনিম্ন ৳২৫' : 'Min ৳25'}
                     </span>
                 </div>
                 <div className="relative flex items-center">
