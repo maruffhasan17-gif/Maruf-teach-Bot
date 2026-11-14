@@ -7894,17 +7894,9 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
             return res.status(403).json({ error: "অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)" });
         }
 
-        if (botConfig.withdrawEnabled === false) {
-            return res.status(400).json({ error: botConfig.withdrawDisabledNotice || "উইথড্র সিস্টেম সাময়িকভাবে বন্ধ রয়েছে। অনুগ্রহ করে কিছুক্ষণ পর আবার চেষ্টা করুন।" });
-        }
-
         const cleanMethod = String(method || '').trim() === 'bKash' ? 'bKash' : 'Nagad';
-        if (cleanMethod === 'bKash' && !botConfig.bkashWithdrawEnabled) {
-            return res.status(400).json({ error: botConfig.bkashDisabledNotice || "বিকাশ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র নগদ (Nagad) ওয়ালেটে উইথড্র চালু রয়েছে। অনুগ্রহ করে নগদ নাম্বার দিন।" });
-        }
-        if (cleanMethod === 'Nagad' && !botConfig.nagadWithdrawEnabled) {
-            return res.status(400).json({ error: botConfig.nagadDisabledNotice || "নগদ লিমিট সাময়িকভাবে শেষ! বর্তমানে শুধুমাত্র বিকাশ (bKash) ওয়ালেটে উইথড্র চালু রয়েছে। অনুগ্রহ করে বিকাশ নাম্বার দিন।" });
-        }
+        // Note: Users are allowed to save their bKash or Nagad wallet even when withdrawal for that method
+        // is temporarily disabled by Admin; actual withdrawal requests remain strictly blocked in /api/miniapp/withdraw-fiat.
         let cleanNumber = String(number || '').trim().replace(/[\s\-]/g, '');
         if (cleanNumber.startsWith('+880')) cleanNumber = '0' + cleanNumber.slice(4);
         else if (cleanNumber.startsWith('880')) cleanNumber = '0' + cleanNumber.slice(3);
