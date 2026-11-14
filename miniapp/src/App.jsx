@@ -13280,21 +13280,14 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                 </div>
             </div>
 
-            {/* Send Money Fee Chart & Limit Note */}
-            <div className="p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/40 flex items-start gap-2.5">
-                <Info size={16} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                <div className="text-[11px] text-blue-900 dark:text-blue-300 font-medium leading-relaxed space-y-1">
-                    <p className="font-bold">
-                        {lang === 'bn' 
-                            ? 'সর্বনিম্ন উইথড্র: ৳২৫ টাকা | সর্বোচ্চ উইথড্র: ৳৫,০০০ টাকা' 
-                            : 'Min Withdraw: 25 BDT | Max Withdraw: 5,000 BDT'}
-                    </p>
-                    <p>
-                        {lang === 'bn' 
-                            ? 'সেন্ড মানি ফি: ২৫–১০০৳ = ৫৳ | ১০১–৫০০৳ = ১০৳ | ৫০১–১০০০৳ = ১৫৳ | ১০০১–৫০০০৳ = ২০৳।' 
-                            : 'Send Money Fee: 25–100 TK = 5 TK | 101–500 TK = 10 TK | 501–1000 TK = 15 TK | 1001–5000 TK = 20 TK.'}
-                    </p>
-                </div>
+            {/* Withdraw Limit Note */}
+            <div className="p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/40 flex items-center gap-2.5">
+                <Info size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                <p className="text-[11.5px] text-blue-900 dark:text-blue-300 font-bold leading-snug">
+                    {lang === 'bn' 
+                        ? 'সর্বনিম্ন উইথড্র: ৳২৫ টাকা | সর্বোচ্চ উইথড্র: ৳৫,০০০ টাকা' 
+                        : 'Min Withdraw: 25 BDT | Max Withdraw: 5,000 BDT'}
+                </p>
             </div>
 
             {/* Submit Button (Tactile 3D Button) */}
