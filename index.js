@@ -2987,24 +2987,25 @@ bot.on('callback_query', async (query) => {
         }
     }
 
-    if (query.data && query.data.startsWith('refresh_profit:')) {
+    if (query.data && (query.data.startsWith('refresh_profit:') || query.data.startsWith('view_profit:'))) {
         if (String(query.from?.id) !== MASTER_ADMIN_ID) {
             bot.answerCallbackQuery(query.id, { text: '⛔ শুধুমাত্র অ্যাডমিন এই বাটন ব্যবহার করতে পারবেন।', show_alert: true }).catch(() => {});
             return;
         }
         const parts = query.data.split(':');
+        const isSwitch = query.data.startsWith('view_profit:');
         const targetDate = parts[1] || getBangladeshDateKey();
         const msgId = query.message?.message_id;
         const lockKey = `${chatId}_${msgId}`;
 
         if (activeRefreshLocks.has(lockKey)) {
-            bot.answerCallbackQuery(query.id, { text: '⏳ ইতিমধ্যে রিফ্রেশ হচ্ছে...' }).catch(() => {});
+            bot.answerCallbackQuery(query.id, { text: '⏳ ইতিমধ্যে লোড হচ্ছে...' }).catch(() => {});
             return;
         }
         activeRefreshLocks.add(lockKey);
 
         // Instant answer to stop Telegram button spinner immediately
-        bot.answerCallbackQuery(query.id, { text: '🔄 লাইভ হিসাব লোড হচ্ছে...' }).catch(() => {});
+        bot.answerCallbackQuery(query.id, { text: isSwitch ? `📅 ${targetDate} অডিট লোড হচ্ছে...` : '🔄 লাইভ হিসাব লোড হচ্ছে...' }).catch(() => {});
 
         try {
             const audit = await getDailyProfitAudit(targetDate);
@@ -3033,7 +3034,7 @@ bot.on('callback_query', async (query) => {
                 } catch (_) {}
             }
         } catch (err) {
-            console.error('[refresh_profit] Refresh error:', err.message);
+            console.error('[profitCallback] Error:', err.message);
         } finally {
             setTimeout(() => activeRefreshLocks.delete(lockKey), 1500);
         }
@@ -3096,18 +3097,18 @@ async function getDailyProfitAudit(targetDateStr = null) {
     const todayKey = getBangladeshDateKey();
     const dateKey = targetDateStr || todayKey;
 
-    // 1. Check In-Memory Cache (Saves 5-collection scans on repeated requests!)
+    // 1. Check In-Memory Cache (Saves multi-collection scans on repeated requests)
     const cachedAudit = dailyProfitAuditCache.get(dateKey);
-    const cacheTtlMs = (dateKey === todayKey) ? 60000 : 600000;
+    const cacheTtlMs = (dateKey === todayKey) ? 30000 : 300000;
     if (cachedAudit && (Date.now() - cachedAudit.ts < cacheTtlMs)) {
         return cachedAudit.data;
     }
 
-    // 2. For past dates, check persisted daily_profits/{dateKey} snapshot first (1 Firestore read instead of 5 full collection scans!)
+    // 2. For past dates, check persisted snapshot in daily_profits (auditVersion === 2 required)
     if (dateKey !== todayKey) {
         try {
             const savedSnap = await db.collection('daily_profits').doc(dateKey).get();
-            if (savedSnap.exists && savedSnap.data()?.date === dateKey) {
+            if (savedSnap.exists && savedSnap.data()?.date === dateKey && savedSnap.data()?.auditVersion === 2) {
                 const savedData = { ...savedSnap.data(), isToday: false };
                 dailyProfitAuditCache.set(dateKey, { ts: Date.now(), data: savedData });
                 return savedData;
@@ -3132,13 +3133,16 @@ async function getDailyProfitAudit(targetDateStr = null) {
     let buyVolumeBdt = 0;
     let buyGramAmount = 0;
     let buyUsdtAmount = 0;
-    let buySpreadProfit = 0;
+    let buyTonAmount = 0;
+    let gramSpreadProfit = 0;
+    let usdtSpreadProfit = 0;
+    let tonSpreadProfit = 0;
 
     let sellOrdersCount = 0;
     let sellVolumeBdt = 0;
     let sellGramAmount = 0;
     let sellUsdtAmount = 0;
-    let sellSpreadProfit = 0;
+    let sellTonAmount = 0;
 
     let withdrawOrdersCount = 0;
     let withdrawTotalBdt = 0;
@@ -3207,7 +3211,7 @@ async function getDailyProfitAudit(targetDateStr = null) {
         }
     });
 
-    // Process Crypto Buys
+    // Process Crypto Buys (Platform makes profit strictly on user BUY spread)
     buysSnap.forEach(doc => {
         const b = doc.data();
         if (isAdminTestAccount(b.userId, b)) return;
@@ -3228,17 +3232,20 @@ async function getDailyProfitAudit(targetDateStr = null) {
 
                     if (asset === 'USDT') {
                         buyUsdtAmount += crypto;
-                        buySpreadProfit += (crypto * spread);
+                        usdtSpreadProfit += (crypto * spread);
+                    } else if (asset === 'TON') {
+                        buyTonAmount += crypto;
+                        tonSpreadProfit += (crypto * spread);
                     } else {
                         buyGramAmount += crypto;
-                        buySpreadProfit += (crypto * spread);
+                        gramSpreadProfit += (crypto * spread);
                     }
                 }
             }
         }
     });
 
-    // Process Crypto Sells
+    // Process Crypto Sells (Zero profit on Sell: platform pays BDT to acquire crypto)
     sellsSnap.forEach(doc => {
         const s = doc.data();
         if (isAdminTestAccount(s.userId, s)) return;
@@ -3253,23 +3260,19 @@ async function getDailyProfitAudit(targetDateStr = null) {
                     const crypto = parseFloat(s.cryptoAmount || s.amount || 0) || 0;
                     sellVolumeBdt += bdt;
 
-                    const bRate = Number(buyRates[asset]) || (asset === 'USDT' ? 130 : 160);
-                    const sRate = Number(sellRates[asset]) || (asset === 'USDT' ? 118 : 120);
-                    const spread = Math.max(0, bRate - sRate);
-
                     if (asset === 'USDT') {
                         sellUsdtAmount += crypto;
-                        sellSpreadProfit += (crypto * spread);
+                    } else if (asset === 'TON') {
+                        sellTonAmount += crypto;
                     } else {
                         sellGramAmount += crypto;
-                        sellSpreadProfit += (crypto * spread);
                     }
                 }
             }
         }
     });
 
-    // Process Fiat Withdrawals
+    // Process Fiat Withdrawals (Pass-through send-money fee, 0 platform profit)
     fwSnap.forEach(doc => {
         const w = doc.data();
         if (isAdminTestAccount(w.userId, w)) return;
@@ -3316,8 +3319,12 @@ async function getDailyProfitAudit(targetDateStr = null) {
         } catch (_) {}
     }
 
-    const tradingSpreadProfit = Math.round((buySpreadProfit + sellSpreadProfit) * 100) / 100;
-    const grossIncome = Math.round((tradingSpreadProfit + withdrawFeesCollected) * 100) / 100;
+    // Platform Accounting Logic:
+    // 1. Gross Profit = Only Crypto BUY Spread Margin (Users buy at buyRate, platform inventory valued at sellRate)
+    // 2. Sell Orders = 0 profit (funds leave platform to acquire crypto)
+    // 3. Withdrawal Fees = 0 profit (fee charged covers admin's bKash/Nagad send-money cost)
+    const buySpreadProfit = Math.round((gramSpreadProfit + usdtSpreadProfit + tonSpreadProfit) * 100) / 100;
+    const grossIncome = buySpreadProfit;
     const totalExpenses = Math.round((spinRewardsBdt + referralBonusesBdt) * 100) / 100;
     const netProfit = Math.round((grossIncome - totalExpenses) * 100) / 100;
     const netCashFlowBdt = Math.round((depositVolumeBdt - withdrawTotalBdt) * 100) / 100;
@@ -3333,6 +3340,7 @@ async function getDailyProfitAudit(targetDateStr = null) {
     });
 
     const auditData = {
+        auditVersion: 2,
         date: dateKey,
         formattedDate,
         isToday: dateKey === todayKey,
@@ -3343,7 +3351,7 @@ async function getDailyProfitAudit(targetDateStr = null) {
         netCashFlowBdt,
         recommendedSavingsBdt,
         liquidityBufferBdt,
-        tradingSpreadProfit,
+        tradingSpreadProfit: buySpreadProfit,
         depositOrdersCount,
         depositVolumeBdt: Math.round(depositVolumeBdt * 100) / 100,
         withdrawOrdersCount,
@@ -3351,10 +3359,13 @@ async function getDailyProfitAudit(targetDateStr = null) {
         withdrawFeesCollected: Math.round(withdrawFeesCollected * 100) / 100,
         buyOrdersCount,
         buyVolumeBdt: Math.round(buyVolumeBdt * 100) / 100,
-        buySpreadProfit: Math.round(buySpreadProfit * 100) / 100,
+        buySpreadProfit,
+        gramSpreadProfit: Math.round(gramSpreadProfit * 100) / 100,
+        usdtSpreadProfit: Math.round(usdtSpreadProfit * 100) / 100,
+        tonSpreadProfit: Math.round(tonSpreadProfit * 100) / 100,
         sellOrdersCount,
         sellVolumeBdt: Math.round(sellVolumeBdt * 100) / 100,
-        sellSpreadProfit: Math.round(sellSpreadProfit * 100) / 100,
+        sellSpreadProfit: 0,
         p2pOrdersCount,
         p2pVolumeBdt: Math.round(p2pVolumeBdt * 100) / 100,
         gramVolume: Math.round((buyGramAmount + sellGramAmount) * 1000) / 1000,
@@ -3379,14 +3390,14 @@ async function getDailyProfitAudit(targetDateStr = null) {
         updatedAt: Date.now()
     };
 
-    // Save snapshot in daily_profits collection & memory cache for audit record permanence
+    // Save snapshot in daily_profits collection & memory cache
     dailyProfitAuditCache.set(dateKey, { ts: Date.now(), data: auditData });
     db.collection('daily_profits').doc(dateKey).set(auditData, { merge: true }).catch(() => {});
 
     return auditData;
 }
 
-// Compact, Mobile-Optimized HTML Report (Fits screen without wrapping)
+// Compact, Mobile-Optimized HTML Report
 function formatDailyProfitTelegramReport(audit) {
     const isProfitable = audit.netProfit >= 0;
     const profitSign = audit.netProfit > 0 ? '+' : '';
@@ -3403,10 +3414,17 @@ function formatDailyProfitTelegramReport(audit) {
 • 💼 <b>নিট ক্যাশ ব্যালেন্স:</b> <b>${cfSign}৳${(audit.netCashFlowBdt || 0).toFixed(2)} BDT</b>
 
 ━━━━━━━━━━━━━━━━━━━━
+🪙 <b>ক্রিপ্টো লেনদেন ভলিউম (Crypto Orders):</b>
+• 🛒 ইউজার বাই: <b>৳${(audit.buyVolumeBdt || 0).toFixed(2)}</b> <i>(${audit.buyOrdersCount || 0}টি Buy | ${audit.buyGramAmount > 0 ? audit.buyGramAmount + ' GRAM ' : ''}${audit.buyUsdtAmount > 0 ? audit.buyUsdtAmount + ' USDT' : ''}${audit.buyOrdersCount === 0 ? '০ টি' : ''})</i>
+• 🔄 ইউজার সেল: <b>৳${(audit.sellVolumeBdt || 0).toFixed(2)}</b> <i>(${audit.sellOrdersCount || 0}টি Sell | ${audit.sellGramAmount > 0 ? audit.sellGramAmount + ' GRAM ' : ''}${audit.sellUsdtAmount > 0 ? audit.sellUsdtAmount + ' USDT' : ''}${audit.sellOrdersCount === 0 ? '০ টি' : ''})</i>
+<i>(💡 ইউজার সেলে প্ল্যাটফর্মের টাকা গেছে ও ক্রিপ্টো জমা হয়েছে — এখানে কোনো লাভ ধরা হয় না)</i>
+
+━━━━━━━━━━━━━━━━━━━━
 💰 <b>প্ল্যাটফর্ম গ্রস আয় (Gross Revenue):</b>
-• 🔹 বাই স্প্রেড প্রফিট: <b>+৳${(audit.buySpreadProfit || 0).toFixed(2)}</b> <i>(${audit.buyOrdersCount || 0}টি Buy | ৳${(audit.buyVolumeBdt || 0).toFixed(2)})</i>
-• 🔹 সেল স্প্রেড প্রফিট: <b>+৳${(audit.sellSpreadProfit || 0).toFixed(2)}</b> <i>(${audit.sellOrdersCount || 0}টি Sell | ৳${(audit.sellVolumeBdt || 0).toFixed(2)})</i>
-• 🔹 উইথড্র সার্ভিস ফি: <b>+৳${(audit.withdrawFeesCollected || 0).toFixed(2)}</b> <i>(${audit.withdrawOrdersCount || 0}টি চার্জ)</i>
+• 🔹 ক্রিপ্টো বাই স্প্রেড প্রফিট: <b>+৳${(audit.buySpreadProfit || 0).toFixed(2)} BDT</b>
+  └ GRAM প্রফিট: ৳${(audit.gramSpreadProfit || 0).toFixed(2)} <i>(${audit.ratesApplied?.GRAM_SPREAD ? '৳' + audit.ratesApplied.GRAM_SPREAD + '/GRAM লাভ' : ''})</i>
+  └ USDT প্রফিট: ৳${(audit.usdtSpreadProfit || 0).toFixed(2)} <i>(${audit.ratesApplied?.USDT_SPREAD ? '৳' + audit.ratesApplied.USDT_SPREAD + '/USDT লাভ' : ''})</i>
+• 🔹 উইথড্র সার্ভিস ফি: <b>৳০.০০</b> <i>(বিকাশ/নগদ সেন্ড মানি খরচে সমর্পণ)</i>
 💵 <b>সর্বমোট গ্রস আয়:</b> <b>+৳${(audit.grossIncome || 0).toFixed(2)} BDT</b>
 
 ━━━━━━━━━━━━━━━━━━━━
@@ -3417,7 +3435,7 @@ function formatDailyProfitTelegramReport(audit) {
 💸 <b>সর্বমোট পরিচালন ব্যয়:</b> <b>-৳${(audit.totalExpenses || 0).toFixed(2)} BDT</b>
 
 ━━━━━━━━━━━━━━━━━━━━
-🏆 <b>আজকের নিট প্রফিট (Net Operating Profit):</b>
+🏆 <b>${audit.isToday ? 'আজকের লাইভ' : 'চূড়ান্ত'} নিট প্রফিট (Net Operating Profit):</b>
 💎 <b>${profitSign}৳${(audit.netProfit || 0).toFixed(2)} BDT</b>
 📌 <b>অবস্থা:</b> <b>${statusText}</b>
 ━━━━━━━━━━━━━━━━━━━━
@@ -3445,10 +3463,15 @@ function formatDailyProfitPlainText(audit) {
 • নিট ক্যাশ ব্যালেন্স: ${cfSign}৳${(audit.netCashFlowBdt || 0).toFixed(2)} BDT
 
 ━━━━━━━━━━━━━━━━━━━━
+🪙 ক্রিপ্টো ট্রেডিং ভলিউম:
+• ইউজার বাই: ৳${(audit.buyVolumeBdt || 0).toFixed(2)} (${audit.buyOrdersCount || 0}টি Buy)
+• ইউজার সেল: ৳${(audit.sellVolumeBdt || 0).toFixed(2)} (${audit.sellOrdersCount || 0}টি Sell)
+
+━━━━━━━━━━━━━━━━━━━━
 💰 প্ল্যাটফর্ম গ্রস আয়:
-• বাই স্প্রেড প্রফিট: +৳${(audit.buySpreadProfit || 0).toFixed(2)}
-• সেল স্প্রেড প্রফিট: +৳${(audit.sellSpreadProfit || 0).toFixed(2)}
-• উইথড্র সার্ভিস ফি: +৳${(audit.withdrawFeesCollected || 0).toFixed(2)}
+• বাই স্প্রেড প্রফিট: +৳${(audit.buySpreadProfit || 0).toFixed(2)} BDT
+• সেল স্প্রেড প্রফিট: ৳0.00 (প্রফিট নেই)
+• উইথড্র সার্ভিস ফি: ৳0.00 (সেন্ড মানি খরচ)
 💵 সর্বমোট গ্রস আয়: +৳${(audit.grossIncome || 0).toFixed(2)} BDT
 
 ━━━━━━━━━━━━━━━━━━━━
@@ -3470,12 +3493,15 @@ Trust Pay Executive Engine`;
 
 function getDailyProfitTelegramMarkup(audit) {
     const profitSign = audit.netProfit > 0 ? '+' : '';
-    // Telegram Bot API limit: copy_text must be 1-256 characters!
     const shortCopy = `📊 Trust Pay (${audit.formattedDate})\n` +
         `📥 ডিপোজিট: ৳${(audit.depositVolumeBdt || 0).toFixed(0)} | 📤 উইথড্র: ৳${(audit.withdrawTotalBdt || 0).toFixed(0)}\n` +
         `💰 আয়: +৳${(audit.grossIncome || 0).toFixed(2)} | 📉 ব্যয়: -৳${(audit.totalExpenses || 0).toFixed(2)}\n` +
         `🏆 নিট লাভ: ${profitSign}৳${(audit.netProfit || 0).toFixed(2)} BDT\n` +
         `💰 ৭০% সেভিংস: ৳${(audit.recommendedSavingsBdt || 0).toFixed(2)} | 🛡️ ৩০% রিজার্ভ: ৳${(audit.liquidityBufferBdt || 0).toFixed(2)}`;
+
+    const todayKey = getBangladeshDateKey();
+    const yesterdayDate = new Date(toEpochMs(Date.now() + 6 * 3600 * 1000 - 24 * 3600 * 1000));
+    const yesterdayKey = yesterdayDate.toISOString().slice(0, 10);
 
     return {
         inline_keyboard: [
@@ -3483,6 +3509,16 @@ function getDailyProfitTelegramMarkup(audit) {
                 {
                     text: "📋 এক ক্লিকে সামারি কপি (Copy)",
                     copy_text: { text: shortCopy.slice(0, 250) }
+                }
+            ],
+            [
+                {
+                    text: audit.date === yesterdayKey ? "🔘 গতকালের অডিট" : "📅 গতকালের অডিট",
+                    callback_data: `view_profit:${yesterdayKey}`
+                },
+                {
+                    text: audit.date === todayKey ? "🔘 আজকের লাইভ" : "📊 আজকের লাইভ",
+                    callback_data: `view_profit:${todayKey}`
                 }
             ],
             [
@@ -3530,30 +3566,45 @@ async function checkAndSendMidnightProfitReport() {
     try {
         const now = new Date();
         const bdTime = new Date(now.getTime() + 6 * 3600 * 1000);
-        const hours = bdTime.getUTCHours();
-        const minutes = bdTime.getUTCMinutes();
+        const yesterdayDate = new Date(bdTime.getTime() - 24 * 3600 * 1000);
+        const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
 
-        // Fire once at 00:00 (between 00:00 and 00:03 BST)
-        if (hours === 0 && minutes <= 3) {
-            const yesterdayDate = new Date(bdTime.getTime() - 24 * 3600 * 1000);
-            const yesterdayStr = yesterdayDate.toISOString().slice(0, 10);
+        if (lastMidnightReportDate === yesterdayStr) return;
 
-            if (lastMidnightReportDate !== yesterdayStr) {
-                lastMidnightReportDate = yesterdayStr;
-                console.log(`[MIDNIGHT AUDIT] Triggering automatic 12:00 AM report for ${yesterdayStr}...`);
-                if (botConfig.profitGroupId) {
-                    await sendDailyProfitReport(yesterdayStr, botConfig.profitGroupId);
-                } else {
-                    console.warn("[MIDNIGHT AUDIT] profitGroupId not set, sending to dataGroupId/adminGroupId");
-                    await sendDailyProfitReport(yesterdayStr);
-                }
+        // Persistent check: check if yesterday's report was already dispatched to profit group
+        let alreadySent = false;
+        try {
+            const snap = await db.collection('daily_profits').doc(yesterdayStr).get();
+            if (snap.exists && snap.data()?.reportSentToGroup) {
+                alreadySent = true;
+            }
+        } catch (_) {}
+
+        if (alreadySent) {
+            lastMidnightReportDate = yesterdayStr;
+            return;
+        }
+
+        // Automatic dispatch for yesterday's complete 24h audit
+        lastMidnightReportDate = yesterdayStr;
+        console.log(`[DAILY AUDIT SCHEDULER] Triggering automatic 24-hour report for ${yesterdayStr}...`);
+        const targetGroup = botConfig.profitGroupId || botConfig.dataGroupId || botConfig.adminGroupId;
+        if (targetGroup) {
+            const res = await sendDailyProfitReport(yesterdayStr, targetGroup);
+            if (res && res.success) {
+                await db.collection('daily_profits').doc(yesterdayStr).set({
+                    reportSentToGroup: true,
+                    reportSentAt: Date.now()
+                }, { merge: true }).catch(() => {});
+                console.log(`[DAILY AUDIT SCHEDULER] Successfully dispatched ${yesterdayStr} report to ${targetGroup}`);
             }
         }
     } catch (e) {
         console.error("[checkAndSendMidnightProfitReport] Error:", e.message);
     }
 }
-setInterval(checkAndSendMidnightProfitReport, 30000);
+setInterval(checkAndSendMidnightProfitReport, 60000);
+setTimeout(checkAndSendMidnightProfitReport, 6000);
 
 bot.on('channel_post', async (msg) => {
     const text = msg.text ? msg.text.trim() : '';
@@ -3574,9 +3625,35 @@ bot.on('message', async (msg) => {
     // Profit ledger on-demand commands (Strictly restricted to Master Admin)
     if (cleanCmd === '/profit' || cleanCmd === '/todayprofit') {
         if (!isMasterAdminCaller) return;
-        const todayKey = getBangladeshDateKey();
+
+        const args = text.split(' ').slice(1).join(' ').trim().toLowerCase();
+        const nowBd = new Date(Date.now() + 6 * 3600 * 1000);
+        const todayKey = nowBd.toISOString().slice(0, 10);
+        const yesterdayDate = new Date(nowBd.getTime() - 24 * 3600 * 1000);
+        const yesterdayKey = yesterdayDate.toISOString().slice(0, 10);
+
+        let targetKey = todayKey;
+
+        if (args === 'yesterday' || args === 'gtokal' || args === 'prev' || args === 'last') {
+            targetKey = yesterdayKey;
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(args)) {
+            targetKey = args;
+        } else if (/^\d{1,2}$/.test(args)) {
+            const yyyy = nowBd.getUTCFullYear();
+            const mm = String(nowBd.getUTCMonth() + 1).padStart(2, '0');
+            const dd = args.padStart(2, '0');
+            targetKey = `${yyyy}-${mm}-${dd}`;
+        } else if (!args) {
+            // Early morning hours (between 00:00 and 05:00 BST): today has barely started and is mostly empty.
+            // Default to yesterday's full 24h audit so the admin sees the latest complete day immediately!
+            const hours = nowBd.getUTCHours();
+            if (hours < 5) {
+                targetKey = yesterdayKey;
+            }
+        }
+
         try {
-            const audit = await getDailyProfitAudit(todayKey);
+            const audit = await getDailyProfitAudit(targetKey);
             const reportMsg = formatDailyProfitTelegramReport(audit);
             const replyMarkup = getDailyProfitTelegramMarkup(audit);
             try {
