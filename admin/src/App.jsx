@@ -1782,8 +1782,9 @@ function BotWallet() {
 
   // Dedicated Deposit Page & Withdraw Modal Handlers
   const handleOpenDeposit = (asset = 'USDT', preferredMode = 'exchange', preferredNetwork = 'TON') => {
-    const net = (asset === 'GRAM' || asset === 'TON') ? 'TON' : (preferredNetwork || 'TON');
-    navigate(`/treasury-deposit?asset=${encodeURIComponent(asset)}&network=${encodeURIComponent(net)}&mode=${encodeURIComponent(preferredMode)}`);
+    const finalAsset = asset === 'TON' ? 'GRAM' : asset;
+    const net = (finalAsset === 'GRAM') ? 'TON' : (preferredNetwork || 'TON');
+    navigate(`/treasury-deposit?asset=${encodeURIComponent(finalAsset)}&network=${encodeURIComponent(net)}&mode=${encodeURIComponent(preferredMode)}`);
   };
 
   const handleOpenWithdraw = (asset = 'USDT', network = 'TON') => {
@@ -2356,10 +2357,10 @@ function BotWallet() {
 
             {/* Quick Refill Button */}
             <button
-              onClick={() => handleOpenDeposit('TON', 'exchange', 'TON')}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md"
+              onClick={() => handleOpenDeposit('GRAM', 'exchange', 'TON')}
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-md"
             >
-              <Fuel size={14} /> Refill TON / GRAM (Exchange or Tonkeeper)
+              <Fuel size={14} /> Refill GRAM Pool (Exchange or Tonkeeper)
             </button>
           </div>
         </div>

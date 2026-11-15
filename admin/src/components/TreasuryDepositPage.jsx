@@ -425,7 +425,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
   const initialMode = searchParams.get('mode') === 'tonkeeper' ? 'tonkeeper' : 'exchange';
 
   const [selectedAsset, setSelectedAsset] = useState(
-    ['USDT', 'GRAM', 'TON'].includes(initialAsset) ? initialAsset : 'USDT'
+    ['USDT', 'GRAM'].includes(initialAsset) ? initialAsset : 'USDT'
   );
   const [selectedNetworkId, setSelectedNetworkId] = useState(
     ['TON', 'BEP20', 'ARBITRUM', 'AVAXC', 'POLYGON', 'ERC20'].includes(initialNetwork) ? initialNetwork : 'TON'
@@ -447,7 +447,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
   const networks = useMemo(() => buildDepositNetworks(data), [data]);
 
   const availableNetworks = useMemo(() => {
-    if (selectedAsset === 'GRAM' || selectedAsset === 'TON') {
+    if (selectedAsset === 'GRAM') {
       return networks.filter(n => n.id === 'TON');
     }
     return networks;
@@ -473,7 +473,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
 
   const handleSelectAsset = (assetId) => {
     setSelectedAsset(assetId);
-    const nextNet = (assetId === 'GRAM' || assetId === 'TON') ? 'TON' : selectedNetworkId;
+    const nextNet = (assetId === 'GRAM') ? 'TON' : selectedNetworkId;
     setSelectedNetworkId(nextNet);
     setSearchParams({ asset: assetId, network: nextNet, mode: depositMode }, { replace: true });
   };
@@ -505,7 +505,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
     setDepositing(true);
     try {
       let tx;
-      if (selectedAsset === 'TON' || selectedAsset === 'GRAM') {
+      if (selectedAsset === 'GRAM') {
         tx = {
           validUntil: Math.floor(Date.now() / 1000) + 360,
           messages: [
@@ -712,7 +712,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             {
               id: 'USDT',
@@ -735,17 +735,6 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               activeClass: isDark
                 ? 'border-purple-400 bg-gradient-to-br from-purple-500/25 via-indigo-600/10 to-slate-950 shadow-[0_10px_35px_rgba(168,85,247,0.22)]'
                 : 'border-purple-500 bg-gradient-to-br from-purple-50 via-indigo-50/40 to-white shadow-lg text-slate-900'
-            },
-            {
-              id: 'TON',
-              title: 'TON Native Gas Fuel',
-              subtitle: 'Powers DeDust V2 & STON.fi Auto-Swaps + Jetton Transfers',
-              balance: `${gramBalanceVal.toFixed(3)} TON`,
-              bdt: `~${Math.floor(gramBalanceVal / 0.008)} Transfers Ready`,
-              tag: gramBalanceVal >= 0.16 ? 'AUTO-SWAP FUEL READY' : 'REFILL RECOMMENDED',
-              activeClass: isDark
-                ? 'border-sky-400 bg-gradient-to-br from-sky-500/25 via-blue-600/10 to-slate-950 shadow-[0_10px_35px_rgba(14,165,233,0.22)]'
-                : 'border-sky-500 bg-gradient-to-br from-sky-50 via-blue-50/40 to-white shadow-lg text-slate-900'
             }
           ].map(assetCard => {
             const isSelected = selectedAsset === assetCard.id;
@@ -911,12 +900,12 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               })}
             </div>
 
-            {(selectedAsset === 'GRAM' || selectedAsset === 'TON') && (
+            {selectedAsset === 'GRAM' && (
               <div className={`mt-4 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-xs border ${
                 isDark ? 'bg-purple-950/40 border-purple-500/30 text-purple-200' : 'bg-purple-50 border-purple-200 text-purple-800'
               }`}>
                 <span>
-                  💡 <b>GRAM</b> এবং <b>TON</b> শুধুমাত্র <b>TON Mainnet</b> সাপোর্ট করে। অন্য নেটওয়ার্ক (BEP20, Arbitrum, AVAX-C, Polygon, ERC20) দিয়ে ডিপোজিট করতে চাইলে উপরে <b>USDT (Tether)</b> সিলেক্ট করুন।
+                  💡 <b>GRAM</b> শুধুমাত্র <b>TON Mainnet</b> সাপোর্ট করে। অন্য নেটওয়ার্ক (BEP20, Arbitrum, AVAX-C, Polygon, ERC20) দিয়ে ডিপোজিট করতে চাইলে উপরে <b>USDT (Tether)</b> সিলেক্ট করুন।
                 </span>
                 <button
                   type="button"
