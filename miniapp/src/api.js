@@ -612,26 +612,4 @@ export const fetchLeaderboard = async (userId) => {
 
 
 
-export const fetchGiveawayStatus = async (userId) => {
-    try {
-        const res = await axios.get(`${API_URL}/api/miniapp/giveaway/status`, {
-            params: { userId: userId || '', _t: Date.now() },
-            timeout: 10000
-        });
-        return res.data;
-    } catch (e) {
-        console.error("fetchGiveawayStatus error:", e);
-        return null;
-    }
-};
 
-export const joinGiveaway = async (userId) => {
-    try {
-        const res = await axios.post(`${API_URL}/api/miniapp/giveaway/join`, {
-            userId
-        }, { timeout: 25000 });
-        return res.data;
-    } catch (e) {
-        throw new Error(e.response?.data?.error || e.message || 'Giveaway join failed');
-    }
-};

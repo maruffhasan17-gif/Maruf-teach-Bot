@@ -1201,7 +1201,7 @@ async function auditBalanceProvenance(userId, requestedAmount = 0, actionType = 
     const docTransferIn = Math.max(0, Number(uData.totalTransferReceivedBdt || 0));
     const docTransferOut = Math.max(0, Number(uData.totalTransferSentBdt || 0));
     const docGiveawayPrize = roundBdt(parseFloat(uData.giveawayPrizeWonBdt || 0));
-    const docGiveawayHold = roundBdt(parseFloat(uData.giveawayHoldBdt || 0));
+    const docGiveawayHold = 0; // Giveaway removed - unhold all previously held balances
     const docSpentOnCrypto = Math.max(0, Number(uData.totalSpentOnCryptoBdt || 0));
     const docWithdrawnBdt = Math.max(0, Number(uData.totalWithdrawnBdt || 0));
     const docReconciledFloor = Math.max(0, Number(uData.auditReconciledBalance || 0));
@@ -4622,7 +4622,7 @@ app.get('/api/miniapp/user/:id', async (req, res) => {
             hasSellBalance: Boolean(data.hasSellBalance || (parseFloat(data.totalCryptoSellBdt) > 0)),
             spentSinceLastDeposit: data.spentSinceLastDeposit || 0,
             referralEarnings: data.referralEarnings || 0,
-            giveawayHoldBdt: roundBdt(data.giveawayHoldBdt || 0),
+            giveawayHoldBdt: 0,
             giveawayPrizeWonBdt: roundBdt(data.giveawayPrizeWonBdt || 0),
             activeReferralsCount: data.activeReferralsCount || 0,
             referredBy: data.referredBy || null,

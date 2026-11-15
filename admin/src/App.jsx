@@ -422,14 +422,6 @@ function Sidebar({ onOpenCreateTrx, pendingBuysCount, pendingWithdrawCount, onLo
       sub: 'Accounts & Referrals', 
       icon: <Users size={18} strokeWidth={2.2} /> 
     },
-    { 
-      path: '/giveaway', 
-      name: 'Giveaway Joined Users', 
-      sub: '৳50K Participants & Winners', 
-      icon: <Trophy size={18} strokeWidth={2.2} />,
-      badge: '৳50K Pool',
-      badgeColor: 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black shadow-sm'
-    },
   ];
 
   const systemNav = [
@@ -4479,20 +4471,17 @@ function UsersManagement() {
           chatId: uId,
           mbsId: u.mbsId || `MBS${uId.slice(-5)}`,
           balanceNum: isNaN(bal) ? 0 : bal,
-          isVerified: Boolean(u.isVerified || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0) || u.status === 'verified'),
-          isGiveawayJoined: Boolean(u.isGiveawayJoined || Number(u.giveawayHoldBdt || 0) > 0)
+          isVerified: Boolean(u.isVerified || (u.totalBuy && u.totalBuy > 0) || (u.totalSell && u.totalSell > 0) || u.status === 'verified')
         };
       }).filter(Boolean);
 
       const total = rawList.length;
       const verifiedCount = rawList.filter(u => u.isVerified).length;
       const unverifiedCount = total - verifiedCount;
-      const giveawayCount = rawList.filter(u => u.isGiveawayJoined).length;
 
       let filtered = rawList.filter(u => {
         if (filter === 'verified') return u.isVerified;
         if (filter === 'unverified') return !u.isVerified;
-        if (filter === 'giveaway') return u.isGiveawayJoined;
         return true;
       });
 
@@ -4516,11 +4505,11 @@ function UsersManagement() {
 
       return {
         processedUsers: filtered,
-        statsCounts: { total, verifiedCount, unverifiedCount, giveawayCount }
+        statsCounts: { total, verifiedCount, unverifiedCount }
       };
     } catch (e) {
       console.error("Users memo computation error:", e);
-      return { processedUsers: [], statsCounts: { total: 0, verifiedCount: 0, unverifiedCount: 0, giveawayCount: 0 } };
+      return { processedUsers: [], statsCounts: { total: 0, verifiedCount: 0, unverifiedCount: 0 } };
     }
   }, [users, search, filter, sortOrder]);
 
@@ -4714,19 +4703,6 @@ function UsersManagement() {
             <span>আন-ভেরিফাইড (Unverified)</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">{statsCounts.unverifiedCount}</span>
           </button>
-
-          <button
-            onClick={() => setFilter('giveaway')}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-              filter === 'giveaway'
-                ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/30'
-                : isDark ? 'bg-slate-900 text-slate-400 hover:text-amber-400' : 'bg-slate-100 text-slate-600 hover:text-amber-600'
-            }`}
-          >
-            <Trophy size={14} className={filter === 'giveaway' ? 'text-slate-950' : 'text-amber-400'} />
-            <span>Giveaway জয়েনকৃত</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/20 dark:bg-white/20">{statsCounts.giveawayCount || 0}</span>
-          </button>
         </div>
 
         {/* Search & Sort Toggle */}
@@ -4832,13 +4808,6 @@ function UsersManagement() {
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xl text-[9.5px] font-black bg-amber-500/15 text-amber-400 border border-amber-500/30">
                       <span>আন-ভেরিফাইড</span>
-                    </span>
-                  )}
-
-                  {u.isGiveawayJoined && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-xl text-[9.5px] font-black bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-400 border border-amber-500/40 shadow-xs" title="Giveaway অংশগ্রহণকারী (৳২০ হোল্ড)">
-                      <Trophy size={10} className="text-amber-400" />
-                      <span>Giveaway ৳20 Held</span>
                     </span>
                   )}
                 </div>
@@ -5230,6 +5199,7 @@ function UsersManagement() {
 function BotSettings() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const { data = {} } = useBotData();
 
   const [settings, setSettings] = useState({
     adminBkash: '01752561935',
@@ -5343,8 +5313,8 @@ function BotSettings() {
               <span className="text-xs font-bold text-slate-400 uppercase">GRAM Buy Rate</span>
               <Gem size={18} className="text-purple-400" />
             </div>
-            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = {parseFloat(data.buyRates?.GRAM || data.realGramBdt || 160.00).toFixed(2)} ৳ BDT</div>
-            <p className="text-[11px] text-slate-400 mt-1">লাইভ বাই রেট (সেল রেট: ৳{parseFloat(data.sellRates?.GRAM || 120.00).toFixed(2)} | প্রফিট: ৳{parseFloat(data.profitMargins?.GRAM || 40.00).toFixed(2)}/টি)</p>
+            <div className="text-2xl font-black text-purple-400 mt-2 font-mono">1 GRAM = {parseFloat(data?.buyRates?.GRAM || data?.realGramBdt || 160.00).toFixed(2)} ৳ BDT</div>
+            <p className="text-[11px] text-slate-400 mt-1">লাইভ বাই রেট (সেল রেট: ৳{parseFloat(data?.sellRates?.GRAM || 120.00).toFixed(2)} | প্রফিট: ৳{parseFloat(data?.profitMargins?.GRAM || 40.00).toFixed(2)}/টি)</p>
           </div>
 
           {/* USDT Card */}
@@ -5353,7 +5323,7 @@ function BotSettings() {
               <span className="text-xs font-bold text-slate-400 uppercase">USDT Buy Rate</span>
               <DollarSign size={18} className="text-emerald-400" />
             </div>
-            <div className="text-2xl font-black text-emerald-400 mt-2 font-mono">1 USDT = {parseFloat(data.buyRates?.USDT || data.realUsdtBdt || 130.00).toFixed(2)} ৳ BDT</div>
+            <div className="text-2xl font-black text-emerald-400 mt-2 font-mono">1 USDT = {parseFloat(data?.buyRates?.USDT || data?.realUsdtBdt || 130.00).toFixed(2)} ৳ BDT</div>
             <p className="text-[11px] text-slate-400 mt-1">ফিক্সড বাই রেট (সেল রেট: ৳118.00 | প্রফিট: ৳12.00/টি)</p>
           </div>
         </div>
@@ -7772,7 +7742,7 @@ function App() {
               <Route path="/withdraw" element={<FiatWithdrawals />} />
               <Route path="/withdrawals" element={<FiatWithdrawals />} />
               <Route path="/users" element={<UsersManagement />} />
-              <Route path="/giveaway" element={<GiveawayManager />} />
+              <Route path="/giveaway" element={<Dashboard />} />
               <Route path="/broadcast" element={<BroadcastCenter />} />
               <Route path="/bot-settings" element={<BotSettings />} />
               <Route path="/fraud" element={<FraudLogs />} />
