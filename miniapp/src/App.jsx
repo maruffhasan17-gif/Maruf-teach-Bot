@@ -8355,6 +8355,91 @@ function SmoothBottomFade({ darkMode = false }) {
 
 const BottomScrollCue = SmoothBottomFade;
 
+// ============================================================================
+// IOS SPRING SCROLL REVEAL COMPONENT (FLUID APPLE-STYLE SPRING ANIMATION)
+// ============================================================================
+function IosScrollReveal({ children, className = '', delay = 0, autoRevealTimeout = 1200 }) {
+  const ref = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const hasTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const triggerReveal = () => {
+      if (!hasTriggeredRef.current) {
+        hasTriggeredRef.current = true;
+        setIsVisible(true);
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          try {
+            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+          } catch (e) {}
+        }
+      }
+    };
+
+    // If the entire page fits on screen without scrolling, reveal immediately
+    const fullHeight = Math.max(
+      document.body.scrollHeight || 0,
+      document.documentElement.scrollHeight || 0
+    );
+    if (fullHeight <= window.innerHeight + 25) {
+      triggerReveal();
+      return;
+    }
+
+    // Scroll & Intersection check
+    const checkScrollPosition = () => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const windowHeight = window.innerHeight || 0;
+      // Trigger when element top comes within 35px of viewport bottom
+      if (rect.top <= windowHeight - 15) {
+        triggerReveal();
+      } else if (rect.top > windowHeight + 90) {
+        // Reset when user scrolls far back to top so they can experience the smooth spring again
+        if (hasTriggeredRef.current) {
+          hasTriggeredRef.current = false;
+          setIsVisible(false);
+        }
+      }
+    };
+
+    // Initial check
+    checkScrollPosition();
+
+    // Auto-reveal fallback timer if user doesn't scroll within timeout
+    const autoTimer = setTimeout(() => {
+      triggerReveal();
+    }, autoRevealTimeout);
+
+    window.addEventListener('scroll', checkScrollPosition, { passive: true });
+    window.addEventListener('resize', checkScrollPosition, { passive: true });
+
+    return () => {
+      clearTimeout(autoTimer);
+      window.removeEventListener('scroll', checkScrollPosition);
+      window.removeEventListener('resize', checkScrollPosition);
+    };
+  }, [autoRevealTimeout]);
+
+  return (
+    <div
+      ref={ref}
+      className={`transform-gpu relative z-30 ${className}`}
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? 'translateY(0) scale(1)' : 'translateY(42px) scale(0.92)',
+        transition: `opacity 400ms cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, transform 520ms cubic-bezier(0.34, 1.4, 0.64, 1) ${delay}ms`,
+        willChange: 'transform, opacity',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function AddMoneyPage({ 
     user, 
     balance = 0,
@@ -8864,25 +8949,27 @@ function AddMoneyPage({
                         </div>
                     )}
 
-                    {/* 3D Action Button */}
-                    <button
-                        type="button"
-                        onClick={handleGoToStep2}
-                        disabled={!isValidAmt || isTransitioning}
-                        className="w-full h-[46px] rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-t border-white/30 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 transition-all duration-100 cursor-pointer disabled:opacity-50 disabled:border-b-0 disabled:translate-y-0 disabled:cursor-not-allowed shadow-md"
-                    >
-                        {isTransitioning ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" />
-                                <span>{lang === 'bn' ? 'পরবর্তী ধাপে যাওয়া হচ্ছে...' : 'Loading...'}</span>
-                            </>
-                        ) : (
-                            <>
-                                <span>{lang === 'bn' ? 'পরবর্তী ধাপ (পেমেন্ট ও TrxID)' : 'Next (Payment & TrxID)'}</span>
-                                <ChevronRight size={16} strokeWidth={3} />
-                            </>
-                        )}
-                    </button>
+                    {/* 3D Action Button (iOS Spring Reveal) */}
+                    <IosScrollReveal>
+                        <button
+                            type="button"
+                            onClick={handleGoToStep2}
+                            disabled={!isValidAmt || isTransitioning}
+                            className="w-full h-[46px] rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-t border-white/30 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 transition-all duration-100 cursor-pointer disabled:opacity-50 disabled:border-b-0 disabled:translate-y-0 disabled:cursor-not-allowed shadow-md"
+                        >
+                            {isTransitioning ? (
+                                <>
+                                    <Loader2 size={16} className="animate-spin" />
+                                    <span>{lang === 'bn' ? 'পরবর্তী ধাপে যাওয়া হচ্ছে...' : 'Loading...'}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span>{lang === 'bn' ? 'পরবর্তী ধাপ (পেমেন্ট ও TrxID)' : 'Next (Payment & TrxID)'}</span>
+                                    <ChevronRight size={16} strokeWidth={3} />
+                                </>
+                            )}
+                        </button>
+                    </IosScrollReveal>
                 </div>
                 {renderSuccessPopupModal()}
                 <SmoothBottomFade darkMode={darkMode} />
@@ -9160,31 +9247,35 @@ function AddMoneyPage({
                     </button>
                 </div>
 
-                {/* Instant Auto-Verification & Security Guarantee Card (Fills empty space beautifully) */}
-                <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition-all ${
-                    darkMode 
-                        ? 'bg-purple-950/25 border-purple-900/40 text-purple-300' 
-                        : 'bg-purple-50/70 border-purple-100 text-purple-900'
-                }`}>
-                    <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400">
-                        <ShieldCheck size={18} />
+                {/* Instant Auto-Verification & Security Guarantee Card with iOS Spring Reveal */}
+                <IosScrollReveal delay={40}>
+                    <div className={`p-2.5 rounded-xl border flex items-center gap-2.5 transition-all ${
+                        darkMode 
+                            ? 'bg-purple-950/25 border-purple-900/40 text-purple-300' 
+                            : 'bg-purple-50/70 border-purple-100 text-purple-900'
+                    }`}>
+                        <div className="w-8 h-8 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center shrink-0 text-purple-600 dark:text-purple-400">
+                            <ShieldCheck size={18} />
+                        </div>
+                        <div className="min-w-0 leading-tight">
+                            <span className="text-[11px] font-black block">
+                                {lang === 'bn' ? '১০০% অটোমেটিক ইনস্ট্যান্ট ডিপোজিট' : '100% Automatic Instant Deposit'}
+                            </span>
+                            <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-medium block mt-0.5">
+                                {lang === 'bn' ? 'TrxID সাবমিট করার সাথে সাথেই আপনার অ্যাকাউন্টে ব্যালেন্স যোগ হবে।' : 'Balance will be credited to your account instantly upon TrxID verification.'}
+                            </span>
+                        </div>
                     </div>
-                    <div className="min-w-0 leading-tight">
-                        <span className="text-[11px] font-black block">
-                            {lang === 'bn' ? '১০০% অটোমেটিক ইনস্ট্যান্ট ডিপোজিট' : '100% Automatic Instant Deposit'}
-                        </span>
-                        <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-medium block mt-0.5">
-                            {lang === 'bn' ? 'TrxID সাবমিট করার সাথে সাথেই আপনার অ্যাকাউন্টে ব্যালেন্স যোগ হবে।' : 'Balance will be credited to your account instantly upon TrxID verification.'}
-                        </span>
-                    </div>
-                </div>
+                </IosScrollReveal>
             </div>
 
             {/* Bottom Helper Info */}
-            <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-slate-400 dark:text-slate-500 font-medium pt-1">
-                <Clock size={12} className="text-purple-500 shrink-0" />
-                <span>{lang === 'bn' ? 'ডিপোজিট প্রসেসিং সময়: সাধারণত ৫-২০ সেকেন্ড' : 'Deposit processing time: usually 5-20 seconds'}</span>
-            </div>
+            <IosScrollReveal delay={80}>
+                <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-slate-400 dark:text-slate-500 font-medium pt-1">
+                    <Clock size={12} className="text-purple-500 shrink-0" />
+                    <span>{lang === 'bn' ? 'ডিপোজিট প্রসেসিং সময়: সাধারণত ৫-২০ সেকেন্ড' : 'Deposit processing time: usually 5-20 seconds'}</span>
+                </div>
+            </IosScrollReveal>
 
             {renderSuccessPopupModal()}
             <SmoothBottomFade darkMode={darkMode} />
@@ -13334,8 +13425,8 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                 </p>
             </div>
 
-            {/* Submit Button (Tactile 3D Button) */}
-            <div className="pt-2 pb-6">
+            {/* Submit Button (Tactile 3D Button with iOS Spring Reveal) */}
+            <IosScrollReveal className="pt-2 pb-6">
                 <button 
                     type="button"
                     onClick={handleSubmit} 
@@ -13371,7 +13462,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                                     : (t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS'))}
                     </span>
                 </button>
-            </div>
+            </IosScrollReveal>
 
             {/* Withdrawal Permission / Confirmation Modal */}
             {showConfirmWithdrawModal && pendingConfirmData && (
