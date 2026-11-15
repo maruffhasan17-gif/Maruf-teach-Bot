@@ -1315,103 +1315,8 @@ const WithdrawFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode =
   );
 };
 
-const DepositFlowerModal = ({ isOpen, onClose, details, lang = 'bn', darkMode = false }) => {
-  const hasPlayedSoundRef = useRef(false);
-  const onCloseRef = useRef(onClose);
-
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  });
-
-  useEffect(() => {
-    if (!isOpen) {
-      hasPlayedSoundRef.current = false;
-      return;
-    }
-
-    if (!hasPlayedSoundRef.current) {
-      hasPlayedSoundRef.current = true;
-      playAppSound('success');
-    }
-
-    // Automatically redirect to home page after 3 seconds as requested by admin
-    const timer = setTimeout(() => {
-      if (onCloseRef.current) onCloseRef.current();
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className={`relative w-full max-w-[350px] p-6 text-center rounded-[30px] shadow-2xl border transition-all animate-in zoom-in-95 duration-300 overflow-hidden ${
-        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
-      }`}>
-        {/* Ambient Emerald Glow + Corner Botanical Accent */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
-        <img
-          src={sakuraBranchArt}
-          alt=""
-          className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
-            darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
-          }`}
-        />
-
-        {/* Luxury Animated Checkmark Emblem */}
-        <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'ডিপোজিট সফল হয়েছে' : 'DEPOSIT SUCCESSFUL'} />
-
-        <h3 className="text-[19px] font-black leading-tight mt-1 mb-1">
-          {lang === 'bn' ? 'ডিপোজিট সফল হয়েছে!' : 'Deposit Successful!'}
-        </h3>
-        <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-4 leading-relaxed">
-          {lang === 'bn' ? 'আপনার অ্যাকাউন্টে টাকা সফলভাবে যোগ করা হয়েছে।' : 'Funds have been credited to your balance.'}
-        </p>
-
-        {/* Breakdown Card (Exact 1:1 Match to 2nd Image) */}
-        {details && (
-          <div className={`rounded-2xl p-3.5 border mb-4 text-left space-y-2 text-[12px] relative z-10 ${
-            darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50/90 border-slate-200/80'
-          }`}>
-            <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-              <span>{lang === 'bn' ? 'পরিমাণ:' : 'Amount:'}</span>
-              <span className="font-bold text-slate-900 dark:text-white font-mono">
-                + ৳ {parseFloat(details.amount || 0).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
-              <span>{lang === 'bn' ? 'পেমেন্ট মেথড:' : 'Method:'}</span>
-              <span className="font-bold text-slate-900 dark:text-white">{details.method || 'bKash'}</span>
-            </div>
-            {details.trxId && (
-              <div className="flex justify-between items-center text-slate-500 dark:text-slate-400 text-[11px] pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
-                <span>{lang === 'bn' ? 'TrxID:' : 'TrxID:'}</span>
-                <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{details.trxId}</span>
-              </div>
-            )}
-            <div className="h-px bg-slate-200 dark:bg-slate-700 w-full my-1" />
-            <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
-              <span className="font-bold">{lang === 'bn' ? 'নতুন ব্যালেন্স:' : 'New Balance:'}</span>
-              <span className="font-black text-[14px] font-mono">
-                ৳ {parseFloat(details.newBalance || 0).toFixed(2)}
-              </span>
-            </div>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-xs shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all cursor-pointer relative z-10"
-        >
-          {lang === 'bn' ? 'ঠিক আছে (Done)' : 'Done'}
-        </button>
-      </div>
-    </div>
-  );
-};
-
+// ============================================================================
+// ULTRA-PREMIUM 3D LUXURY GIFT VECTOR ARTWORK & ANIMATED EMBLEMS
 // ============================================================================
 // ULTRA-PREMIUM 3D LUXURY GIFT VECTOR ARTWORK & ANIMATED EMBLEMS
 // ============================================================================
@@ -8382,12 +8287,6 @@ function AddMoneyPage({
     reloadData 
 }) {
     const [step, setStep] = useState(1);
-    const [showFlowerModal, setShowFlowerModal] = useState(false);
-    const [depositDetails, setDepositDetails] = useState(null);
-
-    useEffect(() => {
-        if (setIsModalOpen) setIsModalOpen(showFlowerModal);
-    }, [showFlowerModal, setIsModalOpen]);
 
     useEffect(() => {
         if (onStepChange) onStepChange(step);
@@ -8551,14 +8450,18 @@ function AddMoneyPage({
 
             if (res.success) {
                 const calculatedNewBal = parseFloat(res.newBalance || (Number(balance || 0) + cleanAmt));
-                setDepositDetails({
+                const resData = {
                     amount: cleanAmt,
                     method: paymentMethod,
                     trxId: cleanId,
                     newBalance: calculatedNewBal
-                });
-                setShowFlowerModal(true);
-                if (setIsModalOpen) setIsModalOpen(true);
+                };
+                setDepositResult(resData);
+                playAppSound('success');
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                }
+                setStep(3);
                 if (reloadData) reloadData();
             } else {
                 setErrorMessage(res.error || (lang === 'bn' ? 'ভেরিফিকেশন ব্যর্থ হয়েছে' : 'Verification failed'));
@@ -8571,6 +8474,95 @@ function AddMoneyPage({
             setLoading(false);
         }
     };
+
+    // STEP 3: SUCCESS RECEIPT CARD (IN-PAGE PREMIUM CARD)
+    if (step === 3) {
+        return (
+            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-300 p-2 text-center pb-24 max-w-sm mx-auto">
+                <div className={`relative w-full rounded-3xl p-6 border shadow-xl overflow-hidden ${
+                    darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
+                }`}>
+                    {/* Ambient Emerald Glow + Corner Botanical Accent */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-56 h-28 rounded-full bg-emerald-500/15 blur-2xl pointer-events-none" />
+                    <img
+                        src={sakuraBranchArt}
+                        alt=""
+                        className={`absolute -top-3 -right-3 w-28 h-28 object-contain pointer-events-none select-none ${
+                            darkMode ? 'opacity-[0.14] brightness-125' : 'opacity-[0.16]'
+                        }`}
+                    />
+
+                    {/* Luxury Animated Checkmark Emblem */}
+                    <LuxurySuccessEmblem badgeText={lang === 'bn' ? 'ডিপোজিট সফল হয়েছে' : 'DEPOSIT SUCCESSFUL'} />
+
+                    <h3 className="text-[20px] font-black leading-tight mt-1 mb-1">
+                        {lang === 'bn' ? 'ডিপোজিট সফল হয়েছে!' : 'Deposit Successful!'}
+                    </h3>
+                    <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mb-4 leading-relaxed">
+                        {lang === 'bn' ? 'আপনার অ্যাকাউন্টে টাকা সফলভাবে যোগ করা হয়েছে।' : 'Funds have been credited to your balance.'}
+                    </p>
+
+                    {/* Breakdown Card */}
+                    <div className={`rounded-2xl p-3.5 border mb-4 text-left space-y-2 text-[12px] relative z-10 ${
+                        darkMode ? 'bg-slate-800/60 border-slate-700/80' : 'bg-slate-50/90 border-slate-200/80'
+                    }`}>
+                        <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                            <span>{lang === 'bn' ? 'পরিমাণ:' : 'Amount:'}</span>
+                            <span className="font-bold text-slate-900 dark:text-white font-mono text-[13px]">
+                                + ৳ {parseFloat(depositResult?.amount || amount || 0).toLocaleString()}
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                            <span>{lang === 'bn' ? 'পেমেন্ট মেথড:' : 'Method:'}</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{depositResult?.method || paymentMethod}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-slate-600 dark:text-slate-400">
+                            <span>TrxID:</span>
+                            <span className="font-mono font-bold text-slate-900 dark:text-white">{depositResult?.trxId || trxId}</span>
+                        </div>
+                        <div className="h-px bg-slate-200 dark:bg-slate-700 w-full my-1" />
+                        <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400">
+                            <span className="font-bold">{lang === 'bn' ? 'নতুন ব্যালেন্স:' : 'New Balance:'}</span>
+                            <span className="font-black font-mono text-[14px]">
+                                ৳ {parseFloat(depositResult?.newBalance || (Number(balance || 0) + Number(amount))).toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2 relative z-10">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                playAppSound('tap');
+                                setStep(1);
+                                setAmount('');
+                                setTrxId('');
+                                if (onDone) onDone();
+                            }}
+                            className="w-full h-[46px] rounded-2xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 text-white font-black text-xs shadow-[0_8px_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all cursor-pointer"
+                        >
+                            {lang === 'bn' ? 'ঠিক আছে (Done)' : 'Done'}
+                        </button>
+                        {onGoToBuyCrypto && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    playAppSound('tap');
+                                    setStep(1);
+                                    setAmount('');
+                                    setTrxId('');
+                                    onGoToBuyCrypto();
+                                }}
+                                className="w-full py-2.5 rounded-xl text-slate-500 dark:text-slate-400 font-bold text-[11px] hover:text-slate-800 dark:hover:text-white cursor-pointer active:scale-95 transition-all"
+                            >
+                                {lang === 'bn' ? '⚡ এখনই ক্রিপ্টো কিনুন' : '⚡ Buy Crypto Now'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // STEP 1: SELECT METHOD & AMOUNT
     if (step === 1) {
@@ -8802,21 +8794,6 @@ function AddMoneyPage({
                         )}
                     </button>
                 </div>
-
-                <DepositFlowerModal 
-                    isOpen={showFlowerModal}
-                    onClose={() => {
-                        setShowFlowerModal(false);
-                        if (setIsModalOpen) setIsModalOpen(false);
-                        setStep(1);
-                        setAmount('');
-                        setTrxId('');
-                        if (onDone) onDone();
-                    }}
-                    details={depositDetails}
-                    lang={lang}
-                    darkMode={darkMode}
-                />
             </div>
         );
     }
@@ -9116,21 +9093,6 @@ function AddMoneyPage({
                 <Clock size={12} className="text-purple-500 shrink-0" />
                 <span>{lang === 'bn' ? 'ডিপোজিট প্রসেসিং সময়: সাধারণত ৫-২০ সেকেন্ড' : 'Deposit processing time: usually 5-20 seconds'}</span>
             </div>
-
-            <DepositFlowerModal 
-                isOpen={showFlowerModal}
-                onClose={() => {
-                    setShowFlowerModal(false);
-                    if (setIsModalOpen) setIsModalOpen(false);
-                    setStep(1);
-                    setAmount('');
-                    setTrxId('');
-                    if (onDone) onDone();
-                }}
-                details={depositDetails}
-                lang={lang}
-                darkMode={darkMode}
-            />
         </div>
     );
 }
