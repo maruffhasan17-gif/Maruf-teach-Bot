@@ -8287,6 +8287,11 @@ function AddMoneyPage({
     reloadData 
 }) {
     const [step, setStep] = useState(1);
+    const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+
+    useEffect(() => {
+        if (setIsModalOpen) setIsModalOpen(showSuccessPopup);
+    }, [showSuccessPopup, setIsModalOpen]);
 
     useEffect(() => {
         if (onStepChange) onStepChange(step);
@@ -8457,11 +8462,11 @@ function AddMoneyPage({
                     newBalance: calculatedNewBal
                 };
                 setDepositResult(resData);
+                setShowSuccessPopup(true);
                 playAppSound('success');
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                     window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
                 }
-                setStep(3);
                 if (reloadData) reloadData();
             } else {
                 setErrorMessage(res.error || (lang === 'bn' ? 'ভেরিফিকেশন ব্যর্থ হয়েছে' : 'Verification failed'));
@@ -8475,11 +8480,12 @@ function AddMoneyPage({
         }
     };
 
-    // STEP 3: SUCCESS RECEIPT CARD (IN-PAGE PREMIUM CARD)
-    if (step === 3) {
-        return (
-            <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-300 p-2 text-center pb-24 max-w-sm mx-auto">
-                <div className={`relative w-full rounded-3xl p-6 border shadow-xl overflow-hidden ${
+    // POPUP SUCCESS MODAL VIA PORTAL (PROPERLY VERTICALLY CENTERED)
+    const renderSuccessPopupModal = () => {
+        if (!showSuccessPopup || !depositResult || typeof document === 'undefined') return null;
+        return createPortal(
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200">
+                <div className={`relative w-full max-w-[340px] p-6 text-center rounded-[32px] shadow-2xl border transition-all animate-in zoom-in-95 duration-200 overflow-hidden ${
                     darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
                 }`}>
                     {/* Ambient Emerald Glow + Corner Botanical Accent */}
@@ -8534,6 +8540,7 @@ function AddMoneyPage({
                             type="button"
                             onClick={() => {
                                 playAppSound('tap');
+                                setShowSuccessPopup(false);
                                 setStep(1);
                                 setAmount('');
                                 setTrxId('');
@@ -8548,6 +8555,7 @@ function AddMoneyPage({
                                 type="button"
                                 onClick={() => {
                                     playAppSound('tap');
+                                    setShowSuccessPopup(false);
                                     setStep(1);
                                     setAmount('');
                                     setTrxId('');
@@ -8560,9 +8568,10 @@ function AddMoneyPage({
                         )}
                     </div>
                 </div>
-            </div>
+            </div>,
+            document.body
         );
-    }
+    };
 
     // STEP 1: SELECT METHOD & AMOUNT
     if (step === 1) {
@@ -8794,6 +8803,7 @@ function AddMoneyPage({
                         )}
                     </button>
                 </div>
+                {renderSuccessPopupModal()}
             </div>
         );
     }
@@ -9093,6 +9103,8 @@ function AddMoneyPage({
                 <Clock size={12} className="text-purple-500 shrink-0" />
                 <span>{lang === 'bn' ? 'ডিপোজিট প্রসেসিং সময়: সাধারণত ৫-২০ সেকেন্ড' : 'Deposit processing time: usually 5-20 seconds'}</span>
             </div>
+
+            {renderSuccessPopupModal()}
         </div>
     );
 }
