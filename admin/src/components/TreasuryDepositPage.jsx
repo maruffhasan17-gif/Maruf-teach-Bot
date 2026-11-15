@@ -25,19 +25,13 @@ import {
 export function NetworkLogo({ networkId, size = 40, className = '' }) {
   const id = String(networkId || 'TON').toUpperCase();
 
-  if (id === 'TON') {
+  if (id === 'TON' || id === 'GRAM') {
     return (
-      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={`shrink-0 ${className}`}>
-        <defs>
-          <linearGradient id="tonGrad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0098EA" />
-            <stop offset="100%" stopColor="#0066CC" />
-          </linearGradient>
-        </defs>
-        <circle cx="24" cy="24" r="24" fill="url(#tonGrad)" />
+      <svg width={size} height={size} viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className={`shrink-0 ${className}`}>
+        <circle cx="28" cy="28" r="28" fill="#0098EA" />
         <path
-          d="M32.8 14.5H15.2C12.9 14.5 11.5 16.9 12.6 18.9L22.6 36.2C23.2 37.3 24.8 37.3 25.4 36.2L35.4 18.9C36.5 16.9 35.1 14.5 32.8 14.5ZM22.4 31.1L15.7 19.3C15.3 18.6 15.8 17.7 16.6 17.7H22.4V31.1ZM32.3 19.3L25.6 31.1V17.7H31.4C32.2 17.7 32.7 18.6 32.3 19.3Z"
-          fill="white"
+          fill="#FFFFFF"
+          d="M37.6 15.6H18.4c-3.5 0-5.7 3.8-4 6.9l11.8 20.5c0.8 1.3 2.7 1.3 3.5 0l11.8-20.5C43.3 19.4 41.1 15.6 37.6 15.6ZM26.3 36.8l-2.6-5l-6.2-11.1c-0.4-0.7 0.1-1.6 1-1.6h7.8L26.3 36.8ZM38.5 20.7l-6.2 11.1l-2.6 5V19.1h7.8C38.4 19.1 38.9 20 38.5 20.7Z"
         />
       </svg>
     );
@@ -154,24 +148,14 @@ export function AssetLogo({ asset, size = 34, className = '' }) {
     );
   }
 
-  if (code === 'GRAM') {
+  if (code === 'GRAM' || code === 'TON') {
     return (
-      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" className={`shrink-0 ${className}`}>
-        <defs>
-          <linearGradient id="gramGrad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#9333EA" />
-            <stop offset="50%" stopColor="#6366F1" />
-            <stop offset="100%" stopColor="#EC4899" />
-          </linearGradient>
-        </defs>
-        <circle cx="24" cy="24" r="24" fill="url(#gramGrad)" />
+      <svg width={size} height={size} viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className={`shrink-0 ${className}`}>
+        <circle cx="28" cy="28" r="28" fill="#0098EA" />
         <path
-          d="M24 10L36 19L24 38L12 19L24 10Z"
-          stroke="white"
-          strokeWidth="2.4"
-          fill="rgba(255,255,255,0.18)"
+          fill="#FFFFFF"
+          d="M37.6 15.6H18.4c-3.5 0-5.7 3.8-4 6.9l11.8 20.5c0.8 1.3 2.7 1.3 3.5 0l11.8-20.5C43.3 19.4 41.1 15.6 37.6 15.6ZM26.3 36.8l-2.6-5l-6.2-11.1c-0.4-0.7 0.1-1.6 1-1.6h7.8L26.3 36.8ZM38.5 20.7l-6.2 11.1l-2.6 5V19.1h7.8C38.4 19.1 38.9 20 38.5 20.7Z"
         />
-        <path d="M12 19H36M24 10L19 19L24 38L29 19L24 10Z" stroke="white" strokeWidth="1.8" />
       </svg>
     );
   }
@@ -266,8 +250,8 @@ export function buildDepositNetworks(data = {}) {
   return [
     {
       id: 'TON',
-      name: 'TON (The Open Network)',
-      shortName: 'TON Mainnet',
+      name: 'GRAM (The Open Network)',
+      shortName: 'GRAM Mainnet',
       standard: 'JETTON / NATIVE',
       badge: 'INSTANT AUTO-SWAP',
       badgeColor: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
@@ -282,17 +266,17 @@ export function buildDepositNetworks(data = {}) {
       accentText: 'text-sky-400',
       buttonGrad: 'from-sky-500 via-blue-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500',
       address: data.tonAddress || 'UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb',
-      supportedAssets: ['USDT', 'GRAM', 'TON'],
+      supportedAssets: ['USDT', 'GRAM'],
       usdtBalance: data.tonUsdtBalance || '0.00',
-      nativeBalance: parseFloat(data.tonNativeBalance || data.tonBalance || 0).toFixed(2),
-      nativeSymbol: 'GRAM/TON',
+      nativeBalance: parseFloat(data.tonNativeBalance || data.tonBalance || data.gramBalance || 0).toFixed(2),
+      nativeSymbol: 'GRAM',
       feeEst: '~$0.02 – $0.15',
       arrivalTime: '~15 – 45 sec',
       memoRequired: false,
       exchanges: ['Binance', 'Bybit', 'OKX', 'Bitget', 'MEXC', 'KuCoin', 'Gate.io'],
       explorerName: 'Tonviewer',
       explorerUrl: `https://tonviewer.com/${data.tonAddress || ''}`,
-      note: 'সরাসরি এডমিন TON ওয়ালেটে জমা হবে এবং USDT ⇄ GRAM অটো-সোয়াপ ও ইউজার পেমেন্টে তাৎক্ষণিক ব্যবহৃত হবে।'
+      note: 'সরাসরি এডমিন GRAM ওয়ালেটে জমা হবে এবং USDT ⇄ GRAM অটো-সোয়াপ ও ইউজার পেমেন্টে তাৎক্ষণিক ব্যবহৃত হবে।'
     },
     {
       id: 'BEP20',
@@ -352,7 +336,7 @@ export function buildDepositNetworks(data = {}) {
       exchanges: ['Binance', 'Bybit', 'OKX', 'Bitget', 'KuCoin', 'MEXC', 'Gate.io'],
       explorerName: 'Arbiscan',
       explorerUrl: `https://arbiscan.io/address/${data.evmAddress || ''}`,
-      note: 'Arbitrum One EVM হট ওয়ালেট। (সতর্কতা: মিনিঅ্যাপে অটো-সোয়াপের জন্য TON নেটওয়ার্কে USDT ডিপোজিট আবশ্যক)।'
+      note: 'Arbitrum One EVM হট ওয়ালেট। (সতর্কতা: মিনিঅ্যাপে অটো-সোয়াপের জন্য GRAM নেটওয়ার্কে USDT ডিপোজিট আবশ্যক)।'
     },
     {
       id: 'AVAXC',
@@ -670,7 +654,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               Multi-Network Exchange Deposit & Liquidity Center
             </h1>
             <p className={`text-xs sm:text-sm max-w-3xl ${isDark ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
-              Binance, Bybit, OKX, Bitget, KuCoin, MEXC অথবা Tonkeeper ওয়ালেট থেকে সরাসরি আপনার পছন্দের নেটওয়ার্কে (TON, BEP20, Arbitrum One, AVAX C-Chain, Polygon, ERC20) ক্রিপ্টো ডিপোজিট করুন।
+              Binance, Bybit, OKX, Bitget, KuCoin, MEXC অথবা Tonkeeper ওয়ালেট থেকে সরাসরি আপনার পছন্দের নেটওয়ার্কে (GRAM, BEP20, Arbitrum One, AVAX C-Chain, Polygon, ERC20) ক্রিপ্টো ডিপোজিট করুন।
             </p>
           </div>
 
@@ -753,7 +737,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
             {
               id: 'USDT',
               title: 'USDT (Tether USD)',
-              subtitle: 'Supports All 6 Networks (TON, BEP20, Arbitrum, AVAX-C, Polygon, ERC20)',
+              subtitle: 'Supports All 6 Networks (GRAM, BEP20, Arbitrum, AVAX-C, Polygon, ERC20)',
               balance: `$${totalUsdtVal.toFixed(2)} USDT`,
               bdt: `≈ ৳${(totalUsdtVal * liveUsdtBdt).toFixed(0)} BDT`,
               tag: '6 NETWORKS • AUTO-SWAP TO GRAM',
@@ -763,14 +747,14 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
             },
             {
               id: 'GRAM',
-              title: 'GRAM / TON Reserve',
+              title: 'GRAM Reserve',
               subtitle: 'Direct User Payout Pool + Backed by On-Chain USDT Auto-Swap',
               balance: `${gramBalanceVal.toFixed(3)} GRAM`,
               bdt: `≈ ৳${(gramBalanceVal * liveGramBdt).toFixed(0)} BDT`,
-              tag: 'TON MAINNET • INSTANT DISPATCH',
+              tag: 'GRAM MAINNET • INSTANT DISPATCH',
               activeClass: isDark
-                ? 'border-purple-400 bg-gradient-to-br from-purple-500/25 via-indigo-600/10 to-slate-950 shadow-[0_10px_35px_rgba(168,85,247,0.22)]'
-                : 'border-2 border-purple-500 bg-gradient-to-br from-purple-50 via-indigo-50/60 to-white shadow-md ring-2 ring-purple-500/20 text-slate-900'
+                ? 'border-sky-400 bg-gradient-to-br from-sky-500/25 via-blue-600/10 to-slate-950 shadow-[0_10px_35px_rgba(14,165,233,0.22)]'
+                : 'border-2 border-sky-500 bg-gradient-to-br from-sky-50 via-blue-50/60 to-white shadow-md ring-2 ring-sky-500/20 text-slate-900'
             }
           ].map(assetCard => {
             const isSelected = selectedAsset === assetCard.id;
@@ -821,7 +805,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                       : isSelected
                         ? assetCard.id === 'USDT'
                           ? 'bg-emerald-100 text-emerald-800 border-emerald-300 font-black'
-                          : 'bg-purple-100 text-purple-800 border-purple-300 font-black'
+                          : 'bg-sky-100 text-sky-800 border-sky-300 font-black'
                         : 'bg-slate-100 text-slate-700 border-slate-200 font-bold'
                   }`}>
                     {assetCard.tag}
@@ -951,9 +935,9 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                         <b className={`font-mono font-black ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
                           ${net.usdtBalance} USDT
                         </b>
-                        {net.id === 'TON' && (
-                          <span className={`font-mono font-black ml-1.5 ${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
-                            • {net.nativeBalance} TON
+                        {(net.id === 'TON' || net.id === 'GRAM') && (
+                          <span className={`font-mono font-black ml-1.5 ${isDark ? 'text-sky-300' : 'text-sky-700'}`}>
+                            • {net.nativeBalance} GRAM
                           </span>
                         )}
                       </div>
@@ -976,15 +960,15 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
 
             {selectedAsset === 'GRAM' && (
               <div className={`mt-4 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-xs border ${
-                isDark ? 'bg-purple-950/40 border-purple-500/30 text-purple-200' : 'bg-purple-50 border-purple-300 text-purple-900 font-medium'
+                isDark ? 'bg-sky-950/40 border-sky-500/30 text-sky-200' : 'bg-sky-50 border-sky-300 text-sky-900 font-medium'
               }`}>
                 <span>
-                  💡 <b>GRAM</b> শুধুমাত্র <b>TON Mainnet</b> সাপোর্ট করে। অন্য নেটওয়ার্ক (BEP20, Arbitrum, AVAX-C, Polygon, ERC20) দিয়ে ডিপোজিট করতে চাইলে উপরে <b>USDT (Tether)</b> সিলেক্ট করুন।
+                  💡 <b>GRAM</b> শুধুমাত্র <b>GRAM Mainnet</b> সাপোর্ট করে। অন্য নেটওয়ার্ক (BEP20, Arbitrum, AVAX-C, Polygon, ERC20) দিয়ে ডিপোজিট করতে চাইলে উপরে <b>USDT (Tether)</b> সিলেক্ট করুন।
                 </span>
                 <button
                   type="button"
                   onClick={() => handleSelectAsset('USDT')}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-[11px] shrink-0 cursor-pointer shadow-sm"
+                  className="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-black text-[11px] shrink-0 cursor-pointer shadow-sm"
                 >
                   Switch to USDT (6 Nets)
                 </button>
@@ -1260,7 +1244,7 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
                   <span className={`${isDark ? 'text-slate-400' : 'text-slate-600 font-bold'}`}>Current Network Balance:</span>
                   <span className={`font-mono font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     ${activeNetwork.usdtBalance} USDT
-                    {activeNetwork.id === 'TON' ? ` • ${activeNetwork.nativeBalance} TON` : ` • ${activeNetwork.nativeBalance} ${activeNetwork.nativeSymbol}`}
+                    {(activeNetwork.id === 'TON' || activeNetwork.id === 'GRAM') ? ` • ${activeNetwork.nativeBalance} GRAM` : ` • ${activeNetwork.nativeBalance} ${activeNetwork.nativeSymbol}`}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

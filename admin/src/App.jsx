@@ -1076,7 +1076,7 @@ function Dashboard() {
                 isDark ? 'bg-cyan-950/40 border-cyan-800/40 text-cyan-300' : 'bg-white border-cyan-200 text-cyan-800'
               }`}>
                 <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-                <span>Gas Reserve: <b>{data.tonNativeBalance || data.tonBalance || '0.00'} TON</b></span>
+                <span>Gas Reserve: <b>{data.tonNativeBalance || data.tonBalance || '0.00'} GRAM</b></span>
               </div>
 
               <button
@@ -1592,15 +1592,15 @@ function BotWallet() {
     return [
       {
         id: 'TON',
-        name: 'TON (The Open Network)',
-        shortName: 'TON Mainnet',
+        name: 'GRAM (The Open Network)',
+        shortName: 'GRAM Mainnet',
         badge: 'DIRECT AUTO-SWAP',
         badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
         address: data.tonAddress || 'UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb',
-        supportedAssets: ['USDT', 'GRAM', 'TON'],
+        supportedAssets: ['USDT', 'GRAM'],
         usdtBalance: data.tonUsdtBalance || '0.00',
-        nativeBalance: parseFloat(data.tonNativeBalance || data.tonBalance || 0).toFixed(2),
-        nativeSymbol: 'GRAM/TON',
+        nativeBalance: parseFloat(data.tonNativeBalance || data.tonBalance || data.gramBalance || 0).toFixed(2),
+        nativeSymbol: 'GRAM',
         feeEst: '~$0.02 – $0.15',
         arrivalTime: '~30 – 60 sec',
         memoRequired: false,
@@ -2027,7 +2027,7 @@ function BotWallet() {
           }`}>
             <Fuel size={14} className="text-cyan-400" />
             <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-            <span>Gas: <b>{tonGasVal.toFixed(3)} TON</b></span>
+            <span>Gas: <b>{tonGasVal.toFixed(3)} GRAM</b></span>
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
               tonGasVal >= 0.16 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
             }`}>
