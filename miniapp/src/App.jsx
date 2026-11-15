@@ -8271,8 +8271,101 @@ function ClaimPage({ user, onBack }) {
   );
 }
 
+// ============================================================================
+// DYNAMIC BOTTOM SCROLL OVERFLOW FROSTED BLUR & CUE (SMOOTH OVERFLOW ANIMATION)
+// ============================================================================
+function BottomScrollCue({ darkMode = false, lang = 'bn' }) {
+  const [hasMoreBelow, setHasMoreBelow] = useState(false);
 
+  useEffect(() => {
+    let ticking = false;
 
+    const checkScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          if (window.innerHeight < 450) {
+            setHasMoreBelow(false);
+            ticking = false;
+            return;
+          }
+          const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+          const windowHeight = window.innerHeight || 0;
+          const fullHeight = Math.max(
+            document.body.scrollHeight || 0,
+            document.documentElement.scrollHeight || 0
+          );
+          
+          const remaining = fullHeight - (scrollY + windowHeight);
+          // Show only when content extends at least 35px below current screen
+          setHasMoreBelow(remaining > 35 && fullHeight > windowHeight + 35);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    checkScroll();
+
+    const t1 = setTimeout(checkScroll, 120);
+    const t2 = setTimeout(checkScroll, 400);
+    const t3 = setTimeout(checkScroll, 1000);
+
+    window.addEventListener('scroll', checkScroll, { passive: true });
+    window.addEventListener('resize', checkScroll, { passive: true });
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      window.removeEventListener('scroll', checkScroll);
+      window.removeEventListener('resize', checkScroll);
+    };
+  }, []);
+
+  return (
+    <div
+      className={`fixed bottom-0 left-0 right-0 max-w-md mx-auto pointer-events-none z-30 transition-all duration-300 ease-out flex flex-col items-center justify-end pb-3 ${
+        hasMoreBelow ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
+      }`}
+      style={{ height: '84px' }}
+    >
+      {/* Frosted Glass Blur & Gradient Fade Mask */}
+      <div
+        className={`absolute inset-0 pointer-events-none transition-colors duration-200 ${
+          darkMode
+            ? 'bg-gradient-to-t from-[#070B14] via-[#070B14]/85 to-transparent'
+            : 'bg-gradient-to-t from-[#f8fafc] via-[#f8fafc]/90 to-transparent'
+        }`}
+        style={{
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          maskImage: 'linear-gradient(to top, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)',
+          WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)'
+        }}
+      />
+
+      {/* Floating Scroll Cue Pill (Tappable Smooth-Scroll) */}
+      <button
+        type="button"
+        onClick={() => {
+          if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+          }
+          window.scrollBy({ top: 220, behavior: 'smooth' });
+        }}
+        className={`relative z-10 pointer-events-auto px-3.5 py-1 rounded-full text-[10px] font-black tracking-wide flex items-center gap-1.5 border shadow-sm transition-all duration-200 active:scale-95 cursor-pointer ${
+          darkMode
+            ? 'bg-slate-900/95 text-purple-300 border-purple-500/30 shadow-[0_4px_16px_rgba(0,0,0,0.6)] hover:bg-slate-800'
+            : 'bg-white/95 text-purple-700 border-purple-200/90 shadow-[0_4px_16px_rgba(79,70,229,0.15)] hover:bg-purple-50'
+        }`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping" />
+        <span>{lang === 'bn' ? 'নিচে আরও আছে' : 'Scroll down'}</span>
+        <ChevronDown size={13} strokeWidth={2.5} className="text-purple-500 animate-bounce" />
+      </button>
+    </div>
+  );
+}
 
 function AddMoneyPage({ 
     user, 
@@ -8804,13 +8897,14 @@ function AddMoneyPage({
                     </button>
                 </div>
                 {renderSuccessPopupModal()}
+                <BottomScrollCue darkMode={darkMode} lang={lang} />
             </div>
         );
     }
 
     // STEP 2: PAYMENT & TRXID
     return (
-        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-8 max-w-md mx-auto">
+        <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-20 max-w-md mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -9105,6 +9199,7 @@ function AddMoneyPage({
             </div>
 
             {renderSuccessPopupModal()}
+            <BottomScrollCue darkMode={darkMode} lang={lang} />
         </div>
     );
 }
@@ -13252,7 +13347,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
             </div>
 
             {/* Submit Button (Tactile 3D Button) */}
-            <div className="pt-2 pb-6">
+            <div className="pt-2 pb-20">
                 <button 
                     type="button"
                     onClick={handleSubmit} 
@@ -13557,6 +13652,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                     </div>
                 </div>
             )}
+            <BottomScrollCue darkMode={darkMode} lang={lang} />
         </div>
     );
 }
