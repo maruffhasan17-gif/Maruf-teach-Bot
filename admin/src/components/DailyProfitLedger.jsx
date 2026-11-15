@@ -194,17 +194,17 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
 
   return (
     <div className={`p-4 md:p-8 space-y-6 max-w-7xl mx-auto font-sans min-h-screen ${
-      isDark ? 'text-slate-100' : 'text-slate-800'
+      isDark ? 'text-slate-100' : 'text-slate-900'
     }`}>
       
       {/* Toast Notification */}
       {toastMessage && (
         <div className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-2xl transition-all border ${
           toastMessage.type === 'error'
-            ? 'bg-rose-950/90 text-rose-200 border-rose-800'
-            : 'bg-emerald-950/90 text-emerald-200 border-emerald-800'
+            ? (isDark ? 'bg-rose-950/90 text-rose-200 border-rose-800' : 'bg-rose-50 text-rose-900 border-rose-200 shadow-lg')
+            : (isDark ? 'bg-emerald-950/90 text-emerald-200 border-emerald-800' : 'bg-emerald-50 text-emerald-900 border-emerald-200 shadow-lg')
         }`}>
-          {toastMessage.type === 'error' ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+          {toastMessage.type === 'error' ? <AlertTriangle size={18} className="text-rose-500" /> : <CheckCircle2 size={18} className="text-emerald-500" />}
           <span className="text-sm font-semibold">{toastMessage.msg}</span>
         </div>
       )}
@@ -213,24 +213,26 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
       <div className={`p-6 rounded-2xl border relative overflow-hidden backdrop-blur-xl ${
         isDark 
           ? 'bg-gradient-to-r from-purple-950/40 via-slate-900/60 to-emerald-950/30 border-purple-900/30 shadow-2xl'
-          : 'bg-gradient-to-r from-purple-50 via-white to-emerald-50 border-purple-100 shadow-md'
+          : 'bg-gradient-to-r from-purple-50 via-white to-emerald-50 border-purple-100 shadow-sm'
       }`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                isDark ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+              }`}>
                 A-to-Z Financial Audit
               </span>
-              <span className="text-xs text-slate-400 flex items-center gap-1">
-                <Sparkles size={12} className="text-amber-400" />
+              <span className={`text-xs flex items-center gap-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                <Sparkles size={12} className="text-amber-500" />
                 ১ টাকারও নিখুঁত হিসাব
               </span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3">
-              <BarChart3 className="text-emerald-500" size={32} />
+            <h1 className={`text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              <BarChart3 className={isDark ? 'text-emerald-400' : 'text-emerald-600'} size={32} />
               Daily Profit Ledger & Financial Hub
             </h1>
-            <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600 font-medium'}`}>
               প্রতিদিনের ট্রেডিং স্প্রেড, ক্যাশআউট ফি, বোনাস খরচ এবং সেভিংস তহবিলের লাইভ অডিট।
             </p>
           </div>
@@ -240,10 +242,10 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
             <button
               onClick={() => handleSendTelegramReport(null)}
               disabled={sendingReport}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all cursor-pointer ${
                 sendingReport
-                  ? 'bg-purple-800/60 text-purple-200 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-900/30 hover:scale-[1.02]'
+                  ? (isDark ? 'bg-purple-800/60 text-purple-200 cursor-not-allowed' : 'bg-purple-200 text-purple-700 cursor-not-allowed')
+                  : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-purple-500/20 hover:scale-[1.02]'
               }`}
             >
               <Send size={16} className={sendingReport ? 'animate-spin' : ''} />
@@ -260,7 +262,7 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
               }`}
               title="রিফ্রেশ করুন"
             >
-              <RefreshCw size={18} className={refreshing ? 'animate-spin text-purple-400' : ''} />
+              <RefreshCw size={18} className={refreshing ? 'animate-spin text-purple-500' : ''} />
             </button>
           </div>
         </div>
@@ -272,33 +274,43 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
         {/* Card 1: Net Profit */}
         <div className={`p-5 rounded-2xl border transition-all relative overflow-hidden ${
           activeMetrics.isProfit
-            ? (isDark ? 'bg-emerald-950/20 border-emerald-500/30 shadow-lg shadow-emerald-950/20' : 'bg-emerald-50/80 border-emerald-200')
-            : (isDark ? 'bg-rose-950/20 border-rose-500/30 shadow-lg shadow-rose-950/20' : 'bg-rose-50/80 border-rose-200')
+            ? (isDark ? 'bg-emerald-950/20 border-emerald-500/30 shadow-lg shadow-emerald-950/20' : 'bg-emerald-50/90 border-emerald-200 shadow-sm')
+            : (isDark ? 'bg-rose-950/20 border-rose-500/30 shadow-lg shadow-rose-950/20' : 'bg-rose-50/90 border-rose-200 shadow-sm')
         }`}>
           <div className="flex items-center justify-between">
             <span className={`text-xs font-bold uppercase tracking-wider ${
-              activeMetrics.isProfit ? 'text-emerald-400' : 'text-rose-400'
+              activeMetrics.isProfit 
+                ? (isDark ? 'text-emerald-400' : 'text-emerald-800') 
+                : (isDark ? 'text-rose-400' : 'text-rose-800')
             }`}>
               {activeMetrics.isProfit ? 'আজকের নিট লাভ (Net Profit)' : 'আজকের নিট ক্ষতি (Net Loss)'}
             </span>
             <div className={`p-2 rounded-xl ${
-              activeMetrics.isProfit ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+              activeMetrics.isProfit 
+                ? (isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700') 
+                : (isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-700')
             }`}>
               {activeMetrics.isProfit ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-3xl font-black tracking-tight">
+            <div className={`text-3xl font-black tracking-tight ${
+              activeMetrics.isProfit 
+                ? (isDark ? 'text-emerald-300' : 'text-emerald-900') 
+                : (isDark ? 'text-rose-300' : 'text-rose-900')
+            }`}>
               {activeMetrics.isProfit ? '+' : '-'}৳{Math.abs(activeMetrics.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               <span className="text-xs font-medium ml-1.5 opacity-70">BDT</span>
             </div>
             <div className="flex items-center gap-2 mt-2 text-xs">
               <span className={`px-2 py-0.5 rounded font-black ${
-                activeMetrics.isProfit ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                activeMetrics.isProfit 
+                  ? (isDark ? 'bg-emerald-500/20 text-emerald-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-200') 
+                  : (isDark ? 'bg-rose-500/20 text-rose-300' : 'bg-rose-100 text-rose-800 border border-rose-200')
               }`}>
                 {activeMetrics.isProfit ? '✓ লাভজনক (PROFIT)' : '✕ ঘাটতি (LOSS)'}
               </span>
-              <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>
+              <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>
                 সব খরচ বাদ দিয়ে
               </span>
             </div>
@@ -310,19 +322,19 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
           isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
         }`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
+            <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-purple-400' : 'text-purple-700'}`}>
               মোট আয় (Gross Revenue)
             </span>
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-100 text-purple-700'}`}>
               <DollarSign size={18} />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-3xl font-black tracking-tight text-purple-300">
+            <div className={`text-3xl font-black tracking-tight ${isDark ? 'text-purple-300' : 'text-purple-900'}`}>
               ৳{activeMetrics.grossIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               <span className="text-xs font-medium ml-1.5 opacity-70">BDT</span>
             </div>
-            <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+            <div className={`flex items-center gap-2 mt-2 text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
               <span>স্প্রেড: <b>৳{activeMetrics.spreadProfit.toFixed(0)}</b></span>
               <span>•</span>
               <span>উইথড্র ফি: <b>৳{activeMetrics.withdrawFees.toFixed(0)}</b></span>
@@ -335,19 +347,19 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
           isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
         }`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+            <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-amber-400' : 'text-amber-700'}`}>
               সিস্টেম ব্যয় (Expenses)
             </span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-100 text-amber-700'}`}>
               <CreditCard size={18} />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-3xl font-black tracking-tight text-amber-300">
+            <div className={`text-3xl font-black tracking-tight ${isDark ? 'text-amber-300' : 'text-amber-900'}`}>
               ৳{activeMetrics.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               <span className="text-xs font-medium ml-1.5 opacity-70">BDT</span>
             </div>
-            <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
+            <div className={`flex items-center gap-2 mt-2 text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
               <span>স্পিন: <b>৳{activeMetrics.spinCost.toFixed(0)}</b></span>
               <span>•</span>
               <span>রেফারেল: <b>৳{activeMetrics.referralCost.toFixed(0)}</b></span>
@@ -357,22 +369,22 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
 
         {/* Card 4: Recommended Savings */}
         <div className={`p-5 rounded-2xl border transition-all ${
-          isDark ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-indigo-50/80 border-indigo-200'
+          isDark ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-indigo-50/90 border-indigo-200 shadow-sm'
         }`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+            <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-indigo-400' : 'text-indigo-800'}`}>
               সেভিংস তহবিল (Savings - 70%)
             </span>
-            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-700'}`}>
               <PiggyBank size={18} />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-3xl font-black tracking-tight text-indigo-300">
+            <div className={`text-3xl font-black tracking-tight ${isDark ? 'text-indigo-300' : 'text-indigo-950'}`}>
               ৳{activeMetrics.recommendedSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               <span className="text-xs font-medium ml-1.5 opacity-70">BDT</span>
             </div>
-            <div className="flex items-center gap-2 mt-2 text-xs text-indigo-400/80">
+            <div className={`flex items-center gap-2 mt-2 text-xs ${isDark ? 'text-indigo-400/80' : 'text-indigo-700 font-semibold'}`}>
               <ShieldCheck size={14} />
               <span>নিরাপদে ব্যাংকে জমানোর সুপারিশ</span>
             </div>
@@ -381,25 +393,25 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
 
         {/* Card 5: Net Cash Flow (Add Money vs Withdraw) */}
         <div className={`p-5 rounded-2xl border transition-all ${
-          isDark ? 'bg-cyan-950/20 border-cyan-500/30' : 'bg-cyan-50/80 border-cyan-200'
+          isDark ? 'bg-cyan-950/20 border-cyan-500/30' : 'bg-cyan-50/90 border-cyan-200 shadow-sm'
         }`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+            <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-cyan-400' : 'text-cyan-800'}`}>
               নিট ক্যাশ ফ্লো (Cash In vs Out)
             </span>
-            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400">
+            <div className={`p-2 rounded-xl ${isDark ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-100 text-cyan-700'}`}>
               <Wallet size={18} />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-3xl font-black tracking-tight text-cyan-300">
+            <div className={`text-3xl font-black tracking-tight ${isDark ? 'text-cyan-300' : 'text-cyan-950'}`}>
               {activeMetrics.netCashFlow >= 0 ? '+' : '-'}৳{Math.abs(activeMetrics.netCashFlow).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               <span className="text-xs font-medium ml-1.5 opacity-70">BDT</span>
             </div>
-            <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
-              <span>ডিপোজিট: <b className="text-emerald-400">৳{activeMetrics.depositVolume.toFixed(0)}</b></span>
+            <div className={`flex items-center gap-2 mt-2 text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              <span>ডিপোজিট: <b className={isDark ? 'text-emerald-400' : 'text-emerald-700'}>৳{activeMetrics.depositVolume.toFixed(0)}</b></span>
               <span>•</span>
-              <span>উইথড্র: <b className="text-rose-400">৳{activeMetrics.withdrawPaid.toFixed(0)}</b></span>
+              <span>উইথড্র: <b className={isDark ? 'text-rose-400' : 'text-rose-700'}>৳{activeMetrics.withdrawPaid.toFixed(0)}</b></span>
             </div>
           </div>
         </div>
@@ -410,19 +422,23 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
       <div className={`p-6 rounded-2xl border backdrop-blur-xl ${
         isDark ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
       }`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
+        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b ${
+          isDark ? 'border-slate-800/80' : 'border-slate-200'
+        }`}>
           <div>
-            <h2 className="text-lg font-black flex items-center gap-2">
-              <Coins className="text-purple-400" size={20} />
+            <h2 className={`text-lg font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              <Coins className={isDark ? 'text-purple-400' : 'text-purple-600'} size={20} />
               A-to-Z হিসাবের খুঁটিনাটি (Financial Balance Sheet)
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
               গ্যাস ফি সম্পূর্ণ ইউজারের ব্যালেন্স থেকে কর্তিত এবং উইথড্র ফি সরাসরি আপনার পকেটে আয় হিসেবে যুক্ত।
             </p>
           </div>
 
           {/* Date Filter Tabs */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/60 border border-slate-800">
+          <div className={`flex items-center gap-1.5 p-1 rounded-xl border ${
+            isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-100 border-slate-200'
+          }`}>
             {[
               { id: 'all', label: 'সব দিন (All)' },
               { id: 'today', label: 'আজকে (Today)' },
@@ -436,7 +452,9 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   selectedDateFilter === tab.id
                     ? 'bg-purple-600 text-white shadow'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                    : (isDark 
+                        ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50' 
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70')
                 }`}
               >
                 {tab.label}
@@ -450,70 +468,94 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
           
           {/* Left: আয়ের খাত (Inflows / Revenues) */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-400 pb-2 border-b border-emerald-900/30">
+            <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-wider pb-2 border-b ${
+              isDark ? 'text-emerald-400 border-emerald-900/30' : 'text-emerald-800 border-emerald-200'
+            }`}>
               <ArrowDownLeft size={16} />
               আয়ের উৎস সমূহ (Inflows & Revenue Streams)
             </div>
 
             <div className="space-y-2.5 text-sm">
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-slate-950/40 border border-slate-800/60">
-                <span className="text-slate-300">🛒 মোট ক্রিপ্টো ক্রয় ভলিউম (Buy Inflow)</span>
-                <span className="font-bold text-slate-100">৳{activeMetrics.buyVolume.toLocaleString()} BDT</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border ${
+                isDark ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <span className={isDark ? 'text-slate-300' : 'text-slate-700 font-medium'}>🛒 মোট ক্রিপ্টো ক্রয় ভলিউম (Buy Inflow)</span>
+                <span className={`font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>৳{activeMetrics.buyVolume.toLocaleString()} BDT</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-slate-950/40 border border-slate-800/60">
-                <span className="text-slate-300">🔄 মোট ক্রিপ্টো বিক্রয় ভলিউম (Sell Outflow)</span>
-                <span className="font-bold text-slate-100">৳{activeMetrics.sellVolume.toLocaleString()} BDT</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border ${
+                isDark ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <span className={isDark ? 'text-slate-300' : 'text-slate-700 font-medium'}>🔄 মোট ক্রিপ্টো বিক্রয় ভলিউম (Sell Outflow)</span>
+                <span className={`font-bold ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>৳{activeMetrics.sellVolume.toLocaleString()} BDT</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-emerald-950/20 border border-emerald-800/40">
-                <span className="text-emerald-300 font-semibold">📈 ক্রিপ্টো ট্রেডিং স্প্রেড মার্জিন লাভ (Spread Profit)</span>
-                <span className="font-black text-emerald-400">+৳{activeMetrics.spreadProfit.toFixed(2)} BDT</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border ${
+                isDark ? 'bg-emerald-950/20 border-emerald-800/40' : 'bg-emerald-50 border-emerald-200'
+              }`}>
+                <span className={`font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-900'}`}>📈 ক্রিপ্টো ট্রেডিং স্প্রেড মার্জিন লাভ (Spread Profit)</span>
+                <span className={`font-black ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>+৳{activeMetrics.spreadProfit.toFixed(2)} BDT</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-emerald-950/20 border border-emerald-800/40">
-                <span className="text-emerald-300 font-semibold">💳 ক্যাশআউট সার্ভিস ফি আয় (Withdrawal Fees)</span>
-                <span className="font-black text-emerald-400">+৳{activeMetrics.withdrawFees.toFixed(2)} BDT</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border ${
+                isDark ? 'bg-emerald-950/20 border-emerald-800/40' : 'bg-emerald-50 border-emerald-200'
+              }`}>
+                <span className={`font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-900'}`}>💳 ক্যাশআউট সার্ভিস ফি আয় (Withdrawal Fees)</span>
+                <span className={`font-black ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>+৳{activeMetrics.withdrawFees.toFixed(2)} BDT</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-slate-950/40 border border-slate-800/60 text-xs">
-                <span className="text-slate-400">⛽ ব্লকচেইন গ্যাস ফি (On-chain Gas)</span>
-                <span className="font-mono text-emerald-400 font-bold">৳০.০০ (ইউজার বহন করে)</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border text-xs ${
+                isDark ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>⛽ ব্লকচেইন গ্যাস ফি (On-chain Gas)</span>
+                <span className={`font-mono font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>৳০.০০ (ইউজার বহন করে)</span>
               </div>
             </div>
           </div>
 
           {/* Right: ব্যয়ের খাত (Expenses) */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-rose-400 pb-2 border-b border-rose-900/30">
+            <div className={`flex items-center gap-2 text-xs font-black uppercase tracking-wider pb-2 border-b ${
+              isDark ? 'text-rose-400 border-rose-900/30' : 'text-rose-800 border-rose-200'
+            }`}>
               <ArrowUpRight size={16} />
               সিস্টেম ব্যয় সমূহ (Platform Expenses)
             </div>
 
             <div className="space-y-2.5 text-sm">
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-rose-950/20 border border-rose-800/40">
-                <span className="text-rose-300">🎰 ডেইলি স্পিন রিওয়ার্ড বিতরণ (Spin Wins)</span>
-                <span className="font-black text-rose-400">-৳{activeMetrics.spinCost.toFixed(2)} BDT</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border ${
+                isDark ? 'bg-rose-950/20 border-rose-800/40' : 'bg-rose-50 border-rose-200'
+              }`}>
+                <span className={isDark ? 'text-rose-300' : 'text-rose-900 font-medium'}>🎰 ডেইলি স্পিন রিওয়ার্ড বিতরণ (Spin Wins)</span>
+                <span className={`font-black ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>-৳{activeMetrics.spinCost.toFixed(2)} BDT</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-rose-950/20 border border-rose-800/40">
-                <span className="text-rose-300">👥 রেফারেল বোনাস কমিশন বিতরণ (Referral ৳5)</span>
-                <span className="font-black text-rose-400">-৳{activeMetrics.referralCost.toFixed(2)} BDT</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border ${
+                isDark ? 'bg-rose-950/20 border-rose-800/40' : 'bg-rose-50 border-rose-200'
+              }`}>
+                <span className={isDark ? 'text-rose-300' : 'text-rose-900 font-medium'}>👥 রেফারেল বোনাস কমিশন বিতরণ (Referral ৳5)</span>
+                <span className={`font-black ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>-৳{activeMetrics.referralCost.toFixed(2)} BDT</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-slate-950/40 border border-slate-800/60">
-                <span className="text-slate-400">🏦 বিকাশ/নগদ সেন্ড মানি চার্জ</span>
-                <span className="font-mono text-emerald-400 font-bold">৳০.০০ (ইউজার ফি থেকে মেটানো)</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border ${
+                isDark ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>🏦 বিকাশ/নগদ সেন্ড মানি চার্জ</span>
+                <span className={`font-mono font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>৳০.০০ (ইউজার ফি থেকে মেটানো)</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-slate-950/40 border border-slate-800/60">
-                <span className="text-slate-400">🛡️ সার্ভার ও ডাটাবেস অপ্টিমাইজেশন</span>
-                <span className="font-mono text-slate-300">ইনক্লুডেড</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border ${
+                isDark ? 'bg-slate-950/40 border-slate-800/60' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <span className={isDark ? 'text-slate-400' : 'text-slate-600'}>🛡️ সার্ভার ও ডাটাবেস অপ্টিমাইজেশন</span>
+                <span className={`font-mono font-medium ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>ইনক্লুডেড</span>
               </div>
 
-              <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-amber-950/20 border border-amber-800/40 font-bold">
-                <span className="text-amber-300">📉 মোট পরিচালন খরচ (Total Deductions)</span>
-                <span className="text-amber-400">-৳{activeMetrics.totalExpenses.toFixed(2)} BDT</span>
+              <div className={`flex justify-between items-center py-2.5 px-3.5 rounded-xl border font-bold ${
+                isDark ? 'bg-amber-950/20 border-amber-800/40' : 'bg-amber-50 border-amber-200'
+              }`}>
+                <span className={isDark ? 'text-amber-300' : 'text-amber-900'}>📉 মোট পরিচালন খরচ (Total Deductions)</span>
+                <span className={isDark ? 'text-amber-400' : 'text-amber-700'}>-৳{activeMetrics.totalExpenses.toFixed(2)} BDT</span>
               </div>
             </div>
           </div>
@@ -521,38 +563,40 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
         </div>
 
         {/* Cash Flow Summary Bar */}
-        <div className="mt-6 p-4 rounded-xl bg-slate-950/60 border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className={`mt-6 p-4 rounded-xl border grid grid-cols-1 sm:grid-cols-3 gap-4 ${
+          isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+            <div className={`p-2.5 rounded-lg ${isDark ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}`}>
               <ArrowDownLeft size={20} />
             </div>
             <div>
-              <div className="text-xs text-slate-400 font-semibold">মোট Add Money (ডিপোজিট)</div>
-              <div className="text-base font-black text-emerald-400">
-                +৳{activeMetrics.depositVolume.toLocaleString()} BDT <span className="text-xs text-slate-500 font-normal">({activeMetrics.depositCount}টি সফল)</span>
+              <div className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>মোট Add Money (ডিপোজিট)</div>
+              <div className={`text-base font-black ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                +৳{activeMetrics.depositVolume.toLocaleString()} BDT <span className={`text-xs font-normal ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>({activeMetrics.depositCount}টি সফল)</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-rose-500/20 text-rose-400">
+            <div className={`p-2.5 rounded-lg ${isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-700'}`}>
               <ArrowUpRight size={20} />
             </div>
             <div>
-              <div className="text-xs text-slate-400 font-semibold">মোট Cash Out (উইথড্র পেইড)</div>
-              <div className="text-base font-black text-rose-400">
-                -৳{activeMetrics.withdrawPaid.toLocaleString()} BDT <span className="text-xs text-slate-500 font-normal">({activeMetrics.withdrawCount}টি পেইড)</span>
+              <div className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>মোট Cash Out (উইথড্র পেইড)</div>
+              <div className={`text-base font-black ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>
+                -৳{activeMetrics.withdrawPaid.toLocaleString()} BDT <span className={`text-xs font-normal ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>({activeMetrics.withdrawCount}টি পেইড)</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-cyan-500/20 text-cyan-400">
+            <div className={`p-2.5 rounded-lg ${isDark ? 'bg-cyan-500/20 text-cyan-400' : 'bg-cyan-100 text-cyan-700'}`}>
               <Wallet size={20} />
             </div>
             <div>
-              <div className="text-xs text-slate-400 font-semibold">নিট ক্যাশ ব্যালেন্স পরিবর্তন</div>
-              <div className="text-base font-black text-cyan-300">
+              <div className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>নিট ক্যাশ ব্যালেন্স পরিবর্তন</div>
+              <div className={`text-base font-black ${isDark ? 'text-cyan-300' : 'text-cyan-800'}`}>
                 {activeMetrics.netCashFlow >= 0 ? '+' : '-'}৳{Math.abs(activeMetrics.netCashFlow).toLocaleString()} BDT
               </div>
             </div>
@@ -560,22 +604,32 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
         </div>
 
         {/* ─── Bottom Line Divider & Final Verdict ─────────────── */}
-        <div className="mt-8 pt-6 border-t border-slate-800">
+        <div className={`mt-8 pt-6 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
           <div className={`p-5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 ${
             activeMetrics.isProfit
-              ? 'bg-gradient-to-r from-emerald-950/40 to-slate-900 border-emerald-500/40'
-              : 'bg-gradient-to-r from-rose-950/40 to-slate-900 border-rose-500/40'
+              ? (isDark 
+                  ? 'bg-gradient-to-r from-emerald-950/40 to-slate-900 border-emerald-500/40' 
+                  : 'bg-gradient-to-r from-emerald-50 to-white border-emerald-200 shadow-sm')
+              : (isDark 
+                  ? 'bg-gradient-to-r from-rose-950/40 to-slate-900 border-rose-500/40' 
+                  : 'bg-gradient-to-r from-rose-50 to-white border-rose-200 shadow-sm')
           }`}>
             <div>
               <span className={`text-xs font-black uppercase tracking-wider ${
-                activeMetrics.isProfit ? 'text-emerald-400' : 'text-rose-400'
+                activeMetrics.isProfit 
+                  ? (isDark ? 'text-emerald-400' : 'text-emerald-800') 
+                  : (isDark ? 'text-rose-400' : 'text-rose-800')
               }`}>
                 {activeMetrics.isProfit ? '🎉 চূড়ান্ত ফলাফল: নিখুঁত লাভ (Net Profit Confirmed)' : '⚠️ চূড়ান্ত ফলাফল: ঘাটতি'}
               </span>
-              <div className="text-2xl md:text-3xl font-black mt-1">
+              <div className={`text-2xl md:text-3xl font-black mt-1 ${
+                activeMetrics.isProfit 
+                  ? (isDark ? 'text-emerald-300' : 'text-emerald-900') 
+                  : (isDark ? 'text-rose-300' : 'text-rose-900')
+              }`}>
                 {activeMetrics.isProfit ? '+' : '-'}৳{Math.abs(activeMetrics.netProfit).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
               </div>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                 {activeMetrics.isProfit 
                   ? 'সব ধরণের অপারেশনাল খরচ ও বোনাস বিতরণের পর আপনার ব্যবসায়ের খাঁটি নিট আয়।'
                   : 'খরচ আয়ের চেয়ে সাময়িকভাবে বেশি। স্পিন বা রেফারেল রেট সমন্বয় করুন।'}
@@ -583,16 +637,18 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
             </div>
 
             {/* Savings Strategy Card */}
-            <div className="flex items-center gap-4 bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 shrink-0">
-              <div className="p-3 rounded-xl bg-indigo-500/20 text-indigo-400">
+            <div className={`flex items-center gap-4 p-3.5 rounded-xl border shrink-0 ${
+              isDark ? 'bg-slate-950/80 border-slate-800' : 'bg-indigo-50/80 border-indigo-200'
+            }`}>
+              <div className={`p-3 rounded-xl ${isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-100 text-indigo-700'}`}>
                 <PiggyBank size={24} />
               </div>
               <div>
-                <div className="text-xs text-slate-400 font-semibold">প্রস্তাবিত সেভিংস তহবিল (৭০%)</div>
-                <div className="text-lg font-black text-indigo-300">
+                <div className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>প্রস্তাবিত সেভিংস তহবিল (৭০%)</div>
+                <div className={`text-lg font-black ${isDark ? 'text-indigo-300' : 'text-indigo-900'}`}>
                   ৳{activeMetrics.recommendedSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} BDT
                 </div>
-                <div className="text-[11px] text-slate-400">বাকি ৩০% (৳{(activeMetrics.netProfit * 0.3).toFixed(2)}) লিকুইডিটি বাফার</div>
+                <div className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>বাকি ৩০% (৳{(activeMetrics.netProfit * 0.3).toFixed(2)}) লিকুইডিটি বাফার</div>
               </div>
             </div>
           </div>
@@ -606,16 +662,16 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
       }`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div>
-            <h3 className="text-lg font-black flex items-center gap-2">
-              <Calendar className="text-emerald-400" size={20} />
+            <h3 className={`text-lg font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              <Calendar className={isDark ? 'text-emerald-400' : 'text-emerald-600'} size={20} />
               তারিখভিত্তিক দৈনিক হিস্ট্রি লেজার (Date-by-Date Records)
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
               প্রতিদিনের ট্রানজেকশনের ১ টাকার হিসাবও এখানে সংরক্ষিত থাকে।
             </p>
           </div>
 
-          <span className="text-xs text-slate-400 font-mono">
+          <span className={`text-xs font-mono ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
             সর্বমোট {filteredHistory.length}টি দিনের ডাটা সংরক্ষিত
           </span>
         </div>
@@ -624,26 +680,26 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className={`border-b ${isDark ? 'border-slate-800 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
+              <tr className={`border-b ${isDark ? 'border-slate-800 text-slate-400' : 'border-slate-200 text-slate-600 bg-slate-50'}`}>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider">তারিখ (Date)</th>
-                <th className="py-3 px-3 font-bold uppercase tracking-wider text-cyan-400">ডিপোজিট (Add)</th>
-                <th className="py-3 px-3 font-bold uppercase tracking-wider text-rose-400">উইথড্র (Out)</th>
+                <th className={`py-3 px-3 font-bold uppercase tracking-wider ${isDark ? 'text-cyan-400' : 'text-cyan-700'}`}>ডিপোজিট (Add)</th>
+                <th className={`py-3 px-3 font-bold uppercase tracking-wider ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>উইথড্র (Out)</th>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider">ক্রয় ভলিউম</th>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider">বিক্রয় ভলিউম</th>
-                <th className="py-3 px-3 font-bold uppercase tracking-wider text-emerald-400">স্প্রেড লাভ</th>
-                <th className="py-3 px-3 font-bold uppercase tracking-wider text-emerald-400">উইথড্র ফি</th>
-                <th className="py-3 px-3 font-bold uppercase tracking-wider text-rose-400">স্পিন খরচ</th>
-                <th className="py-3 px-3 font-bold uppercase tracking-wider text-rose-400">রেফারেল খরচ</th>
+                <th className={`py-3 px-3 font-bold uppercase tracking-wider ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>স্প্রেড লাভ</th>
+                <th className={`py-3 px-3 font-bold uppercase tracking-wider ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>উইথড্র ফি</th>
+                <th className={`py-3 px-3 font-bold uppercase tracking-wider ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>স্পিন খরচ</th>
+                <th className={`py-3 px-3 font-bold uppercase tracking-wider ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>রেফারেল খরচ</th>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider text-right">নিট লাভ (Net)</th>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider text-right">সেভিংস</th>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider text-center">স্ট্যাটাস</th>
                 <th className="py-3 px-3 font-bold uppercase tracking-wider text-center">টেলিগ্রাম</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className={`divide-y ${isDark ? 'divide-slate-800/60' : 'divide-slate-200'}`}>
               {filteredHistory.length === 0 ? (
                 <tr>
-                  <td colSpan="13" className="py-12 text-center text-slate-500 font-medium">
+                  <td colSpan="13" className={`py-12 text-center font-medium ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                     কোনো তারিখের অডিট ডাটা পাওয়া যায়নি।
                   </td>
                 </tr>
@@ -658,62 +714,66 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
                         isDark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50'
                       }`}
                     >
-                      <td className="py-3.5 px-3 font-semibold text-slate-200">
+                      <td className={`py-3.5 px-3 font-semibold ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>
                         <div className="font-bold">{item.dateDisplay || item.date}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{item.dateKey || item.date}</div>
+                        <div className={`text-[10px] font-mono ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>{item.dateKey || item.date}</div>
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono font-bold text-cyan-300">
+                      <td className={`py-3.5 px-3 font-mono font-bold ${isDark ? 'text-cyan-300' : 'text-cyan-800'}`}>
                         ৳{Number(item.depositVolumeBdt || 0).toLocaleString()}
-                        <span className="text-[10px] text-slate-500 ml-1">({item.depositOrdersCount || 0})</span>
+                        <span className={`text-[10px] ml-1 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>({item.depositOrdersCount || 0})</span>
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono font-bold text-rose-300">
+                      <td className={`py-3.5 px-3 font-mono font-bold ${isDark ? 'text-rose-300' : 'text-rose-700'}`}>
                         ৳{Number(item.withdrawTotalBdt || 0).toLocaleString()}
-                        <span className="text-[10px] text-slate-500 ml-1">({item.withdrawOrdersCount || 0})</span>
+                        <span className={`text-[10px] ml-1 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>({item.withdrawOrdersCount || 0})</span>
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono text-slate-300">
+                      <td className={`py-3.5 px-3 font-mono ${isDark ? 'text-slate-300' : 'text-slate-800 font-semibold'}`}>
                         ৳{Number(item.buyVolumeBdt || 0).toLocaleString()}
-                        <span className="text-[10px] text-slate-500 ml-1">({item.buyOrdersCount || 0})</span>
+                        <span className={`text-[10px] ml-1 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>({item.buyOrdersCount || 0})</span>
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono text-slate-300">
+                      <td className={`py-3.5 px-3 font-mono ${isDark ? 'text-slate-300' : 'text-slate-800 font-semibold'}`}>
                         ৳{Number(item.sellVolumeBdt || 0).toLocaleString()}
-                        <span className="text-[10px] text-slate-500 ml-1">({item.sellOrdersCount || 0})</span>
+                        <span className={`text-[10px] ml-1 ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>({item.sellOrdersCount || 0})</span>
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono font-bold text-emerald-400">
+                      <td className={`py-3.5 px-3 font-mono font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
                         +৳{Number(item.tradingSpreadProfit || 0).toFixed(0)}
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono font-bold text-emerald-400">
+                      <td className={`py-3.5 px-3 font-mono font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>
                         +৳{Number(item.withdrawFeesCollected || 0).toFixed(0)}
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono font-semibold text-rose-400">
+                      <td className={`py-3.5 px-3 font-mono font-semibold ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>
                         -৳{Number(item.spinRewardsBdt || 0).toFixed(0)}
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono font-semibold text-rose-400">
+                      <td className={`py-3.5 px-3 font-mono font-semibold ${isDark ? 'text-rose-400' : 'text-rose-700'}`}>
                         -৳{Number(item.referralBonusesBdt || 0).toFixed(0)}
                       </td>
 
                       <td className="py-3.5 px-3 font-mono font-black text-right text-sm">
-                        <span className={isPos ? 'text-emerald-400' : 'text-rose-400'}>
+                        <span className={
+                          isPos 
+                            ? (isDark ? 'text-emerald-400' : 'text-emerald-700') 
+                            : (isDark ? 'text-rose-400' : 'text-rose-700')
+                        }>
                           {isPos ? '+' : ''}৳{net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-3 font-mono font-bold text-right text-indigo-300">
+                      <td className={`py-3.5 px-3 font-mono font-bold text-right ${isDark ? 'text-indigo-300' : 'text-indigo-800'}`}>
                         ৳{Number(item.recommendedSavingsBdt || 0).toFixed(0)}
                       </td>
 
                       <td className="py-3.5 px-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${
                           isPos
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            ? (isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-emerald-100 text-emerald-800 border-emerald-200')
+                            : (isDark ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' : 'bg-rose-100 text-rose-800 border-rose-200')
                         }`}>
                           {isPos ? 'PROFIT' : 'LOSS'}
                         </span>
@@ -722,7 +782,11 @@ export default function DailyProfitLedger({ useThemeHook = () => ({ theme: 'dark
                       <td className="py-3.5 px-3 text-center">
                         <button
                           onClick={() => handleSendTelegramReport(item.dateKey || item.date)}
-                          className="p-1.5 rounded-lg bg-purple-600/20 text-purple-300 hover:bg-purple-600 hover:text-white transition-all cursor-pointer"
+                          className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                            isDark 
+                              ? 'bg-purple-600/20 text-purple-300 hover:bg-purple-600 hover:text-white' 
+                              : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white shadow-xs'
+                          }`}
                           title="এই দিনের রিপোর্ট টেলিগ্রাম গ্রুপে পাঠান"
                         >
                           <Send size={13} />

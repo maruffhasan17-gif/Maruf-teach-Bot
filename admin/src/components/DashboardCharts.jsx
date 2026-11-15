@@ -202,10 +202,10 @@ export function InfographicBarChart({ isDark = true }) {
       {/* Grid Canvas with Vertical Gradient Bars */}
       <div className="relative h-44 flex items-end justify-between px-2 pt-4">
         {/* Horizontal Reference Lines */}
-        <div className="absolute inset-x-0 top-6 border-b border-white/[0.08] pointer-events-none" />
-        <div className="absolute inset-x-0 top-18 border-b border-white/[0.08] pointer-events-none" />
-        <div className="absolute inset-x-0 top-30 border-b border-white/[0.08] pointer-events-none" />
-        <div className="absolute inset-x-0 bottom-0 border-b border-white/20 pointer-events-none" />
+        <div className={`absolute inset-x-0 top-6 border-b ${isDark ? "border-white/[0.08]" : "border-slate-200/60"} pointer-events-none`} />
+        <div className={`absolute inset-x-0 top-18 border-b ${isDark ? "border-white/[0.08]" : "border-slate-200/60"} pointer-events-none`} />
+        <div className={`absolute inset-x-0 top-30 border-b ${isDark ? "border-white/[0.08]" : "border-slate-200/60"} pointer-events-none`} />
+        <div className={`absolute inset-x-0 bottom-0 border-b ${isDark ? "border-white/20" : "border-slate-300"} pointer-events-none`} />
 
         {/* Bars */}
         {bars.map((bar, i) => (
@@ -290,11 +290,11 @@ export function InfographicWaveChart({ isDark = true }) {
 
           {/* Vertical Guide Lines */}
           {[100, 200, 300, 400].map((x, i) => (
-            <line key={i} x1={x} y1="0" x2={x} y2="190" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="3 3" />
+            <line key={i} x1={x} y1="0" x2={x} y2="190" stroke={isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.08)"} strokeWidth="1" strokeDasharray="3 3" />
           ))}
 
           {/* Base Horizontal Axis */}
-          <line x1="0" y1="190" x2="500" y2="190" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+          <line x1="0" y1="190" x2="500" y2="190" stroke={isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.12)"} strokeWidth="1" />
 
           {/* Wave 3: Cyan Bottom Layer */}
           <path 
@@ -505,13 +505,13 @@ export function InfographicLineChart({ isDark = true }) {
       <div className="relative my-2">
         <svg viewBox="0 0 400 160" className="w-full h-36 overflow-visible">
           {/* Horizontal lines */}
-          <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(255,255,255,0.08)" />
-          <line x1="0" y1="80" x2="400" y2="80" stroke="rgba(255,255,255,0.08)" />
-          <line x1="0" y1="130" x2="400" y2="130" stroke="rgba(255,255,255,0.08)" />
+          <line x1="0" y1="30" x2="400" y2="30" stroke={isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"} />
+          <line x1="0" y1="80" x2="400" y2="80" stroke={isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"} />
+          <line x1="0" y1="130" x2="400" y2="130" stroke={isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"} />
 
           {/* Vertical lines */}
           {[80, 160, 240, 320].map((x, i) => (
-            <line key={i} x1={x} y1="0" x2={x} y2="150" stroke="rgba(255,255,255,0.08)" />
+            <line key={i} x1={x} y1="0" x2={x} y2="150" stroke={isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"} />
           ))}
 
           {/* Line 1: Amber Gold Path */}
@@ -523,7 +523,7 @@ export function InfographicLineChart({ isDark = true }) {
           />
           {/* Line 1 Nodes */}
           {[[0,110], [80,90], [160,120], [240,100], [320,80], [400,60]].map(([x,y], i) => (
-            <circle key={i} cx={x} cy={y} r="5" fill="#ffb700" stroke="#090b20" strokeWidth="2" />
+            <circle key={i} cx={x} cy={y} r="5" fill="#ffb700" stroke={isDark ? "#090b20" : "#ffffff"} strokeWidth="2" />
           ))}
 
           {/* Line 2: Neon Pink Path */}
@@ -535,7 +535,7 @@ export function InfographicLineChart({ isDark = true }) {
           />
           {/* Line 2 Nodes */}
           {[[0,80], [80,110], [160,135], [240,95], [320,120], [400,70]].map(([x,y], i) => (
-            <circle key={i} cx={x} cy={y} r="5" fill="#ff2a85" stroke="#090b20" strokeWidth="2" />
+            <circle key={i} cx={x} cy={y} r="5" fill="#ff2a85" stroke={isDark ? "#090b20" : "#ffffff"} strokeWidth="2" />
           ))}
 
           {/* Line 3: Electric Violet Path */}
@@ -547,7 +547,7 @@ export function InfographicLineChart({ isDark = true }) {
           />
           {/* Line 3 Nodes */}
           {[[0,140], [80,120], [160,100], [240,70], [320,75], [400,130]].map(([x,y], i) => (
-            <circle key={i} cx={x} cy={y} r="5" fill="#a855f7" stroke="#090b20" strokeWidth="2" />
+            <circle key={i} cx={x} cy={y} r="5" fill="#a855f7" stroke={isDark ? "#090b20" : "#ffffff"} strokeWidth="2" />
           ))}
         </svg>
 

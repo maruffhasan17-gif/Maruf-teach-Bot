@@ -616,12 +616,16 @@ export default function TreasuryDepositPage({ useBotDataHook, useThemeHook, apiB
               >
                 <span>← Back to Bot Treasury</span>
               </Link>
-              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+              <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${
+                isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+              }`}>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 6 OFFICIAL NETWORKS ACTIVE
               </span>
-              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1.5">
-                <Repeat size={12} className="text-purple-400" />
+              <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${
+                isDark ? 'bg-purple-500/20 text-purple-300 border-purple-500/40' : 'bg-purple-100 text-purple-800 border-purple-200'
+              }`}>
+                <Repeat size={12} className={isDark ? "text-purple-400" : "text-purple-700"} />
                 AUTO-SWAP (USDT ⇄ GRAM) READY
               </span>
             </div>

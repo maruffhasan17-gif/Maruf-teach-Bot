@@ -573,17 +573,23 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
                     {/* Status */}
                     <td className="py-3 px-4 whitespace-nowrap">
                       {isCompleted && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black border ${
+                          isDark ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        }`}>
                           <CheckCircle2 size={11} /> Completed
                         </span>
                       )}
                       {isPending && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black border animate-pulse ${
+                          isDark ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-amber-100 text-amber-800 border-amber-200'
+                        }`}>
                           <Clock size={11} /> Pending
                         </span>
                       )}
                       {isRejected && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black border ${
+                          isDark ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' : 'bg-rose-100 text-rose-800 border-rose-200'
+                        }`}>
                           <XCircle size={11} /> Rejected
                         </span>
                       )}
@@ -604,7 +610,7 @@ export default function FinancialHistoryHub({ useOrdersDataHook, useBotDataHook,
         </div>
 
         {visibleCount < filteredList.length && (
-          <div className="p-3 text-center border-t border-slate-800/40 bg-slate-900/30">
+          <div className={`p-3 text-center border-t ${isDark ? 'border-slate-800/40 bg-slate-900/30' : 'border-slate-200 bg-slate-50'}`}>
             <button
               type="button"
               onClick={() => setVisibleCount(c => c + 25)}

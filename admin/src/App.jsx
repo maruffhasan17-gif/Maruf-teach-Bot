@@ -754,7 +754,7 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
                 {title}
               </h3>
               <span className={`inline-flex items-center gap-1 px-2 py-0.2 rounded-full text-[9px] font-black ${
-                isGram ? 'bg-purple-500/15 text-purple-300' : 'bg-emerald-500/15 text-emerald-300'
+                isGram ? (isDark ? 'bg-purple-500/15 text-purple-300' : 'bg-purple-100 text-purple-800') : (isDark ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-100 text-emerald-800')
               }`}>
                 <span className={`w-1.5 h-1.5 rounded-full animate-ping ${isGram ? 'bg-purple-400' : 'bg-emerald-400'}`}></span>
                 Live
@@ -794,7 +794,7 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <div className="flex items-center gap-1.5">
                   <span className="font-mono text-[11px] font-bold text-slate-400">
-                    User: <strong className="text-purple-400 font-extrabold">{order.userId}</strong>
+                    User: <strong className={`font-extrabold ${isDark ? "text-purple-400" : "text-purple-700"}`}>{order.userId}</strong>
                   </span>
                   <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
                     method === 'nagad' ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30' : 'bg-pink-500/15 text-pink-400 border border-pink-500/30'
@@ -823,7 +823,7 @@ function LiveOrderFeed({ title, asset, icon, items, isDark, onApprove, onReject 
 
               {/* Amount Info (Compact & Clean) */}
               <div className="flex items-baseline justify-between mb-1.5">
-                <span className={`text-base font-black ${isGram ? 'text-purple-400' : 'text-emerald-400'}`}>
+                <span className={`text-base font-black ${isGram ? (isDark ? "text-purple-400" : "text-purple-700") : (isDark ? "text-emerald-400" : "text-emerald-700")}`}>
                   +{order.amount} {asset}
                 </span>
                 <span className={`text-xs font-mono font-black ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>
@@ -916,7 +916,7 @@ function Dashboard() {
         type: 'buy',
         title: `Buy ${b.asset || 'GRAM'}`,
         color: 'text-purple-400',
-        badgeBg: 'bg-purple-500/15 border-purple-500/30 text-purple-300',
+        badgeBg: isDark ? 'bg-purple-500/15 border-purple-500/30 text-purple-300' : 'bg-purple-100 border-purple-200 text-purple-700',
         amount: `+${b.amount || b.cryptoAmount} ${b.asset || 'GRAM'}`,
         bdt: `৳${b.totalBdt || b.amountBdt || 0}`,
         user: b.userId,
@@ -930,7 +930,7 @@ function Dashboard() {
         type: 'sell',
         title: `Sell ${s.asset || 'GRAM'}`,
         color: 'text-cyan-400',
-        badgeBg: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300',
+        badgeBg: isDark ? 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300' : 'bg-cyan-100 border-cyan-200 text-cyan-700',
         amount: `${s.cryptoAmount || s.amount} ${s.asset || 'GRAM'}`,
         bdt: `৳${s.bdtAmount || s.totalBdt || s.estimatedTk || 0}`,
         user: s.userId,
@@ -1113,7 +1113,7 @@ function Dashboard() {
                         <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
                           LIVE ACTIVITY FEED
                         </span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-purple-500/20 text-purple-300 font-bold font-mono">
+                        <span className={`text-[9px] px-1.5 py-0.2 rounded-md font-bold font-mono ${isDark ? "bg-purple-500/20 text-purple-300" : "bg-purple-100 text-purple-700"}`}>
                           {((tickerIndex % recentActivities.length) + 1)}/{recentActivities.length}
                         </span>
                       </div>
@@ -1347,11 +1347,11 @@ function Dashboard() {
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 border border-purple-500/30 flex items-center gap-1.5" title="Fixed Buy Rate">
+                <span className={`px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 border ${isDark ? "bg-purple-500/15 text-purple-300 border-purple-500/30" : "bg-purple-100 text-purple-800 border-purple-200"}`} title="Fixed Buy Rate">
                   <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
                   Rate: ৳{liveGramBdt.toFixed(2)} / GRAM
                 </span>
-                <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className={`px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${isDark ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : "bg-emerald-100 text-emerald-800 border-emerald-200"}`}>
                   +৳{gramProfitMargin.toFixed(0)} প্রফিট
                 </span>
               </div>
@@ -1416,11 +1416,11 @@ function Dashboard() {
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5" title="Fixed Buy Rate">
+                <span className={`px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 border ${isDark ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" : "bg-emerald-100 text-emerald-800 border-emerald-200"}`} title="Fixed Buy Rate">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   Rate: ৳{liveUsdtBdt.toFixed(2)} / USDT
                 </span>
-                <span className="px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                <span className={`px-2 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border ${isDark ? "bg-purple-500/20 text-purple-300 border-purple-500/30" : "bg-purple-100 text-purple-800 border-purple-200"}`}>
                   +৳{usdtProfitMargin.toFixed(0)} প্রফিট
                 </span>
               </div>
@@ -2126,7 +2126,7 @@ function BotWallet() {
               <div className="text-xs font-bold text-slate-400 mt-1 flex flex-wrap items-center gap-2">
                 <span>≈ ${(totalVaultBdt / (liveUsdtBdt || 130.00)).toFixed(2)} USD</span>
                 <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-                <span className="text-purple-300">
+                <span className={isDark ? "text-purple-300" : "text-purple-800 font-semibold"}>
                   Reserves: {gramBalanceVal.toFixed(2)} GRAM + {tonUsdtVal.toFixed(2)} USDT
                 </span>
               </div>
@@ -2148,7 +2148,7 @@ function BotWallet() {
                       <Sparkles size={12} /> ট্রেজারি স্টক আনুমানিক নিট প্রফিট (Estimated Profit)
                     </div>
                     <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="text-xl sm:text-2xl font-black font-mono text-emerald-300">
+                      <span className={`text-xl sm:text-2xl font-black font-mono ${isDark ? "text-emerald-300" : "text-emerald-800"}`}>
                         +৳{totalInventoryProfitBdt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                       <span className="text-xs font-bold text-emerald-400">BDT</span>
@@ -2160,11 +2160,11 @@ function BotWallet() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <div className="px-3 py-1.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-300 font-bold flex items-center gap-1.5" title={`GRAM Buy: ৳${liveGramBdt.toFixed(0)} vs Sell: ৳${liveGramSellBdt.toFixed(0)} = ৳${gramProfitMargin.toFixed(0)} Profit/Unit`}>
+                  <div className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 ${isDark ? "bg-purple-500/15 border-purple-500/30 text-purple-300" : "bg-purple-100 border-purple-200 text-purple-800"}`} title={`GRAM Buy: ৳${liveGramBdt.toFixed(0)} vs Sell: ৳${liveGramSellBdt.toFixed(0)} = ৳${gramProfitMargin.toFixed(0)} Profit/Unit`}>
                     <span className="w-2 h-2 rounded-full bg-purple-400"></span>
                     <span>GRAM লাভ: <b>+৳{gramProfitMargin.toFixed(0)}</b>/টি <span className="text-purple-400 font-mono">(+৳{gramInventoryProfit.toFixed(0)})</span></span>
                   </div>
-                  <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-bold flex items-center gap-1.5" title={`USDT Buy: ৳${liveUsdtBdt.toFixed(0)} vs Sell: ৳${liveUsdtSellBdt.toFixed(0)} = ৳${usdtProfitMargin.toFixed(0)} Profit/Unit`}>
+                  <div className={`px-3 py-1.5 rounded-xl border font-bold flex items-center gap-1.5 ${isDark ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300" : "bg-emerald-100 border-emerald-200 text-emerald-800"}`} title={`USDT Buy: ৳${liveUsdtBdt.toFixed(0)} vs Sell: ৳${liveUsdtSellBdt.toFixed(0)} = ৳${usdtProfitMargin.toFixed(0)} Profit/Unit`}>
                     <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                     <span>USDT লাভ: <b>+৳{usdtProfitMargin.toFixed(0)}</b>/টি <span className="text-emerald-400 font-mono">(+৳{usdtInventoryProfit.toFixed(0)})</span></span>
                   </div>
@@ -2195,15 +2195,15 @@ function BotWallet() {
 
               {/* Allocation Legend */}
               <div className="flex flex-wrap items-center gap-3 pt-1 text-xs font-bold">
-                <div className="flex items-center gap-1.5 text-purple-300">
+                <div className={`flex items-center gap-1.5 ${isDark ? "text-purple-300" : "text-purple-800"}`}>
                   <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
                   <span>GRAM Pool: <b>{gramBalanceVal.toFixed(3)}</b> (৳{gramBdtVal.toFixed(0)} @ ৳{liveGramBdt.toFixed(0)})</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-emerald-300">
+                <div className={`flex items-center gap-1.5 ${isDark ? "text-emerald-300" : "text-emerald-800"}`}>
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
                   <span>TON USDT: <b>${tonUsdtVal.toFixed(2)}</b> (৳{(tonUsdtVal * liveUsdtBdt).toFixed(0)} @ ৳{liveUsdtBdt.toFixed(0)})</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-amber-300">
+                <div className={`flex items-center gap-1.5 ${isDark ? "text-amber-300" : "text-amber-800"}`}>
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
                   <span>EVM Chains USDT: <b>${evmUsdtVal.toFixed(2)}</b> (৳{(evmUsdtVal * liveUsdtBdt).toFixed(0)} @ ৳{liveUsdtBdt.toFixed(0)})</span>
                 </div>
@@ -2324,7 +2324,7 @@ function BotWallet() {
                 </svg>
 
                 <div className="absolute text-center">
-                  <div className="text-3xl font-black font-mono tracking-tight text-cyan-300">
+                  <div className={`text-3xl font-black font-mono tracking-tight ${isDark ? "text-cyan-300" : "text-cyan-900"}`}>
                     {tonGasVal.toFixed(2)}
                   </div>
                   <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
@@ -2339,7 +2339,7 @@ function BotWallet() {
               <div className={`p-3 rounded-2xl border text-xs font-bold flex items-center justify-between ${
                 isDark ? 'bg-slate-900/60 border-cyan-900/40 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
               }`}>
-                <span className="flex items-center gap-1.5 text-cyan-300">
+                <span className={`flex items-center gap-1.5 ${isDark ? "text-cyan-300" : "text-cyan-800"}`}>
                   <Zap size={14} /> Estimated Capacity
                 </span>
                 <span className="font-mono font-black text-cyan-400">
@@ -2598,7 +2598,7 @@ function BotWallet() {
                 </div>
               </div>
 
-              <span className="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5">
+              <span className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${isDark ? "bg-amber-500/20 text-amber-300 border-amber-500/40" : "bg-amber-100 text-amber-800 border-amber-200"}`}>
                 <span className="w-2 h-2 rounded-full bg-amber-400"></span>
                 AUTO-SWAP OFF (MANUAL REFUEL)
               </span>
@@ -2608,7 +2608,7 @@ function BotWallet() {
             <div className={`p-4 rounded-2xl border text-xs leading-relaxed space-y-2 ${
               isDark ? 'bg-slate-900/70 border-purple-500/30 text-slate-300' : 'bg-purple-50 border-purple-200 text-slate-700'
             }`}>
-              <div className="font-black text-purple-300 flex items-center gap-1.5">
+              <div className={`font-black flex items-center gap-1.5 ${isDark ? "text-purple-300" : "text-purple-900"}`}>
                 <Sparkles size={14} className="text-amber-400" />
                 ট্রেজারি রিজার্ভ পলিসি ও ইউজার রিফুয়েল নোটিফিকেশন:
               </div>
@@ -2686,7 +2686,7 @@ function BotWallet() {
                     isDark ? 'bg-black/50 border-purple-800/60 text-white focus:border-purple-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-500 shadow-sm'
                   }`}
                   />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-purple-300">
+                  <span className={`absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black ${isDark ? "text-purple-300" : "text-purple-800"}`}>
                     {swapDirection === 'USDT_TO_GRAM' ? 'USDT' : 'GRAM'}
                   </span>
                 </div>
@@ -2735,7 +2735,7 @@ function BotWallet() {
                         setSwapAmount(Math.max(0, gramBalanceVal - 0.30).toFixed(2));
                       }
                     }}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer"
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-black border cursor-pointer ${isDark ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" : "bg-emerald-100 text-emerald-800 border-emerald-300"}`}
                   >
                     MAX SAFE
                   </button>
@@ -3122,11 +3122,11 @@ function BotWallet() {
 
                   {/* Center: Amount */}
                   <div className="text-center py-1">
-                    <div className="text-[10px] font-mono text-slate-400">User: <strong className="text-purple-300">{b.userId}</strong></div>
+                    <div className="text-[10px] font-mono text-slate-400">User: <strong className={isDark ? "text-purple-300" : "text-purple-700"}>{b.userId}</strong></div>
                     <div className={`text-xl font-black font-mono tracking-tight my-1 ${b.asset === 'USDT' ? 'text-emerald-400' : 'text-purple-400'}`}>
                       +{b.amount} {b.asset}
                     </div>
-                    <div className="text-xs font-black text-slate-300">
+                    <div className={`text-xs font-black ${isDark ? 'text-slate-300' : 'text-slate-800'}`}>
                       Paid: <span className="text-emerald-400">৳{b.totalBdt || b.amountBdt || 0}</span>
                     </div>
                   </div>
@@ -3200,7 +3200,7 @@ function BotWallet() {
 
             {/* Network Selector with Official Network Logos */}
             <div className="mb-4">
-              <label className="text-[11px] font-black uppercase tracking-wider text-cyan-300/80 block mb-1.5">
+              <label className={`text-[11px] font-black uppercase tracking-wider block mb-1.5 ${isDark ? "text-cyan-300/80" : "text-slate-700"}`}>
                 Select Withdrawal Network
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -3228,7 +3228,7 @@ function BotWallet() {
                       <NetworkLogo networkId={net.id} size={24} />
                       <div className="min-w-0 flex-1">
                         <div className="text-[11px] font-black truncate">{net.shortName}</div>
-                        <div className="text-[9px] font-mono text-cyan-300">${net.usdtBalance} USDT</div>
+                        <div className={`text-[9px] font-mono ${isDark ? "text-cyan-300" : "text-cyan-800"}`}>${net.usdtBalance} USDT</div>
                       </div>
                     </button>
                   );
@@ -3288,7 +3288,7 @@ function BotWallet() {
             {/* Amount Input with MAX button */}
             <div className="mb-5 space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-black uppercase tracking-wider text-cyan-300/80">
+                <label className={`text-[11px] font-black uppercase tracking-wider ${isDark ? "text-cyan-300/80" : "text-slate-700"}`}>
                   Amount to Withdraw
                 </label>
                 <button
@@ -3312,7 +3312,7 @@ function BotWallet() {
                       }
                     }
                   }}
-                  className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40 transition-all cursor-pointer"
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all cursor-pointer ${isDark ? "bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border-cyan-500/40" : "bg-cyan-100 text-cyan-800 hover:bg-cyan-200 border-cyan-300"}`}
                 >
                   MAX BALANCE
                 </button>
@@ -3430,7 +3430,7 @@ function BotWallet() {
             <div className="space-y-4">
               {/* TON Address */}
               <div className={`p-4 rounded-2xl space-y-2 border ${isDark ? 'bg-slate-900/80 border-purple-900/40' : 'bg-purple-50/60 border-purple-200'}`}>
-                <div className="flex items-center justify-between text-[11px] font-bold text-purple-300 uppercase tracking-wider">
+                <div className={`flex items-center justify-between text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-purple-300" : "text-purple-900"}`}>
                   <span>1. TON Mainnet (USDT • GRAM • TON)</span>
                   <span className="text-emerald-400">No Memo Required</span>
                 </div>
@@ -3447,9 +3447,9 @@ function BotWallet() {
 
               {/* Multi-Chain EVM Address */}
               <div className={`p-4 rounded-2xl space-y-2 border ${isDark ? 'bg-slate-900/80 border-emerald-900/40' : 'bg-emerald-50/60 border-emerald-200'}`}>
-                <div className="flex items-center justify-between text-[11px] font-bold text-emerald-300 uppercase tracking-wider">
+                <div className={`flex items-center justify-between text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-emerald-300" : "text-emerald-900"}`}>
                   <span>2. BEP20 • Arbitrum One • AVAX C-Chain • Polygon • ERC20</span>
-                  <span className="text-amber-300">Multi-Chain EVM</span>
+                  <span className={isDark ? "text-amber-300" : "text-amber-800 font-bold"}>Multi-Chain EVM</span>
                 </div>
                 <div className={`p-2.5 rounded-xl font-mono text-xs break-all select-all border ${isDark ? 'bg-black/40 border-slate-800 text-emerald-300' : 'bg-white border-slate-300 text-slate-900 shadow-inner'}`}>
                   {data.evmAddress}
@@ -3702,7 +3702,7 @@ function BuyOrders() {
                   <div className={`text-xl font-black font-mono tracking-tight my-1 ${b.asset === 'USDT' ? 'text-emerald-400' : 'text-purple-400'}`}>
                     +{b.amount} {b.asset}
                   </div>
-                  <div className="text-xs font-black text-slate-300">
+                  <div className={`text-xs font-black ${isDark ? "text-slate-300" : "text-slate-800"}`}>
                     Paid: <span className="text-emerald-400">৳{b.totalBdt || b.amountBdt || 0}</span>
                   </div>
                 </div>
@@ -3756,7 +3756,7 @@ function BuyOrders() {
                 <th className="p-4 font-black uppercase text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/20">
+            <tbody className={`divide-y ${isDark ? "divide-slate-800/20" : "divide-slate-200"}`}>
               {filteredBuys.slice(0, visibleCount).map((b) => {
                 const isPending = b.status === 'pending' || b.status === 'verified';
                 const isCompleted = b.status === 'completed';
@@ -3849,7 +3849,7 @@ function BuyOrders() {
           {visibleCount < filteredBuys.length ? (
             <button
               onClick={() => setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, filteredBuys.length))}
-              className="px-5 py-2.5 rounded-2xl bg-purple-600/20 border border-purple-500/40 text-purple-300 font-bold text-xs flex items-center gap-2 hover:bg-purple-600/30 transition-all cursor-pointer shadow-lg active:scale-95"
+              className={`px-5 py-2.5 rounded-2xl border font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95 ${isDark ? "bg-purple-600/20 border-purple-500/40 text-purple-300 hover:bg-purple-600/30" : "bg-purple-100 border-purple-300 text-purple-800 hover:bg-purple-200"}`}
             >
               <RefreshCw size={14} className="animate-spin text-purple-400" />
               নিচে স্ক্রল করুন অথবা আরও অর্ডার দেখতে চাপুন (${visibleCount} / ${filteredBuys.length})
@@ -3941,11 +3941,11 @@ function SellOrders() {
                 </div>
 
                 <div className="text-center py-1">
-                  <div className="text-[10px] font-mono text-slate-400">User: <strong className="text-purple-300">{s.userId || 'N/A'}</strong></div>
+                  <div className="text-[10px] font-mono text-slate-400">User: <strong className={isDark ? "text-purple-300" : "text-purple-700"}>{s.userId || 'N/A'}</strong></div>
                   <div className="text-xl font-black font-mono tracking-tight my-1 text-cyan-400">
                     {s.cryptoAmount || s.amount || 0} {s.asset || 'GRAM'}
                   </div>
-                  <div className="text-xs font-black text-slate-300">
+                  <div className={`text-xs font-black ${isDark ? "text-slate-300" : "text-slate-800"}`}>
                     Payout: <span className="text-emerald-400">৳{s.bdtAmount || s.totalBdt || 0}</span>
                   </div>
                 </div>
@@ -4014,7 +4014,7 @@ function SellOrders() {
           {visibleCount < orders.sells.length ? (
             <button
               onClick={() => setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, orders.sells.length))}
-              className="px-5 py-2.5 rounded-2xl bg-cyan-600/20 border border-cyan-500/40 text-cyan-300 font-bold text-xs flex items-center gap-2 hover:bg-cyan-600/30 transition-all cursor-pointer shadow-lg active:scale-95"
+              className={`px-5 py-2.5 rounded-2xl border font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm active:scale-95 ${isDark ? "bg-cyan-600/20 border-cyan-500/40 text-cyan-300 hover:bg-cyan-600/30" : "bg-cyan-100 border-cyan-300 text-cyan-800 hover:bg-cyan-200"}`}
             >
               <RefreshCw size={14} className="animate-spin text-cyan-400" />
               নিচে স্ক্রল করুন অথবা আরও সেল দেখতে চাপুন (${visibleCount} / ${orders.sells.length})
@@ -4237,11 +4237,11 @@ function FiatWithdrawals() {
                 </div>
 
                 <div className="text-center py-1">
-                  <div className="text-[10px] font-mono text-slate-400">User: <strong className="text-purple-300">{w.userId}</strong></div>
+                  <div className="text-[10px] font-mono text-slate-400">User: <strong className={isDark ? "text-purple-300" : "text-purple-700"}>{w.userId}</strong></div>
                   <div className="text-xl font-black font-mono tracking-tight my-1 text-emerald-400">
                     ৳ {amount} BDT
                   </div>
-                  <div className="text-xs font-mono font-bold text-cyan-300 flex items-center justify-center gap-1">
+                  <div className={`text-xs font-mono font-bold flex items-center justify-center gap-1 ${isDark ? "text-cyan-300" : "text-cyan-800"}`}>
                     <span>{formattedNumber}</span>
                     <button 
                       onClick={() => navigator.clipboard.writeText(formattedNumber)} 
@@ -4853,7 +4853,7 @@ function UsersManagement() {
                     {/* Telegram Username */}
                     <div className="text-[11px] truncate">
                       {u.username ? (
-                        <span className="font-semibold text-cyan-300">@{u.username}</span>
+                        <span className={`font-semibold ${isDark ? "text-cyan-300" : "text-cyan-800"}`}>@{u.username}</span>
                       ) : (
                         <span className="text-slate-500 italic text-[10px]">(No username)</span>
                       )}
@@ -4981,15 +4981,15 @@ function UsersManagement() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 text-xs text-cyan-300 font-semibold">
+                <div className={`flex items-center gap-1.5 text-xs font-semibold ${isDark ? "text-cyan-300" : "text-cyan-800"}`}>
                   <span className="text-slate-400">Username:</span>
                   <span>{selectedUser.username ? `@${selectedUser.username}` : '(No username)'}</span>
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
-                  <span>Bot ID: <strong className="text-purple-300">{selectedUser.mbsId}</strong></span>
+                  <span>Bot ID: <strong className={isDark ? "text-purple-300" : "text-purple-700"}>{selectedUser.mbsId}</strong></span>
                   <span>•</span>
-                  <span>Telegram ID: <strong className="text-slate-300">{selectedUser.chatId}</strong></span>
+                  <span>Telegram ID: <strong className={isDark ? "text-slate-300" : "text-slate-800"}>{selectedUser.chatId}</strong></span>
                 </div>
 
                 <div className="text-[11px] text-slate-500">
@@ -5003,8 +5003,8 @@ function UsersManagement() {
               isDark ? 'bg-gradient-to-r from-emerald-950/40 to-teal-950/30 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
             }`}>
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">বর্তমান লাইভ ব্যালেন্স</span>
-                <div className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 mt-0.5">
+                <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-emerald-400" : "text-emerald-800"}`}>বর্তমান লাইভ ব্যালেন্স</span>
+                <div className={`text-2xl sm:text-3xl font-black font-mono mt-0.5 ${isDark ? "text-emerald-400" : "text-emerald-800"}`}>
                   ৳ {parseFloat(selectedUser.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-sans">BDT</span>
                 </div>
               </div>
@@ -5710,7 +5710,7 @@ function FraudLogs() {
                 <tr key={i} className={`transition-colors ${isDark ? 'hover:bg-purple-950/20' : 'hover:bg-slate-50'}`}>
                   <td className="p-4 font-bold text-rose-400">Failed / Duplicate TrxID</td>
                   <td className="p-4 font-mono font-bold text-purple-400">{f.userId || 'N/A'}</td>
-                  <td className="p-4 font-mono text-slate-300">{f.trxId || f.reason || 'Verification Failed'}</td>
+                  <td className={`p-4 font-mono ${isDark ? "text-slate-300" : "text-slate-800 font-semibold"}`}>{f.trxId || f.reason || 'Verification Failed'}</td>
                   <td className="p-4 text-slate-500 font-mono text-[11px]">{formatTimestamp(f.timestamp)}</td>
                   <td className="p-4 text-right">
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-rose-500/15 text-rose-400 border border-rose-500/30">
@@ -5814,7 +5814,7 @@ function MockTrxTool() {
               <button
                 type="button"
                 onClick={generateRandomTrx}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 whitespace-nowrap cursor-pointer"
+                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer border ${isDark ? "bg-purple-500/20 text-purple-300 border-purple-500/30 hover:bg-purple-500/30" : "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200"}`}
               >
                 Random
               </button>
@@ -5983,7 +5983,7 @@ function CreateTrxModal({ isOpen, onClose }) {
               <button
                 type="button"
                 onClick={handleGenerateRandom}
-                className="px-3 py-2 rounded-xl text-xs font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 whitespace-nowrap cursor-pointer"
+                className={`px-3 py-2 rounded-xl text-xs font-black whitespace-nowrap cursor-pointer border ${isDark ? "bg-purple-500/20 text-purple-300 border-purple-500/30 hover:bg-purple-500/30" : "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200"}`}
               >
                 🎲 Random
               </button>
@@ -6016,7 +6016,7 @@ function CreateTrxModal({ isOpen, onClose }) {
                 onClick={() => { setMethod('bKash'); }}
                 className={`py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   method === 'bKash' 
-                    ? 'bg-pink-500/20 border-pink-500 text-pink-300' 
+                    ? (isDark ? 'bg-pink-500/20 border-pink-500 text-pink-300' : 'bg-pink-100 border-pink-500 text-pink-800') 
                     : isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
@@ -6027,7 +6027,7 @@ function CreateTrxModal({ isOpen, onClose }) {
                 onClick={() => { setMethod('nagad'); }}
                 className={`py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                   method === 'nagad' 
-                    ? 'bg-orange-500/20 border-orange-500 text-orange-300' 
+                    ? (isDark ? 'bg-orange-500/20 border-orange-500 text-orange-300' : 'bg-orange-100 border-orange-500 text-orange-800') 
                     : isDark ? 'bg-slate-950 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
                 }`}
               >
@@ -6037,13 +6037,13 @@ function CreateTrxModal({ isOpen, onClose }) {
           </div>
 
           {result && (
-            <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs font-mono space-y-1">
+            <div className={`p-3 rounded-xl border text-xs font-mono space-y-1 ${isDark ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-200" : "bg-emerald-50 border-emerald-300 text-emerald-900"}`}>
               <div className="font-bold flex items-center gap-1 text-emerald-400">
                 <CheckCircle2 size={13} /> {result.message}
               </div>
               <div>TrxID: <b>{result.trxId}</b> (৳{result.amount} BDT)</div>
               {result.autoVerified ? (
-                <div className="text-cyan-300 font-bold">⚡ Order auto-verified and ready to dispatch!</div>
+                <div className={`font-bold ${isDark ? "text-cyan-300" : "text-cyan-800"}`}>⚡ Order auto-verified and ready to dispatch!</div>
               ) : (
                 <div className="text-slate-400">Ready in database. Enter this TrxID in bot or mini app to test!</div>
               )}
@@ -6764,7 +6764,7 @@ function BroadcastCenter() {
               isDark ? 'bg-[#15102c] border-purple-800/30' : 'bg-slate-50 border-slate-200'
             }`}>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-black text-purple-300 flex items-center gap-1.5">
+                <span className={`text-[11px] font-black flex items-center gap-1.5 ${isDark ? "text-purple-300" : "text-purple-800"}`}>
                   <Sparkles size={13} className="text-yellow-400 animate-spin" />
                   <span>Click to Insert Official Telegram Premium Animated Emoji:</span>
                 </span>
