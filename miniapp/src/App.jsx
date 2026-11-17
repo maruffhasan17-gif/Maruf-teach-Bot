@@ -8426,8 +8426,11 @@ function AddMoneyPage({
         }
     };
 
-    // Single-click transition with spin animation
+    // Single-click transition with spin animation (Paused per admin request)
     const handleGoToStep2 = () => {
+        setErrorMessage(lang === 'bn' ? 'রিজার্ভ ব্যালেন্স মেইনটেন্যান্সের কারণে সাময়িকভাবে অ্যাড মানি সার্ভিস বন্ধ রয়েছে। খুব শীঘ্রই পুনরায় চালু করা হবে।' : 'Add Money service is temporarily paused.');
+        playAppSound('error');
+        return;
         if (isTransitioning) return; // Prevent multiple clicks!
         const cleanAmt = parseFloat(String(amount || '').replace(/,/g, '').trim());
         if (!cleanAmt || isNaN(cleanAmt) || cleanAmt < 20) {
@@ -8448,6 +8451,9 @@ function AddMoneyPage({
     };
 
     const handleSubmit = async () => {
+        setErrorMessage(lang === 'bn' ? 'রিজার্ভ ব্যালেন্স মেইনটেন্যান্সের কারণে সাময়িকভাবে অ্যাড মানি সার্ভিস বন্ধ রয়েছে। খুব শীঘ্রই পুনরায় চালু করা হবে।' : 'Add Money service is temporarily paused.');
+        playAppSound('error');
+        return;
         const cleanAmt = parseFloat(String(amount || '').replace(/,/g, '').trim());
         if (!cleanAmt || isNaN(cleanAmt) || cleanAmt < 20) {
             setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে নূন্যতম ২০ টাকা বা তার বেশি দিন' : 'Please enter at least 20 BDT');
@@ -8641,6 +8647,21 @@ function AddMoneyPage({
                     </div>
                 </div>
 
+                {/* Executive Maintenance Notice Banner */}
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-700 dark:text-amber-400">
+                    <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div className="text-left text-xs leading-relaxed">
+                        <span className="font-black block text-amber-800 dark:text-amber-300">
+                            {lang === 'bn' ? '⏸️ সাময়িকভাবে অ্যাড মানি সার্ভিস বন্ধ রয়েছে' : '⏸️ Add Money is Temporarily Paused'}
+                        </span>
+                        <span className="text-[11px] opacity-90 mt-0.5 block">
+                            {lang === 'bn' 
+                                ? 'রিজার্ভ ব্যালেন্স মেইনটেন্যান্সের কারণে কয়েকদিনের জন্য টাকা যোগ (Add Money) বন্ধ রাখা হয়েছে। খুব শীঘ্রই পুনরায় চালু করা হবে।' 
+                                : 'Deposit service is temporarily paused for reserve balance maintenance. It will be resumed shortly.'}
+                        </span>
+                    </div>
+                </div>
+
                 {/* Step 1 Card */}
                 <div className={`p-4 rounded-[24px] border shadow-xs space-y-3 ${
                     darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
@@ -8804,25 +8825,15 @@ function AddMoneyPage({
                         </div>
                     )}
 
-                    {/* 3D Action Button (iOS Spring Reveal) */}
+                    {/* 3D Action Button (Paused State) */}
                     <IosScrollReveal>
                         <button
                             type="button"
-                            onClick={handleGoToStep2}
-                            disabled={!isValidAmt || isTransitioning}
-                            className="w-full h-[46px] rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-t border-white/30 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 transition-all duration-100 cursor-pointer disabled:opacity-50 disabled:border-b-0 disabled:translate-y-0 disabled:cursor-not-allowed shadow-md"
+                            disabled={true}
+                            className="w-full h-[46px] rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-black text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed shadow-xs"
                         >
-                            {isTransitioning ? (
-                                <>
-                                    <Loader2 size={16} className="animate-spin" />
-                                    <span>{lang === 'bn' ? 'পরবর্তী ধাপে যাওয়া হচ্ছে...' : 'Loading...'}</span>
-                                </>
-                            ) : (
-                                <>
-                                    <span>{lang === 'bn' ? 'পরবর্তী ধাপ (পেমেন্ট ও TrxID)' : 'Next (Payment & TrxID)'}</span>
-                                    <ChevronRight size={16} strokeWidth={3} />
-                                </>
-                            )}
+                            <AlertCircle size={16} className="text-amber-500 shrink-0" />
+                            <span>{lang === 'bn' ? '⏸️ অ্যাড মানি সাময়িকভাবে বন্ধ' : '⏸️ Add Money Temporarily Paused'}</span>
                         </button>
                     </IosScrollReveal>
                 </div>
@@ -9084,21 +9095,11 @@ function AddMoneyPage({
 
                     <button
                         type="button"
-                        onClick={handleSubmit}
-                        disabled={loading || !amount || !trxId}
-                        className="col-span-2 h-[44px] rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 border-t border-white/30 border-b-[3px] border-[#3730a3] active:translate-y-[3px] active:border-b-0 transition-all duration-100 cursor-pointer disabled:opacity-50 disabled:border-b-0 disabled:translate-y-0 disabled:cursor-not-allowed shadow-md"
+                        disabled={true}
+                        className="col-span-2 h-[44px] rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-black text-xs sm:text-sm flex items-center justify-center gap-2 cursor-not-allowed shadow-xs"
                     >
-                        {loading ? (
-                            <>
-                                <Loader2 size={16} className="animate-spin" />
-                                <span>{lang === 'bn' ? 'ভেরিফাই হচ্ছে...' : 'Verifying...'}</span>
-                            </>
-                        ) : (
-                            <>
-                                <Zap size={16} fill="currentColor" />
-                                <span>{lang === 'bn' ? 'কনফার্ম ডিপোজিট' : 'Confirm Deposit'}</span>
-                            </>
-                        )}
+                        <AlertCircle size={16} className="text-amber-500 shrink-0" />
+                        <span>{lang === 'bn' ? '⏸️ সার্ভিস সাময়িকভাবে বন্ধ' : '⏸️ Temporarily Paused'}</span>
                     </button>
                 </div>
 
@@ -9790,6 +9791,11 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     };
 
     const handleConfirmBuy = async () => {
+        playAppSound('error');
+        setErrorMessage(lang === 'bn' 
+            ? 'রিজার্ভ মেইনটেন্যান্স ও স্টক স্বল্পতার কারণে সাময়িকভাবে ক্রিপ্টো ক্রয় বন্ধ রয়েছে। খুব শীঘ্রই চালু হবে।' 
+            : 'Crypto purchase is temporarily paused for reserve maintenance.');
+        return;
         const targetAddress = destMode === 'connected' ? (userTonAddress || receiveAddress) : receiveAddress;
         if (!numBdt || isNaN(numBdt) || numBdt < 20) {
             return window.Telegram?.WebApp?.showAlert 
@@ -9872,6 +9878,21 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
                         >
                             <HelpCircle size={17} />
                         </button>
+                    </div>
+                </div>
+
+                {/* Executive Notice Banner for Paused Crypto Buy */}
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-amber-700 dark:text-amber-400">
+                    <AlertCircle size={18} className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div className="text-left text-xs leading-relaxed">
+                        <span className="font-black block text-amber-800 dark:text-amber-300">
+                            {lang === 'bn' ? '⏸️ ক্রিপ্টো ক্রয় সাময়িকভাবে বন্ধ রয়েছে' : '⏸️ Crypto Buy is Temporarily Paused'}
+                        </span>
+                        <span className="text-[11px] opacity-90 mt-0.5 block">
+                            {lang === 'bn'
+                                ? 'রিজার্ভ ব্যালেন্স মেইনটেন্যান্স ও স্টক স্বল্পতার কারণে কয়েকদিনের জন্য ক্রিপ্টো ক্রয় বন্ধ রাখা হয়েছে। খুব শীঘ্রই স্টক রিলোড করে পুনরায় চালু করা হবে।'
+                                : 'Crypto purchases are temporarily paused due to reserve maintenance and stock shortage. It will be resumed shortly.'}
+                        </span>
                     </div>
                 </div>
 
@@ -10177,15 +10198,17 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
 
                     <button
                         type="button"
-                        onClick={hasInsufficientBalance ? onGoToAddMoney : handleConfirmBuy}
-                        disabled={!hasInsufficientBalance && (!numBdt || numBdt < 20)}
-                        className="px-7 py-3 rounded-2xl font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white"
+                        onClick={() => {
+                            playAppSound('error');
+                            setErrorMessage(lang === 'bn' 
+                                ? 'রিজার্ভ মেইনটেন্যান্স ও স্টক স্বল্পতার কারণে সাময়িকভাবে ক্রিপ্টো ক্রয় বন্ধ রয়েছে। খুব শীঘ্রই চালু হবে।' 
+                                : 'Crypto purchase is temporarily paused for reserve maintenance.');
+                        }}
+                        className="px-5 py-3 rounded-2xl font-black text-xs sm:text-sm border transition-all flex items-center gap-2 shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-300 dark:border-slate-700 shadow-xs cursor-not-allowed"
                     >
-                        <Zap size={16} fill="currentColor" />
+                        <AlertCircle size={15} className="text-amber-500 shrink-0" />
                         <span>
-                            {hasInsufficientBalance 
-                                ? (lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money') 
-                                : (lang === 'bn' ? 'কনফার্ম করুন' : 'Confirm Buy')}
+                            {lang === 'bn' ? '⏸️ ক্রয় সাময়িকভাবে বন্ধ' : '⏸️ Buy Paused'}
                         </span>
                     </button>
                 </div>

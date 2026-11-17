@@ -2926,6 +2926,11 @@ bot.on('callback_query', async (query) => {
     }
 
             if (query.data.startsWith('crypto_')) {
+        const pauseNotice = "⚠️ **সাময়িকভাবে ডিপোজিট/অ্যাড মানি সার্ভিস বন্ধ রয়েছে।** খুব শীঘ্রই পুনরায় চালু করা হবে।";
+        return bot.sendMessage(chatId, pauseNotice, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
+    }
+
+    if (query.data.startsWith('crypto_disabled_legacy_')) {
         let addr = botEvmAddress;
         if (query.data === 'crypto_aptos') addr = process.env.APTOS_ADDRESS;
         
@@ -3692,7 +3697,56 @@ bot.on('message', async (msg) => {
 
     // Maintenance block removed
 
-    
+    // ⛔ Add Money & Buy Service Pause Handlers (Telegram Bot)
+    const addMoneyKeywords = ['/addmoney', '/deposit', '/add_money', '/add', '/topup', '/recharge'];
+    const isAddMoneyCmd = addMoneyKeywords.includes(cleanCmd);
+    const isAddMoneyText = (
+        text.toLowerCase().includes('add money') || 
+        text.toLowerCase().includes('addmoney') || 
+        text.toLowerCase().includes('deposit') || 
+        text.includes('টাকা যোগ') || 
+        text.includes('ডিপোজিট') || 
+        text.includes('এড মানি') || 
+        text.includes('অ্যাড মানি')
+    );
+
+    if (isAddMoneyCmd || (msg.chat.type === 'private' && isAddMoneyText)) {
+        const pauseMsg = `<blockquote><b>⏸️ অ্যাড মানি সার্ভিস সাময়িকভাবে বন্ধ রয়েছে</b>\n\n` +
+            `সম্মানিত গ্রাহক, রিজার্ভ মেইনটেন্যান্স ও ফান্ড আপডেটের কারণে সাময়িকভাবে টাকা যোগ (Add Money) সার্ভিসটি বন্ধ রাখা হয়েছে।\n\n` +
+            `💎 <i>খুব শীঘ্রই রিজার্ভ রিলোড করে অ্যাড মানি পুনরায় চালু করা হবে। সাময়িক অসুবিধার জন্য আমরা আন্তরিকভাবে দুঃখিত।</i></blockquote>`;
+        return bot.sendMessage(chatId, pauseMsg, {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } }]
+                ]
+            }
+        }).catch(e => console.error(e.message));
+    }
+
+    const buyKeywords = ['/buy', '/buycrypto', '/buy_crypto'];
+    const isBuyCmd = buyKeywords.includes(cleanCmd);
+    const isBuyText = (
+        text.toLowerCase().includes('buy crypto') || 
+        text.includes('ক্রিপ্টো ক্রয়') || 
+        text.includes('ক্রিপ্টো কিন') || 
+        (msg.chat.type === 'private' && cleanCmd === '/buy')
+    );
+
+    if (isBuyCmd || (msg.chat.type === 'private' && isBuyText)) {
+        const buyPauseMsg = `<blockquote><b>⏸️ ক্রিপ্টো ক্রয় সাময়িকভাবে বন্ধ রয়েছে</b>\n\n` +
+            `সম্মানিত গ্রাহক, রিজার্ভ মেইনটেন্যান্স ও স্টক স্বল্পতার কারণে সাময়িকভাবে ক্রিপ্টো ক্রয় (Buy Crypto) সার্ভিসটি বন্ধ রয়েছে।\n\n` +
+            `💡 <i>খুব শীঘ্রই পর্যাপ্ত স্টক রিলোড করে ক্রয় সার্ভিস পুনরায় চালু করা হবে। সাময়িক অসুবিধার জন্য আন্তরিকভাবে দুঃখিত।</i></blockquote>`;
+        return bot.sendMessage(chatId, buyPauseMsg, {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } }]
+                ]
+            }
+        }).catch(e => console.error(e.message));
+    }
+
     if (msg.chat.type === 'group' || msg.chat.type === 'supergroup') {
         const titleLower = (msg.chat.title || '').toLowerCase();
 
@@ -8449,6 +8503,12 @@ app.get('/api/settings', (req, res) => {
 
 
 app.post('/api/miniapp/add-money', async (req, res) => {
+    // ⛔ Temporarily paused per admin request (Reserve replenishment)
+    return res.status(503).json({
+        success: false,
+        error: 'রিজার্ভ ব্যালেন্স মেইনটেন্যান্সের কারণে সাময়িকভাবে অ্যাড মানি সার্ভিস বন্ধ রয়েছে। খুব শীঘ্রই পুনরায় চালু করা হবে।'
+    });
+
     let { userId, amount, paymentMethod, trxId } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
@@ -8640,6 +8700,12 @@ app.post('/api/miniapp/add-money', async (req, res) => {
 });
 
 app.post('/api/miniapp/buy-crypto', async (req, res) => {
+    // ⛔ Temporarily paused per admin request (Reserve replenishment)
+    return res.status(503).json({
+        success: false,
+        error: 'রিজার্ভ মেইনটেন্যান্স ও স্টক স্বল্পতার কারণে সাময়িকভাবে ক্রিপ্টো ক্রয় বন্ধ রয়েছে। খুব শীঘ্রই চালু হবে।'
+    });
+
     let { userId, asset, cryptoAmount, bdtAmount, receiveAddress, network, memo } = req.body;
     if (!userId || !cryptoAmount || !bdtAmount || !receiveAddress) {
         return res.status(400).json({ error: 'সবগুলো তথ্য সঠিকভাবে পূরণ করুন' });
@@ -9055,6 +9121,12 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 });
 
 app.post('/api/miniapp/buy', async (req, res) => {
+    // ⛔ Temporarily paused per admin request (Reserve replenishment)
+    return res.status(503).json({
+        success: false,
+        error: 'রিজার্ভ মেইনটেন্যান্সের কারণে সাময়িকভাবে অ্যাড মানি ও ক্রিপ্টো ক্রয় সার্ভিস বন্ধ রয়েছে।'
+    });
+
     // Alias /api/miniapp/buy to add-money logic if it has no receiveAddress
     if (!req.body.receiveAddress) {
         req.body.amount = req.body.amount || req.body.totalBdt;
