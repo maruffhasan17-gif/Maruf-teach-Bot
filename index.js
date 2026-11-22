@@ -2521,7 +2521,7 @@ async function registerUserReferral(userId, rawReferrerId, userMeta = {}, device
                 `<blockquote>${PE.user} <b>নতুন ইউজার:</b> <code>${firstName}</code> ${username ? `(@${username})` : ''}\n` +
                 `⏳ <b>স্ট্যাটাস:</b> <code>Pending (অ্যাক্টিভেশন বাকি)</code>\n` +
                 `${PE.moneyBag} <b>রেফার বোনাস:</b> <code>+৳${REFERRAL_BONUS_BDT} BDT</code></blockquote>\n\n` +
-                `${PE.zap} <i>আপনার বন্ধু ওয়ালেট কানেক্ট করে নূন্যতম ২০ টাকা Add Money অথবা ২০ টাকা Crypto Sell করলেই আপনি সাথে সাথে <b>৳${REFERRAL_BONUS_BDT} টাকা বোনাস</b> পেয়ে যাবেন!</i>`;
+                `⚡ <i>আপনার বন্ধু ওয়ালেট কানেক্ট করে নূন্যতম ২০ টাকা Add Money অথবা ২০ টাকা Crypto Sell করলেই আপনি সাথে সাথে <b>৳${REFERRAL_BONUS_BDT} টাকা বোনাস</b> পেয়ে যাবেন!</i>`;
             bot.sendMessage(cleanReferrerId, joinNotifyMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
         }
 
@@ -4187,7 +4187,17 @@ bot.on('message', async (msg) => {
     if (text.startsWith('/')) return;
     
     // Default reply for any other message: send and remove keyboard
-    bot.sendMessage(chatId, "👇 **নিচের বোতামে ক্লিক করে অ্যাপটি ওপেন করুন:**", getMenu('bn')).catch(e => console.error(e.message));
+    const defaultReplyMsg = `💎 <b>Trust Pay — ট্রাস্ট পে</b> ✨\n\n` +
+        `বিকাশ ও নগদে নিরাপদে ক্রিপ্টো বাই-সেল ও ক্যাশআউট করতে নিচের বোতামে চাপ দিন:\n\n` +
+        `👇 <i>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</i>`;
+    bot.sendMessage(chatId, defaultReplyMsg, {
+        parse_mode: 'HTML',
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } }]
+            ]
+        }
+    }).catch(e => console.error(e.message));
 });
 
 // Add this before app.listen
