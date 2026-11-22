@@ -8364,6 +8364,13 @@ function AddMoneyPage({
 
     // Quick amounts strictly up to 1000 per user specification (2000 and 5000 removed)
     const quickAmounts = [20, 50, 100, 500, 1000];
+    const depositCards = [
+        { value: 20, tagBn: 'শুরু করুন (Min)', tagEn: 'Min Deposit', badgeBn: 'নূন্যতম' },
+        { value: 50, tagBn: 'স্ট্যান্ডার্ড', tagEn: 'Standard', badgeBn: 'পপুলার' },
+        { value: 100, tagBn: 'সবচেয়ে জনপ্রিয় 🔥', tagEn: 'Most Popular 🔥', popular: true, badgeBn: 'সেরা পছন্দ' },
+        { value: 500, tagBn: 'বেস্ট ভ্যালু', tagEn: 'Best Value', badgeBn: 'বেস্ট' },
+        { value: 1000, tagBn: 'সর্বোচ্চ সীমা (Max)', tagEn: 'Max Limit', badgeBn: 'ম্যাক্স' }
+    ];
 
     const extractCleanTrxId = (raw) => {
         if (!raw) return '';
@@ -8430,8 +8437,8 @@ function AddMoneyPage({
     const handleGoToStep2 = () => {
         if (isTransitioning) return; // Prevent multiple clicks!
         const cleanAmt = parseFloat(String(amount || '').replace(/,/g, '').trim());
-        if (!cleanAmt || isNaN(cleanAmt) || cleanAmt < 20) {
-            setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে নূন্যতম ২০ টাকা বা তার বেশি দিন' : 'Please enter at least 20 BDT');
+        if (!cleanAmt || isNaN(cleanAmt) || !quickAmounts.includes(cleanAmt)) {
+            setErrorMessage(lang === 'bn' ? 'অনুগ্রহ করে নিচের কার্ডগুলো থেকে একটি পরিমাণ নির্বাচন করুন' : 'Please select an amount from the cards below');
             playAppSound('error');
             return;
         }
@@ -8597,7 +8604,7 @@ function AddMoneyPage({
     // STEP 1: SELECT METHOD & AMOUNT
     if (step === 1) {
         const numAmt = parseFloat(amount) || 0;
-        const isValidAmt = numAmt >= 20;
+        const isValidAmt = quickAmounts.includes(numAmt);
 
         return (
             <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300 pb-28 max-w-md mx-auto">
@@ -8732,60 +8739,143 @@ function AddMoneyPage({
                         </div>
                     </div>
 
-                    {/* Amount Input */}
+                    {/* Amount Card Selection System (Input box strictly reflects selected card only) */}
                     <div>
                         <div className="flex items-center justify-between mb-1.5">
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                {lang === 'bn' ? 'টাকার পরিমাণ (BDT)' : 'Amount (BDT)'}
+                                {lang === 'bn' ? 'নির্বাচিত পরিমাণ (BDT)' : 'Selected Amount (BDT)'}
                             </label>
                             <span className="text-[9.5px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-full border border-purple-200 dark:border-purple-800/50">
-                                {lang === 'bn' ? 'নূন্যতম ২০ টাকা' : 'Min. 20 BDT'}
+                                {lang === 'bn' ? 'কার্ড থেকে নির্বাচন করুন' : 'Select from cards'}
                             </span>
                         </div>
 
-                        <div className={`relative flex items-center rounded-xl border-2 transition-all px-3 h-[44px] ${
-                            darkMode ? 'bg-slate-800/40 border-slate-700 focus-within:border-purple-500' : 'bg-slate-50 border-slate-200 focus-within:border-purple-500 focus-within:bg-white'
-                        }`}>
-                            <span className="text-base font-black text-purple-600 dark:text-purple-400 mr-2 select-none">
+                        {/* Readonly Display Box */}
+                        <div 
+                            className={`relative flex items-center rounded-2xl border-2 transition-all px-3.5 h-[48px] select-none ${
+                                amount
+                                    ? (darkMode ? 'bg-purple-950/30 border-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.15)]' : 'bg-purple-50/80 border-purple-500 text-slate-900 shadow-xs')
+                                    : (darkMode ? 'bg-slate-800/40 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-400')
+                            }`}
+                        >
+                            <span className={`text-lg font-black mr-2 select-none transition-colors ${
+                                amount ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'
+                            }`}>
                                 ৳
                             </span>
                             <input
-                                type="number"
-                                inputMode="decimal"
-                                value={amount}
-                                onChange={e => {
-                                    setAmount(e.target.value);
-                                    if (errorMessage) setErrorMessage('');
-                                }}
-                                placeholder="0.00"
+                                type="text"
+                                readOnly
+                                inputMode="none"
+                                tabIndex={-1}
+                                value={amount ? Number(amount).toLocaleString() : ''}
+                                placeholder={lang === 'bn' ? 'নিচের কার্ড থেকে সিলেক্ট করুন...' : 'Choose an amount card below...'}
                                 style={{ color: darkMode ? '#ffffff' : '#0f172a' }}
-                                className="w-full bg-transparent text-base font-black font-mono outline-none pr-12 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-full bg-transparent text-base font-black font-mono outline-none pr-16 placeholder:text-slate-400 placeholder:text-xs placeholder:font-bold placeholder:font-sans cursor-default select-none pointer-events-none"
                             />
-                            <span className="absolute right-3 font-black text-xs text-slate-400 select-none">
-                                BDT
-                            </span>
+                            <div className="absolute right-3 flex items-center gap-1.5 pointer-events-none">
+                                {amount ? (
+                                    <span className="flex items-center gap-1 text-[11px] font-black font-mono text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/60 px-2 py-0.5 rounded-lg border border-purple-300 dark:border-purple-700 shadow-2xs">
+                                        <Check size={12} strokeWidth={3} /> BDT
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] font-bold text-slate-400 bg-slate-200/60 dark:bg-slate-700/60 px-2 py-0.5 rounded-lg">
+                                        {lang === 'bn' ? 'কার্ড চাপুন' : 'Tap Card'}
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
-                        {/* Single-row Quick Chips (Strictly 20, 50, 100, 500, 1000) */}
-                        <div className="grid grid-cols-5 gap-1.5 mt-2.5">
-                            {quickAmounts.map(val => (
-                                <button
-                                    key={val}
-                                    type="button"
-                                    onClick={() => {
-                                        playAppSound('tap');
-                                        setAmount(val.toString());
-                                        if (errorMessage) setErrorMessage('');
-                                    }}
-                                    className={`py-1.5 px-0.5 rounded-lg text-xs font-bold border transition-all cursor-pointer active:scale-95 text-center ${
-                                        amount === val.toString()
-                                            ? 'bg-purple-600 text-white border-purple-600 font-black shadow-xs'
-                                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-purple-300'
-                                    }`}
-                                >
-                                    ৳{val.toLocaleString()}
-                                </button>
-                            ))}
+                        {/* Interactive Amount Cards Grid (Strictly 20, 50, 100, 500, 1000) */}
+                        <div className="mt-3">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                                    <Sparkles size={12} className="text-purple-600 dark:text-purple-400" />
+                                    {lang === 'bn' ? 'ডিপোজিট অ্যামাউন্ট কার্ড' : 'Deposit Amount Cards'}
+                                </span>
+                                <span className="text-[9.5px] font-bold text-slate-400">
+                                    {lang === 'bn' ? 'নিচের যে কোনো একটি নির্বাচন করুন' : 'Pick one'}
+                                </span>
+                            </div>
+
+                            {/* Top 3 Cards Grid (20, 50, 100) */}
+                            <div className="grid grid-cols-3 gap-2 mb-2">
+                                {depositCards.slice(0, 3).map(card => {
+                                    const isSelected = amount === card.value.toString();
+                                    return (
+                                        <button
+                                            key={card.value}
+                                            type="button"
+                                            onClick={() => {
+                                                playAppSound('tap');
+                                                setAmount(card.value.toString());
+                                                if (errorMessage) setErrorMessage('');
+                                                if (window.Telegram?.WebApp?.HapticFeedback) {
+                                                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                                                }
+                                            }}
+                                            className={`relative p-2.5 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 text-center flex flex-col items-center justify-center overflow-hidden ${
+                                                isSelected
+                                                    ? 'bg-gradient-to-b from-purple-500/15 via-indigo-500/10 to-purple-600/20 border-purple-600 dark:border-purple-400 text-purple-700 dark:text-purple-200 shadow-[0_4px_16px_rgba(147,51,234,0.25)] ring-2 ring-purple-500/30 scale-[1.02]'
+                                                    : 'bg-slate-50/80 dark:bg-slate-800/60 border-slate-200/90 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-white dark:hover:bg-slate-800'
+                                            }`}
+                                        >
+                                            {card.popular && (
+                                                <span className="absolute top-1 right-1 px-1 py-0.2 rounded-md bg-amber-500 text-white text-[8px] font-black leading-tight uppercase tracking-tighter shadow-xs">
+                                                    POPULAR
+                                                </span>
+                                            )}
+                                            <span className="text-[15px] font-black font-mono leading-tight tracking-tight mt-0.5">
+                                                ৳{card.value}
+                                            </span>
+                                            <span className={`text-[9px] font-bold mt-1 px-1.5 py-0.5 rounded-full leading-none truncate max-w-full ${
+                                                isSelected
+                                                    ? 'bg-purple-600 text-white font-black'
+                                                    : 'text-slate-400 bg-slate-200/70 dark:bg-slate-700/60'
+                                            }`}>
+                                                {lang === 'bn' ? card.tagBn : card.tagEn}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Bottom 2 Cards Grid (500, 1000) */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {depositCards.slice(3, 5).map(card => {
+                                    const isSelected = amount === card.value.toString();
+                                    return (
+                                        <button
+                                            key={card.value}
+                                            type="button"
+                                            onClick={() => {
+                                                playAppSound('tap');
+                                                setAmount(card.value.toString());
+                                                if (errorMessage) setErrorMessage('');
+                                                if (window.Telegram?.WebApp?.HapticFeedback) {
+                                                    window.Telegram.WebApp.HapticFeedback.selectionChanged();
+                                                }
+                                            }}
+                                            className={`relative p-2.5 rounded-2xl border-2 transition-all cursor-pointer active:scale-95 text-center flex flex-col items-center justify-center overflow-hidden ${
+                                                isSelected
+                                                    ? 'bg-gradient-to-b from-purple-500/15 via-indigo-500/10 to-purple-600/20 border-purple-600 dark:border-purple-400 text-purple-700 dark:text-purple-200 shadow-[0_4px_16px_rgba(147,51,234,0.25)] ring-2 ring-purple-500/30 scale-[1.02]'
+                                                    : 'bg-slate-50/80 dark:bg-slate-800/60 border-slate-200/90 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-white dark:hover:bg-slate-800'
+                                            }`}
+                                        >
+                                            <span className="text-[16px] font-black font-mono leading-tight tracking-tight mt-0.5">
+                                                ৳{card.value.toLocaleString()}
+                                            </span>
+                                            <span className={`text-[9.5px] font-bold mt-1 px-2 py-0.5 rounded-full leading-none truncate max-w-full ${
+                                                isSelected
+                                                    ? 'bg-purple-600 text-white font-black'
+                                                    : 'text-slate-400 bg-slate-200/70 dark:bg-slate-700/60'
+                                            }`}>
+                                                {lang === 'bn' ? card.tagBn : card.tagEn}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
@@ -8819,7 +8909,7 @@ function AddMoneyPage({
                                 </>
                             ) : (
                                 <>
-                                    <span>{lang === 'bn' ? 'পরবর্তী ধাপ (পেমেন্ট ও TrxID)' : 'Next (Payment & TrxID)'}</span>
+                                    <span>{isValidAmt ? (lang === 'bn' ? 'পরবর্তী ধাপ (পেমেন্ট ও TrxID)' : 'Next (Payment & TrxID)') : (lang === 'bn' ? 'একটি কার্ড নির্বাচন করুন' : 'Select an Amount Card')}</span>
                                     <ChevronRight size={16} strokeWidth={3} />
                                 </>
                             )}
