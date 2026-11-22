@@ -2738,106 +2738,111 @@ async function checkAndRewardReferral(userId) {
     }
 }
 
-bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
+bot.onText(/^\/start(?:@\w+)?(?:\s+(.+))?$/i, async (msg, match) => {
     const chatId = msg.chat.id;
     const msgId = msg.message_id;
     const startPayload = (match && match[1]) ? match[1].trim() : '';
     const lockKey = `${chatId}_${msgId}`;
 
-    // 1. In-memory deduplication check
     if (processedStartIds.has(lockKey)) return;
     processedStartIds.add(lockKey);
     if (processedStartIds.size > 2000) processedStartIds.clear();
 
-    // 2. Multi-instance lock in Firestore to prevent double messages between Render and local PM2
-    try {
-        const lockRef = db.collection('bot_start_locks').doc(lockKey);
-        const lockDoc = await lockRef.get().catch(() => null);
-        if (lockDoc && lockDoc.exists) return; // Handled by another instance
-        await lockRef.set({ timestamp: FieldValue.serverTimestamp(), chatId }).catch(() => {});
-    } catch(e) {}
-
     const username = msg.from.username || "";
     const firstName = msg.from.first_name || "User";
     const lastName = msg.from.last_name || "";
-    
-    // Check if this user ALREADY exists in memory cache (Zero Read) or Firestore
     const strChatId = chatId.toString();
-    const userRef = db.collection('users').doc(strChatId);
-    const existingUserDoc = await userRef.get().catch(() => null);
-    const existingData = (existingUserDoc && existingUserDoc.exists)
-        ? (existingUserDoc.data() || {})
-        : (allUsersMasterData[strChatId] || null);
 
-    const isExistingUser = Boolean(
-        existingData && (
-            existingData.userNumber ||
-            existingData.notifiedNewUser ||
-            existingData.id ||
-            existingData.userId ||
-            existingData.chatId ||
-            existingData.mbsId ||
-            existingData.status ||
-            existingData.firstName ||
-            existingData.first_name ||
-            existingData.balance !== undefined ||
-            existingData.fiatWallet
-        )
-    );
+    try {
+        // Fast background non-blocking user persistence
+        const userRef = db.collection('users').doc(strChatId);
+        userRef.set({
+            id: chatId,
+            userId: chatId,
+            chatId: strChatId,
+            username: username,
+            firstName: firstName,
+            first_name: firstName,
+            lastName: lastName,
+            last_name: lastName,
+            notifiedNewUser: true
+        }, { merge: true }).catch(() => {});
 
-    if (!isExistingUser) {
-        // 1. Brand-new user: if they joined via referral link (/start ref_123456), register the referral
+        userStates[chatId] = { step: 'start', failedAttempts: 0, lang: 'bn' };
+
+        // Handle referral link if present
         if (startPayload && /^ref_\d+$/i.test(startPayload)) {
             const referrerId = startPayload.replace(/^ref_/i, '');
-            await registerUserReferral(chatId, referrerId, { username, firstName, lastName }, {});
+            registerUserReferral(chatId, referrerId, { username, firstName, lastName }, {}).catch(() => {});
         }
-        // 2. Brand-new user: notify User Joined group ONCE and assign permanent userNumber
-        await notifyNewUserJoined(chatId, { username, firstName, lastName }, true);
-    }
 
-    userRef.set({
-        id: chatId,
-        userId: chatId,
-        chatId: strChatId,
-        username: username,
-        firstName: firstName,
-        first_name: firstName,
-        lastName: lastName,
-        last_name: lastName,
-        notifiedNewUser: true
-    }, { merge: true }).catch(() => {});
+        // Fast check verified status
+        let isAlreadyVerified = false;
+        try {
+            const userDoc = await userRef.get().catch(() => null);
+            const uData = userDoc?.data() || allUsersMasterData[strChatId] || {};
+            isAlreadyVerified = Boolean(uData.status === 'verified' || uData.verified === true);
+        } catch (_) {}
 
-    userStates[chatId] = { step: 'start', failedAttempts: 0, lang: 'bn' };
-    
-    const membership = await checkUserCommunities(chatId);
-    const isAlreadyVerified = Boolean(
-        (existingData && existingData.status === 'verified') ||
-        (existingUserDoc && existingUserDoc.exists && existingUserDoc.data().status === 'verified')
-    );
+        let membership = { allJoined: false };
+        try {
+            membership = await checkUserCommunities(chatId);
+        } catch (_) {
+            membership = { allJoined: isAlreadyVerified };
+        }
 
         if (isAlreadyVerified && membership.allJoined) {
-        const welcomeBackMsg = `${PE.gem} <b>Trust Pay — ট্রাস্ট পে</b> ${PE.sparkles}\n\n${PE.user} স্বাগতম <b>${firstName}</b>!\n${PE.check} আপনার অ্যাকাউন্ট ভেরিফাইড ও প্রস্তুত রয়েছে।\n\n${PE.zap} <i>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</i>`;
-        return bot.sendMessage(chatId, welcomeBackMsg, {
+            const welcomeBackMsg = `${PE.gem} <b>Trust Pay — ট্রাস্ট পে</b> ${PE.sparkles}\n\n${PE.user} স্বাগতম <b>${firstName}</b>!\n${PE.check} আপনার অ্যাকাউন্ট ভেরিফাইড ও প্রস্তুত রয়েছে।\n\n${PE.zap} <i>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</i>`;
+            return bot.sendMessage(chatId, welcomeBackMsg, {
+                parse_mode: 'HTML',
+                reply_markup: {
+                    inline_keyboard: [
+                        [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } } ]
+                    ]
+                }
+            }).catch(e => {
+                console.error("welcomeBackMsg send err:", e.message);
+                bot.sendMessage(chatId, `💎 Trust Pay — ট্রাস্ট পে\n\nস্বাগতম ${firstName}!\nনিচের বোতামে চাপ দিয়ে অ্যাপ ওপেন করুন:`, {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } } ]
+                        ]
+                    }
+                }).catch(()=>{});
+            });
+        }
+
+        const opts = {
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: '📢 চ্যানেল ১', url: OFFICIAL_CHANNEL_URL }],
+                    [{ text: '💸 পে-আউট চ্যানেল', url: PAYOUT_GROUP_URL }],
+                    [{ text: '✅ ভেরিফাই ও অ্যাপ ওপেন', callback_data: 'verify_join' }]
+                ]
+            }
+        };
+        bot.sendMessage(chatId, t.bn.welcome, opts).catch(e => {
+            console.error("welcome send err:", e.message);
+            bot.sendMessage(chatId, `💎 Trust Pay — ট্রাস্ট পে ✨\n\nস্বাগতম ${firstName}!\nবিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল এবং ইনস্ট্যান্ট ক্যাশআউট।\n\nঅ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:`, {
+                reply_markup: {
+                    inline_keyboard: [
+                        [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } } ]
+                    ]
+                }
+            }).catch(()=>{});
+        });
+    } catch (err) {
+        console.error("[StartHandlerError]:", err);
+        bot.sendMessage(chatId, `💎 <b>Trust Pay — ট্রাস্ট পে</b> ✨\n\nস্বাগতম <b>${firstName}</b>! বিকাশ ও নগদে দ্রুত ও নিরাপদ ক্রিপ্টো বাই-সেল।\n\n👇 <i>অ্যাপ ওপেন করতে নিচের বোতামে চাপ দিন:</i>`, {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
                     [ { text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } } ]
                 ]
             }
-        }).catch(e => console.error(e.message));
+        }).catch(() => {});
     }
-
-    const opts = {
-        parse_mode: 'HTML',
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: '📢 চ্যানেল ১', url: OFFICIAL_CHANNEL_URL }],
-                [{ text: '💸 পে-আউট চ্যানেল', url: PAYOUT_GROUP_URL }],
-                [{ text: '✅ ভেরিফাই ও অ্যাপ ওপেন', callback_data: 'verify_join' }]
-            ]
-        }
-    };
-    bot.sendMessage(chatId, t.bn.welcome, opts).catch(e => console.error(e.message));
 });
 
 const activeRefreshLocks = new Set();
@@ -2926,11 +2931,6 @@ bot.on('callback_query', async (query) => {
     }
 
             if (query.data.startsWith('crypto_')) {
-        const pauseNotice = "⚠️ **সাময়িকভাবে ডিপোজিট/অ্যাড মানি সার্ভিস বন্ধ রয়েছে।** খুব শীঘ্রই পুনরায় চালু করা হবে।";
-        return bot.sendMessage(chatId, pauseNotice, { parse_mode: 'Markdown' }).catch(e => console.error(e.message));
-    }
-
-    if (query.data.startsWith('crypto_disabled_legacy_')) {
         let addr = botEvmAddress;
         if (query.data === 'crypto_aptos') addr = process.env.APTOS_ADDRESS;
         
@@ -3697,47 +3697,14 @@ bot.on('message', async (msg) => {
 
     // Maintenance block removed
 
-    // ⛔ Add Money & Buy Service Pause Handlers (Telegram Bot)
+    // Active Crypto Buy & Add Money bot shortcut guide
     const addMoneyKeywords = ['/addmoney', '/deposit', '/add_money', '/add', '/topup', '/recharge'];
-    const isAddMoneyCmd = addMoneyKeywords.includes(cleanCmd);
-    const isAddMoneyText = (
-        text.toLowerCase().includes('add money') || 
-        text.toLowerCase().includes('addmoney') || 
-        text.toLowerCase().includes('deposit') || 
-        text.includes('টাকা যোগ') || 
-        text.includes('ডিপোজিট') || 
-        text.includes('এড মানি') || 
-        text.includes('অ্যাড মানি')
-    );
-
-    if (isAddMoneyCmd || (msg.chat.type === 'private' && isAddMoneyText)) {
-        const pauseMsg = `<blockquote><b>⏸️ অ্যাড মানি সার্ভিস সাময়িকভাবে বন্ধ রয়েছে</b>\n\n` +
-            `সম্মানিত গ্রাহক, রিজার্ভ মেইনটেন্যান্স ও ফান্ড আপডেটের কারণে সাময়িকভাবে টাকা যোগ (Add Money) সার্ভিসটি বন্ধ রাখা হয়েছে।\n\n` +
-            `💎 <i>খুব শীঘ্রই রিজার্ভ রিলোড করে অ্যাড মানি পুনরায় চালু করা হবে। সাময়িক অসুবিধার জন্য আমরা আন্তরিকভাবে দুঃখিত।</i></blockquote>`;
-        return bot.sendMessage(chatId, pauseMsg, {
-            parse_mode: 'HTML',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: '🚀 অ্যাপ ওপেন করুন (Open App)', web_app: { url: WEB_APP_URL } }]
-                ]
-            }
-        }).catch(e => console.error(e.message));
-    }
-
     const buyKeywords = ['/buy', '/buycrypto', '/buy_crypto'];
-    const isBuyCmd = buyKeywords.includes(cleanCmd);
-    const isBuyText = (
-        text.toLowerCase().includes('buy crypto') || 
-        text.includes('ক্রিপ্টো ক্রয়') || 
-        text.includes('ক্রিপ্টো কিন') || 
-        (msg.chat.type === 'private' && cleanCmd === '/buy')
-    );
-
-    if (isBuyCmd || (msg.chat.type === 'private' && isBuyText)) {
-        const buyPauseMsg = `<blockquote><b>⏸️ ক্রিপ্টো ক্রয় সাময়িকভাবে বন্ধ রয়েছে</b>\n\n` +
-            `সম্মানিত গ্রাহক, রিজার্ভ মেইনটেন্যান্স ও স্টক স্বল্পতার কারণে সাময়িকভাবে ক্রিপ্টো ক্রয় (Buy Crypto) সার্ভিসটি বন্ধ রয়েছে।\n\n` +
-            `💡 <i>খুব শীঘ্রই পর্যাপ্ত স্টক রিলোড করে ক্রয় সার্ভিস পুনরায় চালু করা হবে। সাময়িক অসুবিধার জন্য আন্তরিকভাবে দুঃখিত।</i></blockquote>`;
-        return bot.sendMessage(chatId, buyPauseMsg, {
+    const isCryptoActionCmd = addMoneyKeywords.includes(cleanCmd) || buyKeywords.includes(cleanCmd);
+    if (isCryptoActionCmd && msg.chat.type === 'private') {
+        const actionMsg = `<blockquote>${PE.gem} <b>Trust Pay — ক্রিপ্টো বাই & অ্যাড মানি</b> ${PE.sparkles}\n\n` +
+            `বিকাশ ও নগদে টাকা যোগ (Add Money) এবং GRAM ও USDT ক্রিপ্টো ক্রয় করতে নিচের বোতামে ক্লিক করে অ্যাপ ওপেন করুন:</blockquote>`;
+        return bot.sendMessage(chatId, actionMsg, {
             parse_mode: 'HTML',
             reply_markup: {
                 inline_keyboard: [
@@ -8503,12 +8470,6 @@ app.get('/api/settings', (req, res) => {
 
 
 app.post('/api/miniapp/add-money', async (req, res) => {
-    // ⛔ Temporarily paused per admin request (Reserve replenishment)
-    return res.status(503).json({
-        success: false,
-        error: 'রিজার্ভ ব্যালেন্স মেইনটেন্যান্সের কারণে সাময়িকভাবে অ্যাড মানি সার্ভিস বন্ধ রয়েছে। খুব শীঘ্রই পুনরায় চালু করা হবে।'
-    });
-
     let { userId, amount, paymentMethod, trxId } = req.body;
     if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
@@ -8700,12 +8661,6 @@ app.post('/api/miniapp/add-money', async (req, res) => {
 });
 
 app.post('/api/miniapp/buy-crypto', async (req, res) => {
-    // ⛔ Temporarily paused per admin request (Reserve replenishment)
-    return res.status(503).json({
-        success: false,
-        error: 'রিজার্ভ মেইনটেন্যান্স ও স্টক স্বল্পতার কারণে সাময়িকভাবে ক্রিপ্টো ক্রয় বন্ধ রয়েছে। খুব শীঘ্রই চালু হবে।'
-    });
-
     let { userId, asset, cryptoAmount, bdtAmount, receiveAddress, network, memo } = req.body;
     if (!userId || !cryptoAmount || !bdtAmount || !receiveAddress) {
         return res.status(400).json({ error: 'সবগুলো তথ্য সঠিকভাবে পূরণ করুন' });
@@ -9121,12 +9076,6 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
 });
 
 app.post('/api/miniapp/buy', async (req, res) => {
-    // ⛔ Temporarily paused per admin request (Reserve replenishment)
-    return res.status(503).json({
-        success: false,
-        error: 'রিজার্ভ মেইনটেন্যান্সের কারণে সাময়িকভাবে অ্যাড মানি ও ক্রিপ্টো ক্রয় সার্ভিস বন্ধ রয়েছে।'
-    });
-
     // Alias /api/miniapp/buy to add-money logic if it has no receiveAddress
     if (!req.body.receiveAddress) {
         req.body.amount = req.body.amount || req.body.totalBdt;
