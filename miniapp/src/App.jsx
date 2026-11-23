@@ -6886,16 +6886,16 @@ export default function App() {
                 <div 
                   className={`w-full max-w-[365px] backdrop-blur-xl rounded-full relative flex justify-between items-center p-1.5 pointer-events-auto transition-colors duration-300 ${
                     darkMode 
-                      ? 'bg-slate-900/92 border border-purple-500/25 text-white' 
-                      : 'bg-white/95 border border-purple-200/85 text-slate-900'
+                      ? 'bg-slate-900/92 border border-white/[0.08] text-white' 
+                      : 'bg-white/95 border border-slate-200/80 text-slate-900'
                   }`}
                   style={{
                     boxShadow: darkMode
-                      ? '0 14px 40px -6px rgba(0, 0, 0, 0.7), 0 0 24px -4px rgba(147, 51, 234, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1)'
-                      : '0 14px 36px -6px rgba(124, 58, 237, 0.16), 0 2px 10px rgba(15, 23, 42, 0.04), inset 0 1.5px 2px rgba(255, 255, 255, 0.98)'
+                      ? '0 12px 36px -6px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.06)'
+                      : '0 10px 30px -6px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.03), inset 0 1px 2px rgba(255, 255, 255, 0.95)'
                   }}
                 >
-                    {/* REAL-TIME SPRING PHYSICS ROYAL PURPLE (BEGUNI) LIQUID DROPLET BUBBLE */}
+                    {/* REAL-TIME SPRING PHYSICS SOFT VIOLET (HALKA BEGUNI) LIQUID DROPLET BUBBLE */}
                     {activeIndex !== -1 && (
                       <div 
                         ref={liquidCarrierRef}
@@ -6910,14 +6910,14 @@ export default function App() {
                           className="w-full h-full rounded-full will-change-transform"
                           style={{
                             background: darkMode
-                              ? 'radial-gradient(circle at 50% 25%, rgba(192, 132, 252, 0.45) 0%, rgba(147, 51, 234, 0.56) 55%, rgba(109, 40, 217, 0.64) 100%)'
-                              : 'radial-gradient(circle at 50% 22%, rgba(250, 245, 255, 0.98) 0%, rgba(243, 232, 255, 0.96) 45%, rgba(216, 180, 254, 0.82) 100%)',
+                              ? 'radial-gradient(circle at 50% 25%, rgba(139, 92, 246, 0.18) 0%, rgba(124, 58, 237, 0.28) 100%)'
+                              : 'radial-gradient(circle at 50% 25%, rgba(245, 243, 255, 0.85) 0%, rgba(139, 92, 246, 0.13) 100%)',
                             border: darkMode
-                              ? '1.5px solid rgba(216, 180, 254, 0.6)'
-                              : '1.5px solid rgba(147, 51, 234, 0.48)',
+                              ? '1px solid rgba(167, 139, 250, 0.26)'
+                              : '1px solid rgba(124, 58, 237, 0.16)',
                             boxShadow: darkMode
-                              ? '0 6px 24px -2px rgba(147, 51, 234, 0.55), 0 0 14px rgba(168, 85, 247, 0.38), inset 0 2px 3px rgba(255, 255, 255, 0.38), inset 0 -2px 6px rgba(88, 28, 135, 0.48)'
-                              : '0 6px 22px -2px rgba(147, 51, 234, 0.34), 0 2px 8px rgba(168, 85, 247, 0.22), inset 0 2px 4px rgba(255, 255, 255, 1), inset 0 -2px 6px rgba(147, 51, 234, 0.22)'
+                              ? '0 4px 16px -3px rgba(124, 58, 237, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.14)'
+                              : '0 4px 14px -4px rgba(124, 58, 237, 0.14), inset 0 1.5px 2px rgba(255, 255, 255, 0.92)'
                           }}
                         />
                       </div>
@@ -6930,15 +6930,15 @@ export default function App() {
                         className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-150 group active:scale-92 z-10 cursor-pointer select-none"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-200 ${
+                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.4 : 1.9} className={`mb-0.5 transition-all duration-200 ${
                               activeTab === 'home' 
-                                ? (darkMode ? 'text-purple-200 scale-110 drop-shadow-[0_2px_8px_rgba(192,132,252,0.65)]' : 'text-purple-600 scale-110 drop-shadow-[0_2px_6px_rgba(147,51,234,0.35)]') 
+                                ? (darkMode ? 'text-violet-300 scale-105' : 'text-violet-600 scale-105') 
                                 : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
                             <span className={`text-[10.5px] tracking-tight transition-all duration-200 ${
                               activeTab === 'home' 
-                                ? (darkMode ? 'text-white font-black' : 'text-purple-950 font-black') 
-                                : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
+                                ? (darkMode ? 'text-violet-200 font-bold' : 'text-violet-700 font-bold') 
+                                : (darkMode ? 'text-slate-400 font-medium group-hover:text-slate-200' : 'text-slate-500 font-medium group-hover:text-slate-700')
                             }`}>{t.home}</span>
                         </div>
                     </button>
@@ -6950,15 +6950,15 @@ export default function App() {
                         className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-150 group active:scale-92 z-10 cursor-pointer select-none"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-200 ${
+                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.4 : 1.9} className={`mb-0.5 transition-all duration-200 ${
                               activeTab === 'add-money' 
-                                ? (darkMode ? 'text-purple-200 scale-110 drop-shadow-[0_2px_8px_rgba(192,132,252,0.65)]' : 'text-purple-600 scale-110 drop-shadow-[0_2px_6px_rgba(147,51,234,0.35)]') 
+                                ? (darkMode ? 'text-violet-300 scale-105' : 'text-violet-600 scale-105') 
                                 : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
                             <span className={`text-[10.5px] tracking-tight transition-all duration-200 ${
                               activeTab === 'add-money' 
-                                ? (darkMode ? 'text-white font-black' : 'text-purple-950 font-black') 
-                                : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
+                                ? (darkMode ? 'text-violet-200 font-bold' : 'text-violet-700 font-bold') 
+                                : (darkMode ? 'text-slate-400 font-medium group-hover:text-slate-200' : 'text-slate-500 font-medium group-hover:text-slate-700')
                             }`}>{t.addMoney}</span>
                         </div>
                     </button>
@@ -6970,15 +6970,15 @@ export default function App() {
                         className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-150 group active:scale-92 z-10 cursor-pointer select-none"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-200 ${
+                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.4 : 1.9} className={`mb-0.5 transition-all duration-200 ${
                               activeTab === 'profile' 
-                                ? (darkMode ? 'text-purple-200 scale-110 drop-shadow-[0_2px_8px_rgba(192,132,252,0.65)]' : 'text-purple-600 scale-110 drop-shadow-[0_2px_6px_rgba(147,51,234,0.35)]') 
+                                ? (darkMode ? 'text-violet-300 scale-105' : 'text-violet-600 scale-105') 
                                 : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
                             <span className={`text-[10.5px] tracking-tight transition-all duration-200 ${
                               activeTab === 'profile' 
-                                ? (darkMode ? 'text-white font-black' : 'text-purple-950 font-black') 
-                                : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
+                                ? (darkMode ? 'text-violet-200 font-bold' : 'text-violet-700 font-bold') 
+                                : (darkMode ? 'text-slate-400 font-medium group-hover:text-slate-200' : 'text-slate-500 font-medium group-hover:text-slate-700')
                             }`}>{t.profile}</span>
                         </div>
                     </button>
