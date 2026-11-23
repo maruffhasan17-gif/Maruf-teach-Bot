@@ -5805,13 +5805,95 @@ export default function App() {
   const [liquidMorphState, setLiquidMorphState] = useState({ dir: 'none', key: 0 });
   const [pageAnimClass, setPageAnimClass] = useState('tp-page-anim-sub');
   const prevActiveTabRef = useRef(activeTab);
+  const liquidCarrierRef = useRef(null);
+  const liquidBubbleRef = useRef(null);
+  const liquidPhysicsRef = useRef({
+    x: ['home', 'add-money', 'profile'].indexOf(activeTab) !== -1 ? ['home', 'add-money', 'profile'].indexOf(activeTab) * 100 : 0,
+    targetX: ['home', 'add-money', 'profile'].indexOf(activeTab) !== -1 ? ['home', 'add-money', 'profile'].indexOf(activeTab) * 100 : 0,
+    vx: 0,
+    tapPulse: 0,
+    tapV: 0,
+    rafId: null,
+    lastTs: 0
+  });
+
+  const startLiquidPhysicsLoop = useCallback((nextTargetIdx, isTapBounce = false) => {
+    const p = liquidPhysicsRef.current;
+    if (typeof nextTargetIdx === 'number' && nextTargetIdx !== -1) {
+      p.targetX = nextTargetIdx * 100;
+    }
+    if (isTapBounce) {
+      p.tapV = -3.8;
+    }
+    if (p.rafId) return;
+    p.lastTs = performance.now();
+
+    const step = (now) => {
+      const rawDt = (now - p.lastTs) / 1000;
+      p.lastTs = now;
+      const dt = Math.min(Math.max(rawDt, 0.001), 0.032);
+
+      // Hooke's Law Under-Damped Fluid Spring Solver (Stiffness k=310, Damping c=21)
+      const k = 310;
+      const c = 21;
+      const displacement = p.x - p.targetX;
+      const springForce = -k * displacement;
+      const dampingForce = -c * p.vx;
+      const ax = springForce + dampingForce;
+
+      p.vx += ax * dt;
+      p.x += p.vx * dt;
+
+      // Secondary Jelly Tap Pulse Oscillator
+      const tapK = 420;
+      const tapC = 18;
+      const tapA = -tapK * p.tapPulse - tapC * p.tapV;
+      p.tapV += tapA * dt;
+      p.tapPulse += p.tapV * dt;
+
+      // Velocity-Driven Surface Tension & Volume-Conserving Liquid Stretch
+      const speedNorm = Math.min(Math.abs(p.vx) / 560, 1.0);
+      const stretchX = 1 + speedNorm * 0.48 + p.tapPulse * 0.14;
+      const squashY = (1 / Math.sqrt(Math.max(0.65, stretchX))) - Math.abs(p.tapPulse) * 0.05;
+      const skewDeg = Math.max(-9, Math.min(9, -(p.vx / 180)));
+
+      if (liquidCarrierRef.current) {
+        liquidCarrierRef.current.style.transform = `translate3d(${p.x.toFixed(3)}%, 0, 0)`;
+      }
+      if (liquidBubbleRef.current) {
+        liquidBubbleRef.current.style.transform = `scale3d(${stretchX.toFixed(4)}, ${squashY.toFixed(4)}, 1) skewX(${skewDeg.toFixed(2)}deg)`;
+      }
+
+      const settled = Math.abs(displacement) < 0.08 && Math.abs(p.vx) < 0.6 && Math.abs(p.tapPulse) < 0.005 && Math.abs(p.tapV) < 0.05;
+      if (!settled) {
+        p.rafId = requestAnimationFrame(step);
+      } else {
+        p.x = p.targetX;
+        p.vx = 0;
+        p.tapPulse = 0;
+        p.tapV = 0;
+        p.rafId = null;
+        if (liquidCarrierRef.current) {
+          liquidCarrierRef.current.style.transform = `translate3d(${p.targetX}%, 0, 0)`;
+        }
+        if (liquidBubbleRef.current) {
+          liquidBubbleRef.current.style.transform = 'scale3d(1, 1, 1) skewX(0deg)';
+        }
+      }
+    };
+
+    p.rafId = requestAnimationFrame(step);
+  }, []);
 
   useEffect(() => {
+    const navOrder = ['home', 'add-money', 'profile'];
+    const nextIdx = navOrder.indexOf(activeTab);
+    if (nextIdx !== -1) {
+      startLiquidPhysicsLoop(nextIdx, false);
+    }
     const prev = prevActiveTabRef.current;
     if (prev === activeTab) return;
-    const navOrder = ['home', 'add-money', 'profile'];
     const prevIdx = navOrder.indexOf(prev);
-    const nextIdx = navOrder.indexOf(activeTab);
 
     if (prevIdx !== -1 && nextIdx !== -1) {
       const dir = nextIdx > prevIdx ? 'right' : 'left';
@@ -5826,7 +5908,7 @@ export default function App() {
     } catch (_) {
       window.scrollTo(0, 0);
     }
-  }, [activeTab]);
+  }, [activeTab, startLiquidPhysicsLoop]);
 
   const [buyInitialAsset, setBuyInitialAsset] = useState('GRAM');
   const [sellInitialAsset, setSellInitialAsset] = useState('GRAM');
@@ -6512,12 +6594,11 @@ export default function App() {
             </div>
           )}
 
-          {/* SMOOTH 60FPS GPU-ACCELERATED PAGE TRANSITION CONTAINER (Zero Layout Reflow Lag) */}
-          <div key={activeTab} className={`${pageAnimClass} transform-gpu`}>
-          {activeTab === 'home' && (
+          {/* PERSISTENT PRIMARY TABS (0ms Zero-Unmount Switching + Smooth Entry Animation + No Transform Clipping) */}
+          <div className={activeTab === 'home' ? `block ${pageAnimClass}` : 'hidden'}>
               <HomePage 
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
-                  isHomeActive={true}
+                  isHomeActive={activeTab === 'home'}
                   balance={balance} 
                   balanceLoaded={balanceLoaded}
                   appMarketRates={appMarketRates}
@@ -6560,10 +6641,10 @@ export default function App() {
                   onGoToTransfer={() => setActiveTab('transfer')}
                   onDismissWithdrawNotice={() => handleDismissWithdrawNotice(fiatWithdrawPending)}
               />
-          )}
+          </div>
 
-          {activeTab === 'add-money' && (
-              restrictionInfo?.isRestricted ? (
+          <div className={activeTab === 'add-money' ? `block ${pageAnimClass}` : 'hidden'}>
+              {restrictionInfo?.isRestricted ? (
                   <RestrictedNoticeScreen 
                       onBack={() => setActiveTab('home')}
                       featureName={lang === 'bn' ? 'টাকা যোগ (Add Money)' : 'Add Money'}
@@ -6592,10 +6673,10 @@ export default function App() {
                       }}
                       reloadData={() => loadData(user?.id || 123456789)}
                   />
-              )
-          )}
+              )}
+          </div>
 
-          {activeTab === 'profile' && (
+          <div className={activeTab === 'profile' ? `block ${pageAnimClass}` : 'hidden'}>
               <ProfilePage 
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
                   user={user} 
@@ -6621,9 +6702,11 @@ export default function App() {
                   setIsModalOpen={setIsModalOpen}
                   reloadData={() => loadData(user?.id || 123456789)} 
               />
-          )}
+          </div>
 
-          {/* DYNAMIC ON-DEMAND SUBPAGES */}
+          {/* DYNAMIC ON-DEMAND SUBPAGES (Smooth Subpage Animation & No Transform Clipping) */}
+          {activeTab !== 'home' && activeTab !== 'add-money' && activeTab !== 'profile' && (
+          <div key={activeTab} className="tp-page-anim-sub">
           {activeTab === 'buy' && (
               restrictionInfo?.isRestricted ? (
                   <RestrictedNoticeScreen 
@@ -6778,28 +6861,22 @@ export default function App() {
               />
           )}
           </div>
+          )}
         </div>
 
-        {/* LIQUID ELASTIC BOTTOM NAVIGATION BAR (Matching reference video physics & glass bubble) */}
+        {/* PINK LIQUID PURE-PHYSICS BOTTOM NAVIGATION BAR (120fps requestAnimationFrame Hooke's Law Spring & Velocity Droplet) */}
         {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral'  && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (() => {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             const isNavHidden = isKeyboardVisible || (activeTab === 'add-money' && addMoneyStep === 2);
-            const morphClass = liquidMorphState.dir === 'right'
-              ? 'tp-liquid-morph-right'
-              : liquidMorphState.dir === 'left'
-              ? 'tp-liquid-morph-left'
-              : liquidMorphState.dir === 'tap'
-              ? 'tp-liquid-morph-tap'
-              : '';
 
-            const handleNavTap = (tabKey) => {
+            const handleNavTap = (tabKey, idx) => {
               if (window.Telegram?.WebApp?.HapticFeedback) {
                 window.Telegram.WebApp.HapticFeedback.selectionChanged();
               }
-              if (activeTab === tabKey) {
-                setLiquidMorphState(s => ({ dir: 'tap', key: s.key + 1 }));
-              } else {
+              // Kick off 120fps pure spring physics immediately on pointer interaction (0.0ms latency)
+              startLiquidPhysicsLoop(idx, activeTab === tabKey);
+              if (activeTab !== tabKey) {
                 setActiveTab(tabKey);
               }
             };
@@ -6809,38 +6886,38 @@ export default function App() {
                 <div 
                   className={`w-full max-w-[365px] backdrop-blur-xl rounded-full relative flex justify-between items-center p-1.5 pointer-events-auto transition-colors duration-300 ${
                     darkMode 
-                      ? 'bg-slate-900/92 border border-white/[0.11] text-white' 
-                      : 'bg-white/95 border border-slate-200/85 text-slate-900'
+                      ? 'bg-slate-900/92 border border-pink-500/20 text-white' 
+                      : 'bg-white/95 border border-pink-200/80 text-slate-900'
                   }`}
                   style={{
                     boxShadow: darkMode
-                      ? '0 14px 40px -6px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.08)'
-                      : '0 14px 36px -6px rgba(15, 23, 42, 0.11), 0 2px 10px rgba(15, 23, 42, 0.04), inset 0 1.5px 2px rgba(255, 255, 255, 0.95)'
+                      ? '0 14px 40px -6px rgba(0, 0, 0, 0.7), 0 0 24px -4px rgba(236, 72, 153, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.1)'
+                      : '0 14px 36px -6px rgba(236, 72, 153, 0.16), 0 2px 10px rgba(15, 23, 42, 0.04), inset 0 1.5px 2px rgba(255, 255, 255, 0.98)'
                   }}
                 >
-                    {/* LIQUID ELASTIC DROPLET ACTIVE BUBBLE */}
+                    {/* REAL-TIME SPRING PHYSICS PINK LIQUID DROPLET BUBBLE */}
                     {activeIndex !== -1 && (
                       <div 
+                        ref={liquidCarrierRef}
                         className="absolute top-1.5 bottom-1.5 left-1.5 pointer-events-none will-change-transform z-0"
                         style={{
                           width: 'calc((100% - 12px) / 3)',
-                          transform: `translate3d(${activeIndex * 100}%, 0, 0)`,
-                          transition: 'transform 430ms cubic-bezier(0.22, 1.24, 0.36, 1)'
+                          transform: `translate3d(${activeIndex * 100}%, 0, 0)`
                         }}
                       >
                         <div
-                          key={liquidMorphState.key}
-                          className={`w-full h-full rounded-full ${morphClass}`}
+                          ref={liquidBubbleRef}
+                          className="w-full h-full rounded-full will-change-transform"
                           style={{
                             background: darkMode
-                              ? 'radial-gradient(circle at 50% 30%, rgba(168, 85, 247, 0.34) 0%, rgba(124, 58, 237, 0.48) 100%)'
-                              : 'radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.92) 0%, rgba(237, 233, 254, 0.96) 55%, rgba(221, 214, 254, 0.92) 100%)',
+                              ? 'radial-gradient(circle at 50% 25%, rgba(244, 114, 182, 0.45) 0%, rgba(236, 72, 153, 0.56) 55%, rgba(190, 24, 93, 0.62) 100%)'
+                              : 'radial-gradient(circle at 50% 22%, rgba(255, 245, 250, 0.98) 0%, rgba(252, 231, 243, 0.96) 45%, rgba(249, 168, 212, 0.78) 100%)',
                             border: darkMode
-                              ? '1.5px solid rgba(192, 132, 252, 0.45)'
-                              : '1.5px solid rgba(139, 92, 246, 0.32)',
+                              ? '1.5px solid rgba(249, 168, 212, 0.6)'
+                              : '1.5px solid rgba(236, 72, 153, 0.48)',
                             boxShadow: darkMode
-                              ? '0 6px 22px -2px rgba(168, 85, 247, 0.42), inset 0 1.5px 2px rgba(255, 255, 255, 0.25)'
-                              : '0 6px 20px -2px rgba(124, 58, 237, 0.24), inset 0 2px 3px rgba(255, 255, 255, 0.95)'
+                              ? '0 6px 24px -2px rgba(236, 72, 153, 0.55), 0 0 14px rgba(244, 114, 182, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.38), inset 0 -2px 6px rgba(131, 24, 67, 0.45)'
+                              : '0 6px 22px -2px rgba(236, 72, 153, 0.34), 0 2px 8px rgba(244, 114, 182, 0.22), inset 0 2px 4px rgba(255, 255, 255, 1), inset 0 -2px 6px rgba(236, 72, 153, 0.2)'
                           }}
                         />
                       </div>
@@ -6849,18 +6926,18 @@ export default function App() {
                     {/* HOME */}
                     <button 
                         type="button"
-                        onClick={() => handleNavTap('home')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-200 group active:scale-92 z-10 cursor-pointer select-none"
+                        onClick={() => handleNavTap('home', 0)} 
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-150 group active:scale-92 z-10 cursor-pointer select-none"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-300 ${
+                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-200 ${
                               activeTab === 'home' 
-                                ? (darkMode ? 'text-purple-300 scale-110 drop-shadow-[0_2px_6px_rgba(168,85,247,0.45)]' : 'text-violet-700 scale-110 drop-shadow-[0_2px_5px_rgba(124,58,237,0.25)]') 
+                                ? (darkMode ? 'text-pink-200 scale-110 drop-shadow-[0_2px_8px_rgba(244,114,182,0.65)]' : 'text-pink-600 scale-110 drop-shadow-[0_2px_6px_rgba(236,72,153,0.35)]') 
                                 : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
-                            <span className={`text-[10.5px] tracking-tight transition-all duration-300 ${
+                            <span className={`text-[10.5px] tracking-tight transition-all duration-200 ${
                               activeTab === 'home' 
-                                ? (darkMode ? 'text-white font-black' : 'text-violet-950 font-black') 
+                                ? (darkMode ? 'text-white font-black' : 'text-pink-950 font-black') 
                                 : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
                             }`}>{t.home}</span>
                         </div>
@@ -6869,18 +6946,18 @@ export default function App() {
                     {/* ADD MONEY */}
                     <button 
                         type="button"
-                        onClick={() => handleNavTap('add-money')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-200 group active:scale-92 z-10 cursor-pointer select-none"
+                        onClick={() => handleNavTap('add-money', 1)} 
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-150 group active:scale-92 z-10 cursor-pointer select-none"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-300 ${
+                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-200 ${
                               activeTab === 'add-money' 
-                                ? (darkMode ? 'text-purple-300 scale-110 drop-shadow-[0_2px_6px_rgba(168,85,247,0.45)]' : 'text-violet-700 scale-110 drop-shadow-[0_2px_5px_rgba(124,58,237,0.25)]') 
+                                ? (darkMode ? 'text-pink-200 scale-110 drop-shadow-[0_2px_8px_rgba(244,114,182,0.65)]' : 'text-pink-600 scale-110 drop-shadow-[0_2px_6px_rgba(236,72,153,0.35)]') 
                                 : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
-                            <span className={`text-[10.5px] tracking-tight transition-all duration-300 ${
+                            <span className={`text-[10.5px] tracking-tight transition-all duration-200 ${
                               activeTab === 'add-money' 
-                                ? (darkMode ? 'text-white font-black' : 'text-violet-950 font-black') 
+                                ? (darkMode ? 'text-white font-black' : 'text-pink-950 font-black') 
                                 : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
                             }`}>{t.addMoney}</span>
                         </div>
@@ -6889,18 +6966,18 @@ export default function App() {
                     {/* PROFILE */}
                     <button 
                         type="button"
-                        onClick={() => handleNavTap('profile')} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-200 group active:scale-92 z-10 cursor-pointer select-none"
+                        onClick={() => handleNavTap('profile', 2)} 
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-150 group active:scale-92 z-10 cursor-pointer select-none"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-300 ${
+                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-200 ${
                               activeTab === 'profile' 
-                                ? (darkMode ? 'text-purple-300 scale-110 drop-shadow-[0_2px_6px_rgba(168,85,247,0.45)]' : 'text-violet-700 scale-110 drop-shadow-[0_2px_5px_rgba(124,58,237,0.25)]') 
+                                ? (darkMode ? 'text-pink-200 scale-110 drop-shadow-[0_2px_8px_rgba(244,114,182,0.65)]' : 'text-pink-600 scale-110 drop-shadow-[0_2px_6px_rgba(236,72,153,0.35)]') 
                                 : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
-                            <span className={`text-[10.5px] tracking-tight transition-all duration-300 ${
+                            <span className={`text-[10.5px] tracking-tight transition-all duration-200 ${
                               activeTab === 'profile' 
-                                ? (darkMode ? 'text-white font-black' : 'text-violet-950 font-black') 
+                                ? (darkMode ? 'text-white font-black' : 'text-pink-950 font-black') 
                                 : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
                             }`}>{t.profile}</span>
                         </div>
@@ -9301,12 +9378,18 @@ const BUY_USDT_NETWORKS = [
 
 // REALTIME FULL-PAGE BUY CRYPTO (Live On-Chain Payout from User BDT Balance)
 function OnChainHelpModal({ isOpen, onClose, network = 'TON', lang = 'bn', darkMode = false }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className={`w-full max-w-sm rounded-3xl p-5 border shadow-2xl relative animate-in zoom-in-95 duration-200 ${
-        darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
-      }`}>
+  if (!isOpen || typeof document === 'undefined') return null;
+  return createPortal(
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[99999] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className={`w-full max-w-sm rounded-3xl p-5 border shadow-2xl relative animate-in zoom-in-95 duration-200 ${
+          darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+        }`}
+      >
         <button
           type="button"
           onClick={onClose}
@@ -9360,7 +9443,8 @@ function OnChainHelpModal({ isOpen, onClose, network = 'TON', lang = 'bn', darkM
           {lang === 'bn' ? 'ঠিক আছে, বুঝেছি' : 'Got it'}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -9417,7 +9501,7 @@ function OnChainTransferProgressModal({
     }
   }, [isOpen, stage]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const truncatedAddress = targetAddress && targetAddress.length > 12 
     ? `${targetAddress.slice(0, 6)}...${targetAddress.slice(-4)}`
@@ -9425,8 +9509,8 @@ function OnChainTransferProgressModal({
 
   const assetLogo = asset === 'USDT' ? 'usdt.svg' : 'gram.svg';
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in duration-300">
       <style>{`
         @keyframes tpDrawCheck {
           0% { stroke-dashoffset: 48; }
@@ -9637,7 +9721,8 @@ function OnChainTransferProgressModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -12118,11 +12203,11 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
         </div>
       </div>
 
-      {/* Interactive Language Selector Popup Modal */}
-      {showLanguageModal && (
+      {/* Interactive Language Selector Popup Modal (Portal to document.body for edge-to-edge full screen backdrop) */}
+      {showLanguageModal && typeof document !== 'undefined' && createPortal(
         <div
           onClick={() => setShowLanguageModal(false)}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200"
         >
           <div
             onClick={e => e.stopPropagation()}
@@ -12235,11 +12320,12 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {txStatus && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-200">
+      {txStatus && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
            <div className={`relative w-full max-w-[320px] p-6 flex flex-col items-center text-center rounded-3xl shadow-2xl border transition-all animate-in zoom-in-95 slide-in-from-bottom-4 overflow-hidden ${
              darkMode ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200/90 text-slate-900'
            }`}>
@@ -12266,7 +12352,8 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
                   </button>
               </div>
            </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
