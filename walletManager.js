@@ -1,9 +1,9 @@
 const { mnemonicNew, mnemonicToPrivateKey } = require('@ton/crypto');
 const { WalletContractV4, TonClient, internal, SendMode } = require('@ton/ton');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getSupabaseFirestore } = require('./supabase_firestore_engine');
 
 async function getOrCreateBotWallet() {
-    const db = getFirestore();
+    const { db } = getSupabaseFirestore();
     const docRef = db.collection('config').doc('botWallet');
     const doc = await docRef.get();
     

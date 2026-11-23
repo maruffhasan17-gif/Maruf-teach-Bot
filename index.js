@@ -13,21 +13,15 @@ const escapeHtml = (str) => {
 };
 
 const crypto = require('crypto');
-const { initializeApp, cert } = require('firebase-admin/app');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
+const { getSupabaseFirestore, FieldValue } = require('./supabase_firestore_engine');
 const { getOrCreateBotWallet } = require('./walletManager');
-const { createClient } = require('@supabase/supabase-js');
 
-// Init Supabase
-const supabaseUrl = 'https://piieczrpdqfoswerqgtl.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpaWVjenJwZHFmb3N3ZXJxZ3RsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDU4ODE2OSwiZXhwIjoyMTA2MTY0MTY5fQ.SHOi3gmKGSodPeRRv1dAe56sqf_nLX-YKe3C2oLSAKE'; // Service Role Key bypasses RLS
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-const serviceAccount = require('./maruf-teach-firebase-adminsdk-fbsvc-e0269310ba.json');
-initializeApp({ credential: cert(serviceAccount) });
-const db = getFirestore();
+// Init Supabase (Primary Database Engine - Zero 50k Read Quota Limit)
+const supabaseUrl = process.env.SUPABASE_URL || 'https://piieczrpdqfoswerqgtl.supabase.co';
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpaWVjenJwZHFmb3N3ZXJxZ3RsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MDU4ODE2OSwiZXhwIjoyMTA2MTY0MTY5fQ.SHOi3gmKGSodPeRRv1dAe56sqf_nLX-YKe3C2oLSAKE';
+const { db, supabase } = getSupabaseFirestore({ supabaseUrl, supabaseKey });
 
 // In-memory caches and fallbacks to protect Firestore quota limits
 const inMemoryVerifiedTrx = new Map();
