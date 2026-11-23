@@ -6505,6 +6505,15 @@ export default function App() {
                   fiatWithdrawPending={fiatWithdrawPending} 
                   onGoToClaim={() => setActiveTab('claim')} 
                   onOpenBuyCrypto={(asset) => {
+                    if (asset === 'USDT') {
+                      const msg = lang === 'bn' ? 'সম্মানিত গ্রাহক, রিজার্ভ মেইনটেন্যান্সের কারণে সাময়িকভাবে USDT ক্রয় বন্ধ রয়েছে। আপনি GRAM ক্রয় করতে পারেন।' : 'USDT purchase is temporarily paused. Please buy GRAM.';
+                      if (window.Telegram?.WebApp?.showAlert) {
+                        window.Telegram.WebApp.showAlert(msg);
+                      } else {
+                        alert(msg);
+                      }
+                      return;
+                    }
                     if (asset && typeof asset === 'string') {
                       setBuyInitialAsset(asset);
                       setActiveTab('buy');
@@ -7311,7 +7320,7 @@ function CryptoAssetSelectModal({
             </div>
             <div className="relative z-10 flex items-center gap-2 shrink-0">
               <span className="text-[12px] font-black text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">
-                {isBuy ? (lang === 'bn' ? 'কিনুন' : 'Buy') : (lang === 'bn' ? 'বিক্রি' : 'Sell')}
+                {isBuy ? (lang === 'bn' ? 'বন্ধ (Paused)' : 'Paused') : (lang === 'bn' ? 'বিক্রি' : 'Sell')}
               </span>
               <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/35 group-hover:bg-indigo-700 group-hover:scale-110 active:scale-95 transition-all">
                 <ArrowRight size={15} strokeWidth={2.8} />
@@ -7321,8 +7330,21 @@ function CryptoAssetSelectModal({
 
           {/* USDT */}
           <div 
-            onClick={() => onSelectAsset('USDT', mode)}
+            onClick={() => {
+              if (isBuy) {
+                const msg = lang === 'bn' ? 'সম্মানিত গ্রাহক, রিজার্ভ মেইনটেন্যান্সের কারণে সাময়িকভাবে USDT ক্রয় বন্ধ রয়েছে। আপনি GRAM ক্রয় করতে পারেন।' : 'USDT purchase is temporarily paused. Please buy GRAM.';
+                if (window.Telegram?.WebApp?.showAlert) {
+                  window.Telegram.WebApp.showAlert(msg);
+                } else {
+                  alert(msg);
+                }
+                return;
+              }
+              onSelectAsset('USDT', mode);
+            }}
             className={`relative overflow-hidden p-3.5 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-all active:scale-[0.98] ${
+              isBuy ? 'opacity-80' : ''
+            } ${
               darkMode 
                 ? 'bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 border-slate-800 hover:border-emerald-500/60' 
                 : 'bg-gradient-to-r from-white via-white/95 to-emerald-50/70 border-emerald-200/80 hover:border-emerald-400'
@@ -7345,7 +7367,14 @@ function CryptoAssetSelectModal({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-[16px] leading-tight block">USDT</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-[16px] leading-tight block">USDT</span>
+                    {isBuy && (
+                      <span className="px-1.5 py-0.2 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-500 text-[9px] font-black uppercase">
+                        {lang === 'bn' ? 'সাময়িক বন্ধ' : 'Paused'}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className={`text-[11.5px] font-bold block mt-0.5 ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
                   ১ USDT ≈ ৳{usdtRate} BDT
@@ -9572,7 +9601,7 @@ function OnChainTransferProgressModal({
 
 function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAddMoney, onBack, initialAsset = 'GRAM', darkMode = false, twoStepEnabled = false, twoStepLength = 4 }) {
     const userTonAddress = useTonAddress();
-    const [selectedAsset, setSelectedAsset] = useState(() => (initialAsset === 'USDT' ? 'USDT' : 'GRAM'));
+    const [selectedAsset, setSelectedAsset] = useState('GRAM');
     const [selectedNetwork, setSelectedNetwork] = useState('TON'); // 'TON' | 'ARBITRUM' | 'BEP20'
     const [isNetworkDropdownOpen, setIsNetworkDropdownOpen] = useState(false);
     const [bdtAmount, setBdtAmount] = useState('');
@@ -9794,6 +9823,10 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     };
 
     const handleConfirmBuy = async () => {
+        if (selectedAsset === 'USDT') {
+            const msg = lang === 'bn' ? 'সম্মানিত গ্রাহক, রিজার্ভ মেইনটেন্যান্সের কারণে সাময়িকভাবে USDT ক্রয় বন্ধ রয়েছে। অনুগ্রহ করে GRAM ক্রয় করুন।' : 'USDT purchase is temporarily paused. Please buy GRAM.';
+            return window.Telegram?.WebApp?.showAlert ? window.Telegram.WebApp.showAlert(msg) : alert(msg);
+        }
         const targetAddress = destMode === 'connected' ? (userTonAddress || receiveAddress) : receiveAddress;
         if (!numBdt || isNaN(numBdt) || numBdt < 20) {
             return window.Telegram?.WebApp?.showAlert 
@@ -10181,15 +10214,21 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
 
                     <button
                         type="button"
-                        onClick={hasInsufficientBalance ? onGoToAddMoney : handleConfirmBuy}
-                        disabled={!hasInsufficientBalance && (!numBdt || numBdt < 20)}
-                        className="px-7 py-3 rounded-2xl font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white"
+                        onClick={selectedAsset === 'USDT' ? undefined : (hasInsufficientBalance ? onGoToAddMoney : handleConfirmBuy)}
+                        disabled={selectedAsset === 'USDT' || (!hasInsufficientBalance && (!numBdt || numBdt < 20))}
+                        className={`px-7 py-3 rounded-2xl font-black text-sm shadow-[0_4px_16px_rgba(124,58,237,0.4)] hover:opacity-95 active:scale-95 transition-all flex items-center gap-2 shrink-0 ${
+                            selectedAsset === 'USDT'
+                                ? 'bg-slate-500/80 text-white cursor-not-allowed opacity-60'
+                                : 'bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'
+                        }`}
                     >
                         <Zap size={16} fill="currentColor" />
                         <span>
-                            {hasInsufficientBalance 
-                                ? (lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money') 
-                                : (lang === 'bn' ? 'কনফার্ম করুন' : 'Confirm Buy')}
+                            {selectedAsset === 'USDT'
+                                ? (lang === 'bn' ? 'USDT ক্রয় বন্ধ রয়েছে' : 'USDT Buy Paused')
+                                : (hasInsufficientBalance 
+                                    ? (lang === 'bn' ? 'টাকা যোগ করুন' : 'Add Money') 
+                                    : (lang === 'bn' ? 'কনফার্ম করুন' : 'Confirm Buy'))}
                         </span>
                     </button>
                 </div>

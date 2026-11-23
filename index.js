@@ -8846,6 +8846,13 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         let cleanAsset = (asset || 'GRAM').toUpperCase();
         if (cleanAsset === 'TON') cleanAsset = 'GRAM';
         asset = cleanAsset;
+
+        // ⛔ USDT Buying paused per admin request (GRAM remains fully open)
+        if (cleanAsset === 'USDT') {
+            return res.status(400).json({
+                error: 'সম্মানিত গ্রাহক, রিজার্ভ স্বল্পতার কারণে USDT ক্রয় সাময়িকভাবে বন্ধ রয়েছে। আপনি GRAM ক্রয় করতে পারেন।'
+            });
+        }
         receiveAddress = String(receiveAddress || '').trim();
 
         // Determine target network (TON, BEP20, ARBITRUM)
