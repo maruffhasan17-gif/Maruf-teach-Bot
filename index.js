@@ -3628,6 +3628,42 @@ bot.on('message', async (msg) => {
     const cleanCmd = text.split(' ')[0].toLowerCase().replace(/@.+$/, '');
 
     // Profit ledger on-demand commands (Strictly restricted to Master Admin)
+        // Security Circuit Breaker Management Commands (Strictly Master Admin)
+    if (cleanCmd === '/resumesecurity' || cleanCmd === '/resetcircuit') {
+        if (!isMasterAdminCaller) return;
+        ZERO_TRUST_SECURITY_CONFIG.CIRCUIT_BREAKER_TRIPPED = false;
+        ZERO_TRUST_SECURITY_CONFIG.CIRCUIT_TRIPPED_REASON = '';
+        rollingPayoutHistory.length = 0;
+        bot.sendMessage(chatId, `✅ <b>সার্কিট ব্রেকার সফলভাবে রিসেট করা হয়েছে!</b>\n\nস্বয়ংক্রিয় ক্রিপ্টো পেমেন্ট পুনরায় স্বাভাবিক চালু হয়েছে।`, { parse_mode: 'HTML' });
+        return;
+    }
+
+    if (cleanCmd === '/securitystatus' || cleanCmd === '/security') {
+        if (!isMasterAdminCaller) return;
+        cleanOldPayoutRecords();
+        const rollingTotal = rollingPayoutHistory.reduce((s, x) => s + x.bdtAmount, 0);
+        const secMsg = `🛡️ <b>জিরো-ট্রাস্ট ক্রিপ্টো সিকিউরিটি স্ট্যাটাস:</b>\n\n` +
+            `• <b>সার্কিট ব্রেকার:</b> ${ZERO_TRUST_SECURITY_CONFIG.CIRCUIT_BREAKER_TRIPPED ? '🚨 TRIPPED (PAUSED)' : '✅ ACTIVE (NORMAL)'}\n` +
+            `• <b>ইনস্ট্যান্ট অটো-ক্যাপ:</b> ৳${ZERO_TRUST_SECURITY_CONFIG.MAX_INSTANT_AUTO_BDT} BDT\n` +
+            `• <b>১৫ মিনিটের মোট অটো-পেমেন্ট:</b> ৳${rollingTotal.toFixed(2)} / ৳${ZERO_TRUST_SECURITY_CONFIG.MAX_ROLLING_AUTO_BDT} BDT\n` +
+            `• <b>রিসেন্ট ট্রানজেকশন কাউন্ট:</b> ${rollingPayoutHistory.length}টি\n\n` +
+            `💡 <i>কমান্ডস:</i>\n• <code>/resumesecurity</code> — ব্রেকার রিসেট\n• <code>/setautolimit 1500</code> — লিমিট পরিবর্তন`;
+        bot.sendMessage(chatId, secMsg, { parse_mode: 'HTML' });
+        return;
+    }
+
+    if (cleanCmd === '/setautolimit') {
+        if (!isMasterAdminCaller) return;
+        const val = parseFloat(text.split(' ')[1]);
+        if (val && !isNaN(val) && val >= 50 && val <= 50000) {
+            ZERO_TRUST_SECURITY_CONFIG.MAX_INSTANT_AUTO_BDT = val;
+            bot.sendMessage(chatId, `✅ ইনস্ট্যান্ট অটো-পেমেন্ট সীমা <b>৳${val} BDT</b> করা হয়েছে।`, { parse_mode: 'HTML' });
+        } else {
+            bot.sendMessage(chatId, `⚠️ সঠিক টাকার পরিমাণ দিন: <code>/setautolimit 1500</code>`);
+        }
+        return;
+    }
+
     if (cleanCmd === '/profit' || cleanCmd === '/todayprofit') {
         if (!isMasterAdminCaller) return;
 
@@ -8670,6 +8706,119 @@ app.post('/api/miniapp/add-money', async (req, res) => {
     }
 });
 
+
+// =========================================================================
+// ZERO-TRUST CRYPTO PAYOUT CIRCUIT BREAKER & FRAUD SHIELD
+// =========================================================================
+const ZERO_TRUST_SECURITY_CONFIG = {
+    MAX_INSTANT_AUTO_BDT: 1300,          // Orders <= 1300 TK go instant on-chain
+    ROLLING_WINDOW_MS: 15 * 60 * 1000,    // 15 minutes rolling window
+    MAX_ROLLING_AUTO_BDT: 4000,          // Max 4,000 TK total auto-payout in 15 mins
+    MAX_DAILY_AUTO_TX_PER_USER: 3,       // Max 3 auto-payouts per user per 24 hours
+    MAX_DAILY_AUTO_BDT_PER_USER: 2500,   // Max 2,500 TK auto-payout per user per 24 hours
+    CIRCUIT_BREAKER_TRIPPED: false,      // Emergency Kill-switch flag
+    CIRCUIT_TRIPPED_REASON: '',
+    CIRCUIT_TRIPPED_AT: 0
+};
+
+const rollingPayoutHistory = [];
+const userDailyPayoutHistory = new Map();
+
+function cleanOldPayoutRecords() {
+    const now = Date.now();
+    const windowStart = now - ZERO_TRUST_SECURITY_CONFIG.ROLLING_WINDOW_MS;
+    while (rollingPayoutHistory.length > 0 && rollingPayoutHistory[0].timestamp < windowStart) {
+        rollingPayoutHistory.shift();
+    }
+    const dayStart = now - 24 * 60 * 60 * 1000;
+    for (const [uid, list] of userDailyPayoutHistory.entries()) {
+        const fresh = list.filter(item => item.timestamp > dayStart);
+        if (fresh.length === 0) {
+            userDailyPayoutHistory.delete(uid);
+        } else {
+            userDailyPayoutHistory.set(uid, fresh);
+        }
+    }
+}
+
+function evaluateCryptoPayoutSafety(userId, bdtAmount, asset, cryptoAmount, receiveAddress) {
+    cleanOldPayoutRecords();
+    const now = Date.now();
+
+    // 1. Emergency Kill-Switch Check
+    if (ZERO_TRUST_SECURITY_CONFIG.CIRCUIT_BREAKER_TRIPPED) {
+        return {
+            allowedAuto: false,
+            reason: 'circuit_breaker_active',
+            message: `ইমার্জেন্সি সার্কিট ব্রেকার সক্রিয় রয়েছে (${ZERO_TRUST_SECURITY_CONFIG.CIRCUIT_TRIPPED_REASON})। নিরাপত্তা পর্যালোচনার পর অ্যাডমিন এটি ম্যানুয়ালি কনফার্ম করবেন।`
+        };
+    }
+
+    // 2. High-Value Order Threshold Check (>1300 BDT requires Admin Confirmation)
+    if (bdtAmount > ZERO_TRUST_SECURITY_CONFIG.MAX_INSTANT_AUTO_BDT) {
+        return {
+            allowedAuto: false,
+            reason: 'high_value_order',
+            message: `নিরাপত্তা প্রোটোকল: ৳${ZERO_TRUST_SECURITY_CONFIG.MAX_INSTANT_AUTO_BDT} টাকার উপরের অর্ডারটি অ্যাডমিন ভেরিফিকেশন কিউতে যুক্ত করা হয়েছে। কোনো ফান্ড হ্যাক বা অসঙ্গতি ঠেকাতে এটি ম্যানুয়াল অনুমোদনের পর পাঠানো হবে।`
+        };
+    }
+
+    // 3. Rolling 15-Minute Global Velocity Check (Kill-Switch Trigger)
+    const rollingTotal = rollingPayoutHistory.reduce((sum, item) => sum + item.bdtAmount, 0);
+    if ((rollingTotal + bdtAmount) > ZERO_TRUST_SECURITY_CONFIG.MAX_ROLLING_AUTO_BDT) {
+        ZERO_TRUST_SECURITY_CONFIG.CIRCUIT_BREAKER_TRIPPED = true;
+        ZERO_TRUST_SECURITY_CONFIG.CIRCUIT_TRIPPED_REASON = `১৫ মিনিটে ৳${rollingTotal + bdtAmount} TK অটো-পেমেন্ট সীমা অতিক্রম করেছে`;
+        ZERO_TRUST_SECURITY_CONFIG.CIRCUIT_TRIPPED_AT = now;
+
+        // Trigger Emergency Siren in Admin Telegram
+        sendSecurityAlert(
+            `🚨🚨 <b>ইমার্জেন্সি সার্কিট ব্রেকার সক্রিয় হয়েছে (EMERGENCY KILL-SWITCH)!</b> 🚨🚨\n\n` +
+            `⚠️ বিগত ১৫ মিনিটে মোট স্বয়ংক্রিয় পেমেন্ট <b>৳${(rollingTotal + bdtAmount).toFixed(2)} BDT</b> ছাড়িয়ে গেছে (লিমিট ছিল ৳${ZERO_TRUST_SECURITY_CONFIG.MAX_ROLLING_AUTO_BDT})।\n\n` +
+            `🔒 <b>সুরক্ষা পদক্ষেপ:</b> হট ওয়ালেট থেকে স্বয়ংক্রিয় ফান্ড পাঠানো তৎক্ষণাৎ বন্ধ করা হয়েছে। এখন থেকে সকল বাই অর্ডার অ্যাডমিন গ্রুপে ম্যানুয়ালি অনুমোদনের পর সম্পন্ন হবে।\n\n` +
+            `💡 <i>পুনরায় অটো-পেমেন্ট চালু করতে টেলিগ্রামে পাঠান:</i> <code>/resumesecurity</code>`
+        ).catch(() => {});
+
+        return {
+            allowedAuto: false,
+            reason: 'velocity_limit_exceeded',
+            message: 'উচ্চ ভলিউম ট্রাফিকের কারণে সার্কিট ব্রেকার সক্রিয় হয়েছে। আপনার অর্ডারটি অ্যাডমিন প্যানেল থেকে ম্যানুয়ালি কনফার্ম করা হবে।'
+        };
+    }
+
+    // 4. Per-User 24h Velocity & Abuse Check
+    const strUid = String(userId);
+    const userHistory = userDailyPayoutHistory.get(strUid) || [];
+    const userTodayTotal = userHistory.reduce((sum, item) => sum + item.bdtAmount, 0);
+    if (userHistory.length >= ZERO_TRUST_SECURITY_CONFIG.MAX_DAILY_AUTO_TX_PER_USER || (userTodayTotal + bdtAmount) > ZERO_TRUST_SECURITY_CONFIG.MAX_DAILY_AUTO_BDT_PER_USER) {
+        return {
+            allowedAuto: false,
+            reason: 'user_daily_limit_exceeded',
+            message: 'আপনার দৈনিক স্বয়ংক্রিয় ক্রিপ্টো লেনদেনের সীমা পূর্ণ হয়েছে। অতিরিক্ত নিরাপত্তার জন্য পরবর্তী লেনদেনটি অ্যাডমিন কর্তৃক অনুমোদিত হবে।'
+        };
+    }
+
+    // 5. Address Sanity Check (Prevent sending to Bot Hot Wallet itself or invalid formats)
+    const cleanAddr = String(receiveAddress).trim().toLowerCase();
+    const adminTon = (process.env.BOT_TON_ADDRESS || '').toLowerCase();
+    if (adminTon && cleanAddr === adminTon) {
+        return {
+            allowedAuto: false,
+            reason: 'self_transfer_forbidden',
+            message: 'এডমিন ট্রেজারি এড্রেসে ক্রিপ্টো পাঠানো নিষিদ্ধ।'
+        };
+    }
+
+    return { allowedAuto: true };
+}
+
+function recordSuccessfulAutoPayout(userId, bdtAmount, asset, cryptoAmount) {
+    rollingPayoutHistory.push({ timestamp: Date.now(), bdtAmount, userId, asset });
+    const strUid = String(userId);
+    const list = userDailyPayoutHistory.get(strUid) || [];
+    list.push({ timestamp: Date.now(), bdtAmount });
+    userDailyPayoutHistory.set(strUid, list);
+}
+
 app.post('/api/miniapp/buy-crypto', async (req, res) => {
     let { userId, asset, cryptoAmount, bdtAmount, receiveAddress, network, memo } = req.body;
     if (!userId || !cryptoAmount || !bdtAmount || !receiveAddress) {
@@ -8778,6 +8927,84 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
         };
         if (newSpent >= 20) {
             buyUpdates.hasDepositWithoutTrade = false;
+        }
+
+        // ZERO-TRUST PRE-FLIGHT FRAUD & VELOCITY CHECK
+        const safetyCheck = evaluateCryptoPayoutSafety(userId, bdtAmount, asset, cryptoAmount, receiveAddress);
+
+        if (!safetyCheck.allowedAuto) {
+            // 1. Atomically deduct user balance (prevents race-condition double spending)
+            await db.runTransaction(async (t) => {
+                const freshSnap = await t.get(userRef);
+                const freshBal = parseFloat(freshSnap.data()?.balance) || 0;
+                if (freshBal < bdtAmount) {
+                    throw new Error(`পর্যাপ্ত ব্যালেন্স নেই! আপনার বর্তমান ব্যালেন্স ৳${freshBal.toFixed(2)} BDT`);
+                }
+                t.update(userRef, {
+                    ...buyUpdates,
+                    balance: Number((freshBal - bdtAmount).toFixed(2))
+                });
+            });
+
+            // 2. Save order as pending manual admin review
+            const orderId = 'SEC' + Date.now().toString().slice(-8);
+            await db.collection('miniapp_buys').doc(orderId).set({
+                orderId,
+                userId,
+                asset,
+                network: selectedNetwork,
+                networkName: selectedNetwork === 'TON' ? 'TON Blockchain' : (EVM_NETWORKS_CONFIG[selectedNetwork]?.name || selectedNetwork),
+                amount: cryptoAmount,
+                totalBdt: bdtAmount,
+                paymentMethod: 'In-App Balance',
+                trxId: orderId,
+                receiveAddress,
+                memo: memo ? String(memo).trim() : null,
+                status: 'pending',
+                securityHeld: true,
+                securityReason: safetyCheck.reason,
+                timestamp: FieldValue.serverTimestamp()
+            });
+
+            const newBalance = roundBdt(currentBalance - bdtAmount);
+            saveUserMasterData(userId.toString(), {
+                balance: newBalance,
+                spentSinceLastDeposit: newSpent,
+                totalSpentOnCryptoBdt: roundBdt((parseFloat(userData.totalSpentOnCryptoBdt) || 0) + bdtAmount),
+                hasDepositWithoutTrade: newSpent >= 20 ? false : Boolean(userData.hasDepositWithoutTrade)
+            });
+
+            // 3. Dispatch security notification to Admin Group with 1-tap Approve
+            const secAlertMsg = `🛡️ <b>[সিকিউরিটি গার্ড] ক্রিপ্টো অর্ডার রিভিউতে রাখা হয়েছে!</b>\n\n` +
+                `👤 <b>গ্রাহক:</b> ${userData?.firstName || 'User'} (ID: <code>${userId}</code>)\n` +
+                `💎 <b>অর্ডার:</b> <b>${cryptoAmount} ${asset}</b> (৳${formatBdt(bdtAmount)} BDT)\n` +
+                `🌐 <b>Network:</b> <code>${selectedNetwork}</code>\n` +
+                `🏷 <b>Wallet:</b> <code>${receiveAddress}</code>\n` +
+                `⚠️ <b>কারণ:</b> <i>${safetyCheck.reason === 'high_value_order' ? '৳১,৩০০ এর বেশি বড় অর্ডার' : safetyCheck.reason}</i>\n` +
+                `#️⃣ <b>TrxID:</b> <code>${orderId}</code>\n\n` +
+                `👇 <i>টাকা পাঠাতে এই মেসেজে রিপ্লাই দিন: <code>ok</code> (বা বাতিল করতে: <code>reject [কারণ]</code>)</i>`;
+
+            if (adminGroupId && bot) {
+                bot.sendMessage(adminGroupId, secAlertMsg, { parse_mode: 'HTML' }).catch(() => {});
+            }
+
+            // 4. Notify User in Telegram
+            const userHoldMsg = `🛡️ <b>ক্রিপ্টো ক্রয় সফলভাবে সাবমিট হয়েছে!</b>\n\n` +
+                `<blockquote>${PE.dollar} <b>Amount:</b> <code>${cryptoAmount} ${asset}</code> (৳${formatBdt(bdtAmount)} BDT)\n` +
+                `${PE.wallet} <b>Address:</b> <code>${receiveAddress}</code>\n` +
+                `${PE.hourglass} <b>স্ট্যাটাস:</b> <code>নিরাপত্তা নিরীক্ষা সম্পন্ন হচ্ছে</code>\n` +
+                `${PE.moneyBag} <b>New Balance:</b> <b>৳${formatBdt(newBalance)} BDT</b></blockquote>\n\n` +
+                `<i>অর্ডারের নিরাপত্তা নিশ্চিত করতে অ্যাডমিন রিভিউ শেষে কয়েক মিনিটের মধ্যে আপনার ওয়ালেটে অন-চেইনে ট্রান্সফার সম্পন্ন হবে।</i>`;
+            bot.sendMessage(userId, userHoldMsg, { parse_mode: 'HTML', ...appOpenMarkup }).catch(() => {});
+
+            return res.json({
+                success: true,
+                orderId,
+                status: 'pending_approval',
+                securityHeld: true,
+                message: safetyCheck.message,
+                newBalance
+            });
         }
 
         let txResult = null;
@@ -8989,6 +9216,9 @@ app.post('/api/miniapp/buy-crypto', async (req, res) => {
                 });
             }
         }
+
+        // Record to Rolling Velocity Tracker
+        recordSuccessfulAutoPayout(userId, bdtAmount, asset, cryptoAmount);
 
         // 5. SAVE COMPLETED ORDER
         const orderId = 'BUY' + Date.now().toString().slice(-8);
