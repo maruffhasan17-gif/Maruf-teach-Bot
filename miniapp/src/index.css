@@ -773,3 +773,126 @@ html.dark .tp-spin-card-idle {
 .tp-golden-flash {
   animation: tpGoldenFlash 0.9s ease-out forwards;
 }
+
+/* ==========================================================================
+   LIQUID ELASTIC BOTTOM NAVIGATION BAR & 60FPS GPU PAGE TRANSITIONS
+   ========================================================================== */
+
+@keyframes tpLiquidMorphRight {
+  0% {
+    transform: scale3d(1, 1, 1);
+  }
+  28% {
+    transform: scale3d(1.44, 0.84, 1) translate3d(-10%, 0, 0);
+  }
+  58% {
+    transform: scale3d(1.16, 0.93, 1) translate3d(-3%, 0, 0);
+  }
+  82% {
+    transform: scale3d(0.94, 1.05, 1) translate3d(1%, 0, 0);
+  }
+  100% {
+    transform: scale3d(1, 1, 1) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes tpLiquidMorphLeft {
+  0% {
+    transform: scale3d(1, 1, 1);
+  }
+  28% {
+    transform: scale3d(1.44, 0.84, 1) translate3d(10%, 0, 0);
+  }
+  58% {
+    transform: scale3d(1.16, 0.93, 1) translate3d(3%, 0, 0);
+  }
+  82% {
+    transform: scale3d(0.94, 1.05, 1) translate3d(-1%, 0, 0);
+  }
+  100% {
+    transform: scale3d(1, 1, 1) translate3d(0, 0, 0);
+  }
+}
+
+@keyframes tpLiquidTapJelly {
+  0% {
+    transform: scale3d(1, 1, 1);
+  }
+  35% {
+    transform: scale3d(0.91, 0.93, 1);
+  }
+  70% {
+    transform: scale3d(1.07, 1.04, 1);
+  }
+  100% {
+    transform: scale3d(1, 1, 1);
+  }
+}
+
+.tp-liquid-morph-right {
+  animation: tpLiquidMorphRight 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform;
+}
+
+.tp-liquid-morph-left {
+  animation: tpLiquidMorphLeft 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform;
+}
+
+.tp-liquid-morph-tap {
+  animation: tpLiquidTapJelly 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  will-change: transform;
+}
+
+/* Smooth GPU Page Transitions (Zero Layout Thrash) */
+@keyframes tpPageSlideRight {
+  0% {
+    opacity: 0;
+    transform: translate3d(22px, 0, 0) scale3d(0.985, 0.985, 1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  }
+}
+
+@keyframes tpPageSlideLeft {
+  0% {
+    opacity: 0;
+    transform: translate3d(-22px, 0, 0) scale3d(0.985, 0.985, 1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  }
+}
+
+@keyframes tpPageSubEnter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale3d(0.985, 0.985, 1);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  }
+}
+
+.tp-page-anim-right {
+  animation: tpPageSlideRight 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.tp-page-anim-left {
+  animation: tpPageSlideLeft 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.tp-page-anim-sub {
+  animation: tpPageSubEnter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+

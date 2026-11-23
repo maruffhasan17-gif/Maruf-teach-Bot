@@ -5802,6 +5802,32 @@ export default function App() {
     } catch (_) {}
     return 'home';
   });
+  const [liquidMorphState, setLiquidMorphState] = useState({ dir: 'none', key: 0 });
+  const [pageAnimClass, setPageAnimClass] = useState('tp-page-anim-sub');
+  const prevActiveTabRef = useRef(activeTab);
+
+  useEffect(() => {
+    const prev = prevActiveTabRef.current;
+    if (prev === activeTab) return;
+    const navOrder = ['home', 'add-money', 'profile'];
+    const prevIdx = navOrder.indexOf(prev);
+    const nextIdx = navOrder.indexOf(activeTab);
+
+    if (prevIdx !== -1 && nextIdx !== -1) {
+      const dir = nextIdx > prevIdx ? 'right' : 'left';
+      setLiquidMorphState(s => ({ dir, key: s.key + 1 }));
+      setPageAnimClass(dir === 'right' ? 'tp-page-anim-right' : 'tp-page-anim-left');
+    } else {
+      setPageAnimClass('tp-page-anim-sub');
+    }
+    prevActiveTabRef.current = activeTab;
+    try {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    } catch (_) {
+      window.scrollTo(0, 0);
+    }
+  }, [activeTab]);
+
   const [buyInitialAsset, setBuyInitialAsset] = useState('GRAM');
   const [sellInitialAsset, setSellInitialAsset] = useState('GRAM');
   const [cryptoModalState, setCryptoModalState] = useState({ isOpen: false, mode: 'buy' });
@@ -6486,12 +6512,12 @@ export default function App() {
             </div>
           )}
 
-          {/* PERSISTENT MAIN TABS (Pre-laid-out at full geometry & GPU-promoted for 0ms zero-reflow navbar switching) */}
-          
-          <div className={activeTab === 'home' ? 'block transform-gpu' : 'fixed top-0 left-0 right-0 max-w-md mx-auto px-4 opacity-0 pointer-events-none -z-50 select-none invisible transform-gpu'}>
+          {/* SMOOTH 60FPS GPU-ACCELERATED PAGE TRANSITION CONTAINER (Zero Layout Reflow Lag) */}
+          <div key={activeTab} className={`${pageAnimClass} transform-gpu`}>
+          {activeTab === 'home' && (
               <HomePage 
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
-                  isHomeActive={activeTab === 'home'}
+                  isHomeActive={true}
                   balance={balance} 
                   balanceLoaded={balanceLoaded}
                   appMarketRates={appMarketRates}
@@ -6534,10 +6560,10 @@ export default function App() {
                   onGoToTransfer={() => setActiveTab('transfer')}
                   onDismissWithdrawNotice={() => handleDismissWithdrawNotice(fiatWithdrawPending)}
               />
-          </div>
+          )}
 
-          <div className={activeTab === 'add-money' ? 'block transform-gpu' : 'fixed top-0 left-0 right-0 max-w-md mx-auto px-4 opacity-0 pointer-events-none -z-50 select-none invisible transform-gpu'}>
-              {restrictionInfo?.isRestricted ? (
+          {activeTab === 'add-money' && (
+              restrictionInfo?.isRestricted ? (
                   <RestrictedNoticeScreen 
                       onBack={() => setActiveTab('home')}
                       featureName={lang === 'bn' ? 'টাকা যোগ (Add Money)' : 'Add Money'}
@@ -6566,10 +6592,10 @@ export default function App() {
                       }}
                       reloadData={() => loadData(user?.id || 123456789)}
                   />
-              )}
-          </div>
+              )
+          )}
 
-          <div className={activeTab === 'profile' ? 'block transform-gpu' : 'fixed top-0 left-0 right-0 max-w-md mx-auto px-4 opacity-0 pointer-events-none -z-50 select-none invisible transform-gpu'}>
+          {activeTab === 'profile' && (
               <ProfilePage 
                   onGoToLeaderboard={() => setActiveTab('leaderboard')}
                   user={user} 
@@ -6595,7 +6621,7 @@ export default function App() {
                   setIsModalOpen={setIsModalOpen}
                   reloadData={() => loadData(user?.id || 123456789)} 
               />
-          </div>
+          )}
 
           {/* DYNAMIC ON-DEMAND SUBPAGES */}
           {activeTab === 'buy' && (
@@ -6751,110 +6777,111 @@ export default function App() {
                   isRefreshing={isRefreshingNotifs}
               />
           )}
-          
+          </div>
         </div>
 
-        {/* PREMIUM EXECUTIVE SLIDING BOTTOM NAVIGATION */}
+        {/* LIQUID ELASTIC BOTTOM NAVIGATION BAR (Matching reference video physics & glass bubble) */}
         {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral'  && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (() => {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
             const isNavHidden = isKeyboardVisible || (activeTab === 'add-money' && addMoneyStep === 2);
-            return (
-            <div className={`fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,16px)] px-4 mb-4 pointer-events-none transition-all duration-300 ease-out will-change-transform ${isNavHidden ? 'opacity-0 translate-y-32 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
-                <div className={`w-full max-w-[360px] backdrop-blur-md rounded-[28px] relative flex justify-between items-center p-1.5 pointer-events-auto overflow-hidden transition-colors duration-300 ${
-                  darkMode 
-                    ? 'bg-slate-900/95 border border-slate-800 shadow-[0_12px_36px_rgba(0,0,0,0.5)] text-white' 
-                    : 'bg-white/98 border border-slate-200/80 shadow-[0_12px_36px_rgba(15,23,42,0.08)] text-slate-900'
-                }`}>
-                    
-                    {/* Delicate floral line art in navigation bar corner */}
-                    <svg 
-                      className={`absolute -right-2 -top-2 w-14 h-14 pointer-events-none select-none ${darkMode ? 'text-purple-400/10' : 'text-indigo-900/10'}`} 
-                      viewBox="0 0 100 100" 
-                      fill="none" 
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="1.5" />
-                      <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1.2" />
-                      <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1.2" />
-                      <circle cx="50" cy="15" r="2" fill="currentColor" />
-                    </svg>
+            const morphClass = liquidMorphState.dir === 'right'
+              ? 'tp-liquid-morph-right'
+              : liquidMorphState.dir === 'left'
+              ? 'tp-liquid-morph-left'
+              : liquidMorphState.dir === 'tap'
+              ? 'tp-liquid-morph-tap'
+              : '';
 
-                    {/* SMOOTH GPU-ACCELERATED SLIDING ACTIVE PILL */}
+            const handleNavTap = (tabKey) => {
+              if (window.Telegram?.WebApp?.HapticFeedback) {
+                window.Telegram.WebApp.HapticFeedback.selectionChanged();
+              }
+              if (activeTab === tabKey) {
+                setLiquidMorphState(s => ({ dir: 'tap', key: s.key + 1 }));
+              } else {
+                setActiveTab(tabKey);
+              }
+            };
+
+            return (
+            <div className={`fixed bottom-0 left-0 w-full z-50 flex justify-center pb-[env(safe-area-inset-bottom,14px)] px-4 mb-3.5 pointer-events-none transition-all duration-300 ease-out will-change-transform ${isNavHidden ? 'opacity-0 translate-y-32 pointer-events-none' : 'opacity-100 translate-y-0'}`}>
+                <div 
+                  className={`w-full max-w-[365px] backdrop-blur-xl rounded-full relative flex justify-between items-center p-1.5 pointer-events-auto transition-colors duration-300 ${
+                    darkMode 
+                      ? 'bg-slate-900/92 border border-white/[0.11] text-white' 
+                      : 'bg-white/95 border border-slate-200/85 text-slate-900'
+                  }`}
+                  style={{
+                    boxShadow: darkMode
+                      ? '0 14px 40px -6px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.08)'
+                      : '0 14px 36px -6px rgba(15, 23, 42, 0.11), 0 2px 10px rgba(15, 23, 42, 0.04), inset 0 1.5px 2px rgba(255, 255, 255, 0.95)'
+                  }}
+                >
+                    {/* LIQUID ELASTIC DROPLET ACTIVE BUBBLE */}
                     {activeIndex !== -1 && (
                       <div 
-                        className={`absolute top-1.5 bottom-1.5 left-1.5 rounded-[20px] transition-transform duration-300 ease-out will-change-transform pointer-events-none ${
-                          darkMode 
-                            ? 'bg-purple-950/70 border border-purple-500/30 shadow-[0_0_15px_rgba(147,51,234,0.2)]' 
-                            : 'bg-indigo-50 border border-indigo-100/90 shadow-xs'
-                        }`}
+                        className="absolute top-1.5 bottom-1.5 left-1.5 pointer-events-none will-change-transform z-0"
                         style={{
                           width: 'calc((100% - 12px) / 3)',
                           transform: `translate3d(${activeIndex * 100}%, 0, 0)`,
+                          transition: 'transform 430ms cubic-bezier(0.22, 1.24, 0.36, 1)'
                         }}
                       >
-                        {/* Micro floral line art in active pill */}
-                        <svg 
-                          className={`absolute -right-1 -bottom-1 w-8 h-8 pointer-events-none select-none ${darkMode ? 'text-purple-400/20' : 'text-indigo-900/15'}`} 
-                          viewBox="0 0 100 100" 
-                          fill="none" 
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path d="M50 85 C35 70, 20 50, 50 15 C80 50, 65 70, 50 85 Z" stroke="currentColor" strokeWidth="2" />
-                          <path d="M50 85 C25 80, 5 60, 25 35 C40 50, 48 70, 50 85 Z" stroke="currentColor" strokeWidth="1.5" />
-                          <path d="M50 85 C75 80, 95 60, 75 35 C60 50, 52 70, 50 85 Z" stroke="currentColor" strokeWidth="1.5" />
-                        </svg>
-                        <div className={`absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-3.5 h-1 rounded-full ${darkMode ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'bg-indigo-600'}`} />
+                        <div
+                          key={liquidMorphState.key}
+                          className={`w-full h-full rounded-full ${morphClass}`}
+                          style={{
+                            background: darkMode
+                              ? 'radial-gradient(circle at 50% 30%, rgba(168, 85, 247, 0.34) 0%, rgba(124, 58, 237, 0.48) 100%)'
+                              : 'radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.92) 0%, rgba(237, 233, 254, 0.96) 55%, rgba(221, 214, 254, 0.92) 100%)',
+                            border: darkMode
+                              ? '1.5px solid rgba(192, 132, 252, 0.45)'
+                              : '1.5px solid rgba(139, 92, 246, 0.32)',
+                            boxShadow: darkMode
+                              ? '0 6px 22px -2px rgba(168, 85, 247, 0.42), inset 0 1.5px 2px rgba(255, 255, 255, 0.25)'
+                              : '0 6px 20px -2px rgba(124, 58, 237, 0.24), inset 0 2px 3px rgba(255, 255, 255, 0.95)'
+                          }}
+                        />
                       </div>
                     )}
 
                     {/* HOME */}
                     <button 
                         type="button"
-                        onClick={() => {
-                            if (window.Telegram?.WebApp?.HapticFeedback) {
-                                window.Telegram.WebApp.HapticFeedback.selectionChanged();
-                            }
-                            setActiveTab('home');
-                        }} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-transform duration-200 group active:scale-95 z-10 cursor-pointer"
+                        onClick={() => handleNavTap('home')} 
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-200 group active:scale-92 z-10 cursor-pointer select-none"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${
+                            <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-300 ${
                               activeTab === 'home' 
-                                ? (darkMode ? 'text-purple-400 scale-105' : 'text-indigo-600 scale-105') 
-                                : (darkMode ? 'text-slate-500 group-hover:text-slate-300' : 'text-slate-400 group-hover:text-slate-600')
+                                ? (darkMode ? 'text-purple-300 scale-110 drop-shadow-[0_2px_6px_rgba(168,85,247,0.45)]' : 'text-violet-700 scale-110 drop-shadow-[0_2px_5px_rgba(124,58,237,0.25)]') 
+                                : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
-                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${
+                            <span className={`text-[10.5px] tracking-tight transition-all duration-300 ${
                               activeTab === 'home' 
-                                ? (darkMode ? 'text-purple-300 font-black' : 'text-indigo-950 font-black') 
-                                : (darkMode ? 'text-slate-500 font-bold group-hover:text-slate-300' : 'text-slate-400 font-bold group-hover:text-slate-600')
+                                ? (darkMode ? 'text-white font-black' : 'text-violet-950 font-black') 
+                                : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
                             }`}>{t.home}</span>
                         </div>
                     </button>
   
-                    
                     {/* ADD MONEY */}
                     <button 
                         type="button"
-                        onClick={() => {
-                            if (window.Telegram?.WebApp?.HapticFeedback) {
-                                window.Telegram.WebApp.HapticFeedback.selectionChanged();
-                            }
-                            setActiveTab('add-money');
-                        }} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-transform duration-200 group active:scale-95 z-10 cursor-pointer"
+                        onClick={() => handleNavTap('add-money')} 
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-200 group active:scale-92 z-10 cursor-pointer select-none"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${
+                            <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-300 ${
                               activeTab === 'add-money' 
-                                ? (darkMode ? 'text-purple-400 scale-105' : 'text-indigo-600 scale-105') 
-                                : (darkMode ? 'text-slate-500 group-hover:text-slate-300' : 'text-slate-400 group-hover:text-slate-600')
+                                ? (darkMode ? 'text-purple-300 scale-110 drop-shadow-[0_2px_6px_rgba(168,85,247,0.45)]' : 'text-violet-700 scale-110 drop-shadow-[0_2px_5px_rgba(124,58,237,0.25)]') 
+                                : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
-                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${
+                            <span className={`text-[10.5px] tracking-tight transition-all duration-300 ${
                               activeTab === 'add-money' 
-                                ? (darkMode ? 'text-purple-300 font-black' : 'text-indigo-950 font-black') 
-                                : (darkMode ? 'text-slate-500 font-bold group-hover:text-slate-300' : 'text-slate-400 font-bold group-hover:text-slate-600')
+                                ? (darkMode ? 'text-white font-black' : 'text-violet-950 font-black') 
+                                : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
                             }`}>{t.addMoney}</span>
                         </div>
                     </button>
@@ -6862,24 +6889,19 @@ export default function App() {
                     {/* PROFILE */}
                     <button 
                         type="button"
-                        onClick={() => {
-                            if (window.Telegram?.WebApp?.HapticFeedback) {
-                                window.Telegram.WebApp.HapticFeedback.selectionChanged();
-                            }
-                            setActiveTab('profile');
-                        }} 
-                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-[20px] transition-transform duration-200 group active:scale-95 z-10 cursor-pointer"
+                        onClick={() => handleNavTap('profile')} 
+                        className="relative flex-1 flex flex-col items-center justify-center py-2 rounded-full transition-transform duration-200 group active:scale-92 z-10 cursor-pointer select-none"
                     >
                         <div className="flex flex-col items-center justify-center">
-                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 2} className={`mb-1 transition-transform duration-200 ${
+                            <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-300 ${
                               activeTab === 'profile' 
-                                ? (darkMode ? 'text-purple-400 scale-105' : 'text-indigo-600 scale-105') 
-                                : (darkMode ? 'text-slate-500 group-hover:text-slate-300' : 'text-slate-400 group-hover:text-slate-600')
+                                ? (darkMode ? 'text-purple-300 scale-110 drop-shadow-[0_2px_6px_rgba(168,85,247,0.45)]' : 'text-violet-700 scale-110 drop-shadow-[0_2px_5px_rgba(124,58,237,0.25)]') 
+                                : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
-                            <span className={`text-[10px] tracking-wide transition-colors duration-200 ${
+                            <span className={`text-[10.5px] tracking-tight transition-all duration-300 ${
                               activeTab === 'profile' 
-                                ? (darkMode ? 'text-purple-300 font-black' : 'text-indigo-950 font-black') 
-                                : (darkMode ? 'text-slate-500 font-bold group-hover:text-slate-300' : 'text-slate-400 font-bold group-hover:text-slate-600')
+                                ? (darkMode ? 'text-white font-black' : 'text-violet-950 font-black') 
+                                : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
                             }`}>{t.profile}</span>
                         </div>
                     </button>
@@ -7320,7 +7342,7 @@ function CryptoAssetSelectModal({
             </div>
             <div className="relative z-10 flex items-center gap-2 shrink-0">
               <span className="text-[12px] font-black text-indigo-600 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">
-                {isBuy ? (lang === 'bn' ? 'বন্ধ (Paused)' : 'Paused') : (lang === 'bn' ? 'বিক্রি' : 'Sell')}
+                {isBuy ? (lang === 'bn' ? 'কিনুন' : 'Buy') : (lang === 'bn' ? 'বিক্রি' : 'Sell')}
               </span>
               <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/35 group-hover:bg-indigo-700 group-hover:scale-110 active:scale-95 transition-all">
                 <ArrowRight size={15} strokeWidth={2.8} />
@@ -7367,14 +7389,12 @@ function CryptoAssetSelectModal({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-black text-[16px] leading-tight block">USDT</span>
-                    {isBuy && (
-                      <span className="px-1.5 py-0.2 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-500 text-[9px] font-black uppercase">
-                        {lang === 'bn' ? 'সাময়িক বন্ধ' : 'Paused'}
-                      </span>
-                    )}
-                  </div>
+                  <span className="font-black text-[16px] leading-tight block">USDT</span>
+                  {isBuy && (
+                    <span className="px-1.5 py-0.2 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-500 text-[9px] font-black uppercase">
+                      {lang === 'bn' ? 'সাময়িক বন্ধ' : 'Paused'}
+                    </span>
+                  )}
                 </div>
                 <span className={`text-[11.5px] font-bold block mt-0.5 ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
                   ১ USDT ≈ ৳{usdtRate} BDT
@@ -7385,10 +7405,10 @@ function CryptoAssetSelectModal({
               </div>
             </div>
             <div className="relative z-10 flex items-center gap-2 shrink-0">
-              <span className="text-[12px] font-black text-emerald-600 dark:text-emerald-400 group-hover:translate-x-0.5 transition-transform">
-                {isBuy ? (lang === 'bn' ? 'কিনুন' : 'Buy') : (lang === 'bn' ? 'বিক্রি' : 'Sell')}
+              <span className={`text-[12px] font-black transition-transform ${isBuy ? 'text-amber-500 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400 group-hover:translate-x-0.5'}`}>
+                {isBuy ? (lang === 'bn' ? 'বন্ধ (Paused)' : 'Paused') : (lang === 'bn' ? 'বিক্রি' : 'Sell')}
               </span>
-              <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/35 group-hover:bg-emerald-700 group-hover:scale-110 active:scale-95 transition-all">
+              <div className={`w-8 h-8 rounded-full text-white flex items-center justify-center shadow-md transition-all ${isBuy ? 'bg-slate-400 dark:bg-slate-700 shadow-slate-500/20' : 'bg-emerald-600 shadow-emerald-600/35 group-hover:bg-emerald-700 group-hover:scale-110 active:scale-95'}`}>
                 <ArrowRight size={15} strokeWidth={2.8} />
               </div>
             </div>
@@ -7505,14 +7525,26 @@ function HomePage({
   const historyUserId = user?.id || 123456789;
   const historyCacheKey = `miniapp_history_cache_${historyUserId}`;
   const [recentHistory, setRecentHistory] = useState(() => {
+    if (window.__tpHomeHistoryMemCache && window.__tpHomeHistoryMemCache.uid === historyUserId && Array.isArray(window.__tpHomeHistoryMemCache.list)) {
+      return window.__tpHomeHistoryMemCache.list;
+    }
     try {
       const cached = localStorage.getItem(historyCacheKey);
-      if (cached) { const arr = JSON.parse(cached); if (Array.isArray(arr)) return arr; }
+      if (cached) {
+        const arr = JSON.parse(cached);
+        if (Array.isArray(arr)) {
+          window.__tpHomeHistoryMemCache = { uid: historyUserId, list: arr, ts: 0 };
+          return arr;
+        }
+      }
     } catch (_) {}
     return [];
   });
 
   const fetchRecent = (forceFresh = false) => {
+    if (!forceFresh && window.__tpHomeHistoryMemCache && window.__tpHomeHistoryMemCache.uid === historyUserId && (Date.now() - (window.__tpHomeHistoryMemCache.ts || 0) < 25000)) {
+      return;
+    }
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('192.168');
     const API_URL = isLocal ? 'http://localhost:3000' : 'https://trustpay-bot.com';
     const freshQuery = forceFresh ? '&_nocache=1' : '';
@@ -7520,6 +7552,7 @@ function HomePage({
       .then(r => r.json())
       .then(data => {
         if (!data?.success || !Array.isArray(data.history)) return;
+        window.__tpHomeHistoryMemCache = { uid: historyUserId, list: data.history, ts: Date.now() };
         setRecentHistory(data.history);
         try { localStorage.setItem(historyCacheKey, JSON.stringify(data.history)); } catch (_) {}
       })
@@ -7528,7 +7561,10 @@ function HomePage({
 
   useEffect(() => {
     window.__reloadHomeHistory = (force = true) => fetchRecent(force);
-    fetchRecent(true);
+    const isMemFresh = window.__tpHomeHistoryMemCache && window.__tpHomeHistoryMemCache.uid === historyUserId && (Date.now() - (window.__tpHomeHistoryMemCache.ts || 0) < 25000);
+    if (!isMemFresh) {
+      fetchRecent(false);
+    }
     return () => {
       if (window.__reloadHomeHistory) {
         window.__reloadHomeHistory = null;
@@ -8362,18 +8398,24 @@ function AddMoneyPage({
     const [errorMessage, setErrorMessage] = useState('');
     const [copied, setCopied] = useState(false);
     const [pastedFeedback, setPastedFeedback] = useState(false);
-    const [adminBkash, setAdminBkash] = useState("01752561935");
-    const [adminNagad, setAdminNagad] = useState("9856000927953436");
+    const [adminBkash, setAdminBkash] = useState(() => window.__tpAdminNumbersCache?.bkash || "01752561935");
+    const [adminNagad, setAdminNagad] = useState(() => window.__tpAdminNumbersCache?.nagad || "9856000927953436");
     const [depositResult, setDepositResult] = useState(null);
 
     useEffect(() => {
+        if (window.__tpAdminNumbersCache && (Date.now() - (window.__tpAdminNumbersCache.ts || 0) < 60000)) {
+            return;
+        }
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname.includes('192.168');
         const API_URL = isLocal ? 'http://localhost:3000' : 'https://trustpay-bot.com';
         fetch(`${API_URL}/api/settings`)
             .then(res => res.json())
             .then(data => {
-                if (data.adminBkash) setAdminBkash(data.adminBkash);
-                if (data.adminNagad && data.adminNagad !== '01878580320') setAdminNagad(data.adminNagad);
+                const nextBkash = data.adminBkash || "01752561935";
+                const nextNagad = (data.adminNagad && data.adminNagad !== '01878580320') ? data.adminNagad : "9856000927953436";
+                window.__tpAdminNumbersCache = { bkash: nextBkash, nagad: nextNagad, ts: Date.now() };
+                setAdminBkash(nextBkash);
+                setAdminNagad(nextNagad);
             }).catch(e => console.log(e));
     }, []);
 
