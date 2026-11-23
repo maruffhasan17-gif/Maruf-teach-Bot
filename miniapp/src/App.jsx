@@ -6864,7 +6864,7 @@ export default function App() {
           )}
         </div>
 
-        {/* PINK LIQUID PURE-PHYSICS BOTTOM NAVIGATION BAR (120fps requestAnimationFrame Hooke's Law Spring & Velocity Droplet) */}
+        {/* ROYAL PURPLE (BEGUNI) LIQUID PURE-PHYSICS BOTTOM NAVIGATION BAR (120fps requestAnimationFrame Hooke's Law Spring & Velocity Droplet) */}
         {!isModalOpen && activeTab !== 'buy' && activeTab !== 'sell' && activeTab !== 'claim' && activeTab !== 'history' && activeTab !== 'withdraw' && activeTab !== 'referral'  && activeTab !== 'notifications' && activeTab !== 'transfer' && activeTab !== 'two-step' && activeTab !== 'support' && (() => {
             const navTabs = ['home', 'add-money', 'profile'];
             const activeIndex = navTabs.indexOf(activeTab);
@@ -6886,16 +6886,16 @@ export default function App() {
                 <div 
                   className={`w-full max-w-[365px] backdrop-blur-xl rounded-full relative flex justify-between items-center p-1.5 pointer-events-auto transition-colors duration-300 ${
                     darkMode 
-                      ? 'bg-slate-900/92 border border-pink-500/20 text-white' 
-                      : 'bg-white/95 border border-pink-200/80 text-slate-900'
+                      ? 'bg-slate-900/92 border border-purple-500/25 text-white' 
+                      : 'bg-white/95 border border-purple-200/85 text-slate-900'
                   }`}
                   style={{
                     boxShadow: darkMode
-                      ? '0 14px 40px -6px rgba(0, 0, 0, 0.7), 0 0 24px -4px rgba(236, 72, 153, 0.22), inset 0 1px 1px rgba(255, 255, 255, 0.1)'
-                      : '0 14px 36px -6px rgba(236, 72, 153, 0.16), 0 2px 10px rgba(15, 23, 42, 0.04), inset 0 1.5px 2px rgba(255, 255, 255, 0.98)'
+                      ? '0 14px 40px -6px rgba(0, 0, 0, 0.7), 0 0 24px -4px rgba(147, 51, 234, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1)'
+                      : '0 14px 36px -6px rgba(124, 58, 237, 0.16), 0 2px 10px rgba(15, 23, 42, 0.04), inset 0 1.5px 2px rgba(255, 255, 255, 0.98)'
                   }}
                 >
-                    {/* REAL-TIME SPRING PHYSICS PINK LIQUID DROPLET BUBBLE */}
+                    {/* REAL-TIME SPRING PHYSICS ROYAL PURPLE (BEGUNI) LIQUID DROPLET BUBBLE */}
                     {activeIndex !== -1 && (
                       <div 
                         ref={liquidCarrierRef}
@@ -6910,14 +6910,14 @@ export default function App() {
                           className="w-full h-full rounded-full will-change-transform"
                           style={{
                             background: darkMode
-                              ? 'radial-gradient(circle at 50% 25%, rgba(244, 114, 182, 0.45) 0%, rgba(236, 72, 153, 0.56) 55%, rgba(190, 24, 93, 0.62) 100%)'
-                              : 'radial-gradient(circle at 50% 22%, rgba(255, 245, 250, 0.98) 0%, rgba(252, 231, 243, 0.96) 45%, rgba(249, 168, 212, 0.78) 100%)',
+                              ? 'radial-gradient(circle at 50% 25%, rgba(192, 132, 252, 0.45) 0%, rgba(147, 51, 234, 0.56) 55%, rgba(109, 40, 217, 0.64) 100%)'
+                              : 'radial-gradient(circle at 50% 22%, rgba(250, 245, 255, 0.98) 0%, rgba(243, 232, 255, 0.96) 45%, rgba(216, 180, 254, 0.82) 100%)',
                             border: darkMode
-                              ? '1.5px solid rgba(249, 168, 212, 0.6)'
-                              : '1.5px solid rgba(236, 72, 153, 0.48)',
+                              ? '1.5px solid rgba(216, 180, 254, 0.6)'
+                              : '1.5px solid rgba(147, 51, 234, 0.48)',
                             boxShadow: darkMode
-                              ? '0 6px 24px -2px rgba(236, 72, 153, 0.55), 0 0 14px rgba(244, 114, 182, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.38), inset 0 -2px 6px rgba(131, 24, 67, 0.45)'
-                              : '0 6px 22px -2px rgba(236, 72, 153, 0.34), 0 2px 8px rgba(244, 114, 182, 0.22), inset 0 2px 4px rgba(255, 255, 255, 1), inset 0 -2px 6px rgba(236, 72, 153, 0.2)'
+                              ? '0 6px 24px -2px rgba(147, 51, 234, 0.55), 0 0 14px rgba(168, 85, 247, 0.38), inset 0 2px 3px rgba(255, 255, 255, 0.38), inset 0 -2px 6px rgba(88, 28, 135, 0.48)'
+                              : '0 6px 22px -2px rgba(147, 51, 234, 0.34), 0 2px 8px rgba(168, 85, 247, 0.22), inset 0 2px 4px rgba(255, 255, 255, 1), inset 0 -2px 6px rgba(147, 51, 234, 0.22)'
                           }}
                         />
                       </div>
@@ -6932,12 +6932,12 @@ export default function App() {
                         <div className="flex flex-col items-center justify-center">
                             <Home size={20} strokeWidth={activeTab === 'home' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-200 ${
                               activeTab === 'home' 
-                                ? (darkMode ? 'text-pink-200 scale-110 drop-shadow-[0_2px_8px_rgba(244,114,182,0.65)]' : 'text-pink-600 scale-110 drop-shadow-[0_2px_6px_rgba(236,72,153,0.35)]') 
+                                ? (darkMode ? 'text-purple-200 scale-110 drop-shadow-[0_2px_8px_rgba(192,132,252,0.65)]' : 'text-purple-600 scale-110 drop-shadow-[0_2px_6px_rgba(147,51,234,0.35)]') 
                                 : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
                             <span className={`text-[10.5px] tracking-tight transition-all duration-200 ${
                               activeTab === 'home' 
-                                ? (darkMode ? 'text-white font-black' : 'text-pink-950 font-black') 
+                                ? (darkMode ? 'text-white font-black' : 'text-purple-950 font-black') 
                                 : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
                             }`}>{t.home}</span>
                         </div>
@@ -6952,12 +6952,12 @@ export default function App() {
                         <div className="flex flex-col items-center justify-center">
                             <PlusCircle size={20} strokeWidth={activeTab === 'add-money' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-200 ${
                               activeTab === 'add-money' 
-                                ? (darkMode ? 'text-pink-200 scale-110 drop-shadow-[0_2px_8px_rgba(244,114,182,0.65)]' : 'text-pink-600 scale-110 drop-shadow-[0_2px_6px_rgba(236,72,153,0.35)]') 
+                                ? (darkMode ? 'text-purple-200 scale-110 drop-shadow-[0_2px_8px_rgba(192,132,252,0.65)]' : 'text-purple-600 scale-110 drop-shadow-[0_2px_6px_rgba(147,51,234,0.35)]') 
                                 : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
                             <span className={`text-[10.5px] tracking-tight transition-all duration-200 ${
                               activeTab === 'add-money' 
-                                ? (darkMode ? 'text-white font-black' : 'text-pink-950 font-black') 
+                                ? (darkMode ? 'text-white font-black' : 'text-purple-950 font-black') 
                                 : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
                             }`}>{t.addMoney}</span>
                         </div>
@@ -6972,12 +6972,12 @@ export default function App() {
                         <div className="flex flex-col items-center justify-center">
                             <User size={20} strokeWidth={activeTab === 'profile' ? 2.5 : 1.9} className={`mb-0.5 transition-all duration-200 ${
                               activeTab === 'profile' 
-                                ? (darkMode ? 'text-pink-200 scale-110 drop-shadow-[0_2px_8px_rgba(244,114,182,0.65)]' : 'text-pink-600 scale-110 drop-shadow-[0_2px_6px_rgba(236,72,153,0.35)]') 
+                                ? (darkMode ? 'text-purple-200 scale-110 drop-shadow-[0_2px_8px_rgba(192,132,252,0.65)]' : 'text-purple-600 scale-110 drop-shadow-[0_2px_6px_rgba(147,51,234,0.35)]') 
                                 : (darkMode ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-700')
                             }`} />
                             <span className={`text-[10.5px] tracking-tight transition-all duration-200 ${
                               activeTab === 'profile' 
-                                ? (darkMode ? 'text-white font-black' : 'text-pink-950 font-black') 
+                                ? (darkMode ? 'text-white font-black' : 'text-purple-950 font-black') 
                                 : (darkMode ? 'text-slate-400 font-semibold group-hover:text-slate-200' : 'text-slate-500 font-semibold group-hover:text-slate-700')
                             }`}>{t.profile}</span>
                         </div>
