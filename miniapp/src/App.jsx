@@ -5915,18 +5915,18 @@ export default function App() {
   const [cryptoModalState, setCryptoModalState] = useState({ isOpen: false, mode: 'buy' });
   const [appMarketRates, setAppMarketRates] = useState(() => {
     try {
-      const cachedBuy = localStorage.getItem('maruf_buyer_rates');
-      const cachedSell = localStorage.getItem('maruf_seller_rates');
+      const cachedBuy = localStorage.getItem('maruf_buyer_rates_v2');
+      const cachedSell = localStorage.getItem('maruf_seller_rates_v2');
       const parsedBuy = cachedBuy ? JSON.parse(cachedBuy) : null;
       const parsedSell = cachedSell ? JSON.parse(cachedSell) : null;
       const isBuyFresh = parsedBuy && (Date.now() - (parsedBuy.timestamp || 0) < 30 * 1000) && parsedBuy.rates?.GRAM;
       const isSellFresh = parsedSell && (Date.now() - (parsedSell.timestamp || 0) < 30 * 1000) && parsedSell.rates?.GRAM;
       return {
-        buyRates: isBuyFresh ? parsedBuy.rates : { GRAM: 160, USDT: 130 },
-        sellRates: isSellFresh ? parsedSell.rates : { GRAM: 120, USDT: 118 }
+        buyRates: isBuyFresh ? parsedBuy.rates : { GRAM: 140, USDT: 130 },
+        sellRates: isSellFresh ? parsedSell.rates : { GRAM: 110, USDT: 115 }
       };
     } catch(e) {
-      return { buyRates: { GRAM: 160, USDT: 130 }, sellRates: { GRAM: 120, USDT: 118 } };
+      return { buyRates: { GRAM: 140, USDT: 130 }, sellRates: { GRAM: 110, USDT: 115 } };
     }
   });
 
@@ -5936,21 +5936,21 @@ export default function App() {
       fetchMarketRates().then(data => {
         if (!isMounted || !data) return;
         const nextBuy = {
-          GRAM: Number(data.buyRates?.GRAM) || 160,
+          GRAM: Number(data.buyRates?.GRAM) || 140,
           USDT: Number(data.buyRates?.USDT) || 130
         };
         const nextSell = {
-          GRAM: Number(data.sellRates?.GRAM) || 120,
-          USDT: Number(data.sellRates?.USDT) || 118
+          GRAM: Number(data.sellRates?.GRAM) || 110,
+          USDT: Number(data.sellRates?.USDT) || 115
         };
         setAppMarketRates({
           buyRates: nextBuy,
           sellRates: nextSell
         });
         try {
-          localStorage.setItem('maruf_market_rates', JSON.stringify({ rates: nextBuy, timestamp: Date.now() }));
-          localStorage.setItem('maruf_buyer_rates', JSON.stringify({ rates: { ...nextBuy, sellRates: nextSell }, timestamp: Date.now() }));
-          localStorage.setItem('maruf_seller_rates', JSON.stringify({ rates: nextSell, timestamp: Date.now() }));
+          localStorage.setItem('maruf_market_rates_v2', JSON.stringify({ rates: nextBuy, timestamp: Date.now() }));
+          localStorage.setItem('maruf_buyer_rates_v2', JSON.stringify({ rates: { ...nextBuy, sellRates: nextSell }, timestamp: Date.now() }));
+          localStorage.setItem('maruf_seller_rates_v2', JSON.stringify({ rates: nextSell, timestamp: Date.now() }));
         } catch (_) {}
       }).catch(() => {});
     };
@@ -7303,8 +7303,8 @@ function CryptoAssetSelectModal({
   if (!isOpen) return null;
 
   const isBuy = mode === 'buy';
-  const gramRate = isBuy ? (liveRates?.GRAM || 160) : (sellRates?.GRAM || 120);
-  const usdtRate = isBuy ? (liveRates?.USDT || 130) : (sellRates?.USDT || 118);
+  const gramRate = isBuy ? (liveRates?.GRAM || 140) : (sellRates?.GRAM || 110);
+  const usdtRate = isBuy ? (liveRates?.USDT || 130) : (sellRates?.USDT || 115);
   const flowerImg = isBuy ? sakuraBranchArt : wisteriaCascadeArt;
 
   return (
@@ -7562,13 +7562,13 @@ function HomePage({
   const [activeFilter, setActiveFilter] = useState('all');
   const [marketRates, setMarketRates] = useState(() => {
     try {
-      const cached = localStorage.getItem('maruf_buyer_rates');
+      const cached = localStorage.getItem('maruf_buyer_rates_v2');
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates?.USDT) return parsed.rates;
       }
     } catch (_) {}
-    return { USDT: 130, GRAM: 160, sellRates: { USDT: 118, GRAM: 120 } };
+    return { USDT: 130, GRAM: 140, sellRates: { USDT: 115, GRAM: 110 } };
   });
 
   useEffect(() => {
@@ -7576,10 +7576,10 @@ function HomePage({
     setMarketRates(prev => ({
       ...prev,
       USDT: Number(appMarketRates.buyRates.USDT) || 130,
-      GRAM: Number(appMarketRates.buyRates.GRAM) || 160,
+      GRAM: Number(appMarketRates.buyRates.GRAM) || 140,
       sellRates: {
-        USDT: Number(appMarketRates.sellRates?.USDT) || 118,
-        GRAM: Number(appMarketRates.sellRates?.GRAM) || 120
+        USDT: Number(appMarketRates.sellRates?.USDT) || 115,
+        GRAM: Number(appMarketRates.sellRates?.GRAM) || 110
       }
     }));
   }, [appMarketRates]);
@@ -7718,8 +7718,8 @@ function HomePage({
 
   // ---- Supported coins (only what the bot trades: GRAM and USDT) ----
   const coins = [
-    { symbol: 'USDT', name: 'Tether USD • TRC20 / TON', Logo: TetherLogo, buy: marketRates.USDT || 130, sell: marketRates.sellRates?.USDT || 118 },
-    { symbol: 'GRAM', name: 'Gram • The Open Network', Logo: GramTokenLogo, buy: marketRates.GRAM || 160, sell: marketRates.sellRates?.GRAM || 120 },
+    { symbol: 'USDT', name: 'Tether USD • TRC20 / TON', Logo: TetherLogo, buy: marketRates.USDT || 130, sell: marketRates.sellRates?.USDT || 115 },
+    { symbol: 'GRAM', name: 'Gram • The Open Network', Logo: GramTokenLogo, buy: marketRates.GRAM || 140, sell: marketRates.sellRates?.GRAM || 110 },
   ];
   const q = searchQuery.trim().toLowerCase();
   const visibleCoins = q ? coins.filter(c => c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : coins;
@@ -9808,13 +9808,13 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
 
     const [rates, setRates] = useState(() => {
         try {
-            const cached = localStorage.getItem('maruf_market_rates');
+            const cached = localStorage.getItem('maruf_market_rates_v2');
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates) return parsed.rates;
             }
         } catch (_) {}
-        return { GRAM: 160, USDT: 130 };
+        return { GRAM: 140, USDT: 130 };
     });
 
     useEffect(() => {
@@ -9824,12 +9824,12 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
             const r = data.buyRates || data.rates;
             if (r) {
                 const normRates = {
-                    GRAM: Number(r.GRAM) || 160,
+                    GRAM: Number(r.GRAM) || 140,
                     USDT: Number(r.USDT) || 130
                 };
                 setRates(normRates);
                 try {
-                    localStorage.setItem('maruf_market_rates', JSON.stringify({ rates: normRates, timestamp: Date.now() }));
+                    localStorage.setItem('maruf_market_rates_v2', JSON.stringify({ rates: normRates, timestamp: Date.now() }));
                 } catch (_) {}
             }
         }).catch(() => {});
@@ -9843,7 +9843,7 @@ function BuyCryptoPage({ user, balance = 0, lang = 'bn', t, reloadData, onGoToAd
     ];
 
     const activeNetworkObj = BUY_NETWORKS.find(n => n.id === selectedNetwork) || BUY_NETWORKS[0];
-    const cryptoRate = rates[selectedAsset] || (selectedAsset === 'GRAM' ? 160 : 130);
+    const cryptoRate = rates[selectedAsset] || (selectedAsset === 'GRAM' ? 140 : 130);
     const numBdt = roundBdt(parseFloat(bdtAmount) || 0);
     const calculatedCrypto = numBdt > 0 ? (numBdt / cryptoRate).toFixed(4) : '';
     const hasInsufficientBalance = numBdt > roundBdt(balance || 0);
@@ -10469,15 +10469,15 @@ function SellCryptoPage({
 
     const [liveRates, setLiveRates] = useState(() => {
         try {
-            const cached = localStorage.getItem('maruf_seller_rates');
+            const cached = localStorage.getItem('maruf_seller_rates_v2');
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (Date.now() - (parsed.timestamp || 0) < 30 * 1000 && parsed.rates?.USDT) {
-                    return { GRAM: parsed.rates.GRAM || 120, USDT: parsed.rates.USDT || 118 };
+                    return { GRAM: parsed.rates.GRAM || 110, USDT: parsed.rates.USDT || 115 };
                 }
             }
         } catch (_) {}
-        return { GRAM: 120, USDT: 118 };
+        return { GRAM: 110, USDT: 115 };
     });
 
     useEffect(() => {
@@ -10485,12 +10485,12 @@ function SellCryptoPage({
         fetchMarketRates().then(data => {
             if (!isMounted || !data?.sellRates) return;
             const newRates = {
-                GRAM: Number(data.sellRates.GRAM) || 120,
-                USDT: Number(data.sellRates.USDT) || 118
+                GRAM: Number(data.sellRates.GRAM) || 110,
+                USDT: Number(data.sellRates.USDT) || 115
             };
             setLiveRates(newRates);
             try {
-                localStorage.setItem('maruf_seller_rates', JSON.stringify({ rates: newRates, timestamp: Date.now() }));
+                localStorage.setItem('maruf_seller_rates_v2', JSON.stringify({ rates: newRates, timestamp: Date.now() }));
             } catch (_) {}
         }).catch(() => {});
         return () => { isMounted = false; };
@@ -10498,7 +10498,7 @@ function SellCryptoPage({
 
     const botWalletAddress = "UQC7hYHfrVJ_uT_esMr7vCv1bVh5ytQxYUUjRDiTUiG9s5Fb";
     const depositTargetAddress = selectedNetwork === 'TON' ? (userTonAddress || botWalletAddress) : (userEvmAddress || '');
-    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 118) : (liveRates?.GRAM || 120);
+    const currentRate = asset === 'USDT' ? (liveRates?.USDT || 115) : (liveRates?.GRAM || 110);
     const MIN_SELL_CRYPTO_AMOUNT = 0.2;
     const numAmount = parseFloat(cryptoAmount) || 0;
     const estimatedTk = numAmount > 0 ? roundBdt(numAmount * currentRate) : 0;
@@ -10568,7 +10568,7 @@ function SellCryptoPage({
             const actionModal = document.querySelector('[data-tc-actions-modal-container]');
             if (actionModal) actionModal.remove();
         } catch (_) {}
-        const fallbackRate = resolvedAsset === 'USDT' ? (liveRates?.USDT || 118) : (liveRates?.GRAM || 120);
+        const fallbackRate = resolvedAsset === 'USDT' ? (liveRates?.USDT || 115) : (liveRates?.GRAM || 110);
         const finalCreditedTk = res.creditedTk != null ? roundBdt(res.creditedTk) : roundBdt((Number(resolvedAmt) || 0) * fallbackRate);
         setLastSellAmount(Number(resolvedAmt) || lastSellAmount);
         setLastSellAsset(resolvedAsset || asset);
