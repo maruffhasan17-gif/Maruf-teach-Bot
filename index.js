@@ -13069,6 +13069,11 @@ app.get(adminVaultRegex, requireAdminIpWhitelist, (req, res) => {
     }
 });
 
+// Lightweight UptimeRobot / Keep-Alive 200 OK Endpoints (Keeps Render Free Tier Awake 24/7)
+app.get(['/ping', '/health', '/uptime'], (req, res) => {
+    res.status(200).json({ ok: true, service: 'TrustPay', status: 'alive', ts: Date.now() });
+});
+
 // Decoy 404 handler for Root and Unhandled Routes (NEVER serve Admin on Root)
 app.use((req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
