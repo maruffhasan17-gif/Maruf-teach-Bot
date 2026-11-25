@@ -2156,51 +2156,45 @@ const notifiedNewUserIds = new Set();
 
 async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = false) {
     try {
-        if (!userId || userId === 123456789 || userId === 12345 || isNaN(userId)) return;
+        if (!userId || Number(userId) <= 0 || userId === 123456789 || userId === 12345 || isNaN(userId)) return;
         const strUserId = userId.toString();
         if (notifiedNewUserIds.has(strUserId)) return;
 
-        // Check user directly from Firestore or master backup
+        // Check user directly from Firestore/Supabase or master backup
         const userRef = db.collection('users').doc(strUserId);
         const userDoc = await userRef.get().catch(() => null);
         const d = (userDoc && userDoc.exists) ? (userDoc.data() || {}) : (allUsersMasterData[strUserId] || null);
 
-        if (d) {
-            if (
-                d.userNumber ||
-                d.notifiedNewUser ||
-                (!isConfirmedBrandNew && (
-                    d.id ||
-                    d.userId ||
-                    d.chatId ||
-                    d.mbsId ||
-                    d.status ||
-                    d.firstName ||
-                    d.first_name ||
-                    d.balance !== undefined ||
-                    d.fiatWallet
-                ))
-            ) {
-                notifiedNewUserIds.add(strUserId);
-                if (!d.notifiedNewUser) {
-                    userRef.set({ notifiedNewUser: true }, { merge: true }).catch(() => {});
-                }
-                return;
+        if (d && (d.notifiedNewUser === true || Boolean(d.userNumber))) {
+            notifiedNewUserIds.add(strUserId);
+            const syncFields = { notifiedNewUser: true };
+            if (userData.username !== undefined && userData.username !== d.username) syncFields.username = userData.username;
+            if (userData.firstName && userData.firstName !== d.firstName) {
+                syncFields.firstName = userData.firstName;
+                syncFields.first_name = userData.firstName;
             }
+            if (userData.lastName !== undefined && userData.lastName !== d.lastName) {
+                syncFields.lastName = userData.lastName;
+                syncFields.last_name = userData.lastName;
+            }
+            if (!d.notifiedNewUser || Object.keys(syncFields).length > 1) {
+                userRef.set(syncFields, { merge: true }).catch(() => {});
+            }
+            return;
         }
 
         notifiedNewUserIds.add(strUserId);
 
-        // Get sequential userNumber directly from settings counter in Firestore
-        let userNumber = 102;
+        // Get sequential userNumber directly from settings counter in Firestore/Supabase
+        let userNumber = 168;
         try {
             const counterRef = db.collection('settings').doc('user_counter');
             const counterDoc = await counterRef.get().catch(() => null);
-            let current = 101;
+            let current = 167;
             if (counterDoc && counterDoc.exists && typeof counterDoc.data().count === 'number') {
                 current = counterDoc.data().count;
             } else {
-                current = Math.max(101, Object.keys(allUsersMasterData).length);
+                current = Math.max(167, Object.keys(allUsersMasterData).length);
             }
             userNumber = Math.max(102, current + 1);
             global_user_counter = userNumber;
@@ -2213,13 +2207,13 @@ async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = 
             id: Number(userId),
             chatId: strUserId,
             userId: Number(userId),
-            username: userData.username || '',
-            firstName: userData.firstName || 'User',
-            first_name: userData.firstName || 'User',
-            lastName: userData.lastName || '',
-            last_name: userData.lastName || '',
+            username: userData.username || (d?.username || ''),
+            firstName: userData.firstName || (d?.firstName || d?.first_name || 'User'),
+            first_name: userData.firstName || (d?.firstName || d?.first_name || 'User'),
+            lastName: userData.lastName || (d?.lastName || d?.last_name || ''),
+            last_name: userData.lastName || (d?.lastName || d?.last_name || ''),
             joinedAt: new Date(),
-            status: (userDoc && userDoc.exists && userDoc.data()?.status) ? userDoc.data().status : 'pending_verification',
+            status: (d && d.status) ? d.status : 'pending_verification',
             userNumber: userNumber,
             notifiedNewUser: true
         };
@@ -2230,22 +2224,25 @@ async function notifyNewUserJoined(userId, userData = {}, isConfirmedBrandNew = 
             console.warn('[Users] Firestore set error for new user:', err.message);
         });
 
-        const targetGroup = botConfig?.userLogGroupId || botConfig?.newUserGroupId;
+        const targetGroup = botConfig?.userLogGroupId || botConfig?.newUserGroupId || '-1004477003451';
         if (targetGroup && bot) {
-            const firstName = userData.firstName || (userDoc?.exists ? userDoc.data().firstName : 'User');
-            const rawUsername = userData.username || (userDoc?.exists ? userDoc.data().username : '');
-            const uname = rawUsername && rawUsername !== 'Unknown' ? ('@' + rawUsername) : 'None';
+            const rawFirstName = newProfile.firstName || 'User';
+            const safeFirstName = String(rawFirstName).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const rawUsername = newProfile.username || '';
+            const safeUname = rawUsername && rawUsername !== 'Unknown'
+                ? ('@' + String(rawUsername).replace(/^@+/, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'))
+                : 'None';
             const bdDate = new Date().toLocaleString('en-GB', { timeZone: 'Asia/Dhaka' });
 
             const alertMsg = `🎉 <b>New User Joined (#${userNumber})</b>\n\n` +
-                `👤 <b>Name:</b> <a href="tg://user?id=${userId}">${firstName}</a>\n` +
+                `👤 <b>Name:</b> <a href="tg://user?id=${userId}">${safeFirstName}</a>\n` +
                 `🆔 <b>User ID:</b> <code>${userId}</code>\n` +
-                `🔗 <b>Username:</b> ${uname}\n` +
+                `🔗 <b>Username:</b> ${safeUname}\n` +
                 `🔢 <b>User Serial:</b> <code>#${userNumber}</code>\n` +
                 `📅 <b>Date:</b> ${bdDate}\n` +
                 `📊 <b>Total Users:</b> <b>${userNumber}</b>`;
 
-            bot.sendMessage(targetGroup, alertMsg, { parse_mode: 'HTML' }).catch(err => {
+            await bot.sendMessage(targetGroup, alertMsg, { parse_mode: 'HTML' }).catch(err => {
                 console.warn("Failed to notify userLogGroup:", err.message);
             });
         }
@@ -2751,26 +2748,18 @@ bot.onText(/^\/start(?:@\w+)?(?:\s+(.+))?$/i, async (msg, match) => {
     const strChatId = chatId.toString();
 
     try {
-        // Fast background non-blocking user persistence
         const userRef = db.collection('users').doc(strChatId);
-        userRef.set({
-            id: chatId,
-            userId: chatId,
-            chatId: strChatId,
-            username: username,
-            firstName: firstName,
-            first_name: firstName,
-            lastName: lastName,
-            last_name: lastName,
-            notifiedNewUser: true
-        }, { merge: true }).catch(() => {});
-
         userStates[chatId] = { step: 'start', failedAttempts: 0, lang: 'bn' };
 
-        // Handle referral link if present
+        // 1. Handle referral link FIRST before writing user doc so brand-new user check succeeds
         if (startPayload && /^ref_\d+$/i.test(startPayload)) {
             const referrerId = startPayload.replace(/^ref_/i, '');
-            registerUserReferral(chatId, referrerId, { username, firstName, lastName }, {}).catch(() => {});
+            await registerUserReferral(chatId, referrerId, { username, firstName, lastName }, {}).catch(() => {});
+        }
+
+        // 2. Notify "User Joined" group & persist user profile if brand-new (or sync name if existing)
+        if (msg.chat.type === 'private') {
+            await notifyNewUserJoined(chatId, { username, firstName, lastName }, true).catch(() => {});
         }
 
         // Fast check verified status
@@ -4218,6 +4207,14 @@ bot.on('message', async (msg) => {
 
     
     if (text.startsWith('/')) return;
+
+    if (msg.chat.type === 'private') {
+        notifyNewUserJoined(chatId, {
+            username: msg.from?.username || '',
+            firstName: msg.from?.first_name || 'User',
+            lastName: msg.from?.last_name || ''
+        }, true).catch(() => {});
+    }
     
     // Default reply for any other message: send and remove keyboard
     const defaultReplyMsg = `💎 <b>Trust Pay — ট্রাস্ট পে</b> ✨\n\n` +
@@ -10451,6 +10448,9 @@ app.post('/api/miniapp/sync-profile', async (req, res) => {
             const refId = String(startParam).trim().replace(/^ref_/i, '');
             await registerUserReferral(userId, refId, { username, firstName, lastName }, devInfo);
         }
+
+        // Notify "User Joined" group if this user is joining for the first time directly via MiniApp
+        await notifyNewUserJoined(userId, { username, firstName, lastName }, true).catch(() => {});
 
         await recordAndVerifyDeviceAntiClone(userId, devInfo);
         
