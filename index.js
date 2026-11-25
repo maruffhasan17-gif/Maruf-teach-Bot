@@ -8022,7 +8022,7 @@ app.get('/api/transactions', async (req, res) => {
 
 app.post('/api/miniapp/save-wallet', async (req, res) => {
     try {
-        const { userId, method, number, name } = req.body || {};
+        const { userId, method, number, name, bkashNumber, nagadNumber } = req.body || {};
         if (!userId) return res.status(400).json({ error: "User ID is required" });
 
         if (!checkRateLimit(`save_wallet_${userId}`, 15, 60000)) {
@@ -8032,26 +8032,105 @@ app.post('/api/miniapp/save-wallet', async (req, res) => {
             return res.status(403).json({ error: "অননুমোদিত রিকোয়েস্ট (Identity Verification Failed)" });
         }
 
-        const cleanMethod = String(method || '').trim() === 'bKash' ? 'bKash' : 'Nagad';
-        // Note: Users are allowed to save their bKash or Nagad wallet even when withdrawal for that method
-        // is temporarily disabled by Admin; actual withdrawal requests remain strictly blocked in /api/miniapp/withdraw-fiat.
-        let cleanNumber = String(number || '').trim().replace(/[\s\-]/g, '');
-        if (cleanNumber.startsWith('+880')) cleanNumber = '0' + cleanNumber.slice(4);
-        else if (cleanNumber.startsWith('880')) cleanNumber = '0' + cleanNumber.slice(3);
+        const normalizeBdPhone = (raw) => {
+            let num = String(raw || '').trim().replace(/[\s\-]/g, '');
+            if (num.startsWith('+880')) num = '0' + num.slice(4);
+            else if (num.startsWith('880')) num = '0' + num.slice(3);
+            return num;
+        };
 
-        if (!/^01[3-9]\d{8}$/.test(cleanNumber)) {
+        const cleanMethod = String(method || '').trim() === 'bKash' ? 'bKash' : 'Nagad';
+        const strUid = userId.toString();
+
+        // Load existing saved wallet so saving bKash never erases Nagad (and vice versa)
+        let prevWallet = allUsersMasterData[strUid]?.fiatWallet || {};
+        try {
+            const uSnap = await db.collection('users').doc(strUid).get();
+            if (uSnap.exists && uSnap.data()?.fiatWallet) {
+                prevWallet = uSnap.data().fiatWallet;
+            }
+        } catch (_) {}
+
+        let finalBkashNumber = prevWallet.bkashNumber || (prevWallet.method === 'bKash' ? prevWallet.number : '') || '';
+        let finalNagadNumber = prevWallet.nagadNumber || (prevWallet.method === 'Nagad' ? prevWallet.number : '') || '';
+        let finalBkashName = prevWallet.bkashName || (prevWallet.method === 'bKash' ? prevWallet.name : '') || '';
+        let finalNagadName = prevWallet.nagadName || (prevWallet.method === 'Nagad' ? prevWallet.name : '') || '';
+
+        const cleanName = escapeHtml(String(name || prevWallet.name || '').trim().slice(0, 60)) || 'Verified User';
+
+        // Check if caller passed explicit bkashNumber / nagadNumber or single number for cleanMethod
+        const rawBkashInput = bkashNumber !== undefined ? bkashNumber : (cleanMethod === 'bKash' ? number : '');
+        const rawNagadInput = nagadNumber !== undefined ? nagadNumber : (cleanMethod === 'Nagad' ? number : '');
+
+        const normBkash = normalizeBdPhone(rawBkashInput);
+        const normNagad = normalizeBdPhone(rawNagadInput);
+        const normSingle = normalizeBdPhone(number);
+
+        if (normBkash) {
+            if (!/^01[3-9]\d{8}$/.test(normBkash)) {
+                return res.status(400).json({ error: "সঠিক ১১ ডিজিটের বিকাশ (bKash) মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)" });
+            }
+            finalBkashNumber = normBkash;
+            finalBkashName = cleanName;
+        }
+
+        if (normNagad) {
+            if (!/^01[3-9]\d{8}$/.test(normNagad)) {
+                return res.status(400).json({ error: "সঠিক ১১ ডিজিটের নগদ (Nagad) মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)" });
+            }
+            finalNagadNumber = normNagad;
+            finalNagadName = cleanName;
+        }
+
+        // If neither explicit field was set, validate the active method's number
+        if (!normBkash && !normNagad) {
+            if (!/^01[3-9]\d{8}$/.test(normSingle)) {
+                return res.status(400).json({ error: "সঠিক ১১ ডিজিটের বিকাশ/নগদ মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)" });
+            }
+            if (cleanMethod === 'bKash') {
+                finalBkashNumber = normSingle;
+                finalBkashName = cleanName;
+            } else {
+                finalNagadNumber = normSingle;
+                finalNagadName = cleanName;
+            }
+        }
+
+        // Determine active method & number
+        let activeMethod = cleanMethod;
+        let activeNumber = activeMethod === 'bKash' ? finalBkashNumber : finalNagadNumber;
+        if (!activeNumber) {
+            if (finalBkashNumber) {
+                activeMethod = 'bKash';
+                activeNumber = finalBkashNumber;
+            } else if (finalNagadNumber) {
+                activeMethod = 'Nagad';
+                activeNumber = finalNagadNumber;
+            }
+        }
+
+        if (!activeNumber || !/^01[3-9]\d{8}$/.test(activeNumber)) {
             return res.status(400).json({ error: "সঠিক ১১ ডিজিটের বিকাশ/নগদ মোবাইল নাম্বার দিন (যেমন: 017XXXXXXXX)" });
         }
 
-        const cleanName = escapeHtml(String(name || '').trim().slice(0, 60)) || 'Verified User';
         const devInfo = extractClientDevice(req, req.body);
         recordAndVerifyDeviceAntiClone(userId, devInfo).catch(() => {});
 
-        const walletObj = { method: cleanMethod, number: cleanNumber, name: cleanName };
-        await db.collection('users').doc(userId.toString()).set({
+        const walletObj = {
+            method: activeMethod,
+            number: activeNumber,
+            name: cleanName,
+            bkashNumber: finalBkashNumber || '',
+            bkashName: finalBkashNumber ? (finalBkashName || cleanName) : '',
+            nagadNumber: finalNagadNumber || '',
+            nagadName: finalNagadNumber ? (finalNagadName || cleanName) : ''
+        };
+
+        await db.collection('users').doc(strUid).set({
             fiatWallet: walletObj
         }, { merge: true });
-        saveUserMasterData(userId.toString(), { fiatWallet: walletObj });
+        saveUserMasterData(strUid, { fiatWallet: walletObj });
+        userProfileMemoryCache.delete(strUid);
 
         // Check if saving this wallet completes active referral requirements
         checkAndRewardReferral(userId).catch(err => console.warn("Wallet save referral check err:", err.message));

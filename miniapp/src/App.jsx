@@ -11602,14 +11602,22 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
     setTimeout(() => setCopiedId(false), 2000);
   };
 
+  // Dual-Wallet Helpers (bKash & Nagad stored independently so neither overwrites the other)
+  const savedBkashNum = fiatWallet?.bkashNumber || (String(fiatWallet?.method || '').toLowerCase() === 'bkash' ? fiatWallet?.number : '') || '';
+  const savedNagadNum = fiatWallet?.nagadNumber || (String(fiatWallet?.method || '').toLowerCase() === 'nagad' ? fiatWallet?.number : '') || '';
+  const savedHolderName = fiatWallet?.name || fiatWallet?.bkashName || fiatWallet?.nagadName || '';
+
   // Inline Wallet Setup Drawer State (Replaces old clunky popup modal)
   const [isEditingWallet, setIsEditingWallet] = useState(false);
   const [walletMethod, setWalletMethod] = useState(() => fiatWallet?.method || (isNagadAllowed && !isBkashAllowed ? 'Nagad' : 'bKash'));
-  const [walletNumber, setWalletNumber] = useState(() => fiatWallet?.number || '');
-  const [walletName, setWalletName] = useState(() => fiatWallet?.name || '');
+  const [bkashInputNumber, setBkashInputNumber] = useState(() => savedBkashNum);
+  const [nagadInputNumber, setNagadInputNumber] = useState(() => savedNagadNum);
+  const [walletName, setWalletName] = useState(() => savedHolderName);
   const [isSaving, setIsSaving] = useState(false);
   const [txStatus, setTxStatus] = useState(null);
   const [txMessage, setTxMessage] = useState('');
+
+  const activeInputNumber = walletMethod === 'bKash' ? bkashInputNumber : nagadInputNumber;
 
   useEffect(() => {
     if (setIsModalOpen) {
@@ -11617,12 +11625,46 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
     }
   }, [showLanguageModal, txStatus, setIsModalOpen]);
 
-  const openInlineWalletEditor = () => {
+  const openInlineWalletEditor = (preferredMethod) => {
     playAppSound('tap');
-    setWalletMethod(fiatWallet?.method || (isNagadAllowed && !isBkashAllowed ? 'Nagad' : 'bKash'));
-    setWalletNumber(fiatWallet?.number || '');
-    setWalletName(fiatWallet?.name || user?.first_name || '');
+    const nextMethod = (preferredMethod === 'bKash' || preferredMethod === 'Nagad')
+      ? preferredMethod
+      : (fiatWallet?.method || (isNagadAllowed && !isBkashAllowed ? 'Nagad' : 'bKash'));
+    setWalletMethod(nextMethod);
+    setBkashInputNumber(savedBkashNum);
+    setNagadInputNumber(savedNagadNum);
+    setWalletName(savedHolderName || user?.first_name || '');
     setIsEditingWallet(true);
+  };
+
+  const handleQuickSwitchSavedMethod = async (targetMethod) => {
+    const targetNum = targetMethod === 'bKash' ? savedBkashNum : savedNagadNum;
+    if (!targetNum) {
+      openInlineWalletEditor(targetMethod);
+      return;
+    }
+    if (fiatWallet?.method === targetMethod && fiatWallet?.number === targetNum) return;
+    playAppSound('tap');
+    const nextWalletObj = {
+      ...fiatWallet,
+      method: targetMethod,
+      number: targetNum,
+      name: savedHolderName || user?.first_name || 'User',
+      bkashNumber: savedBkashNum,
+      nagadNumber: savedNagadNum
+    };
+    setFiatWallet(nextWalletObj);
+    try {
+      const res = await saveFiatWallet({
+        userId: user?.id || 123456789,
+        method: targetMethod,
+        number: targetNum,
+        name: nextWalletObj.name,
+        bkashNumber: savedBkashNum,
+        nagadNumber: savedNagadNum
+      });
+      if (res?.fiatWallet) setFiatWallet(res.fiatWallet);
+    } catch (_) {}
   };
 
   const handleWithdrawClick = () => {
@@ -11640,6 +11682,11 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
       return;
     }
     if (isSavedWalletBkash && !isBkashAllowed) {
+      if (isNagadAllowed && savedNagadNum) {
+        handleQuickSwitchSavedMethod('Nagad');
+        onGoToWithdraw();
+        return;
+      }
       playAppSound('error');
       const msg = lang === 'bn'
         ? '⚠️ বর্তমানে বিকাশের (bKash) মাধ্যমে উইথড্র বন্ধ রয়েছে! আপনি বিকাশ নাম্বার সেভ করে রাখতে পারবেন, তবে এখন টাকা উত্তোলন (Withdraw) করতে হলে অনুগ্রহ করে নগদ (Nagad) ওয়ালেট ব্যবহার করুন।'
@@ -11649,6 +11696,11 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
       return;
     }
     if (isSavedWalletNagad && !isNagadAllowed) {
+      if (isBkashAllowed && savedBkashNum) {
+        handleQuickSwitchSavedMethod('bKash');
+        onGoToWithdraw();
+        return;
+      }
       playAppSound('error');
       const msg = lang === 'bn'
         ? '⚠️ বর্তমানে নগদের (Nagad) মাধ্যমে উইথড্র বন্ধ রয়েছে! আপনি নগদ নাম্বার সেভ করে রাখতে পারবেন, তবে এখন টাকা উত্তোলন (Withdraw) করতে হলে অনুগ্রহ করে বিকাশ (bKash) ওয়ালেট ব্যবহার করুন।'
@@ -11661,24 +11713,43 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
   };
 
   const handleSaveWallet = async () => {
-    if (!walletNumber || !walletName) return;
+    const cleanBkash = String(bkashInputNumber || '').trim();
+    const cleanNagad = String(nagadInputNumber || '').trim();
+    const cleanHolder = String(walletName || '').trim();
+    const currentTabNum = walletMethod === 'bKash' ? cleanBkash : cleanNagad;
+    if ((!cleanBkash && !cleanNagad) || !cleanHolder) return;
+
+    const chosenMethod = currentTabNum ? walletMethod : (cleanBkash ? 'bKash' : 'Nagad');
+    const chosenNumber = chosenMethod === 'bKash' ? cleanBkash : cleanNagad;
+
     setIsSaving(true);
     try {
-      await saveFiatWallet({
+      const res = await saveFiatWallet({
         userId: user?.id || 123456789,
-        method: walletMethod,
-        number: walletNumber,
-        name: walletName
+        method: chosenMethod,
+        number: chosenNumber,
+        name: cleanHolder,
+        bkashNumber: cleanBkash,
+        nagadNumber: cleanNagad
       });
-      setFiatWallet({ method: walletMethod, number: walletNumber, name: walletName });
+      const updatedObj = res?.fiatWallet || {
+        method: chosenMethod,
+        number: chosenNumber,
+        name: cleanHolder,
+        bkashNumber: cleanBkash,
+        bkashName: cleanHolder,
+        nagadNumber: cleanNagad,
+        nagadName: cleanHolder
+      };
+      setFiatWallet(updatedObj);
       setIsEditingWallet(false);
       playAppSound('success');
-      if (walletMethod === 'bKash' && !isBkashAllowed) {
+      if (chosenMethod === 'bKash' && !isBkashAllowed) {
         const msg = lang === 'bn'
           ? '✅ আপনার বিকাশ (bKash) ওয়ালেট সফলভাবে সেভ হয়েছে! তবে বর্তমানে বিকাশ উইথড্র সাময়িকভাবে বন্ধ থাকায় এখন বিকাশের মাধ্যমে টাকা উত্তোলন করা যাবে না।'
           : '✅ Your bKash wallet has been saved! Note: bKash withdrawal is currently disabled, so you cannot withdraw via bKash until it reopens.';
         if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(msg);
-      } else if (walletMethod === 'Nagad' && !isNagadAllowed) {
+      } else if (chosenMethod === 'Nagad' && !isNagadAllowed) {
         const msg = lang === 'bn'
           ? '✅ আপনার নগদ (Nagad) ওয়ালেট সফলভাবে সেভ হয়েছে! তবে বর্তমানে নগদ উইথড্র সাময়িকভাবে বন্ধ থাকায় এখন নগদের মাধ্যমে টাকা উত্তোলন করা যাবে না।'
           : '✅ Your Nagad wallet has been saved! Note: Nagad withdrawal is currently disabled, so you cannot withdraw via Nagad until it reopens.';
@@ -11804,98 +11875,141 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
         {/* PART B: PAYOUT WALLET SLOT OR INLINE DRAWER (Zero Popup Modal) */}
         <div className="relative z-10 space-y-3">
           {!isEditingWallet ? (
-            <div
-              onClick={openInlineWalletEditor}
-              className={`rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 cursor-pointer active:scale-[0.99] ${
-                fiatWallet
-                  ? isSavedMethodDisabled
-                    ? (darkMode
-                        ? 'bg-rose-950/25 border-rose-500/35 hover:border-rose-500/50'
-                        : 'bg-rose-50/50 border-rose-200 hover:border-rose-300')
+            <div className="space-y-2">
+              <div
+                onClick={() => openInlineWalletEditor(fiatWallet?.method)}
+                className={`rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 cursor-pointer active:scale-[0.99] ${
+                  fiatWallet
+                    ? isSavedMethodDisabled
+                      ? (darkMode
+                          ? 'bg-rose-950/25 border-rose-500/35 hover:border-rose-500/50'
+                          : 'bg-rose-50/50 border-rose-200 hover:border-rose-300')
+                      : (darkMode
+                          ? 'bg-gradient-to-r from-violet-950/35 via-white/[0.03] to-indigo-950/30 border-violet-500/25 hover:border-violet-500/40'
+                          : 'bg-gradient-to-r from-violet-50/60 via-slate-50/40 to-indigo-50/50 border-violet-200/70 hover:border-violet-300')
                     : (darkMode
-                        ? 'bg-gradient-to-r from-violet-950/35 via-white/[0.03] to-indigo-950/30 border-violet-500/25 hover:border-violet-500/40'
-                        : 'bg-gradient-to-r from-violet-50/60 via-slate-50/40 to-indigo-50/50 border-violet-200/70 hover:border-violet-300')
-                  : (darkMode
-                      ? 'bg-white/[0.03] hover:bg-white/[0.05] border-white/[0.08]'
-                      : 'bg-slate-50/80 hover:bg-slate-100/70 border-slate-200/80')
-              }`}
-            >
-              {fiatWallet ? (
-                <>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      style={{ backgroundColor: '#ffffff' }}
-                      className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1.5 flex items-center justify-center shrink-0 shadow-2xs tp-payment-logo-box"
-                    >
-                      <img
-                        src={getPaymentLogo(fiatWallet.method)}
-                        alt={fiatWallet.method}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-black text-slate-900 dark:text-white leading-tight whitespace-nowrap">
-                          {fiatWallet.method}
+                        ? 'bg-white/[0.03] hover:bg-white/[0.05] border-white/[0.08]'
+                        : 'bg-slate-50/80 hover:bg-slate-100/70 border-slate-200/80')
+                }`}
+              >
+                {fiatWallet ? (
+                  <>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        style={{ backgroundColor: '#ffffff' }}
+                        className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1.5 flex items-center justify-center shrink-0 shadow-2xs tp-payment-logo-box"
+                      >
+                        <img
+                          src={getPaymentLogo(fiatWallet.method)}
+                          alt={fiatWallet.method}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-black text-slate-900 dark:text-white leading-tight whitespace-nowrap">
+                            {fiatWallet.method}
+                          </span>
+                          {isSavedMethodDisabled ? (
+                            <span className="px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 text-[9px] font-black whitespace-nowrap shrink-0">
+                              {lang === 'bn' ? 'উইথড্র বন্ধ' : 'WITHDRAW OFF'}
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black whitespace-nowrap shrink-0">
+                              ACTIVE
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs font-mono font-bold text-violet-700 dark:text-violet-300 block mt-0.5 truncate">
+                          {fiatWallet.number} {fiatWallet.name ? `• ${fiatWallet.name}` : ''}
                         </span>
-                        {isSavedMethodDisabled ? (
-                          <span className="px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 text-[9px] font-black whitespace-nowrap shrink-0">
-                            {lang === 'bn' ? 'উইথড্র বন্ধ' : 'WITHDRAW OFF'}
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black whitespace-nowrap shrink-0">
-                            ACTIVE
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs font-mono font-bold text-violet-700 dark:text-violet-300 block mt-0.5 truncate">
-                        {fiatWallet.number} {fiatWallet.name ? `• ${fiatWallet.name}` : ''}
-                      </span>
-                    </div>
-                  </div>
-                  <span className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shrink-0 border ${
-                    darkMode
-                      ? 'bg-white/[0.06] border-white/10 text-violet-300'
-                      : 'bg-white border-slate-200/90 text-violet-700 shadow-2xs'
-                  }`}>
-                    <Edit3 size={12} />
-                    <span>{lang === 'bn' ? 'পরিবর্তন' : 'Edit'}</span>
-                  </span>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex items-center -space-x-2 shrink-0">
-                      <div
-                        style={{ backgroundColor: '#ffffff' }}
-                        className="w-9 h-9 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shadow-2xs relative z-10 tp-payment-logo-box"
-                      >
-                        <img src={getPaymentLogo('bKash')} alt="bKash" className="w-full h-full object-contain" />
-                      </div>
-                      <div
-                        style={{ backgroundColor: '#ffffff' }}
-                        className="w-9 h-9 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shadow-2xs relative z-0 tp-payment-logo-box"
-                      >
-                        <img src={getPaymentLogo('Nagad')} alt="Nagad" className="w-full h-full object-contain" />
                       </div>
                     </div>
-                    <div className="min-w-0">
-                      <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight truncate">
-                        {lang === 'bn' ? 'ক্যাশআউট ওয়ালেট যুক্ত করুন' : 'Link Cashout Wallet'}
-                      </span>
-                      <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 block truncate">
-                        {lang === 'bn' ? 'টাকা তুলতে bKash বা Nagad নাম্বার সেট করুন' : 'Set bKash or Nagad number for cashout'}
-                      </span>
+                    <span className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shrink-0 border ${
+                      darkMode
+                        ? 'bg-white/[0.06] border-white/10 text-violet-300'
+                        : 'bg-white border-slate-200/90 text-violet-700 shadow-2xs'
+                    }`}>
+                      <Edit3 size={12} />
+                      <span>{lang === 'bn' ? 'পরিবর্তন' : 'Edit'}</span>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center -space-x-2 shrink-0">
+                        <div
+                          style={{ backgroundColor: '#ffffff' }}
+                          className="w-9 h-9 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shadow-2xs relative z-10 tp-payment-logo-box"
+                        >
+                          <img src={getPaymentLogo('bKash')} alt="bKash" className="w-full h-full object-contain" />
+                        </div>
+                        <div
+                          style={{ backgroundColor: '#ffffff' }}
+                          className="w-9 h-9 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shadow-2xs relative z-0 tp-payment-logo-box"
+                        >
+                          <img src={getPaymentLogo('Nagad')} alt="Nagad" className="w-full h-full object-contain" />
+                        </div>
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight truncate">
+                          {lang === 'bn' ? 'ক্যাশআউট ওয়ালেট যুক্ত করুন' : 'Link Cashout Wallet'}
+                        </span>
+                        <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 block truncate">
+                          {lang === 'bn' ? 'টাকা তুলতে bKash বা Nagad নাম্বার সেট করুন' : 'Set bKash or Nagad number for cashout'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <span className={`px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 border ${
-                    darkMode
-                      ? 'bg-violet-500/20 border-violet-500/35 text-violet-300'
-                      : 'bg-violet-50 border-violet-200 text-violet-700'
-                  }`}>
-                    {lang === 'bn' ? '+ সেটআপ' : '+ Setup'}
-                  </span>
-                </>
+                    <span className={`px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 border ${
+                      darkMode
+                        ? 'bg-violet-500/20 border-violet-500/35 text-violet-300'
+                        : 'bg-violet-50 border-violet-200 text-violet-700'
+                    }`}>
+                      {lang === 'bn' ? '+ সেটআপ' : '+ Setup'}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Dual-Saved Wallets Quick Switcher Bar (Shown whenever bKash or Nagad is saved) */}
+              {fiatWallet && (savedBkashNum || savedNagadNum) && (
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { method: 'bKash', num: savedBkashNum, active: fiatWallet.method === 'bKash' },
+                    { method: 'Nagad', num: savedNagadNum, active: fiatWallet.method === 'Nagad' }
+                  ].map((item) => (
+                    <button
+                      key={item.method}
+                      type="button"
+                      onClick={() => item.num ? handleQuickSwitchSavedMethod(item.method) : openInlineWalletEditor(item.method)}
+                      className={`px-2.5 py-2 rounded-xl border text-left transition-all flex items-center justify-between gap-1.5 cursor-pointer active:scale-95 ${
+                        item.active
+                          ? item.method === 'bKash'
+                            ? (darkMode ? 'bg-pink-500/15 border-pink-500/50 text-pink-300' : 'bg-pink-50/90 border-pink-400 text-pink-800')
+                            : (darkMode ? 'bg-orange-500/15 border-orange-500/50 text-orange-300' : 'bg-orange-50/90 border-orange-400 text-orange-800')
+                          : (darkMode ? 'bg-white/[0.03] border-white/10 text-slate-300 hover:bg-white/[0.06]' : 'bg-slate-50 border-slate-200/80 text-slate-700 hover:bg-slate-100/70')
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div
+                          style={{ backgroundColor: '#ffffff' }}
+                          className="w-5 h-5 rounded-md bg-white p-0.5 flex items-center justify-center shrink-0 tp-payment-logo-box border border-slate-200/70"
+                        >
+                          <img src={getPaymentLogo(item.method)} alt={item.method} className="w-full h-full object-contain" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-black leading-none flex items-center gap-1">
+                            <span>{item.method}</span>
+                            {item.active && <Check size={10} className="text-emerald-500 shrink-0" strokeWidth={3} />}
+                          </div>
+                          <div className="text-[10px] font-mono font-bold opacity-85 truncate mt-0.5">
+                            {item.num ? item.num : (lang === 'bn' ? '+ নাম্বার যোগ করুন' : '+ Add Number')}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           ) : (
@@ -11918,11 +12032,13 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
                 </button>
               </div>
 
-              {/* 1-Tap Method Switcher (bKash / Nagad) with Distinct Brand Accents */}
+              {/* 1-Tap Method Switcher (bKash / Nagad) with Separate Per-Method Number Memory */}
               <div className="grid grid-cols-2 gap-2">
                 {['bKash', 'Nagad'].map((method) => {
                   const active = walletMethod === method;
                   const isMethodAllowed = method === 'bKash' ? isBkashAllowed : isNagadAllowed;
+                  const methodNumVal = (method === 'bKash' ? bkashInputNumber : nagadInputNumber).trim();
+                  const hasMethodNum = methodNumVal.length >= 11;
                   const activeStyle = method === 'bKash'
                     ? (darkMode
                         ? 'bg-pink-500/20 text-pink-300 border-pink-500 ring-1 ring-pink-500/30 font-black shadow-2xs'
@@ -11951,6 +12067,11 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
                         <img src={getPaymentLogo(method)} alt={method} className="w-full h-full object-contain" />
                       </div>
                       <span className="text-xs">{method}</span>
+                      {hasMethodNum && (
+                        <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[8px] font-black shrink-0" title={methodNumVal}>
+                          ✓
+                        </span>
+                      )}
                       <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded-full leading-none ${
                         isMethodAllowed
                           ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
@@ -11979,13 +12100,17 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
                 </div>
               )}
 
-              {/* Clean Compact Inputs */}
+              {/* Clean Compact Inputs (Per-Method Separate Phone Number State) */}
               <div className="grid grid-cols-1 gap-2">
                 <input
                   type="tel"
                   placeholder={lang === 'bn' ? `${walletMethod} নাম্বার (যেমন: 017XXXXXXXX)` : `${walletMethod} Number (e.g. 017XXXXXXXX)`}
-                  value={walletNumber}
-                  onChange={(e) => setWalletNumber(e.target.value)}
+                  value={activeInputNumber}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (walletMethod === 'bKash') setBkashInputNumber(val);
+                    else setNagadInputNumber(val);
+                  }}
                   className={`w-full h-10 px-3.5 rounded-xl text-xs font-bold outline-none border transition ${
                     darkMode
                       ? 'bg-slate-900/90 border-white/10 text-white placeholder:text-slate-500 focus:border-emerald-500'
@@ -12009,7 +12134,7 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
               <button
                 type="button"
                 onClick={handleSaveWallet}
-                disabled={!walletNumber || !walletName || isSaving}
+                disabled={(!bkashInputNumber.trim() && !nagadInputNumber.trim()) || !walletName.trim() || isSaving}
                 className="w-full h-11 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white font-black text-xs flex items-center justify-center gap-1.5 border-t border-emerald-300/40 shadow-[0_4px_0_#047857,0_8px_18px_rgba(16,185,129,0.28)] active:translate-y-0.5 active:shadow-[0_1px_0_#047857] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 cursor-pointer select-none"
               >
                 {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} strokeWidth={2.5} />}
@@ -12903,15 +13028,63 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
 
     const isCurrentMethodDisabled = (isBkashSelected && !isBkashAllowed) || (isNagadSelected && !isNagadAllowed);
 
+    const savedBkashNum = fiatWallet?.bkashNumber || (String(fiatWallet?.method || '').toLowerCase() === 'bkash' ? fiatWallet?.number : '') || '';
+    const savedNagadNum = fiatWallet?.nagadNumber || (String(fiatWallet?.method || '').toLowerCase() === 'nagad' ? fiatWallet?.number : '') || '';
+    const savedHolderName = fiatWallet?.name || fiatWallet?.bkashName || fiatWallet?.nagadName || '';
+
     const defaultEditMethod = isNagadAllowed ? 'Nagad' : (isBkashAllowed ? 'bKash' : 'Nagad');
     const [editMethod, setEditMethod] = useState(() => {
         if (fiatWallet?.method === 'bKash' && isBkashAllowed) return 'bKash';
         if (fiatWallet?.method === 'Nagad' && isNagadAllowed) return 'Nagad';
         return defaultEditMethod;
     });
-    const [editNumber, setEditNumber] = useState('');
-    const [editName, setEditName] = useState('');
+    const [editBkashNumber, setEditBkashNumber] = useState(() => savedBkashNum);
+    const [editNagadNumber, setEditNagadNumber] = useState(() => savedNagadNum);
+    const [editName, setEditName] = useState(() => savedHolderName);
     const [isSavingWallet, setIsSavingWallet] = useState(false);
+
+    const activeEditNumber = editMethod === 'bKash' ? editBkashNumber : editNagadNumber;
+
+    const openEditModalForMethod = (targetMethod) => {
+        const nextMethod = targetMethod || (isBkashSelected && !isBkashAllowed && isNagadAllowed
+            ? 'Nagad'
+            : (isNagadSelected && !isNagadAllowed && isBkashAllowed ? 'bKash' : (fiatWallet?.method || defaultEditMethod)));
+        setEditMethod(nextMethod);
+        setEditBkashNumber(savedBkashNum);
+        setEditNagadNumber(savedNagadNum);
+        setEditName(savedHolderName || user?.first_name || '');
+        setShowEditWalletModal(true);
+    };
+
+    const handleQuickSwitchWithdrawMethod = async (targetMethod) => {
+        const targetNum = targetMethod === 'bKash' ? savedBkashNum : savedNagadNum;
+        if (!targetNum) {
+            openEditModalForMethod(targetMethod);
+            return;
+        }
+        if (fiatWallet?.method === targetMethod && fiatWallet?.number === targetNum) return;
+        playAppSound('tap');
+        const nextWalletObj = {
+            ...fiatWallet,
+            method: targetMethod,
+            number: targetNum,
+            name: savedHolderName || user?.first_name || 'User',
+            bkashNumber: savedBkashNum,
+            nagadNumber: savedNagadNum
+        };
+        if (setFiatWallet) setFiatWallet(nextWalletObj);
+        try {
+            const res = await saveFiatWallet({
+                userId: user?.id || 123456789,
+                method: targetMethod,
+                number: targetNum,
+                name: nextWalletObj.name,
+                bkashNumber: savedBkashNum,
+                nagadNumber: savedNagadNum
+            });
+            if (res?.fiatWallet && setFiatWallet) setFiatWallet(res.fiatWallet);
+        } catch (_) {}
+    };
 
     const hasSell = Boolean(antiAbuseData?.hasSellBalance);
     const isDepositUser = Boolean(antiAbuseData?.hasDepositWithoutTrade) && !hasSell;
@@ -12926,22 +13099,41 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
     }, [showEditWalletModal, showConfirmWithdrawModal, showWithdrawPinModal, showFlowerModal, setIsModalOpen]);
 
     const handleSaveEditedWallet = async () => {
-        if (!editNumber || !editName) return;
+        const cleanBkash = String(editBkashNumber || '').trim();
+        const cleanNagad = String(editNagadNumber || '').trim();
+        const cleanHolder = String(editName || '').trim();
+        const currentTabNum = editMethod === 'bKash' ? cleanBkash : cleanNagad;
+        if ((!cleanBkash && !cleanNagad) || !cleanHolder) return;
+
+        const chosenMethod = currentTabNum ? editMethod : (cleanBkash ? 'bKash' : 'Nagad');
+        const chosenNumber = chosenMethod === 'bKash' ? cleanBkash : cleanNagad;
+
         setIsSavingWallet(true);
         try {
-            await saveFiatWallet({
+            const res = await saveFiatWallet({
                 userId: user?.id || 123456789,
-                method: editMethod,
-                number: editNumber,
-                name: editName
+                method: chosenMethod,
+                number: chosenNumber,
+                name: cleanHolder,
+                bkashNumber: cleanBkash,
+                nagadNumber: cleanNagad
             });
-            if (setFiatWallet) setFiatWallet({ method: editMethod, number: editNumber, name: editName });
+            const updatedObj = res?.fiatWallet || {
+                method: chosenMethod,
+                number: chosenNumber,
+                name: cleanHolder,
+                bkashNumber: cleanBkash,
+                bkashName: cleanHolder,
+                nagadNumber: cleanNagad,
+                nagadName: cleanHolder
+            };
+            if (setFiatWallet) setFiatWallet(updatedObj);
             setShowEditWalletModal(false);
             if (setIsModalOpen) setIsModalOpen(false);
             playAppSound('success');
-            const savedDisabledMsg = (editMethod === 'bKash' && !isBkashAllowed)
+            const savedDisabledMsg = (chosenMethod === 'bKash' && !isBkashAllowed)
                 ? (lang === 'bn' ? "✅ আপনার বিকাশ ওয়ালেট সেভ করা হয়েছে! তবে বর্তমানে বিকাশ উইথড্র বন্ধ থাকায় এখন বিকাশের মাধ্যমে উইথড্র দেওয়া যাবে না।" : "✅ bKash wallet saved! Note: bKash withdrawal is currently disabled.")
-                : (editMethod === 'Nagad' && !isNagadAllowed)
+                : (chosenMethod === 'Nagad' && !isNagadAllowed)
                     ? (lang === 'bn' ? "✅ আপনার নগদ ওয়ালেট সেভ করা হয়েছে! তবে বর্তমানে নগদ উইথড্র বন্ধ থাকায় এখন নগদের মাধ্যমে উইথড্র দেওয়া যাবে না।" : "✅ Nagad wallet saved! Note: Nagad withdrawal is currently disabled.")
                     : (lang === 'bn' ? "ওয়ালেট সফলভাবে আপডেট করা হয়েছে!" : "Wallet updated successfully!");
             if (window.Telegram?.WebApp?.showAlert) window.Telegram.WebApp.showAlert(savedDisabledMsg);
@@ -12996,10 +13188,11 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                 alert(msg);
             }
             if (isNagadAllowed) {
-                setEditMethod('Nagad');
-                setEditNumber('');
-                setEditName(user?.first_name || '');
-                setShowEditWalletModal(true);
+                if (savedNagadNum) {
+                    handleQuickSwitchWithdrawMethod('Nagad');
+                } else {
+                    openEditModalForMethod('Nagad');
+                }
             }
             return;
         }
@@ -13015,10 +13208,11 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                 alert(msg);
             }
             if (isBkashAllowed) {
-                setEditMethod('bKash');
-                setEditNumber('');
-                setEditName(user?.first_name || '');
-                setShowEditWalletModal(true);
+                if (savedBkashNum) {
+                    handleQuickSwitchWithdrawMethod('bKash');
+                } else {
+                    openEditModalForMethod('bKash');
+                }
             }
             return;
         }
@@ -13325,16 +13519,11 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                         {isNagadAllowed && (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setEditMethod('Nagad');
-                                    setEditNumber('');
-                                    setEditName(user?.first_name || '');
-                                    setShowEditWalletModal(true);
-                                }}
+                                onClick={() => savedNagadNum ? handleQuickSwitchWithdrawMethod('Nagad') : openEditModalForMethod('Nagad')}
                                 className="mt-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
                             >
                                 <Edit3 size={12} />
-                                <span>{lang === 'bn' ? '👉 নগদ ওয়ালেট যোগ করুন' : '👉 Switch to Nagad'}</span>
+                                <span>{savedNagadNum ? (lang === 'bn' ? '👉 সেভ করা নগদ সিলেক্ট করুন' : '👉 Use Saved Nagad') : (lang === 'bn' ? '👉 নগদ ওয়ালেট যোগ করুন' : '👉 Switch to Nagad')}</span>
                             </button>
                         )}
                     </div>
@@ -13364,16 +13553,11 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                         {isBkashAllowed && (
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setEditMethod('bKash');
-                                    setEditNumber('');
-                                    setEditName(user?.first_name || '');
-                                    setShowEditWalletModal(true);
-                                }}
+                                onClick={() => savedBkashNum ? handleQuickSwitchWithdrawMethod('bKash') : openEditModalForMethod('bKash')}
                                 className="mt-1 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white text-xs font-black shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
                             >
                                 <Edit3 size={12} />
-                                <span>{lang === 'bn' ? '👉 বিকাশ ওয়ালেট যোগ করুন' : '👉 Switch to bKash'}</span>
+                                <span>{savedBkashNum ? (lang === 'bn' ? '👉 সেভ করা বিকাশ সিলেক্ট করুন' : '👉 Use Saved bKash') : (lang === 'bn' ? '👉 বিকাশ ওয়ালেট যোগ করুন' : '👉 Switch to bKash')}</span>
                             </button>
                         )}
                     </div>
@@ -13381,7 +13565,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
             )}
 
             {/* Saved Wallet Info with Edit Icon Aligned Right */}
-            <div className={`p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border shadow-xs transition-colors ${
+            <div className={`p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border shadow-xs transition-colors space-y-3 ${
                 isCurrentMethodDisabled || !isWithdrawGloballyEnabled ? 'border-rose-300 dark:border-rose-800/80 bg-rose-50/20 dark:bg-rose-950/20' : 'border-slate-200/90 dark:border-slate-800'
             }`}>
                 <div className="flex items-center justify-between gap-3 w-full">
@@ -13414,15 +13598,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                     </div>
                     <button 
                         type="button"
-                        onClick={() => {
-                            const initialMethod = isBkashSelected && !isBkashAllowed && isNagadAllowed
-                                ? 'Nagad'
-                                : (isNagadSelected && !isNagadAllowed && isBkashAllowed ? 'bKash' : (fiatWallet?.method || defaultEditMethod));
-                            setEditMethod(initialMethod);
-                            setEditNumber(isCurrentMethodDisabled ? '' : (fiatWallet?.number || ''));
-                            setEditName(fiatWallet?.name || '');
-                            setShowEditWalletModal(true);
-                        }}
+                        onClick={() => openEditModalForMethod()}
                         className={`px-3.5 py-1.5 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-black shrink-0 shadow-xs cursor-pointer border ${
                             isCurrentMethodDisabled 
                                 ? 'bg-emerald-600 text-white hover:bg-emerald-500 border-emerald-500 shadow-emerald-600/20' 
@@ -13440,6 +13616,44 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                         </span>
                     </button>
                 </div>
+
+                {/* Quick 1-Tap Switcher between Saved bKash & Saved Nagad inside Withdraw Page */}
+                {(savedBkashNum || savedNagadNum) && (
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                        {[
+                            { method: 'bKash', num: savedBkashNum, active: fiatWallet?.method === 'bKash' },
+                            { method: 'Nagad', num: savedNagadNum, active: fiatWallet?.method === 'Nagad' }
+                        ].map((item) => (
+                            <button
+                                key={item.method}
+                                type="button"
+                                onClick={() => item.num ? handleQuickSwitchWithdrawMethod(item.method) : openEditModalForMethod(item.method)}
+                                className={`px-2.5 py-2 rounded-xl border text-left transition-all flex items-center justify-between gap-1.5 cursor-pointer active:scale-95 ${
+                                    item.active
+                                        ? item.method === 'bKash'
+                                            ? 'bg-pink-50 dark:bg-pink-950/40 border-pink-400 dark:border-pink-500/60 text-pink-800 dark:text-pink-200'
+                                            : 'bg-orange-50 dark:bg-orange-950/40 border-orange-400 dark:border-orange-500/60 text-orange-800 dark:text-orange-200'
+                                        : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300'
+                                }`}
+                            >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                    <div style={{ backgroundColor: '#ffffff' }} className="w-5 h-5 rounded-md bg-white p-0.5 flex items-center justify-center shrink-0 tp-payment-logo-box border border-slate-200">
+                                        <img src={getPaymentLogo(item.method)} alt={item.method} className="w-full h-full object-contain" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-[10px] font-black leading-none flex items-center gap-1">
+                                            <span>{item.method}</span>
+                                            {item.active && <Check size={10} className="text-emerald-500 shrink-0" strokeWidth={3} />}
+                                        </div>
+                                        <div className="text-[10px] font-mono font-bold opacity-85 truncate mt-0.5">
+                                            {item.num ? item.num : (lang === 'bn' ? '+ নাম্বার যোগ করুন' : '+ Add Number')}
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Withdraw Limit Note */}
@@ -13722,12 +13936,18 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                             </div>
                             
                             <div>
-                                <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">Wallet Number</label>
+                                <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5">
+                                    {editMethod} Number
+                                </label>
                                 <input 
                                     type="tel" 
-                                    placeholder="e.g. 017XXXXXXXX" 
-                                    value={editNumber} 
-                                    onChange={(e) => setEditNumber(e.target.value)} 
+                                    placeholder={lang === 'bn' ? `${editMethod} নাম্বার (যেমন: 017XXXXXXXX)` : `${editMethod} Number (e.g. 017XXXXXXXX)`} 
+                                    value={activeEditNumber} 
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (editMethod === 'bKash') setEditBkashNumber(val);
+                                        else setEditNagadNumber(val);
+                                    }} 
                                     className="w-full h-[50px] bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 font-bold text-slate-900 dark:text-white outline-none focus:border-purple-500 focus:bg-white dark:focus:bg-slate-800 transition-all text-sm" 
                                 />
                             </div>
@@ -13748,7 +13968,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                             <button
                                 type="button"
                                 onClick={handleSaveEditedWallet}
-                                disabled={!editNumber || !editName || isSavingWallet}
+                                disabled={(!editBkashNumber.trim() && !editNagadNumber.trim()) || !editName.trim() || isSavingWallet}
                                 className="w-full h-[50px] rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-600 text-white font-black text-xs flex items-center justify-center gap-2 border-t border-purple-300/40 shadow-[0_4px_0_#3730a3,0_10px_20px_rgba(79,70,229,0.3)] active:translate-y-1 active:shadow-[0_1px_0_#3730a3] transition-all disabled:opacity-50 disabled:shadow-none disabled:translate-y-0 cursor-pointer"
                             >
                                 {isSavingWallet ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
