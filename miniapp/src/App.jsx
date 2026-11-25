@@ -13347,7 +13347,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                         {lang === 'bn' ? 'উত্তোলনের পরিমাণ' : 'Withdraw Amount'}
                     </span>
                     <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
-                        {lang === 'bn' ? 'সর্বনিম্ন ৳২৫' : 'Min ৳25'}
+                        {lang === 'bn' ? 'সর্বনিম্ন ৳২৫ • সর্বোচ্চ ৳৫,০০০' : 'Min ৳25 • Max ৳5,000'}
                     </span>
                 </div>
                 <div className="relative flex items-center">
@@ -13486,110 +13486,64 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                 </div>
             )}
 
-            {/* Saved Wallet Info with Edit Icon Aligned Right */}
-            <div className={`p-4 rounded-3xl bg-white/95 dark:bg-slate-900/90 border shadow-xs transition-colors space-y-3 ${
-                isCurrentMethodDisabled || !isWithdrawGloballyEnabled ? 'border-rose-300 dark:border-rose-800/80 bg-rose-50/20 dark:bg-rose-950/20' : 'border-slate-200/90 dark:border-slate-800'
-            }`}>
-                <div className="flex items-center justify-between gap-3 w-full">
-                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                        <div style={{ backgroundColor: '#ffffff' }} className={`w-11 h-11 rounded-2xl bg-white border p-1.5 flex items-center justify-center shrink-0 shadow-xs tp-payment-logo-box ${
-                            isCurrentMethodDisabled || !isWithdrawGloballyEnabled ? 'border-rose-300 grayscale opacity-80' : 'border-slate-200/90'
-                        }`}>
-                            <img src={getLogo()} alt={fiatWallet?.method} className="w-full h-full object-contain" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                                <h4 className="text-sm font-black text-slate-900 dark:text-white leading-tight">{fiatWallet?.method || 'Nagad'} Wallet</h4>
-                                {!isWithdrawGloballyEnabled ? (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60">
-                                        {lang === 'bn' ? 'সিস্টেম সাময়িক বন্ধ' : 'System Paused'}
-                                    </span>
-                                ) : isCurrentMethodDisabled ? (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60">
-                                        {lang === 'bn' ? 'লিমিট শেষ / বন্ধ' : 'Limit Out'}
-                                    </span>
-                                ) : (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60">
-                                        {lang === 'bn' ? 'সক্রিয়' : 'Active'}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300 truncate mt-0.5">{fiatWallet?.number}</p>
-                            {fiatWallet?.name && <p className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold truncate">{fiatWallet?.name}</p>}
-                        </div>
-                    </div>
-                    <button 
-                        type="button"
-                        onClick={() => openEditModalForMethod()}
-                        className={`px-3.5 py-1.5 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 text-xs font-black shrink-0 shadow-xs cursor-pointer border ${
-                            isCurrentMethodDisabled 
-                                ? 'bg-emerald-600 text-white hover:bg-emerald-500 border-emerald-500 shadow-emerald-600/20' 
-                                : 'bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/80'
+            {/* Clean Side-by-Side Saved bKash & Nagad Wallet Selector with Edit Icon */}
+            <div className="grid grid-cols-2 gap-2.5">
+                {[
+                    { method: 'bKash', num: savedBkashNum, active: fiatWallet?.method === 'bKash' && Boolean(savedBkashNum) },
+                    { method: 'Nagad', num: savedNagadNum, active: fiatWallet?.method === 'Nagad' && Boolean(savedNagadNum) }
+                ].map((item) => (
+                    <div
+                        key={item.method}
+                        onClick={() => {
+                            if (!item.num) {
+                                openEditModalForMethod(item.method);
+                            } else if (!item.active) {
+                                handleQuickSwitchWithdrawMethod(item.method);
+                            } else {
+                                openEditModalForMethod(item.method);
+                            }
+                        }}
+                        className={`px-3 py-3 rounded-2xl border text-left transition-all flex items-center justify-between gap-2 cursor-pointer active:scale-[0.98] ${
+                            item.active
+                                ? item.method === 'bKash'
+                                    ? 'bg-pink-50 dark:bg-pink-950/40 border-pink-400 dark:border-pink-500/60 text-pink-900 dark:text-pink-200 shadow-xs'
+                                    : 'bg-orange-50 dark:bg-orange-950/40 border-orange-400 dark:border-orange-500/60 text-orange-900 dark:text-orange-200 shadow-xs'
+                                : 'bg-white/95 dark:bg-slate-900/90 border-slate-200/90 dark:border-slate-800 text-slate-600 dark:text-slate-300'
                         }`}
-                        title="Edit Wallet"
                     >
-                        <Edit3 size={13} />
-                        <span>
-                            {isBkashSelected && !isBkashAllowed && isNagadAllowed
-                                ? (lang === 'bn' ? 'নগদ দিন' : 'Set Nagad')
-                                : isNagadSelected && !isNagadAllowed && isBkashAllowed
-                                    ? (lang === 'bn' ? 'বিকাশ দিন' : 'Set bKash')
-                                    : (lang === 'bn' ? 'এডিট' : 'Edit')}
-                        </span>
-                    </button>
-                </div>
-
-                {/* Quick 1-Tap Switcher between Saved bKash & Saved Nagad inside Withdraw Page */}
-                {(savedBkashNum || savedNagadNum) && (
-                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                        {[
-                            { method: 'bKash', num: savedBkashNum, active: fiatWallet?.method === 'bKash' },
-                            { method: 'Nagad', num: savedNagadNum, active: fiatWallet?.method === 'Nagad' }
-                        ].map((item) => (
-                            <button
-                                key={item.method}
-                                type="button"
-                                onClick={() => item.num ? handleQuickSwitchWithdrawMethod(item.method) : openEditModalForMethod(item.method)}
-                                className={`px-2.5 py-2 rounded-xl border text-left transition-all flex items-center justify-between gap-1.5 cursor-pointer active:scale-95 ${
-                                    item.active
-                                        ? item.method === 'bKash'
-                                            ? 'bg-pink-50 dark:bg-pink-950/40 border-pink-400 dark:border-pink-500/60 text-pink-800 dark:text-pink-200'
-                                            : 'bg-orange-50 dark:bg-orange-950/40 border-orange-400 dark:border-orange-500/60 text-orange-800 dark:text-orange-200'
-                                        : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300'
-                                }`}
-                            >
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                    <div style={{ backgroundColor: '#ffffff' }} className="w-5 h-5 rounded-md bg-white p-0.5 flex items-center justify-center shrink-0 tp-payment-logo-box border border-slate-200">
-                                        <img src={getPaymentLogo(item.method)} alt={item.method} className="w-full h-full object-contain" />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="text-[10px] font-black leading-none flex items-center gap-1">
-                                            <span>{item.method}</span>
-                                            {item.active && <Check size={10} className="text-emerald-500 shrink-0" strokeWidth={3} />}
-                                        </div>
-                                        <div className="text-[10px] font-mono font-bold opacity-85 truncate mt-0.5">
-                                            {item.num ? item.num : (lang === 'bn' ? '+ নাম্বার যোগ করুন' : '+ Add Number')}
-                                        </div>
-                                    </div>
+                        <div className="flex items-center gap-2 min-w-0">
+                            <div style={{ backgroundColor: '#ffffff' }} className="w-7 h-7 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 tp-payment-logo-box border border-slate-200 shadow-2xs">
+                                <img src={getPaymentLogo(item.method)} alt={item.method} className="w-full h-full object-contain" />
+                            </div>
+                            <div className="min-w-0">
+                                <div className="text-[11px] font-black leading-none flex items-center gap-1">
+                                    <span>{item.method}</span>
+                                    {item.active && <Check size={11} className="text-emerald-500 shrink-0" strokeWidth={3} />}
                                 </div>
+                                <div className="text-[10.5px] font-mono font-bold opacity-85 truncate mt-1">
+                                    {item.num ? item.num : (lang === 'bn' ? '+ নাম্বার যোগ' : '+ Add Number')}
+                                </div>
+                            </div>
+                        </div>
+                        {item.num && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditModalForMethod(item.method);
+                                }}
+                                className="w-6 h-6 rounded-lg bg-white/80 dark:bg-white/10 hover:bg-white dark:hover:bg-white/20 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-white/10 flex items-center justify-center shrink-0 transition cursor-pointer"
+                                title="Edit"
+                            >
+                                <Edit3 size={11} />
                             </button>
-                        ))}
+                        )}
                     </div>
-                )}
+                ))}
             </div>
 
-            {/* Withdraw Limit Note */}
-            <div className="p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/40 flex items-center gap-2.5">
-                <Info size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                <p className="text-[11.5px] text-blue-900 dark:text-blue-300 font-bold leading-snug">
-                    {lang === 'bn' 
-                        ? 'সর্বনিম্ন উইথড্র: ৳২৫ টাকা | সর্বোচ্চ উইথড্র: ৳৫,০০০ টাকা' 
-                        : 'Min Withdraw: 25 BDT | Max Withdraw: 5,000 BDT'}
-                </p>
-            </div>
-
-            {/* Submit Button (Tactile 3D Button with iOS Spring Reveal) */}
-            <IosScrollReveal className="pt-2 pb-6">
+            {/* Submit Button (Always Immediately Visible — No Scroll-Reveal Hiding) */}
+            <div className="pt-1 pb-6">
                 <button 
                     type="button"
                     onClick={handleSubmit} 
@@ -13625,7 +13579,7 @@ function WithdrawFiatPage({ user, balance, lang = 'bn', t, darkMode = false, two
                                     : (t?.withdrawFunds || (lang === 'bn' ? 'টাকা উত্তোলন করুন' : 'WITHDRAW FUNDS'))}
                     </span>
                 </button>
-            </IosScrollReveal>
+            </div>
 
             {/* Withdrawal Permission / Confirmation Modal */}
             {showConfirmWithdrawModal && pendingConfirmData && (
