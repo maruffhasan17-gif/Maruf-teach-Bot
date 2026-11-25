@@ -11875,142 +11875,64 @@ function ProfilePage({ onGoToLeaderboard, user, balance, mbsId, lang = 'bn', t, 
         {/* PART B: PAYOUT WALLET SLOT OR INLINE DRAWER (Zero Popup Modal) */}
         <div className="relative z-10 space-y-3">
           {!isEditingWallet ? (
-            <div className="space-y-2">
-              <div
-                onClick={() => openInlineWalletEditor(fiatWallet?.method)}
-                className={`rounded-2xl p-3.5 border transition-all flex items-center justify-between gap-3 cursor-pointer active:scale-[0.99] ${
-                  fiatWallet
-                    ? isSavedMethodDisabled
-                      ? (darkMode
-                          ? 'bg-rose-950/25 border-rose-500/35 hover:border-rose-500/50'
-                          : 'bg-rose-50/50 border-rose-200 hover:border-rose-300')
-                      : (darkMode
-                          ? 'bg-gradient-to-r from-violet-950/35 via-white/[0.03] to-indigo-950/30 border-violet-500/25 hover:border-violet-500/40'
-                          : 'bg-gradient-to-r from-violet-50/60 via-slate-50/40 to-indigo-50/50 border-violet-200/70 hover:border-violet-300')
-                    : (darkMode
-                        ? 'bg-white/[0.03] hover:bg-white/[0.05] border-white/[0.08]'
-                        : 'bg-slate-50/80 hover:bg-slate-100/70 border-slate-200/80')
-                }`}
-              >
-                {fiatWallet ? (
-                  <>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        style={{ backgroundColor: '#ffffff' }}
-                        className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1.5 flex items-center justify-center shrink-0 shadow-2xs tp-payment-logo-box"
-                      >
-                        <img
-                          src={getPaymentLogo(fiatWallet.method)}
-                          alt={fiatWallet.method}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-black text-slate-900 dark:text-white leading-tight whitespace-nowrap">
-                            {fiatWallet.method}
-                          </span>
-                          {isSavedMethodDisabled ? (
-                            <span className="px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 text-[9px] font-black whitespace-nowrap shrink-0">
-                              {lang === 'bn' ? 'উইথড্র বন্ধ' : 'WITHDRAW OFF'}
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black whitespace-nowrap shrink-0">
-                              ACTIVE
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs font-mono font-bold text-violet-700 dark:text-violet-300 block mt-0.5 truncate">
-                          {fiatWallet.number} {fiatWallet.name ? `• ${fiatWallet.name}` : ''}
-                        </span>
-                      </div>
-                    </div>
-                    <span className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shrink-0 border ${
-                      darkMode
-                        ? 'bg-white/[0.06] border-white/10 text-violet-300'
-                        : 'bg-white border-slate-200/90 text-violet-700 shadow-2xs'
-                    }`}>
-                      <Edit3 size={12} />
-                      <span>{lang === 'bn' ? 'পরিবর্তন' : 'Edit'}</span>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex items-center -space-x-2 shrink-0">
-                        <div
-                          style={{ backgroundColor: '#ffffff' }}
-                          className="w-9 h-9 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shadow-2xs relative z-10 tp-payment-logo-box"
-                        >
-                          <img src={getPaymentLogo('bKash')} alt="bKash" className="w-full h-full object-contain" />
-                        </div>
-                        <div
-                          style={{ backgroundColor: '#ffffff' }}
-                          className="w-9 h-9 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shadow-2xs relative z-0 tp-payment-logo-box"
-                        >
-                          <img src={getPaymentLogo('Nagad')} alt="Nagad" className="w-full h-full object-contain" />
-                        </div>
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight truncate">
-                          {lang === 'bn' ? 'ক্যাশআউট ওয়ালেট যুক্ত করুন' : 'Link Cashout Wallet'}
-                        </span>
-                        <span className="text-[10.5px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 block truncate">
-                          {lang === 'bn' ? 'টাকা তুলতে bKash বা Nagad নাম্বার সেট করুন' : 'Set bKash or Nagad number for cashout'}
-                        </span>
-                      </div>
-                    </div>
-                    <span className={`px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 border ${
-                      darkMode
-                        ? 'bg-violet-500/20 border-violet-500/35 text-violet-300'
-                        : 'bg-violet-50 border-violet-200 text-violet-700'
-                    }`}>
-                      {lang === 'bn' ? '+ সেটআপ' : '+ Setup'}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              {/* Dual-Saved Wallets Quick Switcher Bar (Shown whenever bKash or Nagad is saved) */}
-              {fiatWallet && (savedBkashNum || savedNagadNum) && (
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { method: 'bKash', num: savedBkashNum, active: fiatWallet.method === 'bKash' },
-                    { method: 'Nagad', num: savedNagadNum, active: fiatWallet.method === 'Nagad' }
-                  ].map((item) => (
-                    <button
-                      key={item.method}
-                      type="button"
-                      onClick={() => item.num ? handleQuickSwitchSavedMethod(item.method) : openInlineWalletEditor(item.method)}
-                      className={`px-2.5 py-2 rounded-xl border text-left transition-all flex items-center justify-between gap-1.5 cursor-pointer active:scale-95 ${
-                        item.active
-                          ? item.method === 'bKash'
-                            ? (darkMode ? 'bg-pink-500/15 border-pink-500/50 text-pink-300' : 'bg-pink-50/90 border-pink-400 text-pink-800')
-                            : (darkMode ? 'bg-orange-500/15 border-orange-500/50 text-orange-300' : 'bg-orange-50/90 border-orange-400 text-orange-800')
-                          : (darkMode ? 'bg-white/[0.03] border-white/10 text-slate-300 hover:bg-white/[0.06]' : 'bg-slate-50 border-slate-200/80 text-slate-700 hover:bg-slate-100/70')
-                      }`}
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                { method: 'bKash', num: savedBkashNum, active: fiatWallet?.method === 'bKash' && Boolean(savedBkashNum), disabled: !isBkashAllowed },
+                { method: 'Nagad', num: savedNagadNum, active: fiatWallet?.method === 'Nagad' && Boolean(savedNagadNum), disabled: !isNagadAllowed }
+              ].map((item) => (
+                <div
+                  key={item.method}
+                  onClick={() => {
+                    if (!item.num) {
+                      openInlineWalletEditor(item.method);
+                    } else if (!item.active) {
+                      handleQuickSwitchSavedMethod(item.method);
+                    } else {
+                      openInlineWalletEditor(item.method);
+                    }
+                  }}
+                  className={`px-3 py-2.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-2 cursor-pointer active:scale-[0.98] ${
+                    item.active
+                      ? item.method === 'bKash'
+                        ? (darkMode ? 'bg-pink-500/15 border-pink-500/60 text-pink-200 shadow-[0_4px_14px_rgba(236,72,153,0.12)]' : 'bg-pink-50/90 border-pink-400 text-pink-900 shadow-2xs')
+                        : (darkMode ? 'bg-orange-500/15 border-orange-500/60 text-orange-200 shadow-[0_4px_14px_rgba(249,115,22,0.12)]' : 'bg-orange-50/90 border-orange-400 text-orange-900 shadow-2xs')
+                      : (darkMode ? 'bg-white/[0.03] border-white/10 text-slate-300 hover:bg-white/[0.06]' : 'bg-slate-50 border-slate-200/80 text-slate-700 hover:bg-slate-100/70')
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div
+                      style={{ backgroundColor: '#ffffff' }}
+                      className="w-7 h-7 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 tp-payment-logo-box border border-slate-200/80 shadow-2xs"
                     >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div
-                          style={{ backgroundColor: '#ffffff' }}
-                          className="w-5 h-5 rounded-md bg-white p-0.5 flex items-center justify-center shrink-0 tp-payment-logo-box border border-slate-200/70"
-                        >
-                          <img src={getPaymentLogo(item.method)} alt={item.method} className="w-full h-full object-contain" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-[10px] font-black leading-none flex items-center gap-1">
-                            <span>{item.method}</span>
-                            {item.active && <Check size={10} className="text-emerald-500 shrink-0" strokeWidth={3} />}
-                          </div>
-                          <div className="text-[10px] font-mono font-bold opacity-85 truncate mt-0.5">
-                            {item.num ? item.num : (lang === 'bn' ? '+ নাম্বার যোগ করুন' : '+ Add Number')}
-                          </div>
-                        </div>
+                      <img src={getPaymentLogo(item.method)} alt={item.method} className="w-full h-full object-contain" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-black leading-none flex items-center gap-1">
+                        <span>{item.method}</span>
+                        {item.active && <Check size={11} className="text-emerald-500 shrink-0" strokeWidth={3} />}
                       </div>
+                      <div className="text-[10.5px] font-mono font-bold opacity-85 truncate mt-1">
+                        {item.num ? item.num : (lang === 'bn' ? '+ নাম্বার যোগ' : '+ Add Number')}
+                      </div>
+                    </div>
+                  </div>
+                  {item.num && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openInlineWalletEditor(item.method);
+                      }}
+                      className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition cursor-pointer ${
+                        darkMode ? 'bg-white/10 hover:bg-white/20 text-slate-300' : 'bg-white/80 hover:bg-white text-slate-600 border border-slate-200/70'
+                      }`}
+                      title="Edit"
+                    >
+                      <Edit3 size={11} />
                     </button>
-                  ))}
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           ) : (
             /* SMOOTH INLINE WALLET SETUP (No Modal Popup!) */
